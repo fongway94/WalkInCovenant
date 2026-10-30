@@ -55,8 +55,13 @@ jobs:
         id: lint
         continue-on-error: true
         run: |
-          set -o pipefail
-          godot --headless --path . --script tests/run_all.gd 2>&1 | tee lint.txt
+          # POSIX sh only: barichello/godot-ci is Alpine, so there is no bash and
+          # no `set -o pipefail`. Capture, print, then propagate Godot's own exit
+          # code so a failed lint still gates the build.
+          godot --headless --path . --script tests/run_all.gd > lint.txt 2>&1
+          STATUS=$?
+          cat lint.txt
+          exit $STATUS
 
       # Raw CI logs live on a host this project's authoring sandbox cannot
       # reach, but check-run annotations are served from api.github.com and
@@ -102,8 +107,10 @@ jobs:
       - name: Export Web (single-threaded, gl_compatibility)
         run: |
           mkdir -p build/web
-          set -o pipefail
-          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html 2>&1 | tee export.txt
+          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html > export.txt 2>&1
+          STATUS=$?
+          cat export.txt
+          exit $STATUS
 
       - name: Surface export failures as annotations
         if: failure()
@@ -114,18 +121,28 @@ jobs:
             done
           fi
 
+      - name: Ensure python3 (the Alpine CI image may not ship it)
+        run: |
+          if command -v python3 >/dev/null 2>&1; then
+            python3 --version
+          else
+            apk add --no-cache python3
+            python3 --version
+          fi
+
       - name: Inject PWA shell (manifest + service worker + cache stamp)
         run: python3 tools/inject_pwa.py build/web
 
       - name: Size budget (fail over 80 MB; pixel art should keep this ~10-20 MB)
         run: |
-          SIZE=$(du -sb build/web | cut -f1)
-          echo "web export: $SIZE bytes"
-          if [ "$SIZE" -gt 83886080 ]; then
-            echo "::error::web export exceeds the 80 MB budget"
+          # busybox du has no -b, so budget in kilobytes (80 MB = 81920 KB)
+          KB=$(du -sk build/web | cut -f1)
+          echo "web export: ${KB} KB"
+          ls -la build/web
+          if [ "$KB" -gt 81920 ]; then
+            echo "::error::web export is ${KB} KB, over the 80 MB budget"
             exit 1
           fi
-          ls -la build/web
 
       - uses: actions/upload-artifact@v4
         with:
