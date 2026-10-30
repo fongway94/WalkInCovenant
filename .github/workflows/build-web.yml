@@ -1,0 +1,120 @@
+# Build the web export on every push and publish it to GitHub Pages.
+#
+# WHY THIS EXISTS: the sandbox that authors this project cannot run Godot
+# (release binaries live on a host outside its network). GitHub Actions can.
+# So packaging is not a manual step someone forgets — it happens on push, and
+# the result is one URL / one QR code that plays in a browser and, after first
+# load, works fully offline via the service worker (see tools/inject_pwa.py).
+#
+# This is the replacement for Covenant's single-file Covenant-offline.html.
+# A WASM build cannot be one double-clickable file (browsers refuse file://
+# for module + .pck loads), so the "one artifact anyone can open" property is
+# delivered as: one URL, installable, offline-capable. See docs/PACKAGING.md.
+
+name: build-web
+
+on:
+  push:
+    branches: [arena/b60cd21d-walkincovenant, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  EXPORT_PRESET: Web
+
+jobs:
+  # ── content lint: the world data must be valid before we build it ────────
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:${{ env.GODOT_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export templates into place
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          if [ -d /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ]; then
+            mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable \
+               ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable || true
+          fi
+
+      - name: Import resources (headless)
+        run: godot --headless --editor --quit || true
+
+      - name: Content lint (regions, reachability, bilingual, red-letter-adjacent)
+        run: godot --headless --path . --script tests/run_all.gd
+
+  # ── export the web build ─────────────────────────────────────────────────
+  export-web:
+    needs: lint
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:${{ env.GODOT_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export templates into place
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          if [ -d /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ]; then
+            mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable \
+               ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable || true
+          fi
+
+      - name: Import resources (headless)
+        run: godot --headless --editor --quit || true
+
+      - name: Export Web (single-threaded, gl_compatibility)
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html
+
+      - name: Inject PWA shell (manifest + service worker + cache stamp)
+        run: python3 tools/inject_pwa.py build/web
+
+      - name: Size budget (fail over 80 MB; pixel art should keep this ~10-20 MB)
+        run: |
+          SIZE=$(du -sb build/web | cut -f1)
+          echo "web export: $SIZE bytes"
+          if [ "$SIZE" -gt 83886080 ]; then
+            echo "::error::web export exceeds the 80 MB budget"
+            exit 1
+          fi
+          ls -la build/web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+  # ── publish to GitHub Pages ──────────────────────────────────────────────
+  deploy:
+    needs: export-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
