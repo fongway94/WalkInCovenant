@@ -219,9 +219,17 @@ def main():
     # NO-CLASS depends on being able to ask the engine whether a type is its
     # own. Without network the reference is empty and every engine type would
     # look like a typo, so those findings are dropped rather than trusted.
+    # Both of these checks need the engine's class reference to know what a
+    # script INHERITS. Without it, `player.global_position` looks like a typo
+    # and every engine type looks like a class that does not exist — so those
+    # findings are dropped rather than reported. What stays is everything that
+    # can be verified from the project alone: our own members, the autoload
+    # contracts, and signal names.
     report = findings
     if not any(api_check.docs.values()):
-        report = [f for f in report if f[2] != "NO-CLASS"]
+        report = [f for f in report if f[2] not in ("NO-CLASS", "OWN-MEMBER")]
+        print("xref_check: WARNING — the Godot class reference was unreachable, "
+              "so inherited-engine-member and type-existence checks were skipped")
 
     if report:
         print("xref_check: %d finding(s)" % len(report))

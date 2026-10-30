@@ -78,15 +78,18 @@ def gh(path):
                                  capture_output=True, text=True, timeout=60)
             if out.returncode == 0 and out.stdout.strip():
                 return base64.b64decode(out.stdout.strip()).decode("utf-8", "replace")
-        token = os.environ.get("GITHUB_TOKEN", "")
-        hdr = ["-H", "Accept: application/vnd.github.raw+json"]
-        if token:
-            hdr += ["-H", "Authorization: Bearer %s" % token]
-        url = "https://api.github.com/" + rel
-        out = subprocess.run(["curl", "-sfL", "--max-time", "60"] + hdr + [url],
-                             capture_output=True, text=True, timeout=90)
-        if out.returncode == 0 and out.stdout:
-            return out.stdout
+        # stdlib HTTP: the CI image has neither gh nor curl, and a missing
+        # reference turns every engine-inherited member into a false positive.
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.github.com/" + rel,
+            headers={"Accept": "application/vnd.github.raw+json",
+                     **({"Authorization": "Bearer %s" % os.environ["GITHUB_TOKEN"]}
+                        if os.environ.get("GITHUB_TOKEN") else {})})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            body = r.read().decode("utf-8", "replace")
+        if body:
+            return body
     except Exception:
         pass
     return None
