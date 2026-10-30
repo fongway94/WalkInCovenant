@@ -46,11 +46,28 @@ jobs:
 
       - name: Export templates into place
         run: |
-          mkdir -p ~/.local/share/godot/export_templates
-          if [ -d /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ]; then
-            mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable \
-               ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable || true
-          fi
+          # The image has moved its template directory between releases, and a
+          # missing template dir surfaces only as a vague "configuration
+          # errors" at export time. So search the usual locations, link
+          # whatever is there, and report exactly what was found.
+          TARGET="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$TARGET"
+          for SRC in /root/.local/share/godot/export_templates \
+                     /usr/local/share/godot/export_templates \
+                     /opt/godot/export_templates \
+                     /home/runner/.local/share/godot/export_templates; do
+            [ -d "$SRC" ] || continue
+            for V in "$SRC"/*; do
+              [ -d "$V" ] || continue
+              N=$(basename "$V")
+              if [ ! -e "$TARGET/$N" ]; then
+                ln -s "$V" "$TARGET/$N" 2>/dev/null || cp -r "$V" "$TARGET/$N" || true
+              fi
+            done
+          done
+          echo "::notice::godot version: $(godot --version 2>/dev/null | head -1)"
+          echo "::notice::template dirs: $(ls "$TARGET" 2>/dev/null | tr '\n' ' ')"
+          echo "::notice::web template files: $(ls "$TARGET/${GODOT_VERSION}.stable" 2>/dev/null | grep -c web || echo 0)"
 
       - name: Install build deps (fontconfig for Godot, python3 for tools)
         run: |
@@ -104,10 +121,13 @@ jobs:
         run: |
           for F in lint.txt export.txt; do
             [ -f "$F" ] || continue
+            # Each error line plus the five that follow it: Godot lists the
+            # actual reasons UNDER "due to configuration errors", and filtering
+            # to matching lines only ever showed the header.
             sed 's/\x1b\[[0-9;]*m//g' "$F" \
               | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
-              | grep -aE "ERROR|FAIL|Parse Error|Cannot|Failed|error:|WARNING" \
-              | sort -u | head -8 \
+              | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
+              | head -8 \
               | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
             sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
               | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
@@ -130,11 +150,28 @@ jobs:
 
       - name: Export templates into place
         run: |
-          mkdir -p ~/.local/share/godot/export_templates
-          if [ -d /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ]; then
-            mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable \
-               ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable || true
-          fi
+          # The image has moved its template directory between releases, and a
+          # missing template dir surfaces only as a vague "configuration
+          # errors" at export time. So search the usual locations, link
+          # whatever is there, and report exactly what was found.
+          TARGET="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$TARGET"
+          for SRC in /root/.local/share/godot/export_templates \
+                     /usr/local/share/godot/export_templates \
+                     /opt/godot/export_templates \
+                     /home/runner/.local/share/godot/export_templates; do
+            [ -d "$SRC" ] || continue
+            for V in "$SRC"/*; do
+              [ -d "$V" ] || continue
+              N=$(basename "$V")
+              if [ ! -e "$TARGET/$N" ]; then
+                ln -s "$V" "$TARGET/$N" 2>/dev/null || cp -r "$V" "$TARGET/$N" || true
+              fi
+            done
+          done
+          echo "::notice::godot version: $(godot --version 2>/dev/null | head -1)"
+          echo "::notice::template dirs: $(ls "$TARGET" 2>/dev/null | tr '\n' ' ')"
+          echo "::notice::web template files: $(ls "$TARGET/${GODOT_VERSION}.stable" 2>/dev/null | grep -c web || echo 0)"
 
       - name: Install build deps (fontconfig for Godot, python3 for tools)
         run: |
@@ -171,10 +208,13 @@ jobs:
         run: |
           for F in lint.txt export.txt; do
             [ -f "$F" ] || continue
+            # Each error line plus the five that follow it: Godot lists the
+            # actual reasons UNDER "due to configuration errors", and filtering
+            # to matching lines only ever showed the header.
             sed 's/\x1b\[[0-9;]*m//g' "$F" \
               | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
-              | grep -aE "ERROR|FAIL|Parse Error|Cannot|Failed|error:|WARNING" \
-              | sort -u | head -8 \
+              | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
+              | head -8 \
               | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
             sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
               | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
