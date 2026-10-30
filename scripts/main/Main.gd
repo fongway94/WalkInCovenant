@@ -176,7 +176,7 @@ func _errand_speaker(who: String) -> Dictionary:
 	var nm: Dictionary = table.get(who, {})
 	if nm.is_empty():
 		return {}
-	return {"name": I18n.t(nm), "actor": who}
+	return {"name": I18n.t(nm), "actor": str(nm.get("actor", who))}
 
 
 ## The brothers see him arrive with bread and want him gone. This is the last

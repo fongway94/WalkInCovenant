@@ -241,12 +241,14 @@ func _run() -> void:
 	_check(int(main.act) == 1, "the become hands over to David's errand (waited %d frames)" % waited)
 	await _frames(2)
 	_check(region.dialogue._open, "the father speaks before anything else")
-	var pickups_before := (region.pickups as Array).size()
 	_drain(region.dialogue)
 	await _frames(2)
 	_check(not region._paused, "the errand releases the world")
-	_check((region.pickups as Array).size() == pickups_before + 3,
-		"three provisions appear (had %d, now %d)" % [pickups_before, (region.pickups as Array).size()])
+	var prov_spawned := 0
+	for it in region.pickups:
+		if str(it.get("kind", "")) == "provision":
+			prov_spawned += 1
+	_check(prov_spawned == 3, "three provisions are laid out in Bethlehem (got %d)" % prov_spawned)
 
 	# collecting them: walk onto each tile, exactly as a thumb would
 	var prov_tiles := []

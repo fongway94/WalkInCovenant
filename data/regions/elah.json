@@ -1063,7 +1063,7 @@
    },
    {
     "id": "prov_grain",
-    "sprite": "wheat",
+    "sprite": "wheat_sheaf",
     "at": [
      16,
      42
@@ -1128,19 +1128,23 @@
   "speakers": {
    "jesse": {
     "en": "Jesse",
-    "zh": "耶西"
+    "zh": "耶西",
+    "actor": "villager_b"
    },
    "eliab": {
     "en": "Eliab",
-    "zh": "以利押"
+    "zh": "以利押",
+    "actor": "soldier"
    },
    "david": {
     "en": "David",
-    "zh": "大卫"
+    "zh": "大卫",
+    "actor": "david"
    },
    "boy": {
     "en": "The boy",
-    "zh": "少年人"
+    "zh": "少年人",
+    "actor": "boy"
    }
   }
  }
