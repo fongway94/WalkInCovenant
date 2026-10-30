@@ -236,7 +236,8 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		_has_both(line.get("text"), "%s:prologue line" % rid)
 	for c in m.curios:
 		var cd: Dictionary = c
-		_has_both(cd.get("id"), "%s:curio id" % rid)
+		if str(cd.get("id", "")) == "":
+			_fail("%s: a curio has no id" % rid)
 		var at: Array = cd.get("at", [0, 0])
 		if m.solid_at_tile(int(at[0]), int(at[1])):
 			_fail("%s: curio %s sits inside a solid tile" % [rid, cd.get("id")])

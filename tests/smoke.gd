@@ -260,6 +260,9 @@ func _run() -> void:
 		var d: Dictionary = p["data"]
 		var at: Array = d["at"]
 		await _stand(region, int(at[0]), int(at[1]), 3)
+		# the brook has a curio in it; a box on screen pauses the collection
+		_drain(region.dialogue)
+		await _frames(3)
 	_check(int(main.stones) == 5, "five stones gathered (got %d)" % int(main.stones))
 
 	var level_before := int(GameState.data["level"])
@@ -332,7 +335,11 @@ func _run() -> void:
 		var at: Array = it["at"]
 		prov_tiles.append([int(at[0]), int(at[1])])
 	for t in prov_tiles:
-		await _stand(region, int(t[0]), int(t[1]), 3)
+		await _stand(region, int(t[0]), int(t[1]), 4)
+		# A curio may be standing on the same patch of dirt; the world is paused
+		# while it talks, so clear any box before expecting the pickup to land.
+		_drain(region.dialogue)
+		await _frames(3)
 	_check(int(main.provisions) == 3, "three provisions gathered (got %d)" % int(main.provisions))
 
 	# ── 6c. the brothers, and then the king ──────────────────────────────
