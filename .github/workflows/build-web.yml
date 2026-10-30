@@ -237,8 +237,24 @@ jobs:
           echo "web export failed"
           exit 1
 
-      - name: Inject PWA shell (manifest + service worker + cache stamp)
-        run: python3 tools/inject_pwa.py build/web
+      - name: Verify PWA (engine-native service worker + manifest)
+        run: |
+          python3 tools/inject_pwa.py build/web > inject.txt 2>&1
+          STATUS=$?
+          cat inject.txt
+          exit $STATUS
+
+      - name: Publish build summary as annotations
+        if: always()
+        run: |
+          for F in inject.txt; do
+            [ -f "$F" ] || continue
+            while IFS= read -r line; do printf '::notice::%s\n' "$line"; done < "$F"
+          done
+          ls build/web | while IFS= read -r f; do
+            printf '::notice::artifact %s (%s KB)\n' "$f" \
+              "$(du -sk "build/web/$f" | cut -f1)"
+          done
 
       - name: Size budget (fail over 80 MB; pixel art should keep this ~10-20 MB)
         run: |
@@ -269,7 +285,11 @@ jobs:
           name: web
           path: build/web
 
+      # enablement: the repo has no Pages site until one is created, and
+      # configure-pages fails outright without this flag on a fresh repo.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
