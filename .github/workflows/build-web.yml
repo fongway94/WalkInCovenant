@@ -96,6 +96,15 @@ jobs:
             python3 tools/api_check.py
           fi
 
+      # Godot can refuse an export WITHOUT stating why (see tools/check_export.py),
+      # so the preset is validated against project settings and the engine's real
+      # option list before an export is ever attempted.
+      - name: Export configuration check
+        run: |
+          if command -v python3 >/dev/null 2>&1; then
+            python3 tools/check_export.py
+          fi
+
       - name: Import resources (headless)
         run: godot --headless --editor --quit || true
 
@@ -126,6 +135,7 @@ jobs:
             # to matching lines only ever showed the header.
             sed 's/\x1b\[[0-9;]*m//g' "$F" \
               | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037" \
               | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
               | head -8 \
               | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
@@ -213,6 +223,7 @@ jobs:
             # to matching lines only ever showed the header.
             sed 's/\x1b\[[0-9;]*m//g' "$F" \
               | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037" \
               | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
               | head -8 \
               | while IFS= read -r line; do printf '::error::%s\n' "$line"; done

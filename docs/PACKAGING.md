@@ -57,10 +57,24 @@ and then works with no signal.** That is exactly what a hosted PWA gives:
 | Save data survives | ✅ (file-local) | ✅ (IndexedDB; clearing site data wipes it) |
 | Engine quality ceiling | hand-rolled canvas | Godot 4.7 |
 
-The service worker (`web/sw.js`) caches the whole export — including the `.pck`, which
-holds every asset — on first load, cache-first afterwards. `tools/inject_pwa.py` wires
-it into Godot's generated `index.html` and stamps the cache name with the git sha so a
-deploy can never serve a stale `.pck` against new code.
+**Godot 4.7 does this natively.** With `progressive_web_app/enabled=true` the exporter
+writes `<name>.service.worker.js` and `<name>.manifest.json` beside `index.html` and
+wires the registration into the loader itself — and it knows every file the loader
+fetches, which is precisely the list an offline cache must get right. That is the
+mechanism this project ships: the engine's own service worker, our icons and colours,
+`display=Fullscreen`, `orientation=Landscape`.
+
+`tools/inject_pwa.py` therefore **verifies rather than injects**: it checks the native
+service worker and manifest exist and are referenced by `index.html`, and only falls
+back to hand-injecting `web/sw.js` (with a git-sha-stamped cache name) if they are
+missing. It exits non-zero either way if the result cannot work offline, so CI never
+publishes a build that lost the one property replacing `Covenant-offline.html`.
+Injecting a second service worker unconditionally would have *replaced* the engine's on
+the same scope — the obvious wrong move, and the reason this script changed role.
+
+`ensure_cross_origin_isolation_headers` stays **off**: it makes the loader demand
+COOP/COEP headers, which GitHub Pages cannot send. Single-threaded builds do not need
+them.
 
 **It is built and published automatically.** `.github/workflows/build-web.yml` runs
 Godot headless in CI (the authoring sandbox cannot run Godot; GitHub Actions can),
@@ -124,5 +138,19 @@ apply," it is the cache, not the build. Hard-reload, or test in a private window
 3. PWA injection verified — CI fails if the manifest/SW block did not land.
 4. **80 MB size budget.** Pixel art should keep this around 10–20 MB; the budget exists
    because solo developers do not notice gradual bloat.
+5. `tools/check_export.py` — the preset against the project. Godot can refuse an export
+   **without saying why**: `has_valid_project_configuration` returns `false` when a
+   preset asks for mobile VRAM compression but
+   `rendering/textures/vram_compression/import_etc2_astc` is off, and never fills in the
+   error string. CI printed `due to configuration errors:` with nothing after the colon.
+   This check encodes that rule, plus unknown option keys (a typo'd option is silently
+   ignored, so the setting you meant never applies), threads-on-Pages, missing PWA icons,
+   export paths outside the repo, and C# scripts that could never reach the web.
+
+`tools/gd_lint.py` and `tools/api_check.py` run before the engine: the first catches
+GDScript that is *error-level by default* (inferring a type from a Variant, overriding a
+native method with the wrong arity), the second verifies every engine constant,
+constructor and member access against Godot's class reference XML at the exact version
+tag. Between them, the exporter now only sees structurally sound, API-correct script.
 
 If any of these fail, nothing is published. A broken map never reaches a player.

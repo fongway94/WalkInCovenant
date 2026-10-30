@@ -153,3 +153,13 @@ renderer/rendering_method.mobile="gl_compatibility"
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true
 environment/defaults/default_clear_color=Color(0.078, 0.125, 0.165, 1)
+
+; VRAM compression is decided at IMPORT time, not at export time. Godot's web
+; exporter refuses a preset that asks for mobile compression while ETC2/ASTC
+; import is off -- and it reports that failure with an empty reason string
+; (has_valid_project_configuration never fills r_error), so it surfaces as a
+; bare "Cannot export project ... due to configuration errors". Phones are the
+; target platform here, so both formats are on by design: ETC2/ASTC for mobile
+; browsers, S3TC/BPTC for the desktop browsers this gets tested on.
+textures/vram_compression/import_etc2_astc=true
+textures/vram_compression/import_s3tc_bptc=true
