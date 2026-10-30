@@ -1,0 +1,232 @@
+{
+ "props": [
+  {
+   "key": "olive_tree",
+   "frames": 1,
+   "w": 16,
+   "h": 24,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Gethsemane, the Mount of Olives"
+  },
+  {
+   "key": "palm_tree",
+   "frames": 1,
+   "w": 16,
+   "h": 28,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Jericho, the Jordan, Egypt"
+  },
+  {
+   "key": "fig_tree",
+   "frames": 1,
+   "w": 16,
+   "h": 22,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Nathanael under the fig tree"
+  },
+  {
+   "key": "bush",
+   "frames": 1,
+   "w": 16,
+   "h": 10,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": false,
+   "notes": ""
+  },
+  {
+   "key": "wheat_sheaf",
+   "frames": 1,
+   "w": 8,
+   "h": 12,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "Ruth gleaned these"
+  },
+  {
+   "key": "rock",
+   "frames": 1,
+   "w": 16,
+   "h": 10,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": ""
+  },
+  {
+   "key": "boulder",
+   "frames": 1,
+   "w": 16,
+   "h": 14,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": ""
+  },
+  {
+   "key": "altar_stones",
+   "frames": 1,
+   "w": 16,
+   "h": 16,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Exodus 20:25"
+  },
+  {
+   "key": "well",
+   "frames": 1,
+   "w": 16,
+   "h": 16,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Jacob's well, Rebecca at the well"
+  },
+  {
+   "key": "cistern",
+   "frames": 1,
+   "w": 16,
+   "h": 12,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Joseph's pit"
+  },
+  {
+   "key": "millstone",
+   "frames": 1,
+   "w": 16,
+   "h": 12,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "Matthew 18:6"
+  },
+  {
+   "key": "tent",
+   "frames": 1,
+   "w": 24,
+   "h": 16,
+   "footprint": [
+    2,
+    1
+   ],
+   "solid": true,
+   "notes": "the camp at Elah"
+  },
+  {
+   "key": "house",
+   "frames": 1,
+   "w": 32,
+   "h": 32,
+   "footprint": [
+    2,
+    2
+   ],
+   "solid": true,
+   "notes": "flat roof + external stair"
+  },
+  {
+   "key": "column",
+   "frames": 1,
+   "w": 8,
+   "h": 24,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": true,
+   "notes": "temple, palace"
+  },
+  {
+   "key": "gate",
+   "frames": 1,
+   "w": 32,
+   "h": 32,
+   "footprint": [
+    2,
+    2
+   ],
+   "solid": true,
+   "notes": "city gate — where elders sat"
+  },
+  {
+   "key": "jar",
+   "frames": 1,
+   "w": 8,
+   "h": 10,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": ""
+  },
+  {
+   "key": "fire",
+   "frames": 2,
+   "w": 16,
+   "h": 12,
+   "footprint": [
+    1,
+    1
+   ],
+   "solid": false,
+   "notes": "Peter warmed himself by one"
+  },
+  {
+   "key": "boat",
+   "frames": 1,
+   "w": 32,
+   "h": 16,
+   "footprint": [
+    2,
+    1
+   ],
+   "solid": true,
+   "notes": "Sea of Galilee"
+  },
+  {
+   "key": "signpost",
+   "frames": 1,
+   "w": 16,
+   "h": 16,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": ""
+  }
+ ]
+}
