@@ -219,12 +219,13 @@ def main():
     # NO-CLASS depends on being able to ask the engine whether a type is its
     # own. Without network the reference is empty and every engine type would
     # look like a typo, so those findings are dropped rather than trusted.
+    report = findings
     if not any(api_check.docs.values()):
-        findings = [f for f in findings if f[2] != "NO-CLASS"]
+        report = [f for f in report if f[2] != "NO-CLASS"]
 
-    if findings:
-        print("xref_check: %d finding(s)" % len(findings))
-        for path, line, rule, msg in sorted(set(findings)):
+    if report:
+        print("xref_check: %d finding(s)" % len(report))
+        for path, line, rule, msg in sorted(set(report)):
             print("  %-11s %s:%d  %s" % (rule, path, line, msg))
         return 1
     print("xref_check: clean — %d scripts, %d autoloads, all cross-script "
