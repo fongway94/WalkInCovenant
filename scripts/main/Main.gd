@@ -330,7 +330,19 @@ func _on_region_ready() -> void:
 	hud.set_stones(stones, _stones_total)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
+	_resume_story()
 	_prologue_once()
+
+
+## A saved valley has to boot into the chapter it left. Reloading after the win
+## used to drop you back into Act.WITNESS with the giant already dead, the line
+## triggering `_memory_beat()` and Corin's ending unreachable — the one way a
+## player could lose a finished chapter by refreshing the page.
+func _resume_story() -> void:
+	if not bool(GameState.flag("goliath_down")):
+		return
+	# The giant is down. If the ending never played, Corin still owes it to you.
+	act = Act.DONE if bool(GameState.flag("elah_ended")) else Act.AFTERMATH
 
 
 ## Chapter 1. The witness is not from here, and saying so once, at the top, in
@@ -703,6 +715,7 @@ func _ending_pick(idx: int, _opt: Dictionary) -> void:
 
 func _end_and_free_roam() -> void:
 	act = Act.DONE
+	GameState.set_flag("elah_ended", true)
 	# walk back down past the re-arm row, not just past the line: the trigger
 	# stays disarmed inside the dead band (see Region._check_triggers), and a
 	# return that lands inside it would leave the line permanently silent.

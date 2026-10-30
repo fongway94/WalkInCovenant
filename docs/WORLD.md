@@ -167,6 +167,11 @@ hardcoded in `Main.gd`.
 | Word battle + BECOME transition | the verses you answer with, the hero's name |
 | Save/load, XP, relics, completion | — |
 
+**Reloading mid-chapter.** `Main._resume_story()` reads the save before the
+prologue: a valley with `goliath_down` set boots into the aftermath (or straight
+into free roam if `elah_ended` is set). Without it, refreshing after the win
+dropped you into chapter 1 with a dead giant and no way to reach the ending.
+
 `elah` is campaign 01 and is complete through the ending. `exodus` is registered
 as `available: false`: it exists so the registry has a second shape to satisfy,
 and so nobody has to guess what the next story costs (one region file, one art
