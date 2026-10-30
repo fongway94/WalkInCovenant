@@ -52,7 +52,21 @@ jobs:
         run: godot --headless --editor --quit || true
 
       - name: Content lint (regions, reachability, bilingual, red-letter-adjacent)
-        run: godot --headless --path . --script tests/run_all.gd
+        run: |
+          set -o pipefail
+          godot --headless --path . --script tests/run_all.gd 2>&1 | tee lint.txt
+
+      # Raw logs live on a host that some tooling cannot reach; annotations do
+      # not. Re-emit every failure as a workflow annotation so the reason is
+      # readable through the plain REST API instead of only in the web UI.
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          if [ -f lint.txt ]; then
+            grep -E "FAIL|SCRIPT ERROR|Parse Error|ERROR:" lint.txt | head -40 | while read -r line; do
+              echo "::error::${line}"
+            done
+          fi
 
   # ── export the web build ─────────────────────────────────────────────────
   export-web:
@@ -77,7 +91,17 @@ jobs:
       - name: Export Web (single-threaded, gl_compatibility)
         run: |
           mkdir -p build/web
-          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html
+          set -o pipefail
+          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html 2>&1 | tee export.txt
+
+      - name: Surface export failures as annotations
+        if: failure()
+        run: |
+          if [ -f export.txt ]; then
+            grep -E "ERROR|error|Failed|failed" export.txt | head -40 | while read -r line; do
+              echo "::error::${line}"
+            done
+          fi
 
       - name: Inject PWA shell (manifest + service worker + cache stamp)
         run: python3 tools/inject_pwa.py build/web

@@ -206,7 +206,7 @@ func _open_choices(options: Array) -> void:
 	_choices = options
 	_clear_choices()
 	choice_box.visible = true
-	for idx in options.size():
+	for idx in range(options.size()):
 		var b := Button.new()
 		b.text = I18n.t(options[idx].get("t", ""))
 		b.add_theme_font_size_override("font_size", 8)

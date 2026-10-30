@@ -48,7 +48,7 @@ func load_from(path: String, tiles_meta: Dictionary) -> bool:
 	var f := FileAccess.open(path, FileAccess.READ)
 	var parsed: Variant = JSON.parse_string(f.get_as_text())
 	f.close()
-	if parsed is not Dictionary:
+	if not (parsed is Dictionary):
 		return false
 	return _init_from(parsed, tiles_meta)
 

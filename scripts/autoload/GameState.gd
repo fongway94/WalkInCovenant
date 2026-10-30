@@ -169,7 +169,7 @@ func load_game() -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(f.get_as_text())
 	f.close()
-	if parsed is not Dictionary:
+	if not (parsed is Dictionary):
 		return false
 	# merge over defaults so a save from an older version still has every key
 	for k in data:

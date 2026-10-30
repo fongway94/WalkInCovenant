@@ -61,7 +61,7 @@ func _ok(msg: String) -> void:
 
 
 func _has_both(d: Variant, what: String) -> void:
-	if d is not Dictionary:
+	if not (d is Dictionary):
 		_fail("%s: text is not a {en,zh} object" % what)
 		return
 	if not d.has("en") or not d.has("zh") or str(d["en"]) == "" or str(d["zh"]) == "":
@@ -85,9 +85,9 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	var legend_keys := {}
 	for k in m.legend:
 		legend_keys[k] = true
-	for y in m.height:
+	for y in range(m.height):
 		var row: String = m.grid[y]
-		for x in row.length():
+		for x in range(row.length()):
 			if not legend_keys.has(row[x]):
 				_fail("%s: grid char '%s' at (%d,%d) not in legend" % [rid, row[x], x, y])
 	_ok("legend covers grid (%dx%d)" % [m.width, m.height])
