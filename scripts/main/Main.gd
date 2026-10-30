@@ -111,6 +111,18 @@ func _process(delta: float) -> void:
 			"en": "The valley lets go of you. Walk on.",
 			"zh": "山谷松开了手。继续走吧。"}))
 	_update_guidance()
+	_update_touch_ownership()
+
+
+## Who owns the screen right now. One derived truth, recomputed every frame,
+## rather than a signal wired from each place that can take the picture — that
+## way a path that forgets to restore it cannot leave the stick dead.
+func _update_touch_ownership() -> void:
+	if touch == null or region == null:
+		return
+	var owned := region.is_paused() or battle != null or practice != null \
+		or (journal != null and journal.is_open())
+	touch.set_blocked(owned)
 
 
 ## The objective line and the arrow. One sentence, one direction, always.
@@ -210,7 +222,8 @@ func _update_guidance() -> void:
 	# Teach the one button that matters, at the moment it matters: standing next
 	# to a person. This is the on-screen equivalent of the Z key the old
 	# briefing told a phone player to press (playtest 6).
-	if region.nearest_interactable() != null:
+	var near := region.nearest_interactable()
+	if near != null and near.can_talk():
 		hud.set_prompt(I18n.t({"en": "A  ·  talk", "zh": "A  ·  交谈"}))
 	else:
 		hud.set_prompt("")

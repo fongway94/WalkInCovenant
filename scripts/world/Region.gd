@@ -9,7 +9,9 @@ class_name Region
 
 const TILE := 16.0
 const PICK_RANGE := 10.0
-const TALK_RANGE := 20.0
+const TALK_RANGE := 22.0
+## Anything within this radius of an exit tile can be left through it.
+const EXIT_RANGE := 13.0
 ## How long after a box closes the A button is ignored. Long enough to swallow
 ## the tap that closed it (one tap can arrive as a touch AND an action), short
 ## enough that nobody waiting to talk again ever notices.
@@ -245,7 +247,6 @@ func _process(delta: float) -> void:
 	_check_curios(delta)
 	_check_pickups()
 	_check_triggers()
-	_check_exits()
 
 
 func _check_pickups() -> void:
@@ -327,12 +328,17 @@ func _trigger_hit(t: Dictionary) -> bool:
 	return false
 
 
-func _check_exits() -> void:
+## An exit the player is standing on, or empty. Movement used to be polled with
+## Input.is_action_just_pressed() inside _process — a second, parallel input path
+## that bypassed the action events every other system listens to (AUDIT B7).
+func _near_exit() -> Dictionary:
+	if model == null or player == null:
+		return {}
 	for e in model.exits:
 		var c := Vector2(int(e["at"][0]) * TILE + 8, int(e["at"][1]) * TILE + 8)
-		if (c - player.global_position).length() < TILE * 0.8:
-			if Input.is_action_just_pressed("interact"):
-				exit_taken.emit(e["to"])
+		if (c - player.global_position).length() < EXIT_RANGE:
+			return e
+	return {}
 
 
 # ── interaction ─────────────────────────────────────────────────────────
@@ -358,15 +364,32 @@ func nearest_interactable() -> Npc:
 	return null
 
 
+## The world's half of the One Button. A press means: leave if you are standing
+## on an exit, otherwise talk to the person you are nearest to.
+##
+## Everything that guards this exists because the same physical tap can arrive
+## here twice (touch + emulated mouse, or the A button's synthetic action on top
+## of the touch that made it). TapGate decides once; `can_talk()` makes a second
+## arrival harmless even if it gets past the gate; and the box's own open guard
+## is the last line of defence (AUDIT §2).
 func _unhandled_input(event: InputEvent) -> void:
 	if _paused or _interact_lock > 0.0:
 		return
-	if event.is_action_pressed("interact"):
-		var n := nearest_interactable()
-		if n != null:
-			player.face_toward(n.global_position)
-			n.talk()
-			get_viewport().set_input_as_handled()
+	if not event.is_action_pressed("interact"):
+		return
+	var ex := _near_exit()
+	if not ex.is_empty():
+		get_viewport().set_input_as_handled()
+		exit_taken.emit(str(ex.get("to", "")))
+		return
+	var n := nearest_interactable()
+	if n == null or not n.can_talk():
+		return
+	if not TapGate.take():
+		return
+	player.face_toward(n.global_position)
+	n.talk()
+	get_viewport().set_input_as_handled()
 
 
 ## True while any pickup is still out there. Drives the marker redraw.

@@ -13,7 +13,20 @@ const FOLLOW_SPEED := 62.0
 const FOLLOW_KEEPUP := 26.0      # stop this close to the player
 const REPATH_EVERY := 0.6
 
+## World behaviour. What the body is doing.
 enum State { IDLE, PATROL, FOLLOW, TALK }
+
+## Interaction state, separate from the body (docs/AUDIT.md §2). The old code
+## had no state for this at all: `talk()` checked only whether a box was open,
+## so two events arriving in one frame both passed the guard, the conversation
+## opened twice, and the second one replayed the first-time lines because
+## `_talked` is only set when the box CLOSES.
+##
+##   READY ──talk()──→ SPEAKING ──box closed──→ COOLDOWN ──0.5 s──→ READY
+##
+## Being explicit also makes availability askable by the HUD without side
+## effects, which is what the "A · talk" prompt needed.
+enum Talk { READY, SPEAKING, COOLDOWN }
 
 var model: RegionModel = null
 var data: Dictionary = {}
@@ -26,6 +39,9 @@ var player: Player = null
 var dialogue: DialogueBox = null
 var pause_fn: Callable = Callable()
 var state: State = State.IDLE
+var talk_state: Talk = Talk.READY
+var _cool := 0.0
+const TALK_COOLDOWN := 0.5
 
 var sprite: Sprite2D = null
 var facing := Vector2i(0, 1)
@@ -99,6 +115,10 @@ func display_name() -> String:
 
 # ── movement ─────────────────────────────────────────────────────────────
 func _physics_process(delta: float) -> void:
+	if talk_state == Talk.COOLDOWN:
+		_cool = maxf(0.0, _cool - delta)
+		if _cool <= 0.0:
+			talk_state = Talk.READY
 	match state:
 		State.IDLE:
 			_moving = false
@@ -237,14 +257,26 @@ func face_toward(target: Vector2) -> void:
 
 
 # ── conversation ─────────────────────────────────────────────────────────
-func talk() -> void:
+## May this person be spoken to right now? Pure — asks nothing, changes nothing,
+## so the HUD prompt can call it every frame.
+func can_talk() -> bool:
 	if player == null or dialogue == null:
-		return
+		return false
+	if talk_state != Talk.READY:
+		return false
+	# Someone else's conversation is in progress.
 	if dialogue.is_open():
+		return false
+	return true
+
+
+func talk() -> void:
+	if not can_talk():
 		# One beat at a time. A second call while a box is up used to replace
 		# the box underneath the player's finger, which is what "the dialogue
 		# repeats" looked like.
 		return
+	talk_state = Talk.SPEAKING
 	state = State.TALK
 	_moving = false
 	face_toward(player.global_position)
@@ -279,6 +311,8 @@ func _speaker_for(who: String) -> Dictionary:
 
 
 func _on_done() -> void:
+	talk_state = Talk.COOLDOWN
+	_cool = TALK_COOLDOWN
 	queue_redraw()          # the mark over the head goes away once you have spoken
 	# UNPAUSE FIRST. This used to run after the word handout, so any error in
 	# receive_word / word_ref (or in a listener of verse_received) left the world

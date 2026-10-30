@@ -519,6 +519,81 @@ func _run() -> void:
 	_check(not region._paused, "the memory releases the world")
 	_check(int(GameState.data["xp"]) == xp_before, "the memory is not a way to farm xp")
 
+	# ── 10. one tap is one thing ─────────────────────────────────────────
+	# Playtest 9: "clicking an NPC caused the same dialogue to appear three
+	# times." A phone tap arrives as a touch AND an emulated mouse click, and
+	# the A button synthesises a third event on top. Three consumers each acted
+	# on one of them. These assertions pin the arbitration down at the level the
+	# player experiences: one gesture, one step.
+	var corin: Npc = _find_npc(region, "corin")
+	_check(corin != null, "Corin is still in the valley at the end")
+	if corin != null:
+		TapGate.reset()
+		await _frames(2)
+		_check(corin.can_talk(), "a person can be talked to when nothing is open")
+		var id_before := int(region.dialogue._box_id)
+		corin.talk()
+		await _frames(2)
+		_check(int(region.dialogue._box_id) == id_before + 1, "talking opens exactly one box")
+		_check(not corin.can_talk(), "the same person cannot be re-entered mid-sentence")
+		corin.talk()
+		_check(int(region.dialogue._box_id) == id_before + 1,
+			"a second call in the same breath opens no second box")
+		_check(corin.talk_state == Npc.Talk.SPEAKING, "the NPC is in SPEAKING, not IDLE")
+
+		# The whole screen is the advance target while a box is open, and the
+		# stick and A stand down so they cannot fight it.
+		await _frames(2)
+		_check(main.touch.blocked, "the touch controls stand down during a conversation")
+
+		# one gesture = one step, even though it arrives as two events
+		var page0 := int(region.dialogue._page)
+		var line0 := int(region.dialogue._i)
+		var full := region.dialogue._current_page_text()
+		region.dialogue._shown = float(full.length())
+		region.dialogue.text_lbl.text = full
+		var tap := InputEventScreenTouch.new()
+		tap.pressed = true
+		tap.index = 0
+		tap.position = Vector2(160, 90)
+		var click := InputEventMouseButton.new()
+		click.pressed = true
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.position = Vector2(160, 90)
+		region.dialogue._input(tap)
+		region.dialogue._input(click)
+		var moved := (int(region.dialogue._page) - page0) + (int(region.dialogue._i) - line0)
+		_check(moved == 1, "one tap moves exactly one step (moved %d)" % moved)
+
+		# and the next tap, a gesture later, moves exactly one more. TapGate is
+		# reset rather than slept through: this is a NEW gesture by definition,
+		# and the run is at Engine.time_scale 24, where wall-clock waiting is two
+		# frames and would test the throttle instead of the tap.
+		TapGate.reset()
+		var page1 := int(region.dialogue._page)
+		var line1 := int(region.dialogue._i)
+		var full1 := region.dialogue._current_page_text()
+		region.dialogue._shown = float(full1.length())
+		region.dialogue.text_lbl.text = full1
+		var tap2 := InputEventScreenTouch.new()
+		tap2.pressed = true
+		tap2.index = 0
+		tap2.position = Vector2(160, 90)
+		region.dialogue._input(tap2)
+		var moved2 := (int(region.dialogue._page) - page1) + (int(region.dialogue._i) - line1)
+		_check(moved2 == 1, "the next tap moves exactly one more (moved %d)" % moved2)
+
+		_drain(region.dialogue)
+		# COOLDOWN is checked BEFORE any frame passes: the run is 24x real time,
+		# so a 0.5 s cooldown is over in about one frame.
+		_check(corin.talk_state == Npc.Talk.COOLDOWN,
+			"the NPC goes into COOLDOWN, not straight back to READY")
+		await _frames(3)
+		_check(not region.dialogue._open, "the conversation closes on its own")
+		_check(not region._paused, "closing a box hands the world back")
+		_check(not main.touch.blocked, "the touch controls come back with it")
+		_check(corin.can_talk(), "and the person is talkable again after the cooldown")
+
 	_finish_run()
 
 

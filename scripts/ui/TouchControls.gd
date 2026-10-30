@@ -24,6 +24,12 @@ const FULL := 40.0
 
 var player: Player = null
 var viz: Control = null
+## Set while a conversation, a setpiece or the book owns the screen. While it is
+## on, this layer takes no input at all: the panel on top of it gets the taps, and
+## the stick cannot drag the player around a paused world. It also removes the
+## ordering question — a thumb tap can no longer mean "advance" AND "press A"
+## depending on which CanvasLayer sees the event first (AUDIT §2).
+var blocked := false
 
 var _stick_id := -1
 var _origin := Vector2.ZERO
@@ -46,16 +52,53 @@ func bind(p: Player) -> void:
 	player = p
 
 
+## Hit areas are CIRCLES around the buttons that are actually drawn, with a
+## generous radius for a thumb. The old rectangles covered a 64x44 corner that
+## did not match either circle, so taps near the buttons did surprising things.
+func _a_centre(vs: Vector2) -> Vector2:
+	return Vector2(vs.x - 30.0, vs.y - 26.0)
+
+
+func _run_centre(vs: Vector2) -> Vector2:
+	return Vector2(vs.x - 84.0, vs.y - 26.0)
+
+
 func _zone_a(p: Vector2, vs: Vector2) -> bool:
-	return p.x > vs.x - 64 and p.y > vs.y - 44
+	return p.distance_to(_a_centre(vs)) <= 20.0
 
 
 func _zone_run(p: Vector2, vs: Vector2) -> bool:
-	return p.x > vs.x - 108 and p.x <= vs.x - 64 and p.y > vs.y - 44
+	return p.distance_to(_run_centre(vs)) <= 16.0
+
+
+## Hand every button and the stick back to neutral. Called when the screen is
+## taken over, so a drag that was in progress cannot outlive its owner.
+func release_all() -> void:
+	if _stick_id != -1:
+		_stick_id = -1
+		_vec = Vector2.ZERO
+		if player != null:
+			player.external_intent = Vector2.ZERO
+	if _a_held:
+		_a_held = false
+		_emit_action("interact", false)
+	if _run_held:
+		_run_held = false
+		_emit_action("run", false)
+	if viz != null:
+		viz.queue_redraw()
+
+
+func set_blocked(v: bool) -> void:
+	if v == blocked:
+		return
+	blocked = v
+	if v:
+		release_all()
 
 
 func _input(event: InputEvent) -> void:
-	if player == null:
+	if player == null or blocked:
 		return
 	# CanvasLayer is not a CanvasItem, so it has no get_viewport_rect();
 	# ask the viewport for its visible rect instead.
@@ -67,14 +110,19 @@ func _input(event: InputEvent) -> void:
 	# runtime failure — the whole control layer would go dead on device.
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
-		_press(t.pressed, t.position, t.index, vs)
+		if _owns(t.position, t.pressed, t.index, vs):
+			_press(t.pressed, t.position, t.index, vs)
+			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton:
 		var b := event as InputEventMouseButton
-		_press(b.pressed, b.position, MOUSE_ID, vs)
+		if _owns(b.position, b.pressed, MOUSE_ID, vs):
+			_press(b.pressed, b.position, MOUSE_ID, vs)
+			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var dr := event as InputEventScreenDrag
 		if dr.index == _stick_id:
 			_drag(dr.position)
+			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion:
 		# lets the stick be driven with a mouse on desktop, which is how this
 		# gets tested without a phone in hand
@@ -125,6 +173,17 @@ func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
 	viz.queue_redraw()
 
 
+## Is this event mine? A press belongs to this layer if it lands on a button or
+## on the stick half; a release belongs to it if it finishes something we started.
+## Anything else (a tap in the top-right, a tap on the book) is left alone.
+func _owns(pos: Vector2, pressed: bool, idx: int, vs: Vector2) -> bool:
+	if pressed:
+		return _zone_a(pos, vs) or _zone_run(pos, vs) or pos.x < vs.x * 0.5
+	if idx == _stick_id:
+		return true
+	return _a_held or _run_held
+
+
 func _drag(pos: Vector2) -> void:
 	var d := pos - _origin
 	var m := d.length()
@@ -138,6 +197,11 @@ func _drag(pos: Vector2) -> void:
 
 
 func _draw_viz() -> void:
+	# Buttons are hidden while a conversation or a setpiece owns the screen: the
+	# tap that advances a box is the whole screen, and a hidden-but-live button
+	# under the dialogue panel was a trap (AUDIT B5).
+	if blocked:
+		return
 	# The stick is floating: it is drawn only while a thumb is on it.
 	if _stick_id != -1:
 		viz.draw_circle(_origin, 20, Color(1, 1, 1, 0.08))
@@ -148,8 +212,8 @@ func _draw_viz() -> void:
 	# already on the screen — a player who had not yet touched anything could not
 	# see the button the briefing told them to press (playtest 6).
 	var vs := viz.get_viewport_rect().size
-	var a_c := Vector2(vs.x - 30, vs.y - 26)
-	var r_c := Vector2(vs.x - 84, vs.y - 26)
+	var a_c := _a_centre(vs)
+	var r_c := _run_centre(vs)
 	# A: the biggest target on the screen, because it is the one button a player
 	# cannot get through the game without.
 	viz.draw_circle(a_c, 15, Color(0.97, 0.87, 0.65, 0.30 if _a_held else 0.16))

@@ -26,6 +26,13 @@ func _ready() -> void:
 	# Godot's built-in smoothing fights pixel snapping; we do our own.
 	position_smoothing_enabled = false
 	make_current()
+	# The viewport changes size when a phone rotates, when the browser's address
+	# bar slides away, and when the PWA enters fullscreen. Nothing used to react
+	# (docs/AUDIT.md A3): the camera kept a clamp computed for the old shape and
+	# the player could sit off-centre with the region edge in view.
+	var vp := get_viewport()
+	if vp != null:
+		vp.size_changed.connect(_on_view_changed)
 
 
 func set_follow(n: Node2D) -> void:
@@ -74,20 +81,13 @@ func _process(delta: float) -> void:
 		offset = Vector2.ZERO
 
 
+## Godot's built-in smoothing fights pixel snapping; we do our own.
+func _on_view_changed() -> void:
+	if follow != null:
+		global_position = _clamp(follow.global_position)
+
+
+## Keep the camera centre inside the region, using the same maths the layout
+## module uses everywhere else (docs/AUDIT.md A2).
 func _clamp(p: Vector2) -> Vector2:
-	if bounds.size == Vector2.ZERO:
-		return p
-	var vs := get_viewport_rect().size
-	var half := vs * 0.5 / maxf(0.0001, zoom.x)
-	# if the region is smaller than the view, centre it (Covenant had this case)
-	var x: float
-	var y: float
-	if bounds.size.x <= half.x * 2:
-		x = bounds.position.x + bounds.size.x * 0.5
-	else:
-		x = clampf(p.x, bounds.position.x + half.x, bounds.end.x - half.x)
-	if bounds.size.y <= half.y * 2:
-		y = bounds.position.y + bounds.size.y * 0.5
-	else:
-		y = clampf(p.y, bounds.position.y + half.y, bounds.end.y - half.y)
-	return Vector2(x, y)
+	return ScreenFit.clamp_camera(p, get_viewport_rect().size, bounds, zoom)

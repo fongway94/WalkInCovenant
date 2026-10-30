@@ -1,10 +1,25 @@
 extends CanvasLayer
 class_name Hud
-## HUD
-signal journal_requested
 ## Hud — the thin always-on layer: who you are, where you are, what you carry.
+##
 ## Deliberately small. In an exploration game the world is the interface; the
 ## HUD must never compete with it.
+##
+## Rebuilt for the development reset (docs/AUDIT.md §1). Two things were wrong:
+## every offset was a constant chosen at 320x180 (so the objective line ran off
+## a narrow screen and the toast landed on top of it), and nothing re-laid out
+## when the viewport changed. All of it now comes from ScreenFit, applied by
+## `_apply_layout()` on the first frame and on every `size_changed`.
+
+signal journal_requested
+
+## Vertical bands, in logical units. They are the same on every screen because
+## the viewport is always in design units (see ScreenFit).
+const BAR_H := 13.0
+const ROW2_Y := 15.0
+const OBJECTIVE_H := 20.0
+const TOAST_Y := 37.0
+const PROMPT_H := 12.0
 
 var bar: HBoxContainer = null
 var name_lbl: Label = null
@@ -17,8 +32,11 @@ var objective_lbl: Label = null
 var prompt_lbl: Label = null
 var arrow: WaypointArrow = null
 var journal_btn: Button = null
+var lang_btn: Button = null
 var region: Region = null
-var _toast_t := 0.0
+
+var _stones_n := 0
+var _stones_total := 0
 var _objective := ""
 var _prompt := ""
 
@@ -26,6 +44,10 @@ var _prompt := ""
 func _ready() -> void:
 	layer = 15
 	_build()
+	_apply_layout()
+	var vp := get_viewport()
+	if vp != null:
+		vp.size_changed.connect(_apply_layout)
 
 
 func bind(r: Region) -> void:
@@ -34,17 +56,11 @@ func bind(r: Region) -> void:
 	_refresh()
 
 
+# ── construction ─────────────────────────────────────────────────────────
 func _build() -> void:
 	bar = HBoxContainer.new()
-	bar.anchor_right = 1.0
-	bar.offset_bottom = 14
 	bar.add_theme_constant_override("separation", 6)
-	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", 4)
-	m.add_theme_constant_override("margin_right", 4)
-	m.add_theme_constant_override("margin_top", 2)
-	m.add_child(bar)
-	add_child(m)
+	add_child(bar)
 
 	name_lbl = _label(Color(0.97, 0.87, 0.65))
 	bar.add_child(name_lbl)
@@ -62,20 +78,13 @@ func _build() -> void:
 	time_lbl = _label(Color(0.55, 0.62, 0.66))
 	bar.add_child(time_lbl)
 
-	var lang := Button.new()
-	lang.text = "EN"
-	lang.flat = true
-	lang.add_theme_font_size_override("font_size", 8)
-	lang.pressed.connect(func():
-		I18n.toggle()
-		lang.text = "EN" if I18n.is_zh() else "中"
-		if region: place_lbl.text = I18n.t(region.model.display_name)
-		if stones_lbl != null and stones_lbl.visible:
-			# re-render the counter in the new language without waiting for the
-			# next pickup
-			stones_lbl.text = I18n.t({"en": "◆%s", "zh": "◆%s"}) % stones_lbl.text.substr(1)
-		_refresh())
-	bar.add_child(lang)
+	lang_btn = Button.new()
+	lang_btn.text = "EN"
+	lang_btn.flat = true
+	lang_btn.focus_mode = Control.FOCUS_NONE
+	lang_btn.add_theme_font_size_override("font_size", 8)
+	lang_btn.pressed.connect(_toggle_language)
+	bar.add_child(lang_btn)
 
 	# ── objective line ────────────────────────────────────────────────────
 	# Always on screen, always one sentence, always the CURRENT task. Playtest 6
@@ -83,14 +92,7 @@ func _build() -> void:
 	# nothing to do": a game with no stated goal cannot be finished by a player
 	# who does not already know the story.
 	objective_lbl = Label.new()
-	objective_lbl.anchor_left = 0.0
-	objective_lbl.anchor_right = 1.0
-	objective_lbl.offset_left = 5
-	# Wrapped and bounded: the objective is a whole sentence now (an errand, a
-	# person's name), and an unbounded Label at 320 px simply ran off the screen.
-	objective_lbl.offset_right = -30
 	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_lbl.offset_top = 20
 	objective_lbl.add_theme_font_size_override("font_size", 8)
 	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
 	objective_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
@@ -98,38 +100,22 @@ func _build() -> void:
 	objective_lbl.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(objective_lbl)
 
-	# The book. Top-left, small, above the objective line — it is a thing to
-	# open when you are lost, not a thing that competes with the objective.
+	# The book. Top-left, small — a thing to open when you are lost, not a thing
+	# that competes with the objective.
 	journal_btn = Button.new()
 	journal_btn.text = "≡"
 	journal_btn.add_theme_font_size_override("font_size", 9)
-	# 28x18 is the smallest thing a thumb reliably hits; it sits above the
-	# objective line, which starts at y=16.
-	journal_btn.offset_left = 2
-	journal_btn.offset_top = 0
-	journal_btn.offset_right = 30
-	journal_btn.offset_bottom = 18
 	journal_btn.flat = true
 	journal_btn.focus_mode = Control.FOCUS_NONE
 	journal_btn.pressed.connect(func(): journal_requested.emit())
 	add_child(journal_btn)
 
 	arrow = WaypointArrow.new()
-	arrow.anchor_left = 1.0
-	arrow.anchor_right = 1.0
-	arrow.offset_left = -26
-	arrow.offset_right = -6
-	arrow.offset_top = 15
-	arrow.offset_bottom = 35
 	add_child(arrow)
 
 	# ── context prompt ────────────────────────────────────────────────────
 	prompt_lbl = Label.new()
 	prompt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prompt_lbl.anchor_left = 0.5; prompt_lbl.anchor_right = 0.5
-	prompt_lbl.anchor_top = 1.0; prompt_lbl.anchor_bottom = 1.0
-	prompt_lbl.offset_left = -110; prompt_lbl.offset_right = 110
-	prompt_lbl.offset_top = -22; prompt_lbl.offset_bottom = -8
 	prompt_lbl.add_theme_font_size_override("font_size", 9)
 	prompt_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
 	prompt_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
@@ -140,13 +126,12 @@ func _build() -> void:
 
 	toast_lbl = Label.new()
 	toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast_lbl.anchor_left = 0.0; toast_lbl.anchor_right = 1.0
-	toast_lbl.anchor_top = 0.0
-	toast_lbl.offset_left = 12; toast_lbl.offset_right = -12
 	toast_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	toast_lbl.offset_top = 18
 	toast_lbl.add_theme_font_size_override("font_size", 9)
 	toast_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
+	toast_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	toast_lbl.add_theme_constant_override("shadow_offset_x", 1)
+	toast_lbl.add_theme_constant_override("shadow_offset_y", 1)
 	toast_lbl.modulate.a = 0
 	add_child(toast_lbl)
 
@@ -156,11 +141,82 @@ func _build() -> void:
 	EventBus.toast_requested.connect(_toast)
 
 
+## Every offset on this layer, in one place, from one source of truth.
+func _apply_layout() -> void:
+	var vs := _view_size()
+	var e := ScreenFit.edge(vs)
+
+	# top bar (full width, inset)
+	bar.anchor_left = 0.0; bar.anchor_right = 1.0
+	bar.anchor_top = 0.0; bar.anchor_bottom = 0.0
+	bar.offset_left = e
+	bar.offset_right = -e
+	bar.offset_top = e * 0.5
+	bar.offset_bottom = e * 0.5 + BAR_H
+
+	# book button: left of the objective, above it
+	journal_btn.anchor_left = 0.0; journal_btn.anchor_right = 0.0
+	journal_btn.anchor_top = 0.0; journal_btn.anchor_bottom = 0.0
+	journal_btn.offset_left = e
+	journal_btn.offset_top = ROW2_Y
+	journal_btn.offset_right = e + 26.0
+	journal_btn.offset_bottom = ROW2_Y + 17.0
+
+	# objective: to the right of the book, ending before the waypoint arrow
+	objective_lbl.anchor_left = 0.0; objective_lbl.anchor_right = 1.0
+	objective_lbl.anchor_top = 0.0; objective_lbl.anchor_bottom = 0.0
+	objective_lbl.offset_left = e + 30.0
+	objective_lbl.offset_right = -(e + 26.0)
+	objective_lbl.offset_top = ROW2_Y + 1.0
+	objective_lbl.offset_bottom = ROW2_Y + 1.0 + OBJECTIVE_H
+
+	# waypoint arrow: top-right, level with the objective
+	arrow.anchor_left = 1.0; arrow.anchor_right = 1.0
+	arrow.anchor_top = 0.0; arrow.anchor_bottom = 0.0
+	arrow.offset_left = -(e + 22.0)
+	arrow.offset_right = -e
+	arrow.offset_top = ROW2_Y
+	arrow.offset_bottom = ROW2_Y + 20.0
+
+	# toast: its own band UNDER the objective. It used to start at y=18, which is
+	# where the objective line lives, so every toast printed on top of the task.
+	toast_lbl.anchor_left = 0.0; toast_lbl.anchor_right = 1.0
+	toast_lbl.anchor_top = 0.0; toast_lbl.anchor_bottom = 0.0
+	toast_lbl.offset_left = e + 12.0
+	toast_lbl.offset_right = -(e + 12.0)
+	toast_lbl.offset_top = TOAST_Y
+	toast_lbl.offset_bottom = TOAST_Y + 22.0
+
+	# prompt: bottom centre, above the thumb strip, never touching the edges
+	prompt_lbl.anchor_left = 0.5; prompt_lbl.anchor_right = 0.5
+	prompt_lbl.anchor_top = 1.0; prompt_lbl.anchor_bottom = 1.0
+	prompt_lbl.offset_left = -minf(120.0, vs.x * 0.4)
+	prompt_lbl.offset_right = minf(120.0, vs.x * 0.4)
+	prompt_lbl.offset_top = -(ScreenFit.thumb_strip(vs) * 0.55 + PROMPT_H)
+	prompt_lbl.offset_bottom = -(ScreenFit.thumb_strip(vs) * 0.55)
+
+
+func _view_size() -> Vector2:
+	var vp := get_viewport()
+	if vp == null:
+		return ScreenFit.BASE
+	return vp.get_visible_rect().size
+
+
 func _label(col: Color) -> Label:
 	var l := Label.new()
 	l.add_theme_font_size_override("font_size", 8)
 	l.add_theme_color_override("font_color", col)
 	return l
+
+
+func _toggle_language() -> void:
+	I18n.toggle()
+	lang_btn.text = "EN" if I18n.is_zh() else "中"
+	if region != null:
+		place_lbl.text = I18n.t(region.model.display_name)
+	set_stones(_stones_n, _stones_total)
+	_refresh()
 
 
 func _refresh() -> void:
@@ -225,6 +281,8 @@ func set_role(who: String, level: int) -> void:
 
 ## Set by Main: how many stones are in the pouch, out of how many exist.
 func set_stones(n: int, total: int) -> void:
+	_stones_n = n
+	_stones_total = total
 	if stones_lbl == null:
 		return
 	stones_lbl.visible = total > 0
@@ -232,8 +290,9 @@ func set_stones(n: int, total: int) -> void:
 
 
 func _toast(text: String) -> void:
+	if toast_lbl == null:
+		return
 	toast_lbl.text = text
-	_toast_t = 2.2
 	var tw := create_tween()
 	tw.tween_property(toast_lbl, "modulate:a", 1.0, 0.15)
 	tw.tween_interval(1.6)

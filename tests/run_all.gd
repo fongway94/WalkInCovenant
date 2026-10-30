@@ -17,6 +17,7 @@ extends SceneTree
 ##      region, so no word-battle round can be unwinnable
 
 const RegionModelScript = preload("res://scripts/systems/RegionModel.gd")
+const ScreenFitScript = preload("res://scripts/systems/ScreenFit.gd")
 
 var failures := 0
 
@@ -30,6 +31,7 @@ func _init() -> void:
 			"solid": p["solid"]}
 
 	_check_display()
+	_check_layout()
 	_check_campaigns()
 	var regions := ["elah"]
 	for rid in regions:
@@ -58,6 +60,62 @@ func _check_display() -> void:
 		_fail("stretch aspect is '%s': tall phones get letterboxed" % aspect)
 	else:
 		_ok("display expands to fill tall screens")
+
+
+## The screen, at forty sizes.
+##
+## Playtest 9: "the game becomes smaller and black borders appear". The stretch
+## settings are asserted above; this asserts the LAYOUT — that at every screen
+## shape a landscape phone can report, the dialogue box and the HUD bands stay on
+## screen, the text column stays readable, the camera clamp stays inside the
+## region, and the cinematic bars never take more than a tenth of the picture.
+func _check_layout() -> void:
+	var sizes := [
+		Vector2(320, 180), Vector2(360, 180), Vector2(400, 180),   # 16:9, 2:1, 20:9
+		Vector2(568, 320), Vector2(640, 360), Vector2(844, 390),   # phones
+		Vector2(960, 540), Vector2(1024, 576), Vector2(1280, 720),
+		Vector2(1024, 768), Vector2(1400, 720), Vector2(2400, 1080),
+		Vector2(320, 240), Vector2(400, 300),                      # 4:3, 16:9 tall
+	]
+	var bad := 0
+	for vs in sizes:
+		var d: Dictionary = ScreenFitScript.dialogue(vs)
+		var r: Rect2 = d["rect"]
+		var why := ""
+		if r.position.x < 0.0 or r.position.y < 0.0:
+			why = "dialogue starts off screen"
+		elif r.end.x > vs.x + 0.01 or r.end.y > vs.y + 0.01:
+			why = "dialogue runs past the screen edge"
+		elif float(d["max_h"]) > vs.y * 0.5:
+			why = "dialogue takes more than half the height"
+		elif float(d["text_w"]) < 80.0:
+			why = "text column is too narrow to read"
+		if why != "":
+			bad += 1
+			_fail("layout %dx%d: %s" % [int(vs.x), int(vs.y), why])
+		# the top band the HUD's first two rows live in
+		var band: Rect2 = ScreenFitScript.anchor_top_band(vs)
+		if band.end.y > vs.y * 0.5:
+			bad += 1
+			_fail("HUD top band is more than half the screen at %dx%d"
+				% [int(vs.x), int(vs.y)])
+		# cinematic bars are a frame, not a crop
+		var bar: float = ScreenFitScript.bar_height(vs)
+		if bar > vs.y * 0.11:
+			bad += 1
+			_fail("letterbox at %dx%d takes %.0f%% of the picture"
+				% [int(vs.x), int(vs.y), bar / vs.y * 100.0])
+		# the camera never shows outside the region
+		var bounds := Rect2(0, 0, 512, 768)
+		for probe in [Vector2(-900, -900), Vector2(900, 900), Vector2(250, 380)]:
+			var c: Vector2 = ScreenFitScript.clamp_camera(probe, vs, bounds, Vector2.ONE)
+			var half: Vector2 = ScreenFitScript.camera_half(vs, Vector2.ONE)
+			if half.x * 2.0 < bounds.size.x and (c.x - half.x < -0.5 or c.x + half.x > bounds.size.x + 0.5):
+				bad += 1
+				_fail("camera centre %.0f lets the view leave the region at %dx%d"
+					% [c.x, int(vs.x), int(vs.y)])
+	if bad == 0:
+		_ok("layout holds at %d screen shapes (dialogue, HUD, letterbox, camera clamp)" % sizes.size())
 
 
 ## The platform registry. Adding a campaign is supposed to be a data change, so

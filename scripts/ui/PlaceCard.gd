@@ -14,6 +14,7 @@ const HOLD := 2.4
 const IN_T := 0.45
 const OUT_T := 0.6
 
+var _box: VBoxContainer = null
 var title_lbl: Label = null
 var sub_lbl: Label = null
 var _busy := false
@@ -22,12 +23,35 @@ signal finished
 
 
 func _ready() -> void:
-	layer = 41        # over the world, under the dialogue box (50) and fades (45)
+	# Over the world, over the HUD, under the fades (45). A caption never appears
+	# while a conversation is open, so it never competes with the dialogue box.
+	layer = 41
 	_build()
+	_apply_layout()
+	var vp := get_viewport()
+	if vp != null:
+		vp.size_changed.connect(_apply_layout)
+
+
+## The caption sits in the lower-middle of the picture, clear of the top HUD and
+## of the thumb strip, so it can be read over whatever the camera is showing.
+func _apply_layout() -> void:
+	if _box == null:
+		return
+	var vs := ScreenFit.BASE
+	var vp := get_viewport()
+	if vp != null:
+		vs = vp.get_visible_rect().size
+	var lower := 0.58
+	_box.anchor_top = lower
+	_box.anchor_bottom = lower
+	_box.offset_top = 0
+	_box.offset_bottom = clampf(vs.y * 0.22, 24.0, 56.0)
 
 
 func _build() -> void:
-	var box := VBoxContainer.new()
+	_box = VBoxContainer.new()
+	var box := _box
 	box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	box.anchor_left = 0.0
 	box.anchor_right = 1.0

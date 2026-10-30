@@ -16,7 +16,7 @@ Model (deliberately the worst case, 320 px logical width):
 
     panel width      320 - 2*5 (margins) - 2*5 (content) = 300
     portrait + gap                                         =  35
-    text width                                             = 265
+    text width                                             = 258
     CJK glyph at font size 10                              =  10 px
     Latin glyph average                                     =  6 px
 
@@ -30,7 +30,12 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TEXT_W = 265.0
+# At the design size (320x180) ScreenFit.dialogue() gives a text column of
+# 264 px: 311 box - 10 padding - 32 portrait - 5 gap, minus 4 px of slack for a
+# wrap engine that breaks at word boundaries and this model that does not.
+# DialogueBox also paginates, so this is an AUTHORING guide (write lines that fit
+# one page); the box cannot overflow even if a line ignores it.
+TEXT_W = 258.0
 CJK_PX = 10.0
 LAT_PX = 6.0
 MAX_ROWS = 5

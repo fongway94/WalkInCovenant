@@ -25,6 +25,9 @@ ones it does not check at all:
   CSHARP-WEB      C# cannot export to Web at all
   MISSING-SCENE   main scene or an autoload path that does not exist
   DUP-PRESET      two presets with the same name
+  SCREEN          the display chain: stretch mode/aspect/scale_mode, landscape
+                  lock, canvas resize policy and PWA orientation all have to
+                  agree with each other, or the picture letterboxes on a phone
 
 The Web option list below is transcribed from
 platform/web/export/export_plugin.cpp at tag 4.7.2-stable — not from memory.
@@ -121,6 +124,48 @@ def res_exists(res):
     return os.path.exists(os.path.join(ROOT, res[len("res://"):]))
 
 
+def check_screen(settings: dict, preset: str) -> list:
+    """The display chain, as one rule.
+
+    These settings are only correct in combination. Stretch mode `viewport`
+    would make the UI scale with the picture; aspect `keep` letterboxes tall
+    phones; scale_mode `integer` drops a whole step on a small resize (playtest
+    8's bug C); a canvas that does not resize leaves black around the picture;
+    a PWA that asks for portrait fights the landscape lock. Each is legal on
+    its own, which is why they drift apart.
+    """
+    out = []
+    want = {
+        "display/window/stretch/mode": "canvas_items",
+        "display/window/stretch/aspect": "expand",
+        "display/window/stretch/scale_mode": "fractional",
+        "display/window/handheld/orientation": "sensor_landscape",
+        "display/window/size/viewport_width": "320",
+        "display/window/size/viewport_height": "180",
+        "rendering/textures/canvas_textures/default_texture_filter": "0",
+    }
+    for key, val in want.items():
+        got = settings.get(key)
+        if got is not None:
+            got = got.strip('"')
+        if got != val:
+            out.append("SCREEN %s is %r, expected %r" % (key, got, val))
+    m = re.search(r"^html/canvas_resize_policy\s*=\s*(\d+)", preset, re.M)
+    if not m or m.group(1) != "2":
+        out.append("SCREEN html/canvas_resize_policy is %s, expected 2 (adaptive)"
+                   % (m.group(1) if m else "missing"))
+    m = re.search(r"^progressive_web_app/orientation\s*=\s*(\d+)", preset, re.M)
+    if not m or m.group(1) != "1":
+        out.append("SCREEN PWA orientation is %s, expected 1 (landscape)"
+                   % (m.group(1) if m else "missing"))
+    return out
+
+
+def _preset_text(path: str) -> str:
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
 def main():
     cfg = os.path.join(ROOT, "export_presets.cfg")
     if not os.path.isfile(cfg):
@@ -162,6 +207,10 @@ def main():
 
         if platform != "Web":
             continue
+
+        for f in check_screen(settings, _preset_text(cfg)):
+            kind, _, msg = f.partition(" ")
+            add(kind, msg)
 
         # ── Web-specific ────────────────────────────────────────────────
         if has_cs:
