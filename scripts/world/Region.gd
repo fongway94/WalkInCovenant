@@ -17,7 +17,10 @@ var model: RegionModel = null
 var terrain: TerrainLayer = null
 var player: Player = null
 var cam: CameraRig = null
-var npcs: Array = []            # Npc nodes
+# Typed on purpose. With a plain Array, `for n in npcs` yields a Variant, so
+# `var d := (n.global_position - ...).length()` infers from a Variant — which is
+# an ERROR-level warning in Godot 4.7 and stops the script compiling.
+var npcs: Array[Npc] = []
 var pickups: Array = []         # {id, kind, node, got}
 var triggers: Array = []        # {id, kind, data, fired}
 var dialogue: DialogueBox = null

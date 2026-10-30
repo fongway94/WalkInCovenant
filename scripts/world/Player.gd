@@ -232,8 +232,12 @@ func _box_free(px: float, py: float) -> bool:
 func _apply_magnetism(delta: float) -> void:
 	if velocity == Vector2.ZERO:
 		return
-	var cx := (floor(global_position.x / TILE) * TILE) + TILE * 0.5
-	var cy := (floor(global_position.y / TILE) * TILE) + TILE * 0.5
+	# floorf, not floor. The unsuffixed floor()/ceil()/round()/abs()/min()/max()
+	# take and return Variant in Godot 4 — that is why the f/i variants exist —
+	# so `:=` on them infers Variant, which is ERROR-level (INFERENCE_ON_VARIANT)
+	# and stops the script compiling at all.
+	var cx := (floorf(global_position.x / TILE) * TILE) + TILE * 0.5
+	var cy := (floorf(global_position.y / TILE) * TILE) + TILE * 0.5
 	if absf(velocity.x) > absf(velocity.y):
 		var d := cy - global_position.y
 		global_position.y += clampf(d, -magnet * delta, magnet * delta)

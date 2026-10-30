@@ -143,6 +143,25 @@ def scan(path):
                 "JSON numbers arrive as floats; wrap in int()/float(): %s"
                 % line.strip())
 
+        # floor()/ceil()/round()/abs()/sign()/min()/max()/clamp()/lerp()/
+        # wrap()/snapped() take and return Variant in Godot 4 — which is why
+        # floorf/floori and friends exist. Inferring from them yields Variant,
+        # and INFERENCE_ON_VARIANT is ERROR-level, so the script will not
+        # compile. Wrapping in a typed constructor (int(), float(), Vector2())
+        # is fine, and so is the method form x.lerp(...), hence the lookbehind.
+        m = re.match(r"\s*var\s+\w+\s*:=\s*(.+?)\s*$", code)
+        if m:
+            rhs = m.group(1)
+            generic = re.search(
+                r"(?<![\w.])(abs|floor|ceil|round|sign|min|max|clamp|lerp|"
+                r"wrap|snapped)\s*\(", rhs)
+            typed_wrap = re.search(r"\b(int|float|str|bool|Vector2|Vector2i|"
+                                   r"Rect2|Rect2i|Color)\s*\(", rhs)
+            if generic and not typed_wrap:
+                add(rel, i, "VARIANT-MATH",
+                    "%s() returns Variant; use %sf()/%si() or declare the type"
+                    % (generic.group(1), generic.group(1), generic.group(1)))
+
         # GDScript has no tuples. `for x in (a, b)` parses the paren as a
         # grouping expression, reads a, meets the comma, and fails with
         # 'Expected closing ")" after grouping expression'. One such line made
