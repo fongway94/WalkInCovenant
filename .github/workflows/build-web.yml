@@ -88,6 +88,14 @@ jobs:
             echo "::warning::python3 unavailable, skipping gd_lint"
           fi
 
+      - name: Cross-script member check (our own classes and the autoloads)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if command -v python3 >/dev/null 2>&1; then
+            python3 tools/xref_check.py
+          fi
+
       - name: Godot API check (verify engine calls against the 4.7 class reference)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,8 +113,22 @@ jobs:
             python3 tools/check_export.py
           fi
 
-      - name: Import resources (headless)
-        run: godot --headless --editor --quit || true
+      - name: Import resources and build the global class cache
+        run: |
+          # --import does a full headless import and exits; --editor --quit can
+          # bail during the first filesystem scan, leaving
+          # .godot/global_script_class_cache.cfg unwritten. Without that cache a
+          # class_name cannot be resolved from another script, which surfaces as
+          # "Could not resolve external class member" in an unrelated file.
+          godot --headless --import || godot --headless --editor --quit || true
+          if [ -f .godot/global_script_class_cache.cfg ]; then
+            echo "::notice::global class cache present ($(grep -c 'class_name' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+          else
+            echo "::warning::global_script_class_cache.cfg was not written"
+          fi
+
+      - name: Parse-check every script with the engine
+        run: sh tools/ci_parsecheck.sh
 
       - name: Content lint (regions, reachability, bilingual)
         id: lint
@@ -194,8 +216,22 @@ jobs:
           fi
           echo "python3: $(command -v python3 || echo MISSING)"
 
-      - name: Import resources (headless)
-        run: godot --headless --editor --quit || true
+      - name: Import resources and build the global class cache
+        run: |
+          # --import does a full headless import and exits; --editor --quit can
+          # bail during the first filesystem scan, leaving
+          # .godot/global_script_class_cache.cfg unwritten. Without that cache a
+          # class_name cannot be resolved from another script, which surfaces as
+          # "Could not resolve external class member" in an unrelated file.
+          godot --headless --import || godot --headless --editor --quit || true
+          if [ -f .godot/global_script_class_cache.cfg ]; then
+            echo "::notice::global class cache present ($(grep -c 'class_name' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+          else
+            echo "::warning::global_script_class_cache.cfg was not written"
+          fi
+
+      - name: Parse-check every script with the engine
+        run: sh tools/ci_parsecheck.sh
 
       - name: Export Web (single-threaded, gl_compatibility)
         id: export
@@ -236,6 +272,20 @@ jobs:
         run: |
           echo "web export failed"
           exit 1
+
+      # Godot writes the .pck and exits 0 even when a script inside it does not
+      # parse, so a green export can still ship a game that black-screens.
+      - name: Refuse to publish a build containing unparseable scripts
+        run: |
+          if [ -f export.txt ] && grep -aqE "Parse Error|Failed to load script" export.txt; then
+            sed 's/\x1b\[[0-9;]*m//g' export.txt \
+              | grep -aE "Parse Error|Failed to load script|Could not resolve" \
+              | head -20 | tr '\n' '|' | cut -c1-3000 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            echo "export contains script parse errors"
+            exit 1
+          fi
+          echo "export contains no script parse errors"
 
       - name: Verify PWA (engine-native service worker + manifest)
         run: |
