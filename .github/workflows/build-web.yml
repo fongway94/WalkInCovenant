@@ -189,8 +189,19 @@ jobs:
       # One joined annotation, not a tail: the playthrough prints ~40 "ok" lines
       # and GitHub keeps only ~10 annotations per run, so a tail spends the quota
       # on passing assertions and the actual FAIL scrolls out of view.
+      # Split by outcome on purpose. Emitting ::error:: under `if: always()` put
+      # a red annotation on a green run — the PASS line itself arrived as a
+      # failure, which trains everybody to ignore the red ones.
+      - name: Publish the playthrough pass
+        if: steps.smoke.outcome == 'success'
+        run: |
+          [ -f smoke.txt ] || exit 0
+          sed 's/\x1b\[[0-9;]*m//g' smoke.txt \
+            | grep -a "smoke: PASS" | head -1 \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+
       - name: Publish smoke failures as one annotation
-        if: always()
+        if: steps.smoke.outcome != 'success'
         run: |
           [ -f smoke.txt ] || exit 0
           CLEAN=/tmp/smoke.clean

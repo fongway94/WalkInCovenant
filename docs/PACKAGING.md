@@ -170,12 +170,13 @@ of these gates exists because it caught something real; the notes say what.
 | 4 | Engine API | `tools/api_check.py` | `AStarGrid2D.diagonal_enabled` (the property is `diagonal_mode`); `push_front` on a `PackedVector2Array`; `get_viewport_rect()` on a `CanvasLayer`; every `Class.CONSTANT` and `.new()`, verified against the class reference XML at the exact version tag |
 | 5 | Import | `godot --headless --import` | builds the global class cache; without it every `class_name` is unresolvable from other scripts |
 | 6 | Per-file parse | `tools/ci_parsecheck.sh` | names the file **and line** of a parse error, filtering the two noise classes inherent to checking one file at a time (unregistered autoloads, and the cascades they cause) |
-| 7 | Boot | `tools/ci_bootcheck.sh` | runs the real project headless for ten frames with autoloads present and the main scene instantiated — a parse check and a smoke test that the world builds |
+| 7 | Boot | `tools/ci_bootcheck.sh` | runs the real project headless for ten frames with autoloads present and the main scene instantiated. It greps for **runtime** errors too (`Invalid get index`, `Attempt to call function`, `null instance`, `Parent node is busy setting up children`) — parse-only grepping let a boot that built an empty world pass as healthy |
 | 8 | Content | `tests/run_all.gd` | legend covers the grid; spawn/NPCs/items on walkable ground; a path exists from spawn to every NPC and item; every line and verse bilingual; no shout without a matching verse |
-| 9 | Export | `godot --export-release "Web"` | single-threaded, `gl_compatibility` |
-| 10 | No broken scripts shipped | grep gate | Godot writes the `.pck` and exits **0** even when a script inside it does not parse, so the log is grepped and the job fails |
-| 11 | PWA verify | `tools/inject_pwa.py` | confirms the engine emitted and wired `index.service.worker.js` + `index.manifest.json`; injects the fallback only if they are missing |
-| 12 | Size budget | `du -sk` | fails over 80 MB; pixel art should land near 10–20 MB |
+| 9 | **Playthrough** | `tests/smoke.tscn` | boots the game and *plays* it: briefing, four conversations, crossing the line empty-handed, five stones, BECOME, five rounds of the word battle, RETURN, revisit — then asserts the save state left behind. It caught four bugs gates 1–8 all passed; see below |
+| 10 | Export | `godot --export-release "Web"` | single-threaded, `gl_compatibility` |
+| 11 | No broken scripts shipped | grep gate | Godot writes the `.pck` and exits **0** even when a script inside it does not parse, so the log is grepped and the job fails |
+| 12 | PWA verify | `tools/inject_pwa.py` | confirms the engine emitted and wired `index.service.worker.js` + `index.manifest.json`; injects the fallback only if they are missing |
+| 13 | Size budget | `du -sk` | fails over 80 MB; pixel art should land near 10–20 MB |
 
 ### What a successful run produces
 
@@ -196,10 +197,10 @@ index.144x144.png / 180x180 / 512x512        PWA icons
 Verified on the run that first went green: `inject_pwa: OK — native PWA verified
 (index.service.worker.js + index.manifest.json)`.
 
-### Two things worth knowing about this pipeline
+### Four things worth knowing about this pipeline
 
 **A green build did not once mean a working game.** Godot exits 0 while packing a
-`.pck` that contains scripts which fail to parse. Gate 10 exists because of that.
+`.pck` that contains scripts which fail to parse. Gate 11 exists because of that.
 
 **Godot blames the wrong file.** A single pair of parentheses in `Player.gd`
 (`for ox in (-3.0, 3.0)` — GDScript has no tuples) made `Player` unparseable, so
@@ -209,6 +210,33 @@ external class member"*. Reading the analyzer source explains why: that message
 means resolving the member pushed errors into *another* script. The blamed file
 is a victim. That is why gate 6 prints `file:line` — without it, every failure
 pointed somewhere that was not the cause.
+
+**Everything above can be green and the game still unplayable.** Gate 9 was
+added last, and on its first four runs it found four bugs that gates 1–8 had all
+passed:
+
+1. `Region._build()` never populated its trigger list, so the challenge line at
+   row 11 could not fire. Walk the whole valley, pick up all five stones, cross
+   the line — nothing happens. The fight was unreachable.
+2. `Main._ready()` connected `region_ready` *after* `add_child(region)`, and
+   `Region._ready()` emits it from inside that call. `_on_region_ready()` never
+   ran, so the stick was never bound to the player and the HUD never bound to the
+   region: a valley that renders and ignores every thumb on the screen.
+3. The dialogue box was built *after* the NPCs who talk through it, so each one
+   was handed `null` and `talk()` returned at its guard. Pressing A next to
+   anybody did nothing — the interaction the whole game is built on.
+4. `DialogueBox._pick()` incremented the line index after its callback had
+   already opened the next beat, instantly finishing single-line follow-ups and
+   firing their `on_done` early. The word battle's feedback line was never
+   readable and the round double-advanced.
+
+None of those is a parse error, a content error or an API error. All four are
+*wiring* errors — correct code assembled in the wrong order — and the only thing
+that finds them is playing the game. Note also that gate 9 boots a **scene**
+(`res://tests/smoke.tscn`), not `--script`: `Main::start()` instantiates a
+`--script` main loop at `main.cpp:4438` and only registers autoloads as global
+constants at `:4498`, so on that path the test and every script it pulls in fail
+to compile with *"Identifier not found: GameState"*.
 
 **Diagnostics are written for a reader who cannot see the logs.** GitHub keeps
 about ten annotations per run and Godot prints ANSI progress lines *after* the
