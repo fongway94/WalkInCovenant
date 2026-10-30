@@ -61,7 +61,7 @@ func setup(m: RegionModel, char_id: String) -> void:
 	if sprite == null:
 		sprite = Sprite2D.new()
 		sprite.centered = true
-		sprite.offset = Vector2(0, -12)      # 24px cell → feet land on the node
+		sprite.offset = Vector2(0, -8)       # 16px cell → feet land on the node
 		add_child(sprite)
 	sprite.texture = idle_tex
 	sprite.hframes = 2

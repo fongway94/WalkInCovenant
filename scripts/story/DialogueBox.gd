@@ -62,7 +62,7 @@ func _build_ui() -> void:
 	portrait.custom_minimum_size = Vector2(28, 40)
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	# Nearest, so a 16x24 face stays crisp when the box scales it up. This
+	# Nearest, so a 16x16 face stays crisp when the box scales it up. This
 	# belongs on the CanvasItem: AtlasTexture has no `filter` property, and
 	# assigning one is a runtime error that aborts the function it sits in —
 	# which is how every portrait after the first line silently vanished.
@@ -147,7 +147,7 @@ func _set_portrait(actor: String) -> void:
 		return
 	var at := AtlasTexture.new()
 	at.atlas = tex
-	at.region = Rect2(0, 0, 16, 24)      # row 0 (down), frame 0
+	at.region = Rect2(0, 0, 16, 16)      # row 0 (down), frame 0
 	portrait.texture = at
 	portrait.visible = true
 

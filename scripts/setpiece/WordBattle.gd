@@ -64,9 +64,9 @@ func start() -> void:
 	EventBus.become_active.emit("david")
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The rough of the cord is in your hand, and it is not your hand. For the length of this fight the name above you is not yours.",
-			"zh": "绳子粗粝，握在手里，可那不是你的手。这一场打完以前，你头上的名字不是你的。"}},
+			"zh": "他是人，我也是人；他靠的是刀、枪、盾牌，我靠的是万军之耶和华的名。绳子握在手里，可那不是你的手。"}},
 		{"who": "goliath", "text": {"en": "He plants the butt of his spear in the dust and waits for you to be afraid first.",
-			"zh": "他把枪杆的末端插进土里，等你先害怕。"}},
+			"zh": "「我岂是狗呢，你竟拿杖来攻击我？来吧，我要把你的肉给空中的飞鸟、田野的走兽吃！」他把枪杆插进土里，等你先害怕。"}},
 	], _speaker, _next_round)
 
 
@@ -146,8 +146,10 @@ func _wrong(opt: Dictionary) -> void:
 func _win() -> void:
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The fifth answer leaves you and the stone is already gone. The valley goes very quiet, in the way a room goes quiet when the largest thing in it falls.",
-			"zh": "第五句答完，石子已经出手。山谷静了下来——像一个房间里最大的东西倒下时，那种静。"}},
-		{"who": "goliath", "text": {"en": "…", "zh": "……"}},
+			"zh": "石子陷进巨人的额头。歌利亚脸朝下，扑倒在他骂了四十天的那片尘土里。"}},
+		{"who": "goliath", "text": {"en": "…", "zh": "非利士人的阵线一下子散了，以色列全军在同一刻找回了声音。"}},
+		{"who": "", "text": {"en": "This was never the story of a boy beating a giant. It is the story of a God who keeps covenant, and a boy who knew the battle was not his.",
+			"zh": "这从来不是「小男孩打败大巨人」的故事，而是一位守约的神，和一个知道这场仗不属于自己的少年。"}},
 		{"who": "", "text": {"en": "1 Samuel 17:47 — “And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD’s, and he will give you into our hands.”",
 			"zh": "撒母耳记上 17:47 ——「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"}},
 	], _speaker, func():

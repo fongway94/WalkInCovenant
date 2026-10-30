@@ -96,7 +96,17 @@ func _label(col: Color) -> Label:
 func _refresh() -> void:
 	if GameState == null:
 		return
-	name_lbl.text = "%s · Lv%d" % [GameState.data.get("name", "pilgrim"), GameState.data.get("level", 1)]
+	# "pilgrim · Lv1" showed in English even in Chinese mode: the name is game
+	# data, so it needs the same {en,zh} treatment as everything else.
+	# No ternary here: Player.gd records that a ternary split across a line
+	# continuation inside a declaration is a parser edge case in GDScript, and
+	# one such line once made five unrelated scripts fail to compile.
+	var who := str(GameState.data.get("name", "pilgrim"))
+	if who == "pilgrim":
+		who = I18n.t({"en": "pilgrim", "zh": "朝圣者"})
+	var lvl: int = int(GameState.data.get("level", 1))
+	var fmt := I18n.t({"en": "%s · Lv%d", "zh": "%s · %d 级"})
+	name_lbl.text = fmt % [who, lvl]
 	var n: int = (GameState.data.get("words", []) as Array).size()
 	verses_lbl.text = "☆%d" % n
 	time_lbl.text = I18n.t({

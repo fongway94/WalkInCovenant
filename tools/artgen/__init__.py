@@ -20,6 +20,10 @@ from .palette import RAMPS, c, ramp, blend, shade, OUTLINE, SHADOW
 
 TILE = 16          # the one true tile size, project-wide
 CHAR_W = 16        # character cell width
-CHAR_H = 24        # character cell height (1.5 tiles — allows depth overlap)
+CHAR_H = 16        # character cell height — ONE tile, like the reference pack.
+# Was 24 (1.5 tiles). The extra height bought depth overlap and cost the whole
+# look: at 16x24 the head is a sixth of the figure and the body is a slab. The
+# hand-drawn reference is 16x16 with a head that is nearly half the sprite, and
+# that proportion is most of why it reads as a character instead of a peg.
 
 DIRS = ["down", "left", "right", "up"]

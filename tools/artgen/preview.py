@@ -88,8 +88,8 @@ def main() -> int:
         if not path.exists():
             path = ROOT / "art/characters/villager_a_walk.png"
         sheet = Image.open(path).convert("RGBA")
-        cell = sheet.crop((frame * 16, 0, frame * 16 + 16, 24))
-        scene.paste(cell, ((tx - X0) * T, (ty - Y0 + 1) * T - 24 + 4), cell)
+        cell = sheet.crop((frame * 16, 0, frame * 16 + 16, 16))
+        scene.paste(cell, ((tx - X0) * T, (ty - Y0 + 1) * T - 16 + 4), cell)
 
     sp = region["spawn"]
     person("pilgrim", int(sp[0]), int(sp[1]), 1)

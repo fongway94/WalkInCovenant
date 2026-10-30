@@ -49,7 +49,7 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 	var actor: String = d.get("actor", "villager_a")
 	sprite = Sprite2D.new()
 	sprite.centered = true
-	sprite.offset = Vector2(0, -12)
+	sprite.offset = Vector2(0, -8)
 	sprite.texture = load("res://art/characters/%s_idle.png" % actor)
 	sprite.hframes = 2
 	sprite.vframes = 4

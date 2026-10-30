@@ -100,7 +100,8 @@ func end(character: String, on_returned: Callable) -> void:
 	_busy = true
 	var rm: bool = GameState.data["settings"].get("reduce_motion", false)
 	var t := 0.3 if rm else 0.7
-	plate.text = I18n.t({"en": "You are yourself again.", "zh": "你又是你自己了。"})
+	plate.text = I18n.t({"en": "The scroll turns a page. The road goes on.",
+		"zh": "书卷自己翻过一页。前面的路还在。"})
 	var tw := create_tween()
 	tw.tween_property(plate, "modulate:a", 1.0, t * 0.4)
 	tw.tween_interval(0.8 if not rm else 0.2)
