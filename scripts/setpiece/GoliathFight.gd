@@ -164,8 +164,8 @@ func _next_round() -> void:
 	if stones <= 0:
 		# Never a dead end: he laughs, you pick up what the brook gave you.
 		stones = 2
-		_say(I18n.t({"en": "Out of stones? The brook has more. Two more in the pouch.",
-			"zh": "石子用完了？溪里还有。袋子里又多两块。"}), 2.0)
+		_say(I18n.t({"en": "Out of stones? Two more in the pouch.",
+			"zh": "石子用完了？袋里又多了两块。"}), 2.0)
 	_begin_telegraph()
 
 
@@ -247,8 +247,8 @@ func _hit_by_spear() -> void:
 	if nerve <= 0:
 		# No game over. He draws blood, you find your feet again.
 		nerve = 1
-		_say(I18n.t({"en": "The shaft opens your shoulder. Breathe. Stand up. You are still here.",
-			"zh": "枪杆划开了你的肩膀。呼吸。站起来。你还在。"}), 2.2)
+		_say(I18n.t({"en": "The shaft opens your shoulder. Breathe.",
+			"zh": "枪杆划开了你的肩膀。呼吸。"}), 2.2)
 	else:
 		_say(I18n.t({"en": "Too slow — the shaft catches you. Nerve %d of %d.",
 			"zh": "慢了一步，枪杆打中了你。胆气还剩 %d／%d。" % [nerve, NERVE]}), 1.8)
@@ -342,11 +342,11 @@ func _draw_all() -> void:
 	if _flash > 0.0:
 		_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 0.95, 0.85, 0.35 * _flash))
 	if _msg != "" and _msg_t > 0.0:
-		_layer.draw_string(font, Vector2(16, vs.y - 40), _msg,
-			HORIZONTAL_ALIGNMENT_LEFT, int(vs.x - 32), 9, Color(0.97, 0.87, 0.65, 0.95))
+		_layer.draw_multiline_string(font, Vector2(16, vs.y - 46), _msg,
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 32, 9, 2, Color(0.97, 0.87, 0.65, 0.95))
 	if hint != "":
-		_layer.draw_string(font, Vector2(16, vs.y - 16), hint,
-			HORIZONTAL_ALIGNMENT_LEFT, int(vs.x - 32), 8, Color(0.85, 0.85, 0.8, 0.85))
+		_layer.draw_multiline_string(font, Vector2(16, vs.y - 18), hint,
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 32, 8, 2, Color(0.85, 0.85, 0.8, 0.85))
 	_layer.draw_string(font, Vector2(16, vs.y - 4), I18n.t({
 		"en": "stones %d" % stones, "zh": "石子 %d 块" % stones}),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.7, 0.72, 0.7, 0.8))
