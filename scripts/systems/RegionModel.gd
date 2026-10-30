@@ -136,9 +136,17 @@ func _build_astar() -> void:
 	astar = AStarGrid2D.new()
 	astar.region = Rect2i(0, 0, width, height)
 	astar.cell_size = Vector2(TILE, TILE)
+	# NOTE: the property is diagonal_mode, not diagonal_enabled. Assigning a
+	# property that does not exist aborts this function at runtime, leaving the
+	# grid dirty — and a dirty grid answers every query with
+	# "Grid is not initialized", so NPCs silently stop pathing.
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
-	astar.diagonal_enabled = false
 	astar.update()
+	if astar.is_dirty():
+		push_error("RegionModel: AStarGrid2D stayed dirty after update()")
+		astar = null
+		return
 	for y in range(height):
 		for x in range(width):
 			if _solid[y * width + x] == 1:
@@ -196,14 +204,49 @@ static func cell_variant(x: int, y: int) -> int:
 
 
 func path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
-	if astar == null:
-		return PackedVector2Array()
 	if not _in(from.x, from.y) or not _in(to.x, to.y):
 		return PackedVector2Array()
-	var pts: PackedVector2Array = astar.get_id_path(from, to)
+	var ids: PackedVector2Array = PackedVector2Array()
+	if astar != null and not astar.is_dirty():
+		for p in astar.get_id_path(from, to):
+			ids.append(Vector2(p.x, p.y))
+	if ids.is_empty():
+		ids = _bfs(from, to)
 	var out := PackedVector2Array()
-	for p in pts:
+	for p in ids:
 		out.append(Vector2(p.x * TILE + TILE * 0.5, p.y * TILE + TILE * 0.5))
+	return out
+
+
+## Breadth-first fallback and the reachability oracle for tests/run_all.gd.
+## AStarGrid2D is the fast path for NPC steering; this is the guarantee that a
+## grid problem degrades to "walks the obvious way" instead of "nobody moves".
+## Covenant had this as a test-only reachable(); here it also ships.
+func _bfs(from: Vector2i, to: Vector2i) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if not _in(from.x, from.y) or not _in(to.x, to.y):
+		return out
+	if from == to:
+		out.append(Vector2(from.x, from.y))
+		return out
+	var prev := {}
+	var queue: Array[Vector2i] = [from]
+	prev[from] = from
+	while not queue.is_empty():
+		var cur: Vector2i = queue.pop_front()
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n := cur + d
+			if not _in(n.x, n.y) or prev.has(n) or _solid[n.y * width + n.x] == 1:
+				continue
+			prev[n] = cur
+			if n == to:
+				var back := to
+				while back != from:
+					out.push_front(Vector2(back.x, back.y))
+					back = prev[back]
+				out.push_front(Vector2(from.x, from.y))
+				return out
+			queue.append(n)
 	return out
 
 

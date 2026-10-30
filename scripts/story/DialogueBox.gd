@@ -168,7 +168,8 @@ func _input(event: InputEvent) -> void:
 	if _in_choices:
 		return
 	if event.is_action_pressed("interact") or event.is_action_pressed("ui_accept") \
-			or (event is InputEventMouseButton and event.pressed):
+			or (event is InputEventMouseButton
+				and (event as InputEventMouseButton).pressed):
 		_advance()
 		get_viewport().set_input_as_handled()
 

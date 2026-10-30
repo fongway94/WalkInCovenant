@@ -71,6 +71,14 @@ jobs:
             echo "::warning::python3 unavailable, skipping gd_lint"
           fi
 
+      - name: Godot API check (verify engine calls against the 4.7 class reference)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if command -v python3 >/dev/null 2>&1; then
+            python3 tools/api_check.py
+          fi
+
       - name: Import resources (headless)
         run: godot --headless --editor --quit || true
 

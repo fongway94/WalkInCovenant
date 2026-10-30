@@ -52,7 +52,8 @@ func _process(delta: float) -> void:
 	# lookahead toward facing
 	var want_look := Vector2.ZERO
 	if follow is Player:
-		var f: Vector2i = follow.facing
+		var pl := follow as Player
+		var f: Vector2i = pl.facing
 		want_look = Vector2(f.x, f.y) * lookahead
 	_look = _look.lerp(want_look, 1.0 - exp(-6.0 * delta))
 

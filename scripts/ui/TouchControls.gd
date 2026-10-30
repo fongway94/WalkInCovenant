@@ -15,6 +15,7 @@ class_name TouchControls
 ## so a gentle tilt walks and a full tilt runs, making the run button a
 ## convenience rather than a requirement.
 
+const MOUSE_ID := 99   # synthetic touch id for mouse input
 const DEADZONE := 12.0
 const FULL := 44.0
 
@@ -55,45 +56,64 @@ func _input(event: InputEvent) -> void:
 		return
 	var vs := get_viewport_rect().size
 
-	if event is InputEventScreenTouch or event is InputEventMouseButton:
-		var pressed: bool = event.pressed
-		var pos: Vector2 = event.position
-		if pressed:
-			if _zone_a(pos, vs):
-				_a_held = true
-				Input.action_press("interact")
-			elif _zone_run(pos, vs):
-				_run_held = true
-				Input.action_press("run")
-			elif pos.x < vs.x * 0.5:
-				_stick_id = event.index if event is InputEventScreenTouch else 99
-				_origin = pos
-				_vec = Vector2.ZERO
-		else:
-			var idx = event.index if event is InputEventScreenTouch else 99
-			if idx == _stick_id:
-				_stick_id = -1
-				_vec = Vector2.ZERO
-				player.external_intent = Vector2.ZERO
-			if _a_held:
-				_a_held = false
-				Input.action_release("interact")
-			if _run_held:
-				_run_held = false
-				Input.action_release("run")
-		viz.queue_redraw()
-		return
+	# One branch per concrete event type, each cast before use. GDScript cannot
+	# narrow a type across `or`, and InputEventMouseButton has no `index` at
+	# all, so reading .pressed/.position/.index off a base InputEvent is a
+	# runtime failure — the whole control layer would go dead on device.
+	if event is InputEventScreenTouch:
+		var t := event as InputEventScreenTouch
+		_press(t.pressed, t.position, t.index, vs)
+	elif event is InputEventMouseButton:
+		var b := event as InputEventMouseButton
+		_press(b.pressed, b.position, MOUSE_ID, vs)
+	elif event is InputEventScreenDrag:
+		var dr := event as InputEventScreenDrag
+		if dr.index == _stick_id:
+			_drag(dr.position)
+	elif event is InputEventMouseMotion:
+		# lets the stick be driven with a mouse on desktop, which is how this
+		# gets tested without a phone in hand
+		var mm := event as InputEventMouseMotion
+		if _stick_id == MOUSE_ID:
+			_drag(mm.position)
 
-	if event is InputEventScreenDrag and event.index == _stick_id:
-		var d := event.position - _origin
-		var m := d.length()
-		if m < DEADZONE:
+
+func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
+	if pressed:
+		if _zone_a(pos, vs):
+			_a_held = true
+			Input.action_press("interact")
+		elif _zone_run(pos, vs):
+			_run_held = true
+			Input.action_press("run")
+		elif pos.x < vs.x * 0.5:
+			_stick_id = idx
+			_origin = pos
 			_vec = Vector2.ZERO
-		else:
-			var push := minf(1.0, m / FULL)
-			_vec = (d / m) * push
-		player.external_intent = _vec
-		viz.queue_redraw()
+	else:
+		if idx == _stick_id:
+			_stick_id = -1
+			_vec = Vector2.ZERO
+			player.external_intent = Vector2.ZERO
+		if _a_held:
+			_a_held = false
+			Input.action_release("interact")
+		if _run_held:
+			_run_held = false
+			Input.action_release("run")
+	viz.queue_redraw()
+
+
+func _drag(pos: Vector2) -> void:
+	var d := pos - _origin
+	var m := d.length()
+	if m < DEADZONE:
+		_vec = Vector2.ZERO
+	else:
+		var push := minf(1.0, m / FULL)
+		_vec = (d / m) * push
+	player.external_intent = _vec
+	viz.queue_redraw()
 
 
 func _draw_viz() -> void:
