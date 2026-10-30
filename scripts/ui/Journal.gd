@@ -1,0 +1,157 @@
+extends CanvasLayer
+class_name Journal
+## Journal — the pilgrim's book, and the only screen in the game that is yours.
+##
+## The master brief asks for a quest journal, an inventory and achievements as
+## separate systems. They are the same question a player asks on a phone at the
+## bus stop: *what am I carrying, and what am I doing?* So it is one panel:
+## the chapter's own objective, the verses in the bag, the stones, and the marks
+## earned. Everything it prints comes from data — `data/ui.json` for the labels,
+## the region for the verses, `data/achievements.json` for the marks.
+
+signal closed
+
+const UI_PATH := "res://data/ui.json"
+
+var _panel: PanelContainer = null
+var _title: Label = null
+var _body: VBoxContainer = null
+var _labels: Dictionary = {}
+var _open := false
+
+
+func _ready() -> void:
+	layer = 26
+	_load_labels()
+	_build()
+	hide_panel()
+
+
+func is_open() -> bool:
+	return _open
+
+
+func _load_labels() -> void:
+	if not FileAccess.file_exists(UI_PATH):
+		return
+	var f := FileAccess.open(UI_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	if typeof(parsed) == TYPE_DICTIONARY:
+		_labels = (parsed as Dictionary).get("journal", {})
+
+
+func _t(key: String) -> String:
+	return I18n.t(_labels.get(key, {"en": key, "zh": key}))
+
+
+func _build() -> void:
+	_panel = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.08, 0.10, 0.97)
+	sb.border_color = Color(0.79, 0.64, 0.36, 0.9)
+	sb.set_border_width_all(1)
+	sb.set_content_margin_all(8)
+	sb.set_corner_radius_all(3)
+	_panel.add_theme_stylebox_override("panel", sb)
+	_panel.anchor_left = 0.0; _panel.anchor_right = 1.0
+	_panel.anchor_top = 0.0; _panel.anchor_bottom = 1.0
+	_panel.offset_left = 12; _panel.offset_right = -12
+	_panel.offset_top = 12; _panel.offset_bottom = -12
+	add_child(_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	_panel.add_child(vbox)
+
+	_title = Label.new()
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title.add_theme_font_size_override("font_size", 11)
+	_title.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
+	vbox.add_child(_title)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
+
+	_body = VBoxContainer.new()
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_theme_constant_override("separation", 3)
+	scroll.add_child(_body)
+
+	var close := Button.new()
+	close.text = _t("close")
+	close.custom_minimum_size = Vector2(0, 24)
+	close.add_theme_font_size_override("font_size", 10)
+	close.pressed.connect(close_panel)
+	vbox.add_child(close)
+
+
+func _row(text: String, size: int, col: Color, indent: int = 0) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	if indent > 0:
+		l.add_theme_constant_override("line_spacing", 1)
+		l.text = "  " + text
+	_body.add_child(l)
+	return l
+
+
+func _heading(text: String) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 9)
+	l.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36))
+	_body.add_child(l)
+
+
+## Everything the panel shows is passed in: this node owns the furniture, not
+## the story. `verse_refs` are resolved by the caller from the region data.
+func open_panel(title: String, objective: String, verse_refs: Array,
+		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary) -> void:
+	_title.text = title
+	for c in _body.get_children():
+		c.queue_free()
+
+	_heading(_t("objective"))
+	_row(objective, 10, Color(0.90, 0.93, 0.94))
+
+	_heading(_t("verses"))
+	if verse_refs.is_empty():
+		_row(_t("empty"), 9, Color(0.6, 0.62, 0.62), 1)
+	else:
+		for r in verse_refs:
+			_row("★  " + str(r), 9, Color(0.97, 0.87, 0.65))
+
+	_heading(_t("stones"))
+	_row("%d / %d" % [stones, stones_total], 10, Color(0.80, 0.92, 0.96), 1)
+
+	_heading(_t("seals"))
+	if seals.is_empty():
+		_row(_t("empty"), 9, Color(0.6, 0.62, 0.62), 1)
+	else:
+		for id in seals:
+			var nm: Dictionary = seal_titles.get(str(id), {})
+			var label := I18n.t(nm) if not nm.is_empty() else str(id)
+			_row("◆  " + label, 9, Color(0.86, 0.90, 0.86))
+
+	_panel.visible = true
+	_open = true
+
+
+func close_panel() -> void:
+	if not _open:
+		return
+	hide_panel()
+	closed.emit()
+
+
+func hide_panel() -> void:
+	_open = false
+	if _panel:
+		_panel.visible = false

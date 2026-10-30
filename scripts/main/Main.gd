@@ -23,6 +23,7 @@ var act: int = Act.WITNESS
 var provisions := 0
 var practice: SlingPractice = null
 var fade: ScreenFade = null
+var journal: Journal = null
 var _brothers_met := false
 var _provision_total := 3
 ## Seconds the world has been paused with nothing on screen able to end it. This
@@ -62,8 +63,13 @@ func _ready() -> void:
 	add_child(fade)
 	fade.open_up(0.7)
 
+	journal = Journal.new()
+	add_child(journal)
+	journal.closed.connect(_close_journal)
+
 	hud = Hud.new()
 	add_child(hud)
+	hud.journal_requested.connect(_open_journal)
 
 	touch = TouchControls.new()
 	add_child(touch)
@@ -87,7 +93,8 @@ func _process(delta: float) -> void:
 	if region == null or region.dialogue == null:
 		return
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
-		and not _in_battle and battle == null and practice == null
+		and not _in_battle and battle == null and practice == null \
+		and not (journal != null and journal.is_open())
 	if stuck:
 		_dead_pause += delta
 	else:
@@ -337,6 +344,7 @@ func _brief_once() -> void:
 
 
 func _on_verse(_id: String, ref: String) -> void:
+	GameState.grant_seal("first_verse")
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "A verse to carry · %s", "zh": "记住了一句经文 · %s"}) % ref)
 
@@ -355,6 +363,8 @@ func _on_pickup(id: String) -> void:
 		return
 	if id.begins_with("stone"):
 		stones += 1
+		if stones >= _stones_total and _stones_total > 0:
+			GameState.grant_seal("five_stones")
 		if hud != null:
 			hud.set_stones(stones, _stones_total)
 		GameState.record_way("notice")
@@ -473,6 +483,37 @@ func _start_david_act() -> void:
 
 
 ## Put the player on a tile and take the camera with them, with no glide.
+## ── the book ────────────────────────────────────────────────────────────
+## One screen for the three things a player asks while walking: what am I
+## doing, what am I carrying, and what have I done.
+func _open_journal() -> void:
+	if journal == null or journal.is_open() or region == null:
+		return
+	if region.dialogue != null and region.dialogue.is_open():
+		return
+	if _in_battle or battle != null or practice != null:
+		return
+	var refs: Array = []
+	for id in (GameState.data.get("words", []) as Array):
+		for w in region.model.words:
+			if str(w.get("id", "")) == str(id):
+				refs.append(str(w.get("ref", "")))
+				break
+	var titles := {}
+	var seals: Array = GameState.data.get("seals", [])
+	for sid in seals:
+		titles[str(sid)] = GameState.seal_title(str(sid))
+	var c: Dictionary = CampaignModel.current()
+	region.set_paused(true)
+	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
+		stones, _stones_total, seals, titles)
+
+
+func _close_journal() -> void:
+	if region != null:
+		region.set_paused(false)
+
+
 func _place_at(tile: Array) -> void:
 	if tile.size() != 2 or region.player == null:
 		return
@@ -497,6 +538,7 @@ func _start_practice() -> void:
 
 
 func _practice_done() -> void:
+	GameState.grant_seal("the_drill")
 	region.set_paused(true)
 	var sh: Dictionary = region.model.david_act.get("shepherd", {})
 	region.dialogue.show_lines(sh.get("done_lines", []), _errand_speaker, _start_errand)
@@ -555,6 +597,8 @@ func _after_return() -> void:
 	_in_battle = false
 	# the valley is quiet: he will not shout again
 	GameState.set_flag("goliath_down", true)
+	GameState.grant_seal("giant_down")
+	GameState.grant_seal("chapter_one")
 	GameState.grant_relic("stones")
 	GameState.complete_chapter("elah")
 	GameState.add_xp(120)

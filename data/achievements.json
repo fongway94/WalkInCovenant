@@ -1,0 +1,35 @@
+{
+ "note": "Marks the pilgrim keeps. Platform-level: any campaign may grant any mark, and the journal lists them all.",
+ "seals": [
+  {
+   "id": "first_verse",
+   "title": {"en": "A word to carry", "zh": "一句话带在身上"},
+   "desc": {"en": "Someone in the valley gave you a verse.", "zh": "山谷里有人把一句话交给了你。"}
+  },
+  {
+   "id": "five_stones",
+   "title": {"en": "Five smooth stones", "zh": "五块光滑的石子"},
+   "desc": {"en": "The brook gave up five, and you carried them for someone else.", "zh": "溪边捡了五块，是替别人拿的。"}
+  },
+  {
+   "id": "the_drill",
+   "title": {"en": "The hand remembers", "zh": "手记住了"},
+   "desc": {"en": "Three jars on a slope, three throws. The sling knew where to go.", "zh": "坡上三只陶罐，三次出手。手知道该往哪儿放。"}
+  },
+  {
+   "id": "the_argument",
+   "title": {"en": "An answer for the giant", "zh": "巨人面前的回答"},
+   "desc": {"en": "You answered forty days of shouting with the words you carried.", "zh": "他喊了四十天，你用带着的那几句话回了他。"}
+  },
+  {
+   "id": "giant_down",
+   "title": {"en": "The battle is the LORD's", "zh": "争战的胜败在乎耶和华"},
+   "desc": {"en": "The largest thing in the valley fell, and it was not by a sword.", "zh": "山谷里最大的那个倒下了，不是用刀。"}
+  },
+  {
+   "id": "chapter_one",
+   "title": {"en": "Chapter I, walked", "zh": "第一章，走完了"},
+   "desc": {"en": "From the bus to the dust and back again.", "zh": "从一辆车，到一片尘土，再走回来。"}
+  }
+ ]
+}

@@ -182,6 +182,17 @@ func _run() -> void:
 		_check(not Input.is_action_pressed("interact"), "and releases it")
 		_check(not region.dialogue._open, "tapping A in an empty field talks to nobody")
 
+	# ── 2c. the book: objective, verses, stones, marks in one place ──────
+	_check(main.journal != null, "the journal exists")
+	if main.journal != null:
+		main._open_journal()
+		_check(main.journal.is_open(), "the journal opens")
+		_check(region._paused, "the journal holds the world still")
+		_check(main.journal._panel.visible, "the journal has something on screen")
+		main.journal.close_panel()
+		_check(not main.journal.is_open(), "the journal closes")
+		_check(not region._paused, "closing the book gives the world back")
+
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
 	for c in cast:
@@ -448,6 +459,10 @@ func _run() -> void:
 	_check(left >= 0 and left < GameState.xp_needed(lvl),
 		"leftover xp sits inside the new level (%d of %d)" % [left, GameState.xp_needed(lvl)])
 	_check(_has(GameState.data["fruits"], "faithfulness"), "fruit was gathered")
+	# Marks: each one is earned by doing the thing, not by reaching a screen.
+	for sid in ["first_verse", "five_stones", "the_drill", "the_argument",
+			"giant_down", "chapter_one"]:
+		_check(_has(GameState.data["seals"], str(sid)), "the mark '%s' was earned" % sid)
 	_check(not region._paused, "the valley is unpaused after RETURN")
 	_check(region.player != null, "you are still yourself after RETURN")
 	_check(_tile_of(region.player) == Vector2i(16, 14), "you are stood back south of the line, past the re-arm row")

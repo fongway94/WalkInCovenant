@@ -51,6 +51,46 @@ func new_game() -> void:
 	}
 
 
+# ── marks ────────────────────────────────────────────────────────────────
+const SEALS_PATH := "res://data/achievements.json"
+static var _seal_titles: Dictionary = {}
+
+
+## A mark, granted once, announced once. The titles are content (data), the rule
+## is here (platform), so campaign 02 can hand out its own without a script.
+func grant_seal(id: String) -> bool:
+	if id == "" or data["seals"].has(id):
+		return false
+	data["seals"].append(id)
+	if _seal_titles.is_empty():
+		_load_seal_titles()
+	var t: Dictionary = _seal_titles.get(id, {})
+	if not t.is_empty():
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "Mark · %s", "zh": "记号 · %s"}) % I18n.t(t))
+	return true
+
+
+func seal_title(id: String) -> Dictionary:
+	if _seal_titles.is_empty():
+		_load_seal_titles()
+	return _seal_titles.get(id, {})
+
+
+func _load_seal_titles() -> void:
+	_seal_titles = {}
+	if not FileAccess.file_exists(SEALS_PATH):
+		return
+	var f := FileAccess.open(SEALS_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	for s in (parsed as Dictionary).get("seals", []):
+		_seal_titles[str(s.get("id", ""))] = s.get("title", {})
+
+
 # ── virtues & ways ───────────────────────────────────────────────────────
 func add_virtue(v: String, amount: int) -> void:
 	if v not in VIRTUES:

@@ -193,7 +193,11 @@ name).
    night in the den), add `scripts/setpiece/<Thing>.gd` with the same contract
    `GoliathFight` keeps: a `start()`, a public `press()` a thumb can drive, a
    `signal finished`, and a test seam so `tests/smoke.gd` can play it headless.
-7. **Save** — nothing to do. Progress is keyed by region id and campaign id in
+7. **Marks** — add any campaign-specific ones to `data/achievements.json`
+   (`id`, `title`, `desc`, both languages) and call
+   `GameState.grant_seal("id")` where the player earns it. The journal lists
+   them without knowing which campaign they came from.
+8. **Save** — nothing to do. Progress is keyed by region id and campaign id in
    `GameState.data`, so the next story starts clean without touching the last.
 
 What is deliberately *not* per-campaign: the witness, movement, camera, the

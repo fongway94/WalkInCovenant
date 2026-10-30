@@ -1,5 +1,7 @@
 extends CanvasLayer
 class_name Hud
+## HUD
+signal journal_requested
 ## Hud — the thin always-on layer: who you are, where you are, what you carry.
 ## Deliberately small. In an exploration game the world is the interface; the
 ## HUD must never compete with it.
@@ -14,6 +16,7 @@ var toast_lbl: Label = null
 var objective_lbl: Label = null
 var prompt_lbl: Label = null
 var arrow: WaypointArrow = null
+var journal_btn: Button = null
 var region: Region = null
 var _toast_t := 0.0
 var _objective := ""
@@ -94,6 +97,20 @@ func _build() -> void:
 	objective_lbl.add_theme_constant_override("shadow_offset_x", 1)
 	objective_lbl.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(objective_lbl)
+
+	# The book. Top-left, small, above the objective line — it is a thing to
+	# open when you are lost, not a thing that competes with the objective.
+	journal_btn = Button.new()
+	journal_btn.text = "≡"
+	journal_btn.add_theme_font_size_override("font_size", 9)
+	journal_btn.offset_left = 4
+	journal_btn.offset_top = 1
+	journal_btn.offset_right = 26
+	journal_btn.offset_bottom = 15
+	journal_btn.flat = true
+	journal_btn.focus_mode = Control.FOCUS_NONE
+	journal_btn.pressed.connect(func(): journal_requested.emit())
+	add_child(journal_btn)
 
 	arrow = WaypointArrow.new()
 	arrow.anchor_left = 1.0

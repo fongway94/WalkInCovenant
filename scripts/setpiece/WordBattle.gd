@@ -168,6 +168,7 @@ func _wrong(opt: Dictionary) -> void:
 ## The argument is over; now the throw. This is the beat the whole chapter is
 ## named after, and it was missing from the game entirely.
 func _begin_fight() -> void:
+	GameState.grant_seal("the_argument")
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "He has run out of words. So have you.",
 			"zh": "他没话说了。你也没有。"}},

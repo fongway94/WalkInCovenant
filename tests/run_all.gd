@@ -88,6 +88,24 @@ func _check_campaigns() -> void:
 				_fail("campaign %s is marked available but %s does not exist" % [id, path])
 	_ok("campaign registry is consistent (%d registered)" % list.size())
 
+	# Marks and UI labels are player-facing prose too, and they live outside the
+	# region files, so the bilingual rule has to reach them here.
+	var ach := _read_json("res://data/achievements.json")
+	var seals: Array = ach.get("seals", [])
+	if seals.is_empty():
+		_fail("data/achievements.json has no marks")
+	for s_ in seals:
+		var sid := str(s_.get("id", ""))
+		if sid == "":
+			_fail("a mark has no id")
+		_has_both(s_.get("title"), "mark %s title" % sid)
+		_has_both(s_.get("desc"), "mark %s description" % sid)
+	_ok("marks are bilingual (%d)" % seals.size())
+	var ui := _read_json("res://data/ui.json")
+	for k in (ui.get("journal", {}) as Dictionary):
+		_has_both(ui["journal"][k], "ui.journal.%s" % k)
+	_ok("journal labels are bilingual")
+
 
 func _read_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):

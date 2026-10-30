@@ -142,6 +142,14 @@ The game is now built for the return.
 
 ---
 
+## 5a. The three systems the brief asks for, as one panel
+
+| Brief | Here |
+|---|---|
+| Quest journal | The **book** (`≡`, top-left): the chapter's current objective, the verses carried with their references, the stones, and the marks. It pauses the world and closes with one tap. |
+| Inventory | Same panel: verses and stones are what the bag holds in this chapter. Relics live in the save and the ending reports them. |
+| Achievements | `data/achievements.json` — six marks, each granted by `GameState.grant_seal()` at the moment it is earned (first verse, five stones, the drill, the argument, the giant, the chapter). Titles are data; the rule is platform. |
+
 ## 5b. The platform, as built
 
 One game, many stories. `data/campaigns.json` is the registry; a campaign points
