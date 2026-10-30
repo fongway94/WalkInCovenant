@@ -14,6 +14,7 @@ const TILE := 16
 
 var id: String = ""
 var display_name: Dictionary = {}
+var display_sub: Dictionary = {}       # the caption's second line: which chapter
 var legend: Dictionary = {}          # char -> tile key
 var grid: PackedStringArray = PackedStringArray()
 var width: int = 0
@@ -75,6 +76,7 @@ func trigger_data(id: String) -> Dictionary:
 func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	id = d.get("id", id)
 	display_name = d.get("name", {})
+	display_sub = d.get("sub", {})
 	legend = d.get("legend", {})
 	# PackedStringArray has no (Array) constructor: build it row by row.
 	grid = PackedStringArray()

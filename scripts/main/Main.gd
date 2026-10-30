@@ -24,6 +24,7 @@ var provisions := 0
 var practice: SlingPractice = null
 var fade: ScreenFade = null
 var journal: Journal = null
+var card: PlaceCard = null
 var _brothers_met := false
 var _provision_total := 3
 ## Seconds the world has been paused with nothing on screen able to end it. This
@@ -70,6 +71,9 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.journal_requested.connect(_open_journal)
+
+	card = PlaceCard.new()
+	add_child(card)
 
 	touch = TouchControls.new()
 	add_child(touch)
@@ -371,7 +375,17 @@ func _brief_once() -> void:
 	GameState.set_flag(str(region.region_id) + "_briefed", true)
 	region.set_paused(true)
 	region.dialogue.show_lines(region.model.briefing, func(_w): return {}, func():
-		region.set_paused(false))
+		region.set_paused(false)
+		_card_once())
+
+
+## The caption. Once per region, after the valley has explained itself, so it
+## lands on a player who already knows what they are looking at.
+func _card_once() -> void:
+	if GameState.flag(str(region.region_id) + "_card") == true:
+		return
+	GameState.set_flag(str(region.region_id) + "_card", true)
+	card.show_card(region.model.display_name, region.model.display_sub)
 
 
 func _on_verse(_id: String, ref: String) -> void:

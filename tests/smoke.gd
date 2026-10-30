@@ -160,6 +160,13 @@ func _run() -> void:
 	main._brief_once()
 	_check(not region.dialogue._open, "the briefing does not repeat on a second visit")
 
+	# The caption is the one cinematic beat on the brief's list that was missing:
+	# the valley is named once, from the region's own data.
+	_check(bool(GameState.flag(str(region.region_id) + "_card")),
+		"the place is captioned once")
+	_check(main.card != null and main.card.title_lbl.text == I18n.t(region.model.display_name),
+		"the caption says the region's name, not a hardcoded one")
+
 	# ── 2b. guidance: a goal on screen and a button that reaches the game ─
 	# Playtest 6 could not tell what to do and could not talk to anybody. Both
 	# are asserted here, because both were invisible to the compiler: the HUD
