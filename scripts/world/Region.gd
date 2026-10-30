@@ -36,9 +36,12 @@ var _tiles_meta: Dictionary = {}
 var _paused := false
 var _interact_lock := 0.0
 var _mark_t := 0.0
+var _curio_done := {}
+var _curio_cool := 0.0
 
 signal region_ready
 signal pickup_taken(id: String)
+signal curio_seen(id: String, lines: Array)
 signal trigger_fired(id: String)
 signal exit_taken(to: String)
 
@@ -228,6 +231,7 @@ func _process(delta: float) -> void:
 		return
 	if _unclaimed():
 		queue_redraw()
+	_check_curios(delta)
 	_check_pickups()
 	_check_triggers()
 	_check_exits()
@@ -244,6 +248,29 @@ func _check_pickups() -> void:
 			p["node"].queue_free()
 			pickup_taken.emit(p["id"])
 			EventBus.item_picked_up.emit(p["id"])
+
+
+## Standing somewhere quietly is allowed to be interesting. Each curio fires
+## once and never again, and nothing depends on it.
+func _check_curios(delta: float) -> void:
+	_curio_cool = maxf(0.0, _curio_cool - delta)
+	if _curio_cool > 0.0:
+		return
+	for c in model.curios:
+		var id := str(c.get("id", ""))
+		if id == "" or _curio_done.has(id):
+			continue
+		if bool(GameState.flag("curio_" + id)):
+			_curio_done[id] = true
+			continue
+		var at: Array = c.get("at", [0, 0])
+		var p := Vector2(int(at[0]) * TILE + 8, int(at[1]) * TILE + 8)
+		if p.distance_to(player.global_position) <= float(c.get("r", 2)) * TILE:
+			_curio_done[id] = true
+			_curio_cool = 1.0
+			GameState.set_flag("curio_" + id, true)
+			curio_seen.emit(id, c.get("lines", []))
+			return
 
 
 func _check_triggers() -> void:

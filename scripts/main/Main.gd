@@ -86,6 +86,7 @@ func _ready() -> void:
 	region.region_ready.connect(_on_region_ready)
 	region.pickup_taken.connect(_on_pickup)
 	region.trigger_fired.connect(_on_trigger)
+	region.curio_seen.connect(_on_curio)
 	add_child(region)
 
 
@@ -353,7 +354,7 @@ func _on_pickup(id: String) -> void:
 	if id.begins_with("prov"):
 		provisions += 1
 		EventBus.toast_requested.emit(I18n.t({
-			"en": "Your father's provision · %d/%d", "zh": "父亲给的东西 · %d／%d"})
+			"en": "Your father's errand · %d/%d", "zh": "父亲的托付 · %d／%d"})
 			% [provisions, _provision_total])
 		AudioDirector.play_sfx("pickup", -4.0)
 		if provisions >= _provision_total:
@@ -483,6 +484,18 @@ func _start_david_act() -> void:
 
 
 ## Put the player on a tile and take the camera with them, with no glide.
+## A place that says one thing when you stand in it. Optional by construction:
+## no marker, no reward, nothing in the journal, and it never blocks a walk.
+func _on_curio(_id: String, lines: Array) -> void:
+	if lines.is_empty() or _in_battle or battle != null or practice != null:
+		return
+	if region.dialogue != null and region.dialogue.is_open():
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, func(_w): return {}, func():
+		region.set_paused(false))
+
+
 ## ── the book ────────────────────────────────────────────────────────────
 ## One screen for the three things a player asks while walking: what am I
 ## doing, what am I carrying, and what have I done.

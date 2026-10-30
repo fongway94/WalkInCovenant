@@ -27,6 +27,9 @@ var props: Array = []                # {type, at:[x,y]}
 var triggers: Array = []             # {id, kind, once, refuse, memory, ...}
 var briefing: Array = []             # first-run lines: what to do here
 var prologue: Array = []             # the modern-day arrival, before the briefing
+## Optional places that say one thing when you walk over them. Exploration
+## without a checklist: no marker, no reward, nothing to complete.
+var curios: Array = []                # {id, at:[x,y], r, lines:[...]}
 var exits: Array = []                # {to, at:[x,y]}
 var words: Array = []                # the verses people hand you; become your moves
 var shouts: Array = []               # what the giant shouts at you
@@ -91,6 +94,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	props = d.get("props", [])
 	triggers = d.get("triggers", [])
 	briefing = d.get("briefing", [])
+	curios = d.get("curios", [])
 	# `briefing` and `prologue` are plain arrays of lines, and a JSON object here
 	# would type-error into an Array and abort the whole load (it did: the grid
 	# never finished, and the terrain drew out of bounds for the rest of the run).

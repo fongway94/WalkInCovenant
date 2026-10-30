@@ -193,6 +193,14 @@ func _run() -> void:
 		_check(not main.journal.is_open(), "the journal closes")
 		_check(not region._paused, "closing the book gives the world back")
 
+	# ── 2d. a place that says something, once ────────────────────────────
+	await _stand(region, 16, 27, 4)
+	_check(region.dialogue._open, "the brook says something when you stand in it")
+	_drain(region.dialogue)
+	_check(bool(GameState.flag("curio_brook")), "a curio is remembered after it fires")
+	await _stand(region, 16, 27, 4)
+	_check(not region.dialogue._open, "the brook does not repeat itself")
+
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
 	for c in cast:
@@ -389,19 +397,23 @@ func _run() -> void:
 	Engine.time_scale = 1.0
 	while battle.fight != null and fight_frames < FRAME_GUARD:
 		fight_frames += 1
-		if battle.fight.is_striking():
+		var f = battle.fight
+		if f == null:
+			break
+		if int(f.phase) == int(GoliathFight.Phase.STRIKE):
 			saw_strike = true
-			battle.fight.press()          # dodge
-		elif battle.fight.is_aiming():
+			f.press()                     # dodge
+		elif int(f.phase) == int(GoliathFight.Phase.AIM):
 			saw_aim = true
-			battle.fight.aim_perfect()
-			battle.fight.press()          # throw
+			f.aim_perfect()
+			f.press()                     # throw
 		await get_tree().process_frame
 	Engine.time_scale = 24.0
 	_check(saw_strike, "Goliath attacks, and the strike phase is reachable")
 	_check(saw_aim, "the throw phase is reachable")
 	_check(battle.fight == null, "three stones end the fight")
 	_check(nerve_start == 3, "a dodged strike costs no nerve (nerve was %d)" % nerve_start)
+	_check(battle.fight == null and fight_frames > 0, "the fight ran a real loop, not one press")
 	await _frames(4)
 
 	# the win lines, then RETURN, which hands the story back before the controls

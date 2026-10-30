@@ -1124,22 +1124,29 @@
    {
     "who": "",
     "text": {
-     "en": "Your brothers see you come up the road.",
-     "zh": "哥哥们看见你走上坡来。"
+     "en": "Your eldest brother sees you come up the road.",
+     "zh": "长兄看见你走上坡来。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "1 Samuel 17:28",
+     "zh": "撒母耳记上 17:28"
     }
    },
    {
     "who": "eliab",
     "text": {
-     "en": "“Why are you down here? Who is looking after those few sheep in the wilderness?”",
-     "zh": "「你下来做什么？旷野里的那几只羊，你交给谁了？」"
+     "en": "“Why camest thou down hither? and with whom hast thou left those few sheep in the wilderness?”",
+     "zh": "「你下来做什么？在旷野的那几只羊，你交托了谁呢？」"
     }
    },
    {
     "who": "eliab",
     "text": {
-     "en": "“I know your pride. You came down to watch the battle.”",
-     "zh": "「我知道你的骄傲，也知道你心里的恶意。你下来，不过是想看打仗。」"
+     "en": "“I know thy pride, and the naughtiness of thine heart; for thou art come down that thou mightest see the battle.”",
+     "zh": "「我知道你的骄傲和你心里的恶意；你下来特为要看争战。」"
     }
    },
    {
@@ -1324,8 +1331,8 @@
   {
    "who": "",
    "text": {
-    "en": "Your clothes are not your clothes. Coarse wool. A leather cord at your waist.",
-    "zh": "衣服不是你的。粗羊毛，腰上一条皮绳。"
+    "en": "Your clothes are not your clothes: coarse wool, a leather cord at the waist.",
+    "zh": "这身衣服不是你的：粗羊毛，腰上系着一条皮绳。"
    }
   },
   {
@@ -1338,9 +1345,75 @@
   {
    "who": "",
    "text": {
-    "en": "A man is crying quietly somewhere behind you. You understand every word he says.",
-    "zh": "有人在你背后小声地哭。他说的每一个字你都听得懂。"
+    "en": "Someone behind you is crying quietly. You understand every word.",
+    "zh": "身后有人压着嗓子在哭。他说的每一个字，你都听得懂。"
    }
+  }
+ ],
+ "curios": [
+  {
+   "id": "brook",
+   "at": [
+    16,
+    27
+   ],
+   "r": 2,
+   "lines": [
+    {
+     "text": {
+      "en": "The water is shallow and cold. The stones in it are worn round by it.",
+      "zh": "溪水又浅又凉。底下的石子被水磨得圆了。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "altar",
+   "at": [
+    12,
+    45
+   ],
+   "r": 2,
+   "lines": [
+    {
+     "text": {
+      "en": "Stones stacked into an altar, and no fire on it. Nobody has had the heart.",
+      "zh": "几块石头垒成一座坛，上面没有火。没人有这个心气。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "olives",
+   "at": [
+    4,
+    34
+   ],
+   "r": 2,
+   "lines": [
+    {
+     "text": {
+      "en": "There are axe marks in the trunk. Someone cut wood here, and hid here.",
+      "zh": "树干上有刀痕。有人在这儿砍过柴，也在这儿躲过。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "tents",
+   "at": [
+    7,
+    43
+   ],
+   "r": 2,
+   "lines": [
+    {
+     "text": {
+      "en": "A man in a tent is stitching leather. Before a war can be fought, someone has to mend things.",
+      "zh": "帐棚里有人在缝皮子。仗要打得起来，总得有人先把破的地方补上。"
+     }
+    }
+   ]
   }
  ]
 }

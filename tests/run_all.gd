@@ -234,6 +234,16 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		_has_both(line.get("text"), "%s:briefing line" % rid)
 	for line in m.prologue:
 		_has_both(line.get("text"), "%s:prologue line" % rid)
+	for c in m.curios:
+		var cd: Dictionary = c
+		_has_both(cd.get("id"), "%s:curio id" % rid)
+		var at: Array = cd.get("at", [0, 0])
+		if m.solid_at_tile(int(at[0]), int(at[1])):
+			_fail("%s: curio %s sits inside a solid tile" % [rid, cd.get("id")])
+		if m.path(m.spawn, Vector2i(int(at[0]), int(at[1]))).is_empty():
+			_fail("%s: curio %s cannot be walked to" % [rid, cd.get("id")])
+		for line in (cd.get("lines", []) as Array):
+			_has_both(line.get("text"), "%s:curio %s line" % [rid, cd.get("id")])
 	for key in ["lines", "brothers"]:
 		for line in (m.david_act.get(key, []) as Array):
 			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
