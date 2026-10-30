@@ -235,16 +235,22 @@ func _bfs(from: Vector2i, to: Vector2i) -> PackedVector2Array:
 	while not queue.is_empty():
 		var cur: Vector2i = queue.pop_front()
 		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var n := cur + d
+			# an untyped array literal yields Variant elements, and := on a
+			# Variant is an ERROR-level warning in Godot 4.7
+			var off: Vector2i = d
+			var n := cur + off
 			if not _in(n.x, n.y) or prev.has(n) or _solid[n.y * width + n.x] == 1:
 				continue
 			prev[n] = cur
 			if n == to:
+				# PackedVector2Array has no push_front: walk backwards, then
+				# reverse once. Same path, and no method that does not exist.
 				var back := to
 				while back != from:
-					out.push_front(Vector2(back.x, back.y))
+					out.append(Vector2(back.x, back.y))
 					back = prev[back]
-				out.push_front(Vector2(from.x, from.y))
+				out.append(Vector2(from.x, from.y))
+				out.reverse()
 				return out
 			queue.append(n)
 	return out

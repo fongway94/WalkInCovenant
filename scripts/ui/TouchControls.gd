@@ -54,7 +54,9 @@ func _zone_run(p: Vector2, vs: Vector2) -> bool:
 func _input(event: InputEvent) -> void:
 	if player == null:
 		return
-	var vs := get_viewport_rect().size
+	# CanvasLayer is not a CanvasItem, so it has no get_viewport_rect();
+	# ask the viewport for its visible rect instead.
+	var vs: Vector2 = get_viewport().get_visible_rect().size
 
 	# One branch per concrete event type, each cast before use. GDScript cannot
 	# narrow a type across `or`, and InputEventMouseButton has no `index` at

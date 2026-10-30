@@ -133,8 +133,11 @@ jobs:
             echo "::warning::global_script_class_cache.cfg was not written"
           fi
 
-      - name: Parse-check every script with the engine
-        run: sh tools/ci_parsecheck.sh
+      # Boots the real project headless: autoloads registered, global classes
+      # resolved, main scene instantiated. A per-file --check-only run cannot do
+      # this, and drowned in cascade errors from unregistered autoloads.
+      - name: Boot the project headless (parse + smoke check)
+        run: sh tools/ci_bootcheck.sh 10
 
       - name: Content lint (regions, reachability, bilingual)
         id: lint
@@ -236,8 +239,11 @@ jobs:
             echo "::warning::global_script_class_cache.cfg was not written"
           fi
 
-      - name: Parse-check every script with the engine
-        run: sh tools/ci_parsecheck.sh
+      # Boots the real project headless: autoloads registered, global classes
+      # resolved, main scene instantiated. A per-file --check-only run cannot do
+      # this, and drowned in cascade errors from unregistered autoloads.
+      - name: Boot the project headless (parse + smoke check)
+        run: sh tools/ci_bootcheck.sh 10
 
       - name: Export Web (single-threaded, gl_compatibility)
         id: export

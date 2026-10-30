@@ -31,7 +31,7 @@ REPO = "godotengine/godot"
 
 VAR_TYPE = re.compile(
     r"^\s*(?:@onready\s+|@export\s+)*var\s+(\w+)\s*:\s*([A-Z]\w*)")
-VAR_INFER = re.compile(r"^\s*var\s+(\w+)\s*:=\s*([A-Z]\w*)\.new\(")
+VAR_INFER = re.compile(r"^\s*var\s+(\w+)\s*:=\s*([A-Z]\w*)(?:\.new\()?\(")
 PARAM_TYPE = re.compile(r"func\s+\w+\s*\(([^)]*)\)")
 NEW_CALL = re.compile(r"\b([A-Z]\w*)\.new\(")
 CLASS_CONST = re.compile(r"\b([A-Z]\w*)\.([A-Z][A-Z0-9_]{2,})\b")
@@ -39,6 +39,35 @@ MEMBER = re.compile(r"\b(\w+)\.(\w+)")
 
 # Our own classes and GDScript builtins are not engine classes; skip them.
 SKIP_TYPES = set()
+# @GlobalScope functions plus keywords that look like calls. A bare call that
+# is none of these, and not a method of the script's own base class, is a
+# parse error — this is how `get_viewport_rect()` inside a CanvasLayer hid.
+GD_GLOBALS = {
+    "abs", "absf", "absi", "acos", "acosh", "asin", "asinh", "atan", "atan2",
+    "atanh", "assert", "beep", "bytes_to_var", "bytes_to_var_with_objects",
+    "cart_to_polar", "ceil", "ceilf", "ceili", "clamp", "clampf", "clampi",
+    "cos", "cosh", "cubic_interpolate", "db_to_linear", "deg_to_rad",
+    "dict_to_inst", "ease", "error_string", "exp", "floor", "floorf", "floori",
+    "fmod", "fposmod", "get_instance_from_id", "get_stack", "get_weakref",
+    "hash", "inst_to_dict", "inverse_lerp", "is_equal_approx", "is_finite",
+    "is_inf", "is_instance_id_valid", "is_instance_valid", "is_nan", "is_same",
+    "is_zero_approx", "lerp", "lerp_angle", "lerpf", "linear_to_db", "load",
+    "log", "max", "maxf", "maxi", "min", "minf", "mini", "move_toward",
+    "nearest_po2", "polar_to_cart", "posmod", "pow", "preload", "print",
+    "print_rich", "print_verbose", "printerr", "prints", "printt",
+    "push_error", "push_warning", "rad_to_deg", "rand_from_seed", "randf",
+    "randfn", "randi", "randomize", "range", "range_lerp", "remap",
+    "rid_allocate_id", "rid_from_int64", "rotate_toward", "round", "roundf",
+    "roundi", "seed", "sign", "signf", "signi", "sin", "sinh", "smoothstep",
+    "snapped", "snappedf", "snappedi", "sqrt", "step_decimals", "str",
+    "str_to_var", "super", "tan", "tanh", "type_convert", "type_string",
+    "typeof", "var_to_bytes", "var_to_str", "weakref", "wrap", "wrapf",
+    "wrapi", "int", "float", "bool", "len", "randf_range", "randi_range",
+    "func", "await", "signal", "static", "class", "enum", "match",
+    "if", "elif", "else", "for", "while", "return", "and", "or", "not", "in",
+    "is", "as", "pass", "break", "continue", "breakpoint", "void",
+}
+
 GD_BUILTINS = {
     "Array", "Dictionary", "String", "StringName", "NodePath", "Variant",
     "int", "float", "bool", "Vector2", "Vector2i", "Vector3", "Rect2",
@@ -260,6 +289,29 @@ def scan(path):
             if const not in all_members(cls):
                 add(rel, i, "NO-CONSTANT",
                     "%s.%s does not exist in Godot %s" % (cls, const, REF))
+
+    # Bare calls (implicit self) must exist on this script or its base chain.
+    m = re.search(r"^extends\s+([A-Z]\w*)", src, re.M)
+    self_base = m.group(1) if m else "RefCounted"
+    self_members = set(re.findall(r"^(?:static\s+)?func\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^var\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^const\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^signal\s+(\w+)", src, re.M))
+    for cls in own_classes:
+        self_members.add(cls)
+    base_members = all_members(self_base) if fetch_doc(self_base) else set()
+    if base_members:
+        for i, raw in enumerate(lines, 1):
+            code = re.sub(r'"(?:[^"\\]|\\.)*"', '""', raw).split("#", 1)[0]
+            code = re.sub(r"\$\w+", "", code)          # $Path node shorthand
+            for name in re.findall(r"(?<![.\w$])([a-z_]\w*)\s*\(", code):
+                if (name in self_members or name in base_members
+                        or name in GD_GLOBALS):
+                    continue
+                add(rel, i, "UNKNOWN-CALL",
+                    "%s() is not a method of this script, of %s, or a GDScript "
+                    "global — this is a parse error, not a warning"
+                    % (name, self_base))
 
     # NATIVE_METHOD_OVERRIDE: a script method shadowing a native one with a
     # different signature is ERROR-level, so it breaks the export outright.
