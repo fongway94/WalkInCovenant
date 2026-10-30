@@ -4,7 +4,8 @@ Written before touching the code, then kept up to date as the work was done.
 Rule 9a of the playtest: **inspect and report before rebuilding.** This is that
 report. Nothing below claims a fix that CI has not run.
 
-Live build: <https://fongway94.github.io/WalkInCovenant/> — run `41094937423`, green.
+Live build: <https://fongway94.github.io/WalkInCovenant/> — run `41098564743`, green
+(lint → export → deploy all succeeded).
 
 ---
 
@@ -54,7 +55,26 @@ brook, the altar, the olives, a man mending his tent — one sentence each, once
 ever, never listed anywhere. They are found, not handed over. `008791d`
 `8dea4f8` fixed the two that were standing inside props.
 
-## 3. Things found during the inspection that you had not reported
+## 3. Scripture, corrected
+
+The inspection turned up three word cards that were wrong in ways a reader would
+catch, and they are the most important fix in this pass:
+
+| Card | Was | Now |
+|---|---|---|
+| `fear` | cited **Exodus 14:13**, carried a Chinese sentence from no edition | **Deuteronomy 20:3**, 和合本 + KJV, both languages the same scope (`8e63816`) |
+| `name` | 刀枪和盾牌 | 刀枪和铜戟 — 和合本 1 Samuel 17:45, KJV whole verse |
+| `look` | KJV fragment against a different Chinese scope | both trimmed to the same clause of 1 Samuel 16:7 |
+
+The boy in the camp quotes Deuteronomy 20:3 out loud, so his speech was rewritten
+to the same words (split across two boxes at a comma — presentation, not an
+edit) and he now names the book in his own mouth: 「这是《申命记》二十章三节。」
+Every quoted line in the game carries its reference.
+
+`check_text_fit` now skips `words[]` — a word card is a scrolling card, not a
+dialogue line — while still checking every quotation somebody speaks.
+
+## 3b. Things found during the inspection that you had not reported
 
 - The `≡` journal button was 22×14 px — under the thumb target. Now 28×18 (`942a0da`).
 - Curio tiles could sit inside solid props, and two curio tiles shared a pickups
@@ -62,6 +82,17 @@ ever, never listed anywhere. They are found, not handed over. `008791d`
   now checked in `run_all`, and the test clears the box first.
 - `run_all`'s curio validation compared a string to an object and would have
   passed a curio with a broken label. Fixed before it shipped a bad line.
+- **Reloading after the win lost the chapter** (`090072b`): boot state came from
+  the prologue only, so a refresh put you back in `Act.WITNESS` with a dead
+  giant and Corin's ending unreachable. `Main._resume_story()` reads the save
+  first and boots into the aftermath or into free roam.
+- **Only Corin had a second thing to say** after the battle (`91620a5`). The boy,
+  the woman and the elder now answer differently, all of it grounded in 1 Samuel
+  17:16, 17:52 and 17:54.
+- **The caption was missing from the cinematic list** (`80cfe64`). The brief asks
+  for objective → event → camera → sound → caption → fade; everything existed
+  except the caption, so the valley was never named on screen. `PlaceCard` reads
+  `name`/`sub` from the region file, so a new campaign is captioned by its author.
 
 ## 4. What is deliberately *not* done
 
