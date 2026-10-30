@@ -123,15 +123,19 @@ func _run() -> void:
 		print("  diag  font: data=%d bytes, supported=%d chars"
 				% [face.data.size(), supported.length()])
 		_check(face.data.size() > 70000, "the font carries its glyph data")
-		# get_supported_chars()/has_char() walk the freetype cmap when the
-		# render path is warm, but a cold headless boot can answer from the
-		# glyphs shaped so far — one run knew 谷 (seen in the briefing) yet
-		# denied 石 (not yet drawn). So the table is asserted only when it IS
-		# the whole table; the diag line above says which world this was.
+		# has_char() has now lied twice under headless CI while every byte of
+		# the font says otherwise (one run knew 谷 but denied 石; the next
+		# denied both while get_supported_chars() walked the full 482-char
+		# cmap in the same breath). So: print every input, assert on the char
+		# table itself, and treat has_char as diagnostic until it stops
+		# contradicting the table.
+		var gu: int = "谷".to_utf32_buffer()[0]
+		var shi: int = "石".to_utf32_buffer()[0]
+		print("  diag  font: gu=%d shi=%d has_char=%s/%s table=%s/%s"
+				% [gu, shi, str(face.has_char(gu)), str(face.has_char(shi)),
+					str(supported.contains("谷")), str(supported.contains("石"))])
 		if supported.length() >= 400:
-			var gu: int = "谷".to_utf32_buffer()[0]
-			var shi: int = "石".to_utf32_buffer()[0]
-			_check(bool(face.has_char(gu)) and bool(face.has_char(shi)),
+			_check(supported.contains("谷") and supported.contains("石"),
 					"the font's char table carries hanzi")
 	_check(ThemeDB.fallback_font != null, "ThemeDB has a fallback font registered")
 	if ThemeDB.fallback_font != null:
