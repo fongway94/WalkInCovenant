@@ -10,7 +10,9 @@
     "The pack is the base layer, not the whole wardrobe: keys absent from this",
     "file keep their generated art from tools/artgen/. That is deliberate — the",
     "pack has no tent, no jar of the right shape and no fire, and the generated",
-    "versions of those are already readable."
+    "versions of those are already readable.",
+    "mud is DELIBERATELY not from the pack: its dirt tile has vertical grooves that line up into corduroy when tiled — the same rule ART.md §5.3b sets for our own tilesets applies to borrowed ones.",
+    "rocky/cliff are not from the pack yet: the rects I could reach are the wrong colour and the rock cells need their own pass."
   ],
   "terrain": {
     "grass": [

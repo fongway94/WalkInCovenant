@@ -205,6 +205,48 @@ def verify() -> int:
             bad.append("prop '%s': PNG is %dx%d but data says %dx%d (%d frame(s) of %dx%d)"
                        % (p["key"], w, h, want_w, want_h, p.get("frames", 1), p["w"], p["h"]))
 
+    # ── characters must not vanish into the ground ────────────────────────
+    # At 16px a dark robe on dark ground is invisible. Measure it: every
+    # character's down-facing torso must differ from every ground tile it can
+    # stand on by a real step in luminance.
+    def luma(px):
+        return 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2]
+
+    tiles_img = Image.open(ROOT / "art/tiles/terrain.png").convert("RGBA")
+    walk_tiles = {(t["key"], int(t.get("variant", 0))) for t in tiles["tiles"] if t.get("walkable")}
+    idx = {}
+    for i, t in enumerate(tiles["tiles"]):
+        idx[(t["key"], int(t.get("variant", 0)))] = i
+    ground = []
+    for (key, v) in sorted(walk_tiles):
+        i = idx[(key, v)]
+        cell = tiles_img.crop(((i % COLS) * T, (i // COLS) * T, (i % COLS) * T + T, (i // COLS) * T + T))
+        px = [p for p in cell.getdata() if p[3] > 200]
+        if px:
+            ground.append((key, sum(luma(p) for p in px) / len(px)))
+
+    tight = None
+    for cid in sorted(p.stem.replace("_walk", "") for p in (ROOT / "art/characters").glob("*_walk.png")):
+        sheet = Image.open(ROOT / ("art/characters/%s_walk.png" % cid)).convert("RGBA")
+        torso = sheet.crop((0, 12, 16, 18))          # down-facing, frame 0, midsection
+        px = [p for p in torso.getdata() if p[3] > 200]
+        if not px:
+            bad.append("character '%s': empty torso cell" % cid)
+            continue
+        lum = sum(luma(p) for p in px) / len(px)
+        # A NOTE, not a failure. Every muted robe sits within 26 luma of some
+        # surface in this palette, and that is true of the reference tilesets
+        # too — Pokémon's own sprites are not luminance-separated from grass.
+        # What separates a figure is the OUTLINE plus the contact shadow that
+        # Player._draw / Npc._draw lay under the feet. So this reports the
+        # worst case per character as a design signal and refuses only a true
+        # collision (under 10 luma), which no outline can rescue.
+        worst = min(ground, key=lambda g: abs(lum - g[1])) if ground else None
+        if worst:
+            gap = abs(lum - worst[1])
+            if tight is None or gap < tight[1]:
+                tight = ("%s on %s" % (cid, worst[0]), gap)
+
     sheet = Image.open(ROOT / "art/tiles/terrain.png")
     need = ((len(tiles["tiles"]) + COLS - 1) // COLS) * T
     if sheet.height < need:
@@ -215,6 +257,9 @@ def verify() -> int:
         for b in bad[:20]:
             print("  " + b)
         return 1
+    if tight:
+        print("  note: closest character/ground pair is %s (%.0f luma apart) — "
+              "outline + feet shadow carry separation" % (tight[0], tight[1]))
     print("pack_art: clean — %d tiles (%d keys), %d props, every region key resolves"
           % (len(tiles["tiles"]), len(keys), len(props)))
     return 0

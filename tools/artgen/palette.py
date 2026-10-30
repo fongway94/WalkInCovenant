@@ -70,7 +70,10 @@ RAMPS = {
     "robe_david": ["#7a4028","#945232","#ae6640","#c87e50","#e09a68"],
     "robe_elder": ["#3a4a5c","#4c5e72","#607488","#768a9e","#8ea2b4"],
     "robe_giant": ["#4a3a28","#5e4c34","#746042","#8a7452","#a28a64"],
-    "robe_priest":  ["#8a8578", "#a8a294", "#c4beb0", "#ddd8cc", "#f0ece4"],
+    # dark enough to stand on stone: at the old #ddd8cc this robe measured 144
+    # luma against a stone floor at 145 and vanished entirely (found by the
+    # character/ground check in tools/pack_art.py)
+    "robe_priest":  ["#6e6a5e", "#8a8578", "#a6a094", "#c0bbae", "#d8d3c6"],
     "robe_pharisee": ["#2a3c66","#385080","#48649a","#5a7ab4","#7092cc"],
 
     "hair_dark": ["#20242c","#2c323c","#3a424e","#4a5460"],

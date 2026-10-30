@@ -36,7 +36,22 @@ SIDE_ARM = [1, 0, -1, 0]
 
 
 def _figure(dir_, frame, s):
-    """Draw one frame of one direction. `s` is a character spec (see CHARS)."""
+    """Draw one frame of one direction. `s` is a character spec (see CHARS).
+
+    Anatomy, in a 16×24 cell (feet on the bottom row, outline drawn last):
+
+        y  0-8   head      8 wide (10 for a giant) — big head, GBA chibi read
+        y  9-10  neck + shoulders
+        y 11-17  torso: shoulders 10 → waist 8 → hem flare, with fold lines
+        y 18-21  two legs, 3 wide each, 1px apart, striding with the frame
+        y 22-23  sandals + outline
+
+    The old version drew a rectangular head on a rectangular torso and read as
+    two stacked boxes — that is the "low quality" feel the reference screenshots
+    were being compared against. Shape is what carries quality at 16px: a
+    corner-cut head, a shoulder slope, a waist, separated legs, and three tones
+    per material with light from the top left.
+    """
     cv = Canvas(CHAR_W, CHAR_H)
     bob = BOB[frame] if s.get("bob", True) else 0
 
@@ -44,162 +59,189 @@ def _figure(dir_, frame, s):
     trim = s.get("trim", "gold")
     big = s.get("big", False)
 
-    # vertical extents; a "big" character (Goliath) is drawn at the same cell
-    # but fills more of it, which is how he reads as huge without a new system.
-    top = 0 if big else 3
-    head_h = 7 if big else 6
-    head_w = 8 if big else 6
-    body_top = top + head_h + (0 if big else 1)
-    body_bot = CHAR_H - 4          # feet occupy the last 4 rows
-    cx = CHAR_W // 2
-
     R = lambda i: c(robe, i)
     S = lambda i: c(skin, i)
     H = lambda i: c(hair, i)
+    T = lambda i: c(trim, i) if trim in ramp_names() else R(3)
 
-    def head(oy):
-        """Head + hair/headcloth/helm. Returns the y the neck starts at."""
-        hx = cx - head_w // 2
-        hy = oy
-        # hair or headcloth crown first
-        cv.rect(hx, hy, head_w, 2, H(2))
-        cv.hline(hx, hy, head_w, H(3))
-        cv.px(hx, hy + 1, H(1)); cv.px(hx + head_w - 1, hy + 1, H(1))
-        if s.get("helm"):
-            cv.rect(hx, hy - 0, head_w, 2, c("bronze", 3))
-            cv.hline(hx, hy, head_w, c("bronze", 4))
-            cv.px(cx, hy - 1, c("bronze", 4))
-        if s.get("headcloth"):
-            # A cloth that falls past the shoulders — the strongest "ancient
-            # Near East" silhouette cue at this size. Draped as a top band and
-            # two side columns ONLY: a full rectangle over the head box is what
-            # turned every hooded character into a slab in the first playtest.
-            cv.hline(hx - 1, hy, head_w + 2, c("linen", 4))
-            cv.vline(hx - 1, hy + 1, head_h - 1, c("linen", 2))
-            cv.vline(hx + head_w, hy + 1, head_h - 1, c("linen", 2))
-        # face — hair frames the temples so the crown doesn't read as a hat,
-        # and the eyes sit at the MID of the face, not under the hairline
-        fy = hy + 2
-        eye = c("hair_dark", 0)
-        if dir_ == "up":
-            cv.rect(hx, fy, head_w, head_h - 2, H(2))       # back of the head
-            cv.vline(hx, fy, head_h - 2, H(3)); cv.vline(hx + head_w - 1, fy, head_h - 2, H(1))
-            cv.hline(hx, fy + head_h - 3, head_w, H(1))
+    cx = CHAR_W // 2                     # 8
+    hw = 5 if big else 4                 # head half-width → 10 or 8 wide
+    top = 0 if big else 1
+    head_h = 10 if big else 9
+    head_bot = top + head_h - 1
+    face_top = top + 3
+    look = {"down": 0, "up": 0, "left": -1, "right": 1}.get(dir_, 0)
+    bob = bob if dir_ in ("down", "up") else 0
+
+    def span(y, w, col, lit=True, shad=True):
+        """One body row: centred, with a lit left column and a shadow right one."""
+        x0 = cx - w // 2
+        cv.hline(x0, y, w, col)
+        if lit:
+            cv.px(x0, y, R(3) if col != S(2) else S(4))
+        if shad and w > 2:
+            cv.px(x0 + w - 1, y, R(0) if col != S(2) else S(1))
+
+    # ── head ──────────────────────────────────────────────────────────────
+    hy = top + bob
+    # crown of hair or cloth, corners cut so the skull is not a brick
+    cv.hline(cx - hw + 1, hy, hw * 2 - 2, H(2) if not s.get("headcloth") else c("linen", 3))
+    cv.hline(cx - hw, hy + 1, hw * 2, H(2) if not s.get("headcloth") else c("linen", 3))
+    cv.px(cx - hw, hy + 1, H(3)); cv.px(cx + hw - 1, hy + 1, H(1))
+
+    if s.get("helm"):
+        cv.hline(cx - hw + 1, hy, hw * 2 - 2, c("bronze", 4))
+        cv.hline(cx - hw, hy + 1, hw * 2, c("bronze", 3))
+        cv.px(cx - hw + 1, hy + 1, c("bronze", 4))
+        cv.px(cx, hy - 1, c("bronze", 4))                 # crest nub
+        cv.px(cx, hy + 2, c("bronze", 2))                 # brow band
+
+    if s.get("headcloth"):
+        # a drape that falls past the ears and stops at the shoulders: the
+        # strongest ancient-Near-East cue at this size
+        cv.hline(cx - hw, hy + 2, hw * 2, c("linen", 2))
+        cv.vline(cx - hw, hy + 2, 4, c("linen", 2))
+        cv.vline(cx + hw - 1, hy + 2, 4, c("linen", 1))
+        cv.px(cx - hw, hy + 2, c("linen", 4))             # lit fold
+        cv.px(cx - hw + 1, hy + 5, c("linen", 1))         # shade under the fold
+
+    # face block
+    for y in range(face_top + bob, head_bot + bob):
+        w = hw * 2 - (2 if y >= head_bot + bob - 1 else 0)   # chin narrows
+        cv.hline(cx - w // 2, y, w, S(3))
+    cv.hline(cx - hw + 1, face_top + bob, hw * 2 - 2, S(4))   # lit brow
+    cv.px(cx - hw + 1, face_top + bob, H(2))
+    cv.px(cx + hw - 2, face_top + bob, H(2))                  # temples
+
+    ey = face_top + 2 + bob
+    if dir_ == "up":
+        cv.hline(cx - hw, face_top + bob, hw * 2, H(2))       # back of the head
+        cv.hline(cx - hw + 1, ey, hw * 2 - 2, H(1))
+        cv.vline(cx - hw, face_top + bob, head_h - 3, H(3))
+        cv.vline(cx + hw - 1, face_top + bob, head_h - 3, H(1))
+    else:
+        e1 = cx - 2 + (1 if dir_ == "right" else 0)
+        e2 = cx + 1 + (1 if dir_ == "right" else 0)
+        if dir_ == "down":
+            cv.px(e1, ey, c("hair_dark", 0)); cv.px(e2, ey, c("hair_dark", 0))
+            cv.hline(cx - 1, ey + 2, 2, S(2))                 # mouth shadow
+        elif dir_ == "right":
+            cv.px(cx + 2, ey, c("hair_dark", 0))
+            cv.px(cx + hw - 1, ey, S(4))                      # nose
+            cv.px(cx + 1, ey + 2, S(2))
         else:
-            cv.rect(hx, fy, head_w, head_h - 2, S(3))
-            cv.hline(hx, fy, head_w, S(4))                   # lit brow
-            cv.px(hx, fy, H(2)); cv.px(hx + head_w - 1, fy, H(2))     # temples
-            cv.px(hx, fy + 1, S(2)); cv.px(hx + head_w - 1, fy + 1, S(2))
-            ey = fy + 2
-            if dir_ == "down":
-                cv.px(hx + 2, ey, eye); cv.px(hx + head_w - 3, ey, eye)
-                cv.hline(hx + 2, ey + 2, head_w - 4, S(2))   # mouth shadow
-                if s.get("beard"):
-                    cv.rect(hx + 1, ey + 1, head_w - 2, 3, H(2))
-                    cv.hline(hx + 1, ey + 3, head_w - 2, H(1))
-                    cv.px(hx + 2, ey, eye); cv.px(hx + head_w - 3, ey, eye)
-            elif dir_ == "right":
-                cv.px(hx + head_w - 2, ey, eye)
-                cv.px(hx + head_w - 1, ey + 1, S(4))          # nose
-                if s.get("beard"):
-                    cv.rect(hx + head_w - 3, ey + 1, 3, 3, H(2))
-            elif dir_ == "left":
-                cv.px(hx + 1, ey, eye)
-                cv.px(hx, ey + 1, S(4))                       # nose
-                if s.get("beard"):
-                    cv.rect(hx, ey + 1, 3, 3, H(2))
-        if s.get("veil"):
-            cv.rect(hx - 1, hy, head_w + 2, head_h + 1, S(2))
-            cv.hline(hx - 1, hy, head_w + 2, S(3))
-            cv.vline(hx - 1, hy, head_h + 1, S(1)); cv.vline(hx + head_w, hy, head_h + 1, S(1))
-            # face opening
-            cv.rect(hx + 1, fy, head_w - 2, head_h - 3, S(4))
-            cv.px(hx + 2, fy + 1, c("hair_dark", 0)); cv.px(hx + head_w - 3, fy + 1, c("hair_dark", 0))
-        return fy + head_h - 2
+            cv.px(cx - 3, ey, c("hair_dark", 0))
+            cv.px(cx - hw, ey, S(4))                          # nose
+            cv.px(cx - 2, ey + 2, S(2))
+        if s.get("beard"):
+            bw = hw * 2 - 2
+            cv.hline(cx - bw // 2, ey + 1, bw, H(2))
+            cv.hline(cx - bw // 2 + 1, ey + 3, bw - 2, H(1))
+            cv.px(cx - bw // 2 + 1, ey + 1, H(3))
 
-    w_top = head_w + 1              # shoulders wider than the head: reads as a person
-    w_bot = head_w + 4              # robe flares to the hem
+    if s.get("veil"):
+        cv.hline(cx - hw, hy + 2, hw * 2, S(2))
+        cv.vline(cx - hw, hy + 2, 5, S(2))
+        cv.vline(cx + hw - 1, hy + 2, 5, S(1))
+        cv.hline(cx - hw + 1, hy + 3, hw * 2 - 2, S(4))
+        cv.px(cx - 2, ey, c("hair_dark", 0)); cv.px(cx + 1, ey, c("hair_dark", 0))
 
-    def body(oy):
-        """Robe: narrow at shoulders, flaring to the hem. Light from top-left."""
-        rows = body_bot - oy
-        for i in range(rows):
-            t = i / max(1, rows - 1)
-            w = int(w_top + (w_bot - w_top) * t)
-            if 2 <= i <= 3:
-                w -= 1          # the waist: without it the robe is a traffic cone
-            x0 = cx - w // 2
-            # row 0 is the neck shadow: without it the head fuses into the
-            # torso and the figure reads as two stacked boxes
-            col = c("cliff", 0) if i == 0 else (R(2) if i < rows * 0.5 else R(1))
-            cv.hline(x0, oy + i, w, col)
-            # lit left edge, shadowed right edge — the whole figure's form light
-            cv.px(x0, oy + i, R(3))
-            cv.px(x0 + w - 1, oy + i, R(0))
-        # belt / sash
-        cv.hline(cx - w_top // 2 - 1, oy + 2, w_top + 2, c(trim, 2) if trim in ramp_names() else R(3))
-        # hem highlight so the robe doesn't melt into the ground
-        cv.hline(cx - w_bot // 2, body_bot - 1, w_bot, R(3))
-        return w_bot
+    # ── neck + torso ──────────────────────────────────────────────────────
+    ny = head_bot + bob
+    cv.hline(cx - 2, ny, 4, S(2))                             # neck in shade
+    cv.hline(cx - 2, ny + 1, 4, S(1))
 
-    def feet(w_bot, frame):
-        # Legs, not pixels: two-wide columns with a sandal row, striding on the
-        # frame offsets. Single-pixel feet were invisible at 1x, so the walk
-        # cycle had nothing to show and the figures looked like they slid.
-        y = CHAR_H - 4
-        if dir_ in ("down", "up"):
-            (nx, ny), (fx, fy) = FRONT_FEET[frame]
-            cv.rect(cx - 3 + nx, y + ny - 1, 2, 3, R(0))
-            cv.rect(cx + 1 + fx, y + fy - 1, 2, 3, R(0))
-            cv.hline(cx - 3 + nx, y + ny + 2, 2, c("wood", 1))
-            cv.hline(cx + 1 + fx, y + fy + 2, 2, c("wood", 1))
+    body_top = ny + 2
+    hem = CHAR_H - 6                                          # last robe row
+    rows = hem - body_top + 1
+    for i in range(rows):
+        t = i / max(1, rows - 1)
+        w = 10 if big else 9
+        if i == 0:
+            w -= 2                                            # shoulder slope
+        elif i <= 2:
+            w = 10 if big else 9
+        elif t < 0.55:
+            w = 9 if big else 8                               # waist
         else:
-            (nx, ny), (fx, fy) = SIDE_FEET[frame]
-            cv.rect(cx - 1 + nx, y + ny - 1, 2, 3, R(0))
-            cv.rect(cx - 1 + fx, y + fy - 1, 2, 3, R(1))
-            cv.hline(cx - 1 + nx, y + ny + 2, 2, c("wood", 1))
-            cv.hline(cx - 1 + fx, y + fy + 2, 2, c("wood", 0))
+            w = 11 if big else 10                             # hem flare
+        span(body_top + i, w, R(2) if t < 0.6 else R(1))
 
-    def arms(oy):
-        """Arms hang OUTSIDE the robe silhouette with a bare hand at the end.
-        Drawn inside the body edge they vanish into the outline and the figure
-        reads as a vending machine."""
-        y = oy + 2 + SIDE_ARM[frame] if dir_ in ("left", "right") else oy + 3
-        ax_l = cx - w_top // 2 - 1
-        ax_r = cx + w_top // 2
+    # robe folds: two darker columns break the slab without adding noise
+    for fx in (-2, 2):
+        cv.vline(cx + fx, body_top + 1, rows - 2, R(1))
+    if not big:
+        cv.vline(cx - 3, body_top + 2, rows - 4, R(3))        # lit placket
+
+    # belt / sash
+    belt_y = body_top + min(3, rows - 2)
+    cv.hline(cx - 4, belt_y, 8, T(2))
+    cv.px(cx - 4, belt_y, T(3))
+    cv.px(cx + 3, belt_y, T(1))
+    cv.px(cx + 1, belt_y + 1, T(2))                           # knot tail
+
+    # hem shadow so the robe does not melt into the ground
+    cv.hline(cx - 5, hem, 10, R(3))
+
+    # ── arms ──────────────────────────────────────────────────────────────
+    # outside the torso silhouette, sleeve then hand; the near arm swings
+    swing = SIDE_ARM[frame] if dir_ in ("left", "right") else 0
+    ay = body_top + 1
+    if dir_ in ("down", "up"):
+        for side in (-1, 1):
+            ax = cx + side * 5
+            cv.vline(ax, ay + (0 if side < 0 else 0), 4, R(2))
+            cv.px(ax, ay, R(3) if side < 0 else R(1))
+            cv.px(ax, ay + 4, S(3) if side < 0 else S(2))     # hand
+    else:
+        ax = cx + (2 if dir_ == "right" else -3)
+        cv.vline(ax, ay + swing, 4, R(3) if dir_ == "right" else R(2))
+        cv.px(ax, ay + 4 + swing, S(3))
+
+    # ── legs ──────────────────────────────────────────────────────────────
+    ly = hem + 1
+    if dir_ in ("down", "up"):
+        (nx, ny2), (fx, fy) = FRONT_FEET[frame]
+        # 3px legs with a 1px gap: at 2px the legs read as sticks, and a chibi
+        # reads as chibi because the LIMBS are chunky, not because the head is big
+        for dx, dy, shade in ((-3 + nx, ny2, 2), (1 + fx, fy, 1)):
+            x = cx + dx
+            inner = CHAR_H - dy - ly - 2
+            cv.rect(x, ly + dy, 3, inner, R(shade))
+            cv.vline(x, ly + dy, inner, R(shade + 1))
+            cv.vline(x + 2, ly + dy, inner, R(shade - 1))
+            cv.hline(x, CHAR_H - 3, 3, c("wood", 2))          # sandal
+            cv.px(x, CHAR_H - 3, c("wood", 3))
+    else:
+        (nx, ny2), (fx, fy) = SIDE_FEET[frame]
+        far_x = cx - 2 + fx
+        near_x = cx + nx
+        for x, dy, col in ((far_x, fy, R(1)), (near_x, ny2, R(2))):
+            inner = CHAR_H - dy - ly - 2
+            cv.rect(x, ly + dy, 3, inner, col)
+            cv.hline(x, CHAR_H - 3, 3, c("wood", 2 if col == R(2) else 1))
+            cv.px(x + 2, CHAR_H - 3, c("wood", 1))
+
+    # ── carried things ────────────────────────────────────────────────────
+    if s.get("staff"):
+        sx = cx + 6 if dir_ == "right" else cx - 7
+        cv.vline(sx, top + 2, CHAR_H - top - 4, c("wood", 2))
+        cv.px(sx, top + 2, c("wood", 4))
+        cv.px(sx, top + 3, c("wood", 3))
+    if s.get("sling") and dir_ != "up":
+        lx = c("wood", 2)
         if dir_ == "right":
-            cv.vline(ax_r, y, 4, R(3)); cv.px(ax_r, y + 4, S(3))
+            cv.line(cx - 4, body_top, cx + 4, body_top + 4, lx)
         elif dir_ == "left":
-            cv.vline(ax_l, y, 4, R(3)); cv.px(ax_l, y + 4, S(3))
-        elif dir_ == "down":
-            cv.vline(ax_l, y, 4, R(3)); cv.px(ax_l, y + 4, S(3))
-            cv.vline(ax_r, y, 4, R(0)); cv.px(ax_r, y + 4, S(2))
-        if s.get("staff") and dir_ != "up":
-            sx = cx + head_w // 2 + 2 if dir_ == "right" else cx - head_w // 2 - 3
-            cv.vline(sx, top + 2, CHAR_H - top - 5, c("wood", 3))
-            cv.px(sx, top + 2, c("wood", 4))
-        if s.get("sling") and dir_ != "up":
-            # a leather strap across the chest, shoulder to opposite hip, with
-            # the pouch at the belt. A diagonal strap reads as "carries a sling"
-            # at 16px; a loose line off the shoulder reads as a rendering bug.
-            lx = c("wood", 2)
-            if dir_ == "right":
-                cv.line(cx - w_top // 2 + 1, oy, cx + w_top // 2, oy + 4, lx)
-            elif dir_ == "left":
-                cv.line(cx + w_top // 2, oy, cx - w_top // 2 + 1, oy + 4, lx)
-            else:
-                cv.line(cx - w_top // 2 + 1, oy, cx + 1, oy + 4, lx)
-                cv.px(cx + 1, oy + 4, c("wood", 3))          # the pouch
-        if s.get("scroll") and dir_ in ("down", "left"):
-            cv.rect(cx - head_w // 2 - 3, oy + 3, 2, 5, c("linen", 4))
-            cv.px(cx - head_w // 2 - 3, oy + 3, c("linen", 5))
-            cv.px(cx - head_w // 2 - 3, oy + 7, c("linen", 5))
-
-    head_bottom = head(top + 1 - bob)
-    body_top2 = max(body_top, head_bottom)
-    w_bot = body(body_top2 - bob)
-    feet(w_bot, frame)
-    arms(body_top2 - bob)
+            cv.line(cx + 4, body_top, cx - 4, body_top + 4, lx)
+        else:
+            cv.line(cx - 4, body_top, cx + 2, body_top + 4, lx)
+            cv.px(cx + 2, body_top + 5, c("wood", 3))          # pouch
+    if s.get("scroll") and dir_ in ("down", "left"):
+        sx = cx - 7
+        cv.rect(sx, body_top + 2, 2, 5, c("linen", 4))
+        cv.px(sx, body_top + 2, c("linen", 5))
+        cv.px(sx, body_top + 6, c("linen", 5))
 
     cv.outline()
     return cv

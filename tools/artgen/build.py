@@ -122,6 +122,28 @@ def build_props(preview=False):
 GROUPS = {"terrain": build_terrain, "chars": build_chars, "props": build_props}
 
 
+def apply_pack() -> bool:
+    """Stamp the vendored CC0 pack over the generated base. Import-safe.
+
+    tools/pack_art.py owns which pixel rectangle serves which key; this only
+    calls it at the right moment. Returns False when the pack is not vendored,
+    which is a normal state for a fresh clone without the sheets.
+    """
+    try:
+        from .. import pack_art
+    except Exception:
+        return False
+    try:
+        sheets = pack_art.load_sheets()
+        man = pack_art.manifest()
+        pack_art.build_terrain(sheets, man, False)
+        pack_art.build_props(sheets, man, False)
+        return True
+    except SystemExit as exc:
+        print("pack       skipped: %s" % exc)
+        return False
+
+
 def main(argv):
     preview = "--preview" in argv
     args = [a for a in argv if not a.startswith("--")]
@@ -135,6 +157,11 @@ def main(argv):
             print("%-10s %s" % (name, " ".join(str(r) for r in res)))
         else:
             print("%-10s %s file(s)" % (name, res))
+    # The pack overlay goes LAST, always. Running artgen after pack_art was a
+    # trap worth removing by construction: the generator rewrites
+    # art/tiles/terrain.png wholesale, silently reverting every pack tile.
+    if not apply_pack():
+        print("pack       not applied (art/pack missing? see tools/pack_art.py)")
     print("\nwrote into %s" % ART)
     if preview:
         print("previews   %s" % _out("_preview"))
