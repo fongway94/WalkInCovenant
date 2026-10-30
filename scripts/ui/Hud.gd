@@ -90,7 +90,7 @@ func _build() -> void:
 	# person's name), and an unbounded Label at 320 px simply ran off the screen.
 	objective_lbl.offset_right = -30
 	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_lbl.offset_top = 16
+	objective_lbl.offset_top = 20
 	objective_lbl.add_theme_font_size_override("font_size", 8)
 	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
 	objective_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
@@ -103,10 +103,12 @@ func _build() -> void:
 	journal_btn = Button.new()
 	journal_btn.text = "≡"
 	journal_btn.add_theme_font_size_override("font_size", 9)
-	journal_btn.offset_left = 4
-	journal_btn.offset_top = 1
-	journal_btn.offset_right = 26
-	journal_btn.offset_bottom = 15
+	# 28x18 is the smallest thing a thumb reliably hits; it sits above the
+	# objective line, which starts at y=16.
+	journal_btn.offset_left = 2
+	journal_btn.offset_top = 0
+	journal_btn.offset_right = 30
+	journal_btn.offset_bottom = 18
 	journal_btn.flat = true
 	journal_btn.focus_mode = Control.FOCUS_NONE
 	journal_btn.pressed.connect(func(): journal_requested.emit())
