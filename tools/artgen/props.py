@@ -153,13 +153,26 @@ def millstone(seed=11):
 
 # ── shelter ─────────────────────────────────────────────────────────────
 def tent(seed=12):
-    """Goat-hair tent: dark, low, with a lit doorway and guy ropes."""
-    cv = Canvas(24, 16)
-    cv.tri(2, 15, 12, 3, 22, 15, c("wood", 1))
-    cv.line(2, 15, 12, 3, c("wood", 3)); cv.line(12, 3, 22, 15, c("wood", 2))
-    cv.tri(9, 15, 12, 8, 15, 15, c("cliff", 0))            # doorway shadow
-    cv.px(12, 12, c("gold", 3)); cv.px(11, 13, c("gold", 2))   # firelight inside
-    cv.line(2, 15, 0, 15, c("wool", 2)); cv.line(22, 15, 23, 15, c("wool", 2))
+    """Goat-hair tent: low, wide, lit doorway, guy ropes.
+
+    The pack has no tent, so this stays generated — which means it has to sit
+    NEXT TO pack art without looking pasted on. The first attempt was a dark
+    navy triangle, and beside the village sheet's warm tan-and-green it read as
+    a hole in the ground. Canvas and rope now come from the pack's own warm
+    range (linen 0-3 for cloth, wood 0-2 for rope), with the lit doorway kept.
+    """
+    cv = Canvas(26, 18)
+    # canvas body, lit from the left like every pack sprite
+    cv.tri(2, 17, 13, 3, 24, 17, c("wool", 1))             # goat-hair canvas
+    cv.tri(2, 17, 13, 3, 13, 17, c("wool", 2))             # sunlit half
+    cv.line(2, 17, 13, 3, c("linen", 3)); cv.line(13, 3, 24, 17, c("wool", 0))
+    cv.hline(3, 16, 20, c("wool", 0))                      # ground hem
+    # doorway: warm interior, never black (black reads as a missing sprite)
+    cv.tri(9, 17, 13, 9, 17, 17, c("wood", 1))
+    cv.px(13, 14, c("gold", 3)); cv.px(12, 15, c("gold", 2)); cv.px(14, 15, c("gold", 2))
+    # rope + pegs
+    cv.line(2, 17, 0, 17, c("wood", 2)); cv.line(24, 17, 25, 17, c("wood", 2))
+    cv.px(13, 2, c("wood", 1))
     cv.outline(); cv.drop_shadow(); return cv
 
 

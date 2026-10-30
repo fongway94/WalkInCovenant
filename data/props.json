@@ -3,14 +3,15 @@
   {
    "key": "olive_tree",
    "frames": 1,
-   "w": 16,
-   "h": 26,
+   "w": 65,
+   "h": 49,
    "footprint": [
     1,
     1
    ],
    "solid": true,
-   "notes": "Gethsemane, the Mount of Olives"
+   "notes": "Gethsemane, the Mount of Olives",
+   "source": "ninja:village@0,95"
   },
   {
    "key": "palm_tree",
@@ -39,14 +40,15 @@
   {
    "key": "bush",
    "frames": 1,
-   "w": 16,
-   "h": 10,
+   "w": 35,
+   "h": 29,
    "footprint": [
     1,
     1
    ],
    "solid": false,
-   "notes": ""
+   "notes": "",
+   "source": "ninja:village@143,85"
   },
   {
    "key": "wheat_sheaf",
@@ -63,26 +65,28 @@
   {
    "key": "rock",
    "frames": 1,
-   "w": 16,
-   "h": 10,
+   "w": 34,
+   "h": 33,
    "footprint": [
     1,
     1
    ],
    "solid": true,
-   "notes": ""
+   "notes": "",
+   "source": "ninja:village@110,80"
   },
   {
    "key": "boulder",
    "frames": 1,
-   "w": 16,
-   "h": 14,
+   "w": 33,
+   "h": 31,
    "footprint": [
     1,
     1
    ],
    "solid": true,
-   "notes": ""
+   "notes": "",
+   "source": "ninja:village@129,47"
   },
   {
    "key": "altar_stones",
@@ -135,8 +139,8 @@
   {
    "key": "tent",
    "frames": 1,
-   "w": 24,
-   "h": 16,
+   "w": 26,
+   "h": 18,
    "footprint": [
     2,
     1
@@ -147,14 +151,15 @@
   {
    "key": "house",
    "frames": 1,
-   "w": 32,
-   "h": 32,
+   "w": 66,
+   "h": 83,
    "footprint": [
     2,
     2
    ],
    "solid": true,
-   "notes": "flat roof + external stair"
+   "notes": "flat roof + external stair",
+   "source": "ninja:village@190,95"
   },
   {
    "key": "column",
@@ -183,14 +188,15 @@
   {
    "key": "jar",
    "frames": 1,
-   "w": 8,
-   "h": 10,
+   "w": 18,
+   "h": 26,
    "footprint": [
     0,
     0
    ],
    "solid": false,
-   "notes": ""
+   "notes": "",
+   "source": "ninja:village@62,56"
   },
   {
    "key": "fire",

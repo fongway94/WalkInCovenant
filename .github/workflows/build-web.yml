@@ -85,7 +85,7 @@ jobs:
       # was only in the raw log, which this project's authoring sandbox cannot
       # reach — so a failure in CI was undiagnosable. One annotation of 3000
       # characters cannot be crowded out by GitHub's ~10-per-run cap.
-      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font)
+      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, pack_art)
         id: static
         continue-on-error: true
         env:
@@ -101,6 +101,16 @@ jobs:
             python3 "tools/$T.py" >> static.txt 2>&1
             echo "exit=$?" >> static.txt
           done
+          # pack_art needs Pillow, which the runner does not ship — try, and
+          # report clearly rather than failing the build on a missing wheel.
+          echo "===== pack_art =====" >> static.txt
+          if python3 -c "import PIL" 2>/dev/null; then
+            python3 tools/pack_art.py --check >> static.txt 2>&1
+            echo "exit=$?" >> static.txt
+          else
+            echo "skip: Pillow not installed on this runner (art is committed, layout is verified locally)" >> static.txt
+            echo "exit=0" >> static.txt
+          fi
           cat static.txt
           if grep -q "^exit=[^0]" static.txt; then
             exit 1

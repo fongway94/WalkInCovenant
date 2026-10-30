@@ -9,7 +9,8 @@
    "walkable": true,
    "note": "pasture, hills of Galilee",
    "sfx": "step_grass",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@176,192"
   },
   {
    "key": "grass",
@@ -18,7 +19,8 @@
    "walkable": true,
    "note": "pasture, hills of Galilee",
    "sfx": "step_grass",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@192,192"
   },
   {
    "key": "grass",
@@ -27,7 +29,8 @@
    "walkable": true,
    "note": "pasture, hills of Galilee",
    "sfx": "step_grass",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@208,192"
   },
   {
    "key": "grass",
@@ -36,7 +39,8 @@
    "walkable": true,
    "note": "pasture, hills of Galilee",
    "sfx": "step_grass",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@224,192"
   },
   {
    "key": "dark_grass",
@@ -63,7 +67,8 @@
    "walkable": true,
    "note": "dry earth, the Shephelah",
    "sfx": "step_dirt",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@32,176"
   },
   {
    "key": "dry",
@@ -72,7 +77,8 @@
    "walkable": true,
    "note": "dry earth, the Shephelah",
    "sfx": "step_dirt",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@48,176"
   },
   {
    "key": "dry",
@@ -81,7 +87,8 @@
    "walkable": true,
    "note": "dry earth, the Shephelah",
    "sfx": "step_dirt",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@32,192"
   },
   {
    "key": "dry",
@@ -90,7 +97,8 @@
    "walkable": true,
    "note": "dry earth, the Shephelah",
    "sfx": "step_dirt",
-   "speed": 1.0
+   "speed": 1.0,
+   "source": "ninja:floor@48,192"
   },
   {
    "key": "path",
@@ -99,7 +107,8 @@
    "walkable": true,
    "note": "trodden road — walk speed unchanged",
    "sfx": "step_dirt",
-   "speed": 1.05
+   "speed": 1.05,
+   "source": "ninja:floor@192,176"
   },
   {
    "key": "path",
@@ -108,7 +117,8 @@
    "walkable": true,
    "note": "trodden road — walk speed unchanged",
    "sfx": "step_dirt",
-   "speed": 1.05
+   "speed": 1.05,
+   "source": "ninja:floor@224,176"
   },
   {
    "key": "path",
@@ -117,7 +127,8 @@
    "walkable": true,
    "note": "trodden road — walk speed unchanged",
    "sfx": "step_dirt",
-   "speed": 1.05
+   "speed": 1.05,
+   "source": "ninja:floor@240,176"
   },
   {
    "key": "path",
@@ -126,7 +137,8 @@
    "walkable": true,
    "note": "trodden road — walk speed unchanged",
    "sfx": "step_dirt",
-   "speed": 1.05
+   "speed": 1.05,
+   "source": "ninja:floor@256,176"
   },
   {
    "key": "sand",

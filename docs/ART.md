@@ -208,6 +208,36 @@ no dithered transition between grass and dirt/path (isolated single tiles read
 as squares), trees are one silhouette rather than several, and characters have
 no faces at 16×24 beyond eye pixels.
 
+### 5.3c The Ninja Adventure pack is IN (CC0)
+
+The pack decision in §1 is no longer a plan. `art/pack/` vendors the author's own
+sheets from **github.com/pixel-boy/NinjaAdventure** (CC0, public domain), and
+`tools/pack_art.py` stamps cells from it over the procedural base:
+
+| Taken from the pack | Why |
+|---|---|
+| grass, dry earth, trodden road | The three surfaces 90 % of Elah's ground is made of. This alone changes the feel more than any other single change. |
+| olive tree, bush, rock, boulder, pot, house | The pack's trees have the scalloped canopy and root shadow that the generator could only approximate. |
+
+| Left alone (still generated) | Why |
+|---|---|
+| water, ford/shallow, marsh | The pack draws water as flat pools with a hard rim; the Elah brook needs a running ford. |
+| fig tree, palm, well, column, altar stones | Tried, and the rectangles clipped neighbouring sprites or read as ruins. They go back in once someone with eyes on the sheet writes exact rects. |
+| tent, fire, jar (single), wheat sheaf | The pack has no tent at all, and the rest are cheap to draw in its palette. |
+
+**The pack is a Japanese-setting pack.** Ground, foliage and rock port without
+dissonance; characters, buildings and weapons do not — the remake is the ancient
+Near East. That is the honest ceiling of what this pack can do for the project:
+a much better *landscape* under the same characters. Characters and architecture
+still need drawing (§7's checklist).
+
+Housekeeping: coordinates live in `tools/art_manifest.json`, one entry per key,
+with the pixel rectangle in the sheet. `tools/pack_art.py` refuses to place a
+cell that is less than 97 % opaque (that check caught an EMPTY cell being used
+as the road), refuses rectangles that run off a sheet, and preserves every
+hand-authored field in `data/tiles.json` and `data/props.json` — art only ever
+changes `w`/`h`/`source`.
+
 ### 5.4 Godot import settings (non-negotiable for pixel art)
 
 `project.godot` in this repo already sets these; documented here so you know why:
