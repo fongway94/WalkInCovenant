@@ -173,5 +173,7 @@ func _after_return() -> void:
 	GameState.gather_fruit("faithfulness")
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
-	# walk back down to the exact stone you were standing on
-	region.player.global_position = Vector2(16 * 16 + 8, 13 * 16)
+	# walk back down past the re-arm row, not just past the line: the trigger
+	# stays disarmed inside the dead band (see Region._check_triggers), and a
+	# return that lands inside it would leave the line permanently silent.
+	region.player.global_position = Vector2(16 * 16 + 8, 14 * 16)

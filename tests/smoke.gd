@@ -257,7 +257,7 @@ func _run() -> void:
 	_check(_has(GameState.data["fruits"], "faithfulness"), "fruit was gathered")
 	_check(not region._paused, "the valley is unpaused after RETURN")
 	_check(region.player != null, "you are still yourself after RETURN")
-	_check(_tile_of(region.player) == Vector2i(16, 13), "you are stood back where the line is")
+	_check(_tile_of(region.player) == Vector2i(16, 14), "you are stood back south of the line, past the re-arm row")
 
 	# ── 9. coming back is a memory, not a replay ─────────────────────────
 	var xp_before := int(GameState.data["xp"])
