@@ -76,6 +76,25 @@ def scan(path):
             add(rel, i, "IS-NOT",
                 "prefer not (x is T) — `is not` support varies by version")
 
+        # Constructor traps that parse fine and fail at runtime. All three were
+        # found by CI in this project, not by reading.
+        if re.search(r"(?<!Packed)(?<!\w)String\(", code) and "StringName(" not in code:
+            add(rel, i, "STR-CTOR",
+                "String(x) is not a valid constructor for a Variant; use str(x)")
+
+        m = re.search(r"Packed(?:String|Byte|Int32|Float32|Int64|Float64|Vector2|"
+                      r"Vector3|Color)Array\(([^)]+)\)", code)
+        if m and "Packed" not in m.group(1):
+            add(rel, i, "PACKED-CTOR",
+                "packed arrays have no (Array) constructor; build with append(): %s"
+                % line.strip())
+
+        m = re.search(r"Vector2i?\(([^)]*\[\d\][^)]*)\)", code)
+        if m and "int(" not in m.group(1) and "float(" not in m.group(1):
+            add(rel, i, "JSON-INT",
+                "JSON numbers arrive as floats; wrap in int()/float(): %s"
+                % line.strip())
+
         if re.match(r"^\t* +\t|^\t+ +", line):
             add(rel, i, "MIXED-INDENT", "tabs and spaces mixed in indentation")
 

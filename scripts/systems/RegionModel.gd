@@ -57,14 +57,18 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	id = d.get("id", id)
 	display_name = d.get("name", {})
 	legend = d.get("legend", {})
-	grid = PackedStringArray(d.get("grid", []))
+	# PackedStringArray has no (Array) constructor: build it row by row.
+	grid = PackedStringArray()
+	for row in (d.get("grid", []) as Array):
+		grid.append(str(row))
 	height = grid.size()
 	width = 0
 	for row in grid:
 		width = maxi(width, row.length())
 	if width == 0 or height == 0:
 		return false
-	spawn = Vector2i(d.get("spawn", [1, 1])[0], d.get("spawn", [1, 1])[1])
+	var sp: Array = d.get("spawn", [1, 1])
+	spawn = Vector2i(int(sp[0]), int(sp[1]))
 	music = d.get("music", music)
 	npcs = d.get("npcs", [])
 	items = d.get("items", [])
@@ -101,7 +105,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 			_solid[i] = 1 if not _walkable_map.get(key, true) else 0
 			var s: Dictionary = surf.get(key, {})
 			_speed[i] = float(s.get("speed", 1.0))
-			_sfx[i] = String(s.get("sfx", "step_dirt"))
+			_sfx[i] = str(s.get("sfx", "step_dirt"))
 
 	# props add solidity
 	for p in props:
