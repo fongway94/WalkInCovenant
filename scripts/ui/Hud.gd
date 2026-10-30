@@ -50,7 +50,7 @@ func _build() -> void:
 	var lang := Button.new()
 	lang.text = "EN"
 	lang.flat = true
-	lang.add_theme_font_size_override("font_size", 7)
+	lang.add_theme_font_size_override("font_size", 8)
 	lang.pressed.connect(func():
 		I18n.toggle()
 		lang.text = "EN" if I18n.is_zh() else "中"
@@ -64,7 +64,7 @@ func _build() -> void:
 	toast_lbl.anchor_top = 0.0
 	toast_lbl.offset_left = -120; toast_lbl.offset_right = 120
 	toast_lbl.offset_top = 18
-	toast_lbl.add_theme_font_size_override("font_size", 8)
+	toast_lbl.add_theme_font_size_override("font_size", 9)
 	toast_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
 	toast_lbl.modulate.a = 0
 	add_child(toast_lbl)
@@ -77,7 +77,7 @@ func _build() -> void:
 
 func _label(col: Color) -> Label:
 	var l := Label.new()
-	l.add_theme_font_size_override("font_size", 7)
+	l.add_theme_font_size_override("font_size", 8)
 	l.add_theme_color_override("font_color", col)
 	return l
 

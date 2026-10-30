@@ -49,8 +49,20 @@ window/handheld/allow_hidpi=true
 
 [gui]
 
-; A pixel font must not be anti-aliased or sub-positioned, or it goes soft.
-theme/default_font_antialiasing=0
+; The web export has no system fonts to fall back on, so without a bundled face
+; every Chinese character renders as tofu. This is a subset of Noto Sans SC
+; (SIL OFL, see fonts/LICENSE-OFL.txt) built by tools/build_font.py from exactly
+; the characters in data/ and scripts/; tools/check_font.py fails CI if content
+; ever ships a character the font does not cover.
+theme/custom_font="res://fonts/game.ttf"
+
+; The ART is pixel and stays nearest-filtered, but the bundled face is a
+; proportional CJK sans, not a bitmap font: anti-aliasing off made 10px hanzi
+; staircase into noise. Grayscale AA with light hinting is what keeps small
+; Chinese legible on a 320x180 canvas; subpixel positioning stays off because
+; integer scaling would turn it into shimmer.
+theme/default_font_antialiasing=1
+theme/default_font_hinting=1
 theme/default_font_subpixel_positioning=0
 
 [input]

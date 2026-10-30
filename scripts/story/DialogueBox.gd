@@ -51,7 +51,7 @@ func _build_ui() -> void:
 	panel.anchor_left = 0.5; panel.anchor_right = 0.5
 	panel.anchor_top = 1.0; panel.anchor_bottom = 1.0
 	panel.offset_left = -150; panel.offset_right = 150
-	panel.offset_top = -64; panel.offset_bottom = -8
+	panel.offset_top = -70; panel.offset_bottom = -8
 	add_child(panel)
 
 	var hbox := HBoxContainer.new()
@@ -74,20 +74,20 @@ func _build_ui() -> void:
 	hbox.add_child(vbox)
 
 	name_lbl = Label.new()
-	name_lbl.add_theme_font_size_override("font_size", 8)
+	name_lbl.add_theme_font_size_override("font_size", 9)
 	name_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
 	vbox.add_child(name_lbl)
 
 	text_lbl = Label.new()
-	text_lbl.add_theme_font_size_override("font_size", 8)
+	text_lbl.add_theme_font_size_override("font_size", 10)
 	text_lbl.add_theme_color_override("font_color", Color(0.9, 0.93, 0.94))
 	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_lbl.custom_minimum_size = Vector2(0, 30)
+	text_lbl.custom_minimum_size = Vector2(0, 34)
 	vbox.add_child(text_lbl)
 
 	adv = Label.new()
 	adv.text = "▼"
-	adv.add_theme_font_size_override("font_size", 7)
+	adv.add_theme_font_size_override("font_size", 8)
 	adv.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36))
 	adv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	vbox.add_child(adv)
@@ -216,7 +216,7 @@ func _open_choices(options: Array) -> void:
 	for idx in range(options.size()):
 		var b := Button.new()
 		b.text = I18n.t(options[idx].get("t", ""))
-		b.add_theme_font_size_override("font_size", 8)
+		b.add_theme_font_size_override("font_size", 9)
 		b.flat = false
 		var picked := idx
 		b.pressed.connect(func(): _pick(picked))
