@@ -66,7 +66,15 @@ func _run() -> void:
 			can = bool(raw.can_instantiate())
 		printerr("  diag  Main.gd loaded=%s can_instantiate=%s" % [str(raw != null), str(can)])
 	_check(attached, "Main.gd is attached to the scene root")
-	get_tree().root.add_child(main)
+	# Parented under this node, NOT under get_tree().root. Node::_propagate_ready
+	# (scene/main/node.cpp:323) holds `data.blocked++` on a node while it walks
+	# its children, and only fires that node's own NOTIFICATION_READY after
+	# decrementing. So during _ready() a node may add children to ITSELF
+	# (blocked == 0), but adding to root — whose blocked is 1 because root is
+	# mid-walk through its own children, us included — fails with "Parent node is
+	# busy setting up children". That is also why Main._ready() building the
+	# world with add_child() is legal and this test's first version was not.
+	add_child(main)
 	await _frames(4)
 	print("  diag  main=%s children=%d" % [main.get_class(), main.get_child_count()])
 

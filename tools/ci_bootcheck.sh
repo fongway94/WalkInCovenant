@@ -24,7 +24,12 @@ godot --headless --path . --quit-after "$FRAMES" > "$LOG" 2>&1
 RC=$?
 
 sed 's/\x1b\[[0-9;]*m//g' "$LOG" > /tmp/bootcheck.clean
-BAD=$(grep -aE "Parse Error|Compile Error|Failed to load script|SCRIPT ERROR|Identifier not found|Could not resolve" /tmp/bootcheck.clean | head -20)
+# Parse and compile errors only ever caught half the picture. The boot also has
+# to be free of RUNTIME errors: a null call, a missing property or an add_child
+# made while a parent is still setting up children all leave the engine happily
+# running an empty world, and none of them say "Parse Error". Adding these cost
+# nothing and is the difference between "it compiled" and "it booted".
+BAD=$(grep -aE "Parse Error|Compile Error|Failed to load script|SCRIPT ERROR|Identifier not found|Could not resolve|Invalid get index|Invalid set index|Attempt to call function|null instance|Parent node is busy|Out of bounds|Cannot call method" /tmp/bootcheck.clean | head -20)
 
 if [ -n "$BAD" ]; then
 	echo "boot check FAILED (godot exit $RC):"
