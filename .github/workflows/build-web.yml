@@ -193,11 +193,24 @@ jobs:
         if: always()
         run: |
           [ -f smoke.txt ] || exit 0
-          sed 's/\x1b\[[0-9;]*m//g' smoke.txt \
-            | grep -a "FAIL\|SCRIPT ERROR\|Parse Error\|smoke:" \
-            | head -12 \
+          CLEAN=/tmp/smoke.clean
+          sed 's/\x1b\[[0-9;]*m//g' smoke.txt > "$CLEAN"
+          # Match everything that could EXPLAIN a failure, not only lines that
+          # contain the word FAIL. Godot reports a missing property as "Invalid
+          # get index", a broken script as a bare "Compile Error", and a null
+          # call as "Attempt to call function ... on a null value" — the first
+          # run of this test failed a single assertion and its own annotation
+          # filtered the reason out, which cost a whole CI cycle to discover.
+          grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037\|first_scan_filesystem" "$CLEAN" \
+            | grep -aE "FAIL|ERROR|Error|error:|Invalid|Cannot|Attempt|diag|smoke:" \
+            | head -14 \
             | tr '\n' '|' | cut -c1-3000 \
             | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          # And the head of the run as context: when a test stops early, the
+          # checks that PASSED first are what narrow down where it stopped.
+          head -24 "$CLEAN" \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
 
       # Raw CI logs live on a host this project's authoring sandbox cannot
       # reach; check-run annotations come from api.github.com and can. But

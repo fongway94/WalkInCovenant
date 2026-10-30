@@ -25,7 +25,6 @@ extends Node
 ##   * DialogueBox._pick() advanced a box its own callback had just replaced,
 ##     instantly finishing single-line follow-ups and firing their on_done early.
 
-const MainScene = preload("res://scenes/main/Main.tscn")
 const TILE := 16.0
 const FRAME_GUARD := 6000
 
@@ -42,12 +41,40 @@ func _run() -> void:
 	Engine.time_scale = 24.0
 	GameState.data["settings"]["reduce_motion"] = true
 
-	var main = MainScene.instantiate()
+	# load(), not preload(): a script that fails to compile turns a preload into
+	# a compile error in THIS file, which reports as a cascade and names the
+	# wrong thing. Loaded at runtime, the same failure is a value we can inspect
+	# and describe.
+	var packed = load("res://scenes/main/Main.tscn")
+	_check(packed != null, "Main.tscn loads")
+	if packed == null:
+		_finish_run()
+		return
+	var main = packed.instantiate()
+	_check(main != null, "Main.tscn instantiates")
+	if main == null:
+		_finish_run()
+		return
+	var attached: bool = main.get_script() != null
+	if not attached:
+		# Nothing below means anything if the scene root has no script. Say why:
+		# a GDScript that will not compile loads as a resource that cannot
+		# instantiate, and the engine does not repeat the reason here.
+		var raw = load("res://scripts/main/Main.gd")
+		var can := false
+		if raw != null:
+			can = bool(raw.can_instantiate())
+		printerr("  diag  Main.gd loaded=%s can_instantiate=%s" % [str(raw != null), str(can)])
+	_check(attached, "Main.gd is attached to the scene root")
 	get_tree().root.add_child(main)
 	await _frames(4)
+	print("  diag  main=%s children=%d" % [main.get_class(), main.get_child_count()])
 
 	# ── 1. the valley exists ─────────────────────────────────────────────
 	var region = main.region
+	if region == null:
+		printerr("  diag  main.region is null; class=%s script=%s" % [
+			main.get_class(), str(main.get_script())])
 	_check(region != null, "Main built a Region")
 	if region == null:
 		_finish_run()
@@ -59,6 +86,18 @@ func _run() -> void:
 	_check(region.pickups.size() == 5, "5 stones in the brook (got %d)" % region.pickups.size())
 	_check(region.triggers.size() == 1, "challenge trigger was built (got %d)" % region.triggers.size())
 	_check(_tile_of(region.player) == region.model.spawn, "player stands on the authored spawn tile")
+
+	# ── 1b. the world is wired to the hands and the HUD ──────────────────
+	# Region._ready() emits region_ready from INSIDE add_child(), so a
+	# connection made afterwards never hears it. These two assertions are what
+	# catches that. Without them the valley can render perfectly and ignore
+	# every thumb on the screen — which is what it did.
+	_check(main.touch != null, "touch controls exist")
+	_check(main.hud != null, "hud exists")
+	if main.touch != null:
+		_check(main.touch.player == region.player, "the stick is bound to the player")
+	if main.hud != null:
+		_check(main.hud.region == region, "the hud is bound to the region")
 
 	# ── 2. a first-time player is told what to do ────────────────────────
 	_check(region.dialogue._open, "the valley opens with a briefing")

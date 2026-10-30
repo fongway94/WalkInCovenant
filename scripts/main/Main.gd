@@ -15,11 +15,17 @@ var _in_battle := false
 
 
 func _ready() -> void:
-	region = Region.new()
-	region.region_id = "elah"
-	add_child(region)
-	region.region_ready.connect(_on_region_ready)
-
+	# Order matters twice over here.
+	#
+	# 1. Region._ready() builds the world and emits region_ready, and _ready()
+	#    runs synchronously INSIDE add_child(). A connection made after
+	#    add_child(region) therefore never hears it: the stick was never bound to
+	#    the player and the HUD never bound to the region, so the game booted
+	#    into a valley that looked right and could not be walked in. Connect
+	#    first, add last.
+	#
+	# 2. _on_region_ready() calls hud.bind() and touch.bind(), so both must
+	#    already exist when region_ready fires. Build them first.
 	become = BecomeController.new()
 	add_child(become)
 
@@ -29,8 +35,12 @@ func _ready() -> void:
 	touch = TouchControls.new()
 	add_child(touch)
 
+	region = Region.new()
+	region.region_id = "elah"
+	region.region_ready.connect(_on_region_ready)
 	region.pickup_taken.connect(_on_pickup)
 	region.trigger_fired.connect(_on_trigger)
+	add_child(region)
 
 
 func _on_region_ready() -> void:
