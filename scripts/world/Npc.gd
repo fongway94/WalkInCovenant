@@ -44,7 +44,7 @@ func setup(m: RegionModel, d: Dictionary, r: Region) -> void:
 	sprite.hframes = 2
 	sprite.vframes = 4
 	add_child(sprite)
-	var at := d.get("at", [1, 1])
+	var at: Array = d.get("at", [1, 1])
 	global_position = Vector2(int(at[0]) * TILE + 8, (int(at[1]) + 1) * TILE - 2)
 	if (d.get("patrol", []) as Array).size() > 0:
 		state = State.PATROL

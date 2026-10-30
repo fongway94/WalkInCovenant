@@ -95,6 +95,22 @@ def scan(path):
                 "JSON numbers arrive as floats; wrap in int()/float(): %s"
                 % line.strip())
 
+        # INFERENCE_ON_VARIANT is ERROR-level by default in Godot 4.7 ("most
+        # likely done by accident"), so `var x := <Variant>` is a parse failure,
+        # not a style nit. Variant-valued right-hand sides are the ones that
+        # come from dictionaries, JSON and metadata.
+        m = re.match(r"\s*var\s+\w+\s*:=\s*(.+?)\s*$", code)
+        if m:
+            rhs = m.group(1)
+            risky = (re.match(r"^[\w.]*\.get\(", rhs)
+                     or rhs.startswith("get_meta(")
+                     or "JSON.parse_string(" in rhs
+                     or re.match(r"^\w+\[", rhs))
+            if risky:
+                add(rel, i, "VARIANT-INFER",
+                    "inferring a type from a Variant is an ERROR-level warning; "
+                    "declare it: var x: T = %s" % rhs)
+
         if re.match(r"^\t* +\t|^\t+ +", line):
             add(rel, i, "MIXED-INDENT", "tabs and spaces mixed in indentation")
 

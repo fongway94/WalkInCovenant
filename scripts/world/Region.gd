@@ -193,7 +193,8 @@ func _check_pickups() -> void:
 	for p in pickups:
 		if p["got"]:
 			continue
-		var d := (p["node"].global_position - player.global_position).length()
+		var node: Node2D = p["node"]
+		var d: float = (node.global_position - player.global_position).length()
 		if d < PICK_RANGE:
 			p["got"] = true
 			p["node"].queue_free()

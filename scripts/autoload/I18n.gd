@@ -16,7 +16,9 @@ var lang: String = "zh"
 
 
 func _ready() -> void:
-	var saved := get_meta("lang", "")
+	# get_meta() returns Variant; := on a Variant is an ERROR-level warning
+	# (INFERENCE_ON_VARIANT) in Godot 4.7, i.e. a parse failure.
+	var saved: String = str(get_meta("lang", ""))
 	if saved in LANGS:
 		lang = saved
 	TranslationServer.set_locale(lang)

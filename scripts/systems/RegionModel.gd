@@ -98,7 +98,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	for y in range(height):
 		var row: String = grid[y]
 		for x in range(width):
-			var ch := row[x] if x < row.length() else "."
+			var ch: String = row[x] if x < row.length() else "."
 			var key: String = legend.get(ch, "grass")
 			var i := y * width + x
 			_tile_key[i] = key

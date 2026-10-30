@@ -96,7 +96,7 @@ def fetch_doc(cls):
     """Class reference for `cls`, or None if the engine has no such class."""
     if cls in docs:
         return docs[cls]
-    path = os.path.join(CACHE, cls + ".json")
+    path = os.path.join(CACHE, "v3-" + cls + ".json")
     if os.path.isfile(path):
         docs[cls] = json.load(open(path, encoding="utf-8"))
         return docs[cls]
@@ -111,7 +111,22 @@ def fetch_doc(cls):
         for el in root.iter(tag):
             if el.get("name"):
                 members.add(el.get("name"))
-    doc = {"inherits": root.get("inherits"), "members": sorted(members)}
+    # arity ranges, so an override with the wrong signature can be detected:
+    # NATIVE_METHOD_OVERRIDE is ERROR-level by default in Godot 4.7.
+    methods = {}
+    virtuals = set()
+    for el in root.iter("method"):
+        name = el.get("name")
+        if not name:
+            continue
+        if "virtual" in (el.get("qualifiers") or ""):
+            virtuals.add(name)
+        args = list(el.iter("argument"))
+        required = len([a for a in args if not a.get("default_value")])
+        lo, hi = methods.get(name, (required, len(args)))
+        methods[name] = [min(lo, required), max(hi, len(args))]
+    doc = {"inherits": root.get("inherits"), "members": sorted(members),
+           "methods": methods, "virtuals": sorted(virtuals)}
     docs[cls] = doc
     os.makedirs(CACHE, exist_ok=True)
     json.dump(doc, open(path, "w", encoding="utf-8"))
@@ -128,6 +143,30 @@ def all_members(cls, depth=0):
     out = set(doc["members"])
     if doc.get("inherits"):
         out |= all_members(doc["inherits"], depth + 1)
+    return out
+
+
+def native_methods(cls, depth=0):
+    """{name: [min_args, max_args]} for `cls` and everything it inherits.
+
+    Virtual methods (_ready, _process, _input, ...) are omitted: the class
+    reference documents them with no arguments at all, so an arity comparison
+    against them reports every correct override as wrong.
+    """
+    if depth > 8:
+        return {}
+    doc = fetch_doc(cls)
+    if not doc:
+        return {}
+    out = {}
+    if doc.get("inherits"):
+        out.update(native_methods(doc["inherits"], depth + 1))
+    virt = set(doc.get("virtuals", []))
+    for name, arity in doc.get("methods", {}).items():
+        if name not in virt:
+            out[name] = arity
+    for name in virt:
+        out.pop(name, None)
     return out
 
 
@@ -218,6 +257,28 @@ def scan(path):
             if const not in all_members(cls):
                 add(rel, i, "NO-CONSTANT",
                     "%s.%s does not exist in Godot %s" % (cls, const, REF))
+
+    # NATIVE_METHOD_OVERRIDE: a script method shadowing a native one with a
+    # different signature is ERROR-level, so it breaks the export outright.
+    m = re.search(r"^extends\s+([A-Z]\w*)", src, re.M)
+    base = m.group(1) if m else "RefCounted"
+    if fetch_doc(base):
+        natives = native_methods(base)
+        for i, line in enumerate(lines, 1):
+            fm = re.match(r"^(?:static\s+)?func\s+(\w+)\s*\((.*)\)", line)
+            if not fm:
+                continue
+            fname, params = fm.group(1), fm.group(2).strip()
+            if fname not in natives:
+                continue
+            argc = 0 if params == "" else len(
+                [x for x in re.split(r",(?![^()\[\]]*[)\]])", params) if x.strip()])
+            lo, hi = natives[fname]
+            if not (lo <= argc <= hi):
+                add(rel, i, "NO-OVERRIDE",
+                    "%s() takes %d arg(s) here but %s.%s takes %d-%d — "
+                    "NATIVE_METHOD_OVERRIDE is an error in Godot %s"
+                    % (fname, argc, base, fname, lo, hi, REF))
 
     for a, b, sig in split_funcs(lines):
         t = types_in(lines, a, b, sig, global_types, preloads)
