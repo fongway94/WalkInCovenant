@@ -115,8 +115,13 @@ func _run() -> void:
 	var face = load("res://fonts/game.ttf")
 	_check(face != null, "the bundled CJK font loads")
 	if face != null:
-		_check(bool(face.has_char("谷")), "the font carries hanzi")
-		_check(bool(face.has_char("石")), "the font carries the stones' stone")
+		# has_char() wants a CODEPOINT, not a String — it aborts the caller with
+		# "Cannot convert argument 1 from String to int" otherwise, which is how
+		# the run that added this assertion died before reaching its own quit().
+		var gu: int = "谷".to_utf32_buffer()[0]
+		var shi: int = "石".to_utf32_buffer()[0]
+		_check(bool(face.has_char(gu)), "the font carries hanzi")
+		_check(bool(face.has_char(shi)), "the font carries the stones' stone")
 	_check(ThemeDB.fallback_font != null, "ThemeDB has the project font registered")
 
 	# ── 2. a first-time player is told what to do ────────────────────────
