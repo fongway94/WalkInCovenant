@@ -29,6 +29,7 @@ func _init() -> void:
 		pmeta[p["key"]] = {"w_tiles": p["footprint"][0], "h_tiles": p["footprint"][1],
 			"solid": p["solid"]}
 
+	_check_display()
 	var regions := ["elah"]
 	for rid in regions:
 		_check_region(rid, tiles, pmeta)
@@ -39,6 +40,23 @@ func _init() -> void:
 	else:
 		printerr("run_all: %d FAILURE(S)" % failures)
 		quit(1)
+
+
+## What the player's screen does is content too. Integer stretch scaling picks a
+## whole-number factor, so a window that changes by a few pixels drops a whole
+## step and the game shrinks into black bars mid-play (playtest 8, bug C). That
+## is a one-line regression in project.godot, so it gets a one-line gate.
+func _check_display() -> void:
+	var mode := str(ProjectSettings.get_setting("display/window/stretch/scale_mode", "fractional"))
+	if mode == "integer":
+		_fail("stretch scale_mode is integer: the picture will shrink and letterbox on resize")
+	else:
+		_ok("display scales fractionally (no black bars on resize)")
+	var aspect := str(ProjectSettings.get_setting("display/window/stretch/aspect", "keep"))
+	if aspect != "expand":
+		_fail("stretch aspect is '%s': tall phones get letterboxed" % aspect)
+	else:
+		_ok("display expands to fill tall screens")
 
 
 func _read_json(path: String) -> Dictionary:
@@ -103,7 +121,28 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		var t := Vector2i(int(it["at"][0]), int(it["at"][1]))
 		if m.solid_at_tile(t.x, t.y):
 			_fail("%s: item %s at %s is inside a solid tile" % [rid, it.get("id"), t])
-	_ok("spawn / npcs / items all on walkable ground")
+	# David's provisions are spawned at runtime, so nothing at load time noticed
+	# that one of them sat inside a solid altar prop: "the quest item cannot be
+	# seen on the map". Same rule, same place, checked here instead.
+	for it in (m.david_act.get("items", []) as Array):
+		var t := Vector2i(int(it["at"][0]), int(it["at"][1]))
+		if m.solid_at_tile(t.x, t.y):
+			_fail("%s: provision %s at %s is inside a solid tile or prop" % [rid, it.get("id"), t])
+		if m.path(m.spawn, t).is_empty():
+			_fail("%s: no walkable path from spawn to provision %s" % [rid, it.get("id")])
+	var ba: Array = m.david_act.get("brothers_at", [])
+	if ba.size() == 2:
+		var bt := Vector2i(int(ba[0]), int(ba[1]))
+		if m.solid_at_tile(bt.x, bt.y):
+			_fail("%s: the brothers' post %s is solid" % [rid, bt])
+		if m.path(m.spawn, bt).is_empty():
+			_fail("%s: no walkable path to the brothers' post" % rid)
+	var sa: Array = m.david_act.get("start_at", [])
+	if sa.size() == 2:
+		var st := Vector2i(int(sa[0]), int(sa[1]))
+		if m.solid_at_tile(st.x, st.y):
+			_fail("%s: the errand starts on a solid tile %s" % [rid, st])
+	_ok("spawn / npcs / items / provisions all on walkable ground")
 
 	# 3. reachability
 	for n in m.npcs:
@@ -135,6 +174,11 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 				_has_both(line.get("text"), "%s:trigger %s %s" % [rid, td.get("id"), key])
 	for line in m.briefing:
 		_has_both(line.get("text"), "%s:briefing line" % rid)
+	for key in ["lines", "brothers"]:
+		for line in (m.david_act.get(key, []) as Array):
+			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
+	for sp in (m.david_act.get("speakers", {}) as Dictionary).values():
+		_has_both(sp, "%s:david_act speaker name" % rid)
 	# The chapter ending and the HUD's objective lines are player-facing prose
 	# too. They are the newest way text reaches a player and the easiest to leave
 	# half-translated: one is shown once, at the very end, and the other is a

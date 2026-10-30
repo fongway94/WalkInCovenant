@@ -240,6 +240,11 @@ func face_toward(target: Vector2) -> void:
 func talk() -> void:
 	if player == null or dialogue == null:
 		return
+	if dialogue.is_open():
+		# One beat at a time. A second call while a box is up used to replace
+		# the box underneath the player's finger, which is what "the dialogue
+		# repeats" looked like.
+		return
 	state = State.TALK
 	_moving = false
 	face_toward(player.global_position)

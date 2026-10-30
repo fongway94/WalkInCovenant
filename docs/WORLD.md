@@ -165,6 +165,14 @@ jumps to the last line of the beat and a second press closes it **through the
 same on_done**, so skipping can never eat the beat that follows it. Playtests 5,
 6 and 7 each asked for that in their own words.
 
+### 6.0 Three bugs, and where each one actually lived
+
+| Report | Root cause | Fix | Gate |
+|---|---|---|---|
+| "Every time I click an NPC the dialogue appears three times" | One tap can arrive as **two** events (a touch and the action the on-screen A button synthesises). The tap that *closed* a box was then read by `Region._unhandled_input` as a fresh interaction, so the conversation restarted from line one. `Npc.talk()` would also happily replace a box that was already open. | `DialogueBox` emits `closed`; `Region` ignores the A button for 0.35 s after it, and `Npc.talk()` refuses while a box is up. | `tests/smoke.gd` presses A twice on every one of the four NPCs and asserts the beat id does not change, then that the closing tap leaves the lock set. |
+| "The quest item cannot be seen on the map" | The first provision was placed at (12,45) — inside the solid `altar_stones` prop — and all three were 35 tiles south of where becoming David left you, off camera. The sprite is also 10 px of brown on brown mud. | Provisions moved to free tiles (14,45), (18,45), (16,42); the errand now begins at (16,45) with a camera snap; unclaimed pickups draw a bobbing chevron and a ground ring, gold for quest items, pale for stones. | `tests/run_all.gd` fails if any `david_act.items`, `brothers_at` or `start_at` tile is solid or unreachable; `smoke.gd` asserts every provision is within six tiles of the errand start. |
+| "The screen suddenly becomes smaller with a black frame" | `window/stretch/scale_mode="integer"`. Integer scaling can only pick whole numbers, so a few pixels of window change (address bar sliding away, rotate, resize) drops the factor by a whole step and the canvas shrinks inside black bars. | `scale_mode="fractional"` (nearest filtering and `snap_2d` were already on, so the pixels stay crisp). | `tests/run_all.gd` `_check_display()` fails the build if `scale_mode` is ever set back to integer or `aspect` is not `expand`. |
+
 ### 6.1 Why the player is not David until step 5
 
 The mission and the role had to stop contradicting each other (playtest 6: *"i am

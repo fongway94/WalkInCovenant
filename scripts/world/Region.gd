@@ -10,6 +10,10 @@ class_name Region
 const TILE := 16.0
 const PICK_RANGE := 10.0
 const TALK_RANGE := 20.0
+## How long after a box closes the A button is ignored. Long enough to swallow
+## the tap that closed it (one tap can arrive as a touch AND an action), short
+## enough that nobody waiting to talk again ever notices.
+const INTERACT_LOCK := 0.35
 
 @export var region_id := "elah"
 
@@ -30,6 +34,8 @@ var _mod: CanvasModulate = null
 var _props_meta: Dictionary = {}
 var _tiles_meta: Dictionary = {}
 var _paused := false
+var _interact_lock := 0.0
+var _mark_t := 0.0
 
 signal region_ready
 signal pickup_taken(id: String)
@@ -79,6 +85,7 @@ func _build() -> void:
 	dialogue = DialogueBox.new()
 	add_child(dialogue)
 	dialogue.hide_box()
+	dialogue.closed.connect(func(): _interact_lock = INTERACT_LOCK)
 
 	_ys = Node2D.new()
 	_ys.y_sort_enabled = true
@@ -163,7 +170,7 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 	if tex != null:
 		var sp := Sprite2D.new()
 		sp.texture = tex
-		sp.scale = Vector2(0.6, 0.6)
+		sp.scale = Vector2(0.85, 0.85)
 		node.add_child(sp)
 	_ys.add_child(node)
 	pickups.append({"id": id, "kind": kind, "node": node,
@@ -213,9 +220,14 @@ func set_time_of_day(tod: String) -> void:
 
 
 # ── per-frame world simulation ──────────────────────────────────────────
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_mark_t += delta
+	if _interact_lock > 0.0:
+		_interact_lock = maxf(0.0, _interact_lock - delta)
 	if _paused or model == null or player == null:
 		return
+	if _unclaimed():
+		queue_redraw()
 	_check_pickups()
 	_check_triggers()
 	_check_exits()
@@ -309,7 +321,7 @@ func nearest_interactable() -> Npc:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _paused:
+	if _paused or _interact_lock > 0.0:
 		return
 	if event.is_action_pressed("interact"):
 		var n := nearest_interactable()
@@ -317,6 +329,45 @@ func _unhandled_input(event: InputEvent) -> void:
 			player.face_toward(n.global_position)
 			n.talk()
 			get_viewport().set_input_as_handled()
+
+
+## True while any pickup is still out there. Drives the marker redraw.
+func _unclaimed() -> bool:
+	for it in pickups:
+		if not bool(it.get("got", false)):
+			return true
+	return false
+
+
+## Put the camera where the player is, with no glide. Used after a story
+## teleport (David's errand begins in Bethlehem, not at the line).
+func snap_camera() -> void:
+	if cam != null and player != null:
+		cam.set_follow(player)
+
+
+## Markers over unclaimed pickups: a gold chevron for quest items, a pale one
+## for stones. Playtest 8: "the required item cannot be seen on the map" — the
+## sprite is 10 px on grass, so it needs to announce itself.
+func _draw() -> void:
+	for it in pickups:
+		if bool(it.get("got", false)):
+			continue
+		var node: Node2D = it["node"]
+		if not is_instance_valid(node):
+			continue
+		var p := node.global_position
+		var bob := sin(_mark_t * 2.6 + p.x * 0.11) * 1.5
+		var quest: bool = str(it.get("kind", "")) != "stone"
+		var col := Color(0.98, 0.86, 0.55, 0.95) if quest else Color(0.80, 0.92, 0.96, 0.9)
+		# a faint ring on the ground, so the item reads as "stand here"
+		draw_arc(p + Vector2(0, 4), 5.0, 0.0, TAU, 14, Color(col, col.a * 0.45), 1.0)
+		var ty := p.y - 13.0 + bob
+		var pts := PackedVector2Array()
+		pts.append(Vector2(p.x - 3, ty))
+		pts.append(Vector2(p.x + 3, ty))
+		pts.append(Vector2(p.x, ty + 4))
+		draw_colored_polygon(pts, col)
 
 
 func is_paused() -> bool:

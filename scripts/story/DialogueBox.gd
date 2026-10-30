@@ -17,6 +17,11 @@ const BLIP_EVERY := 3           # blip every N characters, not every character
 ## stuck at here cant get out"). Long enough that a slow reader never sees it.
 const HANG_SECS := 40.0
 
+## Emitted when a beat ends, however it ends. Region listens so that the very
+## tap which closes a box cannot also count as "talk to this person" — that is
+## the dialogue-repeats bug (playtest 8: "the dialogue appears three times").
+signal closed
+
 var panel: PanelContainer = null
 var portrait: TextureRect = null
 var name_lbl: Label = null
@@ -312,6 +317,7 @@ func _finish() -> void:
 	choice_box.visible = false
 	_clear_choices()
 	AudioDirector.duck(false)
+	closed.emit()
 	var done := _on_done
 	_on_done = Callable()          # one shot: never unpause twice, never leak
 	if done.is_valid():

@@ -192,7 +192,17 @@ func _run() -> void:
 		_check(region.dialogue._open, "%s speaks when you press A" % id)
 		_check(region.dialogue.portrait.texture != null or not region.dialogue.portrait.visible,
 			"%s gets a portrait without a script error" % id)
+		# BUG A, asserted at the seam where it happened: pressing A while a box is
+		# already up must not replace it, and the tap that closes a box must not
+		# count as a fresh interaction (that is how one conversation appeared to
+		# replay itself).
+		var beat_before := int(region.dialogue._box_id)
+		npc.talk()
+		_check(int(region.dialogue._box_id) == beat_before,
+			"a second A press does not restart %s's line" % id)
 		_drain(region.dialogue)
+		_check(region._interact_lock > 0.0,
+			"the tap that closed %s cannot also re-open %s" % [id, id])
 		_check(not region._paused, "talking to %s releases the world" % id)
 	var carried: Array = GameState.data["words"]
 	_check(carried.size() == 4, "four verses were handed over (got %d)" % carried.size())
@@ -249,6 +259,19 @@ func _run() -> void:
 		if str(it.get("kind", "")) == "provision":
 			prov_spawned += 1
 	_check(prov_spawned == 3, "three provisions are laid out in Bethlehem (got %d)" % prov_spawned)
+	# BUG B: "the item cannot be seen on the map". One provision used to sit
+	# inside a solid altar prop four tiles from anywhere the camera looked.
+	var dact: Dictionary = region.model.david_act
+	var farthest := 0.0
+	for it in dact.get("items", []):
+		var at: Array = it["at"]
+		var tx := int(at[0]); var ty := int(at[1])
+		if region.model.solid_at_tile(tx, ty):
+			_check(false, "provision %s is inside a solid tile or prop" % it.get("id"))
+		var d := Vector2(float(tx) * 16.0 + 8.0, float(ty) * 16.0 + 8.0)
+		farthest = maxf(farthest, d.distance_to(region.player.global_position) / 16.0)
+	_check(farthest <= 6.0,
+		"every provision is within six tiles of the errand start (%.1f)" % farthest)
 
 	# collecting them: walk onto each tile, exactly as a thumb would
 	var prov_tiles := []

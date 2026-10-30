@@ -41,8 +41,13 @@ window/stretch/mode="canvas_items"
 ; expand, not keep: fills 19.5:9 and 20:9 phones instead of letterboxing them.
 ; The player simply sees a little more world on tall displays.
 window/stretch/aspect="expand"
-; integer: whole-number upscale only. This is what stops pixel shimmer.
-window/stretch/scale_mode="integer"
+; fractional, NOT integer. Integer scaling picks a whole-number factor, so a
+; few pixels of window change (a browser address bar sliding away, a phone
+; rotating, any resize) drops the factor by one whole step and the game
+; suddenly shrinks with black bars around it. That is the reported bug: the
+; picture gets smaller mid-play. Fractional fills the window at any size;
+; nearest filtering plus snap_2d keeps the pixels sharp.
+window/stretch/scale_mode="fractional"
 
 window/handheld/orientation="sensor_landscape"
 window/handheld/allow_hidpi=true

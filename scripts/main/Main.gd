@@ -383,6 +383,15 @@ func _start_david_act() -> void:
 		return
 	var items: Array = da.get("items", [])
 	_provision_total = items.size()
+	# Stand him where the errand happens. He became David at the line in the
+	# dust, but the next beat is three days EARLIER and a day's walk south, and
+	# making the player walk that distance to find three small props was reported
+	# as "the quest item cannot be seen on the map".
+	var st: Array = da.get("start_at", [])
+	if st.size() == 2:
+		region.player.global_position = Vector2(float(st[0]) * 16.0 + 8.0,
+			float(st[1]) * 16.0 + 8.0)
+		region.snap_camera()
 	for it in items:
 		var at: Array = it.get("at", [0, 0])
 		region.spawn_pickup(str(it.get("id", "prov")), "provision",
