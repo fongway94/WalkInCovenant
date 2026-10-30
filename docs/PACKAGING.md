@@ -111,6 +111,35 @@ auntie who cannot open a link" case, build the APK — do not try to resurrect t
 
 ---
 
+## 3b. The one switch only you can flip
+
+Everything in the pipeline is automated **except** creating the Pages site, which
+requires repository admin. Neither the workflow's `GITHUB_TOKEN` nor an automated
+agent token is granted it — the API answers:
+
+```
+Create Pages site failed. Error: Resource not accessible by integration
+```
+
+So, once, by hand:
+
+> **Repo → Settings → Pages → Build and deployment → Source: `GitHub Actions`**
+
+Until then the `deploy` job stays green, publishes nothing, and prints that instruction
+as an annotation. The moment the switch is flipped, the next push publishes to
+`https://fongway94.github.io/WalkInCovenant/` — that URL is your QR code.
+
+**To play it before then:** the CI run uploads a `web` artifact containing the complete
+build. Download it, unzip, and serve it — never double-click `index.html` (§1):
+
+```bash
+unzip web.zip -d web && cd web && python3 -m http.server 8080
+# → http://localhost:8080   open that on your phone over the same Wi-Fi to test touch
+```
+
+Or export locally with Godot on your own machine (§4). itch.io is another host that needs
+no Pages switch at all.
+
 ## 4. Local play while developing
 
 ```bash
