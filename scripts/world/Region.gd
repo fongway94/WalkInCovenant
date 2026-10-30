@@ -301,6 +301,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+func is_paused() -> bool:
+	return _paused
+
+
 func set_paused(v: bool) -> void:
 	_paused = v
 	if player:

@@ -12,6 +12,10 @@ class_name DialogueBox
 
 const TYPE_CPS := 34.0          # characters per second
 const BLIP_EVERY := 3           # blip every N characters, not every character
+## Nothing may hold the player hostage. If a box sits open this long with no
+## input at all, it closes itself and hands the controls back (playtest 5: "i
+## stuck at here cant get out"). Long enough that a slow reader never sees it.
+const HANG_SECS := 40.0
 
 var panel: PanelContainer = null
 var portrait: TextureRect = null
@@ -31,6 +35,7 @@ var _choices: Array = []
 var _on_pick: Callable = Callable()
 var _blip_acc := 0
 var _box_id := 0          # increments every time a new beat opens
+var _idle := 0.0          # seconds since the last input while open
 
 
 func _ready() -> void:
@@ -50,8 +55,8 @@ func _build_ui() -> void:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.anchor_left = 0.5; panel.anchor_right = 0.5
 	panel.anchor_top = 1.0; panel.anchor_bottom = 1.0
-	panel.offset_left = -150; panel.offset_right = 150
-	panel.offset_top = -70; panel.offset_bottom = -8
+	panel.offset_left = -156; panel.offset_right = 156
+	panel.offset_top = -84; panel.offset_bottom = -6
 	add_child(panel)
 
 	var hbox := HBoxContainer.new()
@@ -82,11 +87,11 @@ func _build_ui() -> void:
 	text_lbl.add_theme_font_size_override("font_size", 10)
 	text_lbl.add_theme_color_override("font_color", Color(0.9, 0.93, 0.94))
 	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_lbl.custom_minimum_size = Vector2(0, 34)
+	text_lbl.custom_minimum_size = Vector2(0, 46)
 	vbox.add_child(text_lbl)
 
 	adv = Label.new()
-	adv.text = "▼"
+	adv.text = "▼"          # glyph only: no words to translate
 	adv.add_theme_font_size_override("font_size", 8)
 	adv.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36))
 	adv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -95,14 +100,20 @@ func _build_ui() -> void:
 	choice_box = VBoxContainer.new()
 	choice_box.anchor_left = 0.5; choice_box.anchor_right = 0.5
 	choice_box.anchor_top = 1.0; choice_box.anchor_bottom = 1.0
-	choice_box.offset_left = -120; choice_box.offset_right = 120
-	choice_box.offset_top = -110; choice_box.offset_bottom = -70
+	choice_box.offset_left = -150; choice_box.offset_right = 150
+	choice_box.offset_top = -150; choice_box.offset_bottom = -74
+	choice_box.add_theme_constant_override("separation", 4)
 	add_child(choice_box)
+
+
+func is_open() -> bool:
+	return _open
 
 
 func hide_box() -> void:
 	_open = false
 	_in_choices = false
+	_idle = 0.0
 	if panel:
 		panel.visible = false
 	if choice_box:
@@ -119,6 +130,8 @@ func show_lines(lines: Array, speaker_fn: Callable, on_done: Callable) -> void:
 	_speaker_fn = speaker_fn
 	_on_done = on_done
 	_open = true
+	_in_choices = false     # MUST clear: a stale choice flag locks all input out
+	_idle = 0.0
 	panel.visible = true
 	choice_box.visible = false
 	AudioDirector.duck(true)
@@ -153,7 +166,13 @@ func _set_portrait(actor: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if not _open or _in_choices:
+	if not _open:
+		return
+	_idle += delta
+	if _idle >= HANG_SECS:
+		_force_close()
+		return
+	if _in_choices:
 		return
 	var line: Dictionary = _lines[_i] if _i < _lines.size() else {}
 	var full: String = I18n.t(line.get("text", ""))
@@ -171,11 +190,34 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not _open:
 		return
+	_idle = 0.0
 	if _in_choices:
+		# A choice box must never be a trap either: keyboard players get the
+		# first option, and Escape always closes the beat outright.
+		if event is InputEventKey and (event as InputEventKey).pressed \
+				and not (event as InputEventKey).echo:
+			var code := (event as InputEventKey).keycode
+			if code != KEY_ESCAPE and not _choices.is_empty() and _on_pick.is_valid():
+				_pick(0)      # the default way forward
+			else:
+				_finish()
+			get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("interact") or event.is_action_pressed("ui_accept") \
-			or (event is InputEventMouseButton
-				and (event as InputEventMouseButton).pressed):
+	# Every way a player can say "next". Touch is listed explicitly: the phone
+	# build used to rely on the browser synthesising a mouse event from a touch,
+	# and when that conversion does not happen the box simply stopped advancing
+	# — the single reported way to get stuck in this game (playtest 5).
+	var advance := false
+	if event is InputEventScreenTouch:
+		advance = (event as InputEventScreenTouch).pressed
+	elif event is InputEventMouseButton:
+		advance = (event as InputEventMouseButton).pressed
+	elif event is InputEventKey:
+		var k := event as InputEventKey
+		advance = k.pressed and not k.echo
+	elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+		advance = true
+	if advance:
 		_advance()
 		get_viewport().set_input_as_handled()
 
@@ -201,10 +243,25 @@ func _advance() -> void:
 
 func _finish() -> void:
 	_open = false
+	_in_choices = false
+	_idle = 0.0
 	panel.visible = false
+	choice_box.visible = false
+	_clear_choices()
 	AudioDirector.duck(false)
-	if _on_done.is_valid():
-		_on_done.call()
+	var done := _on_done
+	_on_done = Callable()          # one shot: never unpause twice, never leak
+	if done.is_valid():
+		done.call()
+
+
+func _force_close() -> void:
+	# The watchdog's exit. A pending choice resolves to its first option (that is
+	# the story's default way forward); anything else simply ends the beat.
+	if _in_choices and _on_pick.is_valid() and not _choices.is_empty():
+		_pick(0)
+		return
+	_finish()
 
 
 # ── choices ─────────────────────────────────────────────────────────────
@@ -216,7 +273,8 @@ func _open_choices(options: Array) -> void:
 	for idx in range(options.size()):
 		var b := Button.new()
 		b.text = I18n.t(options[idx].get("t", ""))
-		b.add_theme_font_size_override("font_size", 9)
+		b.add_theme_font_size_override("font_size", 10)
+		b.custom_minimum_size = Vector2(0, 34)   # a thumb, not a pixel
 		b.flat = false
 		var picked := idx
 		b.pressed.connect(func(): _pick(picked))

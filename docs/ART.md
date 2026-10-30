@@ -15,7 +15,7 @@ Concretely:
 | Parameter | Value | Why |
 |---|---|---|
 | Tile size | **16×16 px** | Pokémon FireRed/Emerald, Zelda: Link's Awakening, Stardew Valley all live here. Smallest art cost per screen, easiest to keep coherent, fastest to re-skin. |
-| Character cell | **16×24 or 32×32** (head+body taller than a tile) | Standard top-down RPG proportion; lets a character overlap the tile behind them, which is what creates depth. |
+| Character cell | **16×16** (one tile, like the reference pack) | Measured off the pack's own sheets: its figures are 16×16 with a head of nine rows. Two rejected casts proved the cell is not what reads as childish or ugly — bold shapes and contrast are. See §5.3d. |
 | Directions | **4** (down / left / right / up) | Pokémon's own overworld is 4-directional. 8-directional doubles the sprite count for a fraction of the feel. Mirror left→right to halve it again. |
 | Animation frames | **4-frame walk, 2-frame idle, 4-frame run** | The minimum that reads as "alive." |
 | Facesets | **48×48 or 64×64 portraits** | For the dialogue box. Ninja Adventure includes these per character — a huge free win. |
@@ -205,8 +205,7 @@ the only art review this project can afford:
 
 Known gaps against the reference sheets, in priority order: terrain still has
 no dithered transition between grass and dirt/path (isolated single tiles read
-as squares), trees are one silhouette rather than several, and characters have
-no faces at 16×24 beyond eye pixels.
+as squares), and trees are one silhouette rather than several.
 
 ### 5.3c The Ninja Adventure pack is IN (CC0)
 
@@ -237,6 +236,44 @@ cell that is less than 97 % opaque (that check caught an EMPTY cell being used
 as the road), refuses rectangles that run off a sheet, and preserves every
 hand-authored field in `data/tiles.json` and `data/props.json` — art only ever
 changes `w`/`h`/`source`.
+
+### 5.3d The cast, after three rejected passes
+
+Playtests 4, 5 and 6 rejected the characters ("ninja art", "abit ugly",
+"childish"). All three rejections were answered with the same wrong fix — move
+the proportion — and proportion turned out not to be the problem.
+
+The measurement that settled it: the reference sheet's own figure is a chibi
+with **nine rows of head out of sixteen**. It still reads as an adult, so "the
+head is too big" was never the diagnosis. What the reference has and the
+rejected casts did not:
+
+| | Reference | Rejected casts | Shipped |
+|---|---|---|---|
+| Silhouette | 14 px of 16, chunky | 8–11 px, thin | 12–14 px |
+| Mean luminance | 0.44 | 0.30–0.38 (a fifth darker) | 0.33–0.44 |
+| Eyes | 2 px wide, saturated, pop off the face | dark grey on tan, often erased by hair | 2 px ink, drawn **last** so nothing paints over them |
+| Head/hair | big helmet mass, clear silhouette | hair over the whole brow → face was a slot | fringe over the brow's left corner only |
+| Face exposure | bright and fully open | covered | jaw + nose + mouth rows always visible |
+
+The shipped figure is a fixed row budget, written at the top of
+`tools/artgen/chars.py`: hair 2 rows, brow 1, eyes 1, nose/mouth 1, jaw 1,
+neck 1, shoulders 1, torso 3, belt 1, legs 3, sandals 1 — and the walk-cycle
+bob is implemented by *absorbing the neck row*, never by shifting a 16-row
+figure to 17 and clipping its feet. That clipping bug cost a whole iteration.
+
+Rules that must not be re-litigated:
+
+* **Draw faces last.** Two separate builds lost their eyes to a fringe/sideburn
+  overwrite, and a sprite with no eyes reads as a doll.
+* **Brighten by one ramp step.** Anything below mean V 0.35 on Elah's brown
+  ground reads as a blob from the phone distance the user plays at.
+* **Eye it at 5× in the in-game mock**, not at 1× and not only on a white
+  background: `python3 -m tools.artgen.preview elah 8 36 26 24 5`.
+
+Honest gap that remains: no character yet has the pack's per-material dither
+or its idle "breathing" offset, so the cast is crisp but still flatter than the
+reference at close zoom.
 
 ### 5.4 Godot import settings (non-negotiable for pixel art)
 

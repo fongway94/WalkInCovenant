@@ -213,6 +213,25 @@ paraphrased) to **17:47**, the verse v1 actually carried — `又使这众人知
 因为争战的胜败全在乎耶和华。` Both halves are now verbatim (KJV and 和合本), which is what
 "witness, not author" means in practice.
 
+**Playtest 6 rejected the sentence level, not the wording.** The lines were lifted from v1 but each
+dialogue box still carried a paragraph: third-person narration, then a first-person quote, then more
+narration — *"他们说他身高近三米。他不敢抬头，「我看不清」"* inside one box. v1 never does that. It
+gives **one beat per line**, and a line is either narration or one spoken clause:
+
+| v1 node | shape |
+|---|---|
+| `l[]` | narration / one spoken clause, one per beat |
+| `c[]` | three choices, one per beat |
+| `r[]` | the reply to the chosen way |
+
+So the port is structural, not lexical: every NPC in `data/regions/elah.json` now has 6–7 short
+boxes instead of 3 long ones, each box is either narration *or* one quoted sentence, and the
+narration never borrows the character's first person. Compare:
+
+| ❌ rejected (one box) | ✅ shipped (one beat per box) |
+|---|---|
+| 他两只手抱着矛。「他们说他身高近三米……我看不清——我从来没走近过。」 | 他两只手抱着矛，不敢抬头。／「他们说他身高近三米，全身铜甲，枪杆粗得像织布的机轴。」／「我看不清。我从来没走近过。」 |
+
 **Adding Malay later** (`strings.ms.json` in Covenant's roadmap) is cheap *if* the `{en, zh}` inline
   pattern becomes a general language map `{en, zh, ms}`. Do that in the converter now, while it is free.
 

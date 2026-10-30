@@ -207,12 +207,17 @@ func _speaker_for(who: String) -> Dictionary:
 
 
 func _on_done() -> void:
+	# UNPAUSE FIRST. This used to run after the word handout, so any error in
+	# receive_word / word_ref (or in a listener of verse_received) left the world
+	# paused for ever — the player stood in front of a finished dialogue with a
+	# dead character and no way out (playtest 5). Nothing in a reward path is
+	# allowed to be able to take the controls away.
+	pause_fn.call(false)
 	if not _talked:
 		_talked = true
 		var word: String = data.get("word", "")
 		if word != "":
 			GameState.receive_word(word, word_ref(word))
-	pause_fn.call(false)
 	state = State.PATROL if (data.get("patrol", []) as Array).size() > 0 else State.IDLE
 	if data.get("follow_after_talk", false):
 		state = State.FOLLOW

@@ -14,6 +14,12 @@ var stones := 0
 var _stones_total := 0
 var _refusals := 0
 var _in_battle := false
+## Seconds the world has been paused with nothing on screen able to end it. This
+## is the belt to the dialogue box's braces: a beat that pauses the valley and
+## then fails to open (or to close) its own box used to leave the player standing
+## in a frozen world with no key that did anything (playtest 5).
+var _dead_pause := 0.0
+const DEAD_PAUSE_SECS := 6.0
 
 
 func _ready() -> void:
@@ -43,6 +49,23 @@ func _ready() -> void:
 	region.pickup_taken.connect(_on_pickup)
 	region.trigger_fired.connect(_on_trigger)
 	add_child(region)
+
+
+func _process(delta: float) -> void:
+	if region == null or region.dialogue == null:
+		return
+	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
+		and not _in_battle and battle == null
+	if stuck:
+		_dead_pause += delta
+	else:
+		_dead_pause = 0.0
+	if _dead_pause >= DEAD_PAUSE_SECS:
+		_dead_pause = 0.0
+		region.set_paused(false)
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "The valley lets go of you. Walk on.",
+			"zh": "山谷松开了手。继续走吧。"}))
 
 
 func _on_region_ready() -> void:

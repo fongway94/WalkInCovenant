@@ -9,6 +9,7 @@ Quality rules that separate this from "flat colour + noise":
 """
 
 import random
+import zlib
 
 from . import TILE
 from .canvas import Canvas
@@ -391,6 +392,17 @@ SURFACE = {
 }
 
 
+def _stable_seed(key):
+    """A seed that is the same in every process.
+
+    This used to be `hash(key)`, and Python randomises string hashes per
+    process: every `artgen` run produced a DIFFERENT ground, so the terrain the
+    author approved was not the terrain the next build shipped. CRC32 is stable
+    across runs, machines and Python versions.
+    """
+    return zlib.crc32(key.encode("utf-8")) % 9973
+
+
 def build_tiles():
     """Return [(key, variant_index, Canvas, walkable)] in atlas order."""
     out = []
@@ -401,7 +413,7 @@ def build_tiles():
             elif key == "shallow":
                 cv = factory(seed=8, frame=v)
             else:
-                cv = factory(seed=hash(key) % 9973 + v * 31)
+                cv = factory(seed=_stable_seed(key) + v * 31)
             out.append((key, v, cv, walkable))
     return out
 
