@@ -527,6 +527,22 @@
       "zh": "「你要上去就上去吧。这里我守着。」"
      }
     }
+   ],
+   "after_win": [
+    {
+     "who": "",
+     "text": {
+      "en": "I went up on the ridge to look. Their tents are still standing. There is nobody in them.",
+      "zh": "我爬上山脊去看。他们的帐棚还立在那里，里面一个人也没有。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "You were aiming for his forehead. I saw the stone leave your hand, just the once.",
+      "zh": "你是照着他的额头打的。我看见石头飞过去，就那么一下。"
+     }
+    }
    ]
   },
   {
@@ -591,6 +607,22 @@
      "text": {
       "en": "“Eat before you climb. Nobody fights well hungry.”",
       "zh": "「上去之前先吃点东西。饿着肚子打不好仗。」"
+     }
+    }
+   ],
+   "after_win": [
+    {
+     "who": "",
+     "text": {
+      "en": "I had the water boiling for the wounded. The men who came back have no wounds and cannot stand up.",
+      "zh": "我把水烧上了，等着伤兵回来。回来的人个个没伤，却站不住。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Someone carried the giant's armour into one of the tents. Nobody will sleep in that tent tonight.",
+      "zh": "有人把那个巨人的盔甲抬进了一顶帐棚。今晚谁也不肯睡那一顶。"
      }
     }
    ]
@@ -689,6 +721,22 @@
      "text": {
       "en": "“The stones are at the brook, downstream past the tents. He took five. Not six.”",
       "zh": "「石子在下游的溪边，过了帐篷就是。他当时拿了五块。不是六块。」"
+     }
+    }
+   ],
+   "after_win": [
+    {
+     "who": "",
+     "text": {
+      "en": "Forty days he stood there and shouted at us. I counted every one of them, the way a man counts his own grave.",
+      "zh": "四十天，他天天站在那里骂我们。我一天一天数，像在数自己的坟。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "They are running them down the road to Gath and Ekron. I am too old to run with them, so I wait here for news.",
+      "zh": "他们往迦特和以革伦一路追下去了。我老了，跑不动，只能在这儿等消息。"
      }
     }
    ]

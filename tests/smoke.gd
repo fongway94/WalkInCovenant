@@ -454,6 +454,13 @@ func _run() -> void:
 		_check(region.dialogue._open, "the aftermath is played, not summarised")
 		_drain(region.dialogue)
 
+	# A second thing to say is not Corin's private feature: with the giant down
+	# the whole camp answers differently, which is what a state-aware NPC is for.
+	for nid in ["boy", "woman", "elder"]:
+		var other: Npc = _find_npc(region, nid)
+		_check(other != null and not (other.data.get("after_win", []) as Array).is_empty(),
+			"%s has a second thing to say once the giant is down" % nid)
+
 	# ── 8. RETURN, and what it left in the save ──────────────────────────
 	# RETURN hands the story back BEFORE the controls: the ending card, the
 	# reflection question and its three answers all play while the valley is
