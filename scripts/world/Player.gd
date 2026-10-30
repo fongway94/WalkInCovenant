@@ -217,8 +217,13 @@ func _move_with_collision(delta: float) -> void:
 
 ## Feet box: 8 wide, 4 tall, centred on the node. Small on purpose.
 func _box_free(px: float, py: float) -> bool:
-	for ox in (-3.0, 3.0):
-		for oy in (-3.0, 0.0):
+	# Array literals, NOT parenthesised comma lists. GDScript has no tuples:
+	# `for ox in (-3.0, 3.0)` parses the "(" as a grouping expression, reads
+	# -3.0, then meets "," and fails with 'Expected closing ")" after grouping
+	# expression'. That one line made Player.gd unparseable, and because five
+	# other scripts mention Player, the engine blamed THEM instead.
+	for ox in [-3.0, 3.0]:
+		for oy in [-3.0, 0.0]:
 			if model.solid_at(px + ox, py + oy):
 				return false
 	return true

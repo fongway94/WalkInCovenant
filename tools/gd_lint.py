@@ -36,6 +36,50 @@ INT_NAMES = re.compile(
 findings = []
 
 
+KEYWORDS_BEFORE_PAREN = {
+    "in", "return", "and", "or", "not", "is", "as", "if", "elif", "else",
+    "while", "await", "match", "for", "print", "elif",
+}
+
+
+def _paren_tuple(code):
+    """True if `code` holds a parenthesised group with a top-level comma that is
+    not a call — i.e. a tuple, which GDScript does not have."""
+    j = 0
+    while True:
+        k = code.find("(", j)
+        if k < 0:
+            return False
+        depth, end = 0, -1
+        for m in range(k, len(code)):
+            if code[m] == "(":
+                depth += 1
+            elif code[m] == ")":
+                depth -= 1
+                if depth == 0:
+                    end = m
+                    break
+        if end < 0:
+            return False
+        inner, before = code[k + 1:end], code[:k].rstrip()
+        tok = re.split(r"[^\w]+", before)[-1] if before else ""
+        is_call = bool(before) and (before[-1] in ")]]." or
+                                   (tok.isidentifier() and tok not in KEYWORDS_BEFORE_PAREN))
+        d, comma = 0, False
+        for ch in inner:
+            if ch in "([":
+                d += 1
+            elif ch in ")]":
+                d -= 1
+            elif ch == "," and d == 0:
+                comma = True
+        if comma and not is_call:
+            return True
+        j = end + 1
+
+
+
+
 def add(path, line, rule, msg):
     findings.append((path, line, rule, msg))
 
@@ -98,6 +142,15 @@ def scan(path):
             add(rel, i, "JSON-INT",
                 "JSON numbers arrive as floats; wrap in int()/float(): %s"
                 % line.strip())
+
+        # GDScript has no tuples. `for x in (a, b)` parses the paren as a
+        # grouping expression, reads a, meets the comma, and fails with
+        # 'Expected closing ")" after grouping expression'. One such line made
+        # an entire class unparseable and the engine blamed five other files
+        # that merely mentioned it — so this is worth a dedicated rule.
+        if _paren_tuple(code):
+            add(rel, i, "PAREN-TUPLE",
+                "parenthesised comma list is not valid GDScript; use [a, b]")
 
         # A ternary split across a line continuation inside parentheses is a
         # GDScript parser edge case ("Expected closing ) after grouping
