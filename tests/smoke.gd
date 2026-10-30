@@ -282,6 +282,12 @@ func _run() -> void:
 	await _wait_open(region.dialogue)
 	_check(main.act_id() == "errand", "the drill hands over to the errand (act=%s)" % main.act_id())
 	_check(region.dialogue._open, "the father speaks in Bethlehem")
+	# Close the father's beat before walking: the world is paused while a box is
+	# open, so a player standing on a provision collects nothing — and a test
+	# standing on one collects nothing either.
+	_drain(region.dialogue)
+	await _frames(2)
+	_check(not region._paused, "the errand releases the world")
 
 	# ── 6b. the errand ───────────────────────────────────────────────────
 	var prov_spawned := 0
