@@ -16,7 +16,7 @@ extends SceneTree
 ##   5. every shout kind has at least one matching word kind in the same
 ##      region, so no word-battle round can be unwinnable
 
-const RegionModelScript := preload("res://scripts/systems/RegionModel.gd")
+const RegionModelScript = preload("res://scripts/systems/RegionModel.gd")
 
 var failures := 0
 

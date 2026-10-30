@@ -37,7 +37,7 @@ var _tile_key := PackedStringArray() # width*height, terrain key per cell
 var _speed := PackedFloat32Array()
 var _sfx := PackedStringArray()
 var _tile_index: Dictionary = {}     # terrain key -> base atlas index + variant count
-var _walkable_map := Dictionary = {} # terrain key -> bool
+var _walkable_map: Dictionary = {}   # terrain key -> bool
 var astar: AStarGrid2D = null
 
 
