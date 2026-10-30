@@ -166,6 +166,40 @@ Small, high-value, and all in the spirit of the existing design:
 
 ---
 
+## 5b. Adding campaign 02 (or 03) — the checklist
+
+The platform is one game with many stories. Everything a story needs lives in
+data; only a story that needs a *mechanic* nothing else has writes a scene
+(`GoliathFight.gd` is the worked example — the witness chapter never learns its
+name).
+
+1. **`data/regions/<id>.json`** — the whole place: `grid`, `legend`, `props`,
+   `npcs`, `words`, `shouts`, `triggers`, `briefing`, `ending`, `objectives`.
+   Copy `elah.json` and change the words; the schema does not care whose story
+   it is.
+2. **`data/tiles.json` / `data/props.json` keys** — reuse the existing ones.
+   `pack_art.py --check` fails on a key that does not resolve.
+3. **`data/campaigns.json`** — register it: `id`, `order`, `region`, `book`,
+   `title`, `subtitle`, `witness`, `hero`, `hero_name`, `available: true`.
+   `tests/run_all.gd` fails if an available campaign points at a missing
+   region, if an id is duplicated, or if any text is not `{en, zh}`.
+4. **Art** — `art/characters/<actor>_{walk,idle}.png` for a new cast member
+   (`tools/artgen`), then `tools/pack_art.py`. Facesets come from row 0 of the
+   idle sheet, so there is nothing extra to draw.
+5. **Chinese** — written, not translated (see 6.1), then
+   `tools/build_font.py && tools/check_font.py`, and
+   `tools/check_text_fit.py --max-rows 3`.
+6. **Hero mechanics** — if the story needs one (Moses and water, Daniel and a
+   night in the den), add `scripts/setpiece/<Thing>.gd` with the same contract
+   `GoliathFight` keeps: a `start()`, a public `press()` a thumb can drive, a
+   `signal finished`, and a test seam so `tests/smoke.gd` can play it headless.
+7. **Save** — nothing to do. Progress is keyed by region id and campaign id in
+   `GameState.data`, so the next story starts clean without touching the last.
+
+What is deliberately *not* per-campaign: the witness, movement, camera, the
+dialogue box, the HUD and its waypoint, the escort/lead behaviour, the word
+battle's shape, save/load, the font and the language toggle.
+
 ## 6. Localisation and fonts
 
 - **Chinese is the default language, English is the toggle.** That is Covenant's existing choice and it

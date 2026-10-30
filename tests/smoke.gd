@@ -88,6 +88,10 @@ func _run() -> void:
 		_finish_run()
 		return
 	_check(region.model != null, "region model loaded from data")
+	# The campaign comes from the registry, not from a string in Main.gd. This is
+	# what makes campaign #2 a content change instead of a code change.
+	_check(str(region.region_id) == CampaignModel.current_region(),
+		"the region is the one data/campaigns.json registered (%s)" % region.region_id)
 	_check(region.player != null, "player spawned")
 	_check(region.dialogue != null, "dialogue box exists")
 	_check(region.npcs.size() == 4, "4 people in the valley (got %d)" % region.npcs.size())

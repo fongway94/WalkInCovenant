@@ -1,0 +1,29 @@
+{
+ "note": "The platform registry. One entry per Bible campaign. Adding a story should mean adding a region file, art keys and an entry here — not editing a script.",
+ "campaigns": [
+  {
+   "id": "elah",
+   "order": 1,
+   "region": "elah",
+   "book": {"en": "1 Samuel 17", "zh": "撒母耳记上 17"},
+   "title": {"en": "The Valley of Elah", "zh": "以拉谷"},
+   "subtitle": {"en": "David, and a battle that was never his", "zh": "大卫，和一场本来不属于他的仗"},
+   "witness": "pilgrim",
+   "hero": "david",
+   "hero_name": {"en": "David", "zh": "大卫"},
+   "available": true
+  },
+  {
+   "id": "exodus",
+   "order": 2,
+   "region": "exodus",
+   "book": {"en": "Exodus 3-14", "zh": "出埃及记 3-14"},
+   "title": {"en": "The Sea of Reeds", "zh": "芦苇海"},
+   "subtitle": {"en": "Moses, and a people who had to walk", "zh": "摩西，和一群必须往前走的人"},
+   "witness": "pilgrim",
+   "hero": "moses",
+   "hero_name": {"en": "Moses", "zh": "摩西"},
+   "available": false
+  }
+ ]
+}

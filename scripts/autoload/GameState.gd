@@ -43,6 +43,7 @@ func new_game() -> void:
 		"words": [],            # verses handed over by people on the road
 		"quests": {},           # quest_id -> {objectives:[], done:bool}
 		"region": "elah",
+		"campaign": "elah",     # which entry in data/campaigns.json this save plays
 		"pos": [0, 0],
 		"day": 1,
 		"time_of_day": "morning",

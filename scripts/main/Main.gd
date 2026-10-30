@@ -58,7 +58,8 @@ func _ready() -> void:
 	EventBus.verse_received.connect(_on_verse)
 
 	region = Region.new()
-	region.region_id = "elah"
+	# Which story this is comes from the registry, not from a line of code.
+	region.region_id = CampaignModel.current_region()
 	region.region_ready.connect(_on_region_ready)
 	region.pickup_taken.connect(_on_pickup)
 	region.trigger_fired.connect(_on_trigger)
@@ -364,7 +365,8 @@ func _begin_become() -> void:
 	region.set_paused(true)
 	hud.set_objective(I18n.t({"en": "You are David. The line is behind you.",
 		"zh": "你就是大卫。界线在你身后。"}))
-	become.begin("david", {"en": "DAVID", "zh": "大卫"}, _start_david_act)
+	become.begin(CampaignModel.current_hero(), CampaignModel.current_hero_plate(),
+		_start_david_act)
 
 
 ## Act II opens on the errand that put David in the valley at all: Jesse's
@@ -374,7 +376,7 @@ func _start_david_act() -> void:
 	act = Act.ERRAND
 	provisions = 0
 	_brothers_met = false
-	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
+	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
 	var da: Dictionary = region.model.david_act
 	if da.is_empty():
 		# A region may not have the act at all. Then becoming David goes straight
@@ -405,7 +407,7 @@ func _start_battle() -> void:
 	act = Act.FIGHT
 	# The nameplate is the whole promise of this chapter: for the length of the
 	# fight the hands on the sling are David's (docs/FEEL.md §3).
-	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
+	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
 	hud.set_objective(I18n.t({
 		"en": "Answer him with what you carry. Then throw.",
 		"zh": "用你带着的经文回答他。然后，放手。"}))

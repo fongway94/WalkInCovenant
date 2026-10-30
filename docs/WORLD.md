@@ -142,6 +142,28 @@ The game is now built for the return.
 
 ---
 
+## 5b. The platform, as built
+
+One game, many stories. `data/campaigns.json` is the registry; a campaign points
+at a region file, and the shared layer — witness mode, escort, BECOME, word
+battle, HUD, save, font, language toggle — runs it without knowing which story
+it is. `CampaignModel.current_region()` is the single string that used to be
+hardcoded in `Main.gd`.
+
+| Shared, never per-campaign | Per-campaign, in data |
+|---|---|
+| Movement, camera, tile collision, day light | `grid`, `legend`, `props`, `spawn` |
+| Dialogue box, portraits, choices, skip | `briefing`, `npcs[].lines/after`, `words`, `shouts` |
+| HUD objective, waypoint arrow, role plate | `objectives`, `ending`, `triggers` |
+| Escort/lead (`Npc.lead_to`) | who walks with you, `follow_after_talk` |
+| Word battle + BECOME transition | the verses you answer with, the hero's name |
+| Save/load, XP, relics, completion | — |
+
+`elah` is campaign 01 and is complete through the ending. `exodus` is registered
+as `available: false`: it exists so the registry has a second shape to satisfy,
+and so nobody has to guess what the next story costs (one region file, one art
+pass, one Chinese pass — not a rewrite).
+
 ## 6. The chapter loop, as built (Elah / David & Goliath)
 
 This is what a player actually does, in order. Every step is asserted by

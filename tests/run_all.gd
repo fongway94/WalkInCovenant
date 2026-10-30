@@ -30,6 +30,7 @@ func _init() -> void:
 			"solid": p["solid"]}
 
 	_check_display()
+	_check_campaigns()
 	var regions := ["elah"]
 	for rid in regions:
 		_check_region(rid, tiles, pmeta)
@@ -57,6 +58,35 @@ func _check_display() -> void:
 		_fail("stretch aspect is '%s': tall phones get letterboxed" % aspect)
 	else:
 		_ok("display expands to fill tall screens")
+
+
+## The platform registry. Adding a campaign is supposed to be a data change, so
+## the gate is about the data agreeing with itself: an available campaign must
+## point at a region file that exists, and every campaign must be readable in
+## both languages.
+func _check_campaigns() -> void:
+	var reg := _read_json("res://data/campaigns.json")
+	var list: Array = reg.get("campaigns", [])
+	if list.is_empty():
+		_fail("data/campaigns.json registers no campaigns")
+		return
+	var seen := {}
+	for c in list:
+		var id := str(c.get("id", ""))
+		if id == "":
+			_fail("a campaign has no id")
+			continue
+		if seen.has(id):
+			_fail("campaign id '%s' is registered twice" % id)
+		seen[id] = true
+		_has_both(c.get("title"), "campaign %s title" % id)
+		_has_both(c.get("subtitle"), "campaign %s subtitle" % id)
+		_has_both(c.get("book"), "campaign %s book reference" % id)
+		if bool(c.get("available", false)):
+			var path := "res://data/regions/%s.json" % str(c.get("region", ""))
+			if not FileAccess.file_exists(path):
+				_fail("campaign %s is marked available but %s does not exist" % [id, path])
+	_ok("campaign registry is consistent (%d registered)" % list.size())
 
 
 func _read_json(path: String) -> Dictionary:
