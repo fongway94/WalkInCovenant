@@ -40,62 +40,46 @@ Logical space: **1 tile = 16 px**, base viewport **320×180** = 20 × 11.25 tile
 |---|---|---|
 | Walk speed | **60 px/s** (3.75 tiles/s) | Pokémon's overworld walk is roughly 3–4 tiles/s. Above 5 feels frantic. |
 | Run speed | **96 px/s** (6.0 tiles/s) | 1.6× walk. Hold-to-run, never a toggle. |
-| Acceleration | **900 px/s²** | Reaches walk speed in ~67 ms — effectively instant, but not literally instant, which avoids the "ice" feel. |
-| Deceleration | **1200 px/s²** | Stops faster than it starts. Snappy stop = responsive. |
-| Turn time | **0.07 s** (70 ms) | The single most important number in this document. See §2.2. |
-| Grid magnet | **22 px/s** toward tile centre | Applied only on the axis you are *not* moving along. |
+| Acceleration | **1800 px/s²** | Reaches walk speed in ~33 ms (2 frames) — instant enough to feel wired, slow enough not to teleport. |
+| Deceleration | **2400 px/s²** | Stops in ~1 frame. Snappy stop = responsive. |
+| Turn time | **0 ms** | Facing snaps on the press. See §2.2 — this used to be 70 ms and playtest #3 killed it on touch. |
+| Touch floor | **72 % of walk speed** | Analog tilt scales speed, but never below this, so the first millimetre of stick travel already walks. |
+| Grid magnet | **24 px/s** toward tile centre | Applied only on the axis you are *not* moving along. |
 | Interaction range | **0.9 tile** | Face the thing, press A. Not proximity-auto like Covenant's `TALK_RANGE = TILE * 1.45`. |
 | Body radius | **5 px** capsule, feet at +6 y | Small hitbox, so one-tile doorways never catch you. |
 
-### 2.2 Turn-in-place — the whole ballgame
+### 2.2 Facing snaps — no turn tax
 
 ```
-Frame 0        Player holds RIGHT while facing DOWN.
-Frame 0–4      Character rotates to face RIGHT. Does NOT translate.
-               (~70 ms at 60 fps = 4 frames)
-Frame 5+       Character begins stepping RIGHT at walk speed.
+Frame 0   Player sweeps the stick from DOWN to RIGHT.
+Frame 0   Sprite faces RIGHT, velocity re-aims toward the new axis. No pause.
 ```
 
-**Why:** without this, a direction change translates and rotates in the same frame. The sprite's feet
-are then moving sideways relative to its facing for a few frames, and the brain reads that as *sliding
-on ice*. With it, the character reads as a **person who decided to go somewhere**.
+This document used to mandate the opposite: a 70 ms turn-in-place pause before any step, on the
+theory (inherited from grid games) that translating and rotating in the same frame reads as sliding
+on ice. That theory holds for a d-pad and a tile grid. It does **not** hold for a floating analog
+stick — and that is how the game is actually played, on a phone.
 
-**Why 70 ms and not 150 ms:** 150 ms feels sluggish and laggy on repeated taps. 40 ms is too fast to
-read. 60–80 ms is the sweet spot. Pokémon's own turn delay is in this range.
+Playtest #3 reported the character as "a bit delayed and not smooth". The cause was not the camera
+or the frame rate: the stick produces a continuous vector, so every thumb sweep around the dead zone
+flickers the dominant axis, and each flicker paid a fresh 70 ms turn pause. Sweeping the thumb
+around the stick produced a stutter of pauses. Facing now snaps on the frame the press arrives and
+the walk re-aims without stopping.
 
-**Exception — the 180°:** turning from DOWN to UP should use the same 70 ms, but you may skip it
-entirely when the player is holding run, because at run speed the delay reads as input lag.
-Tune by feel; document what you land on.
+**What still avoids the ice feel:** acceleration is finite (2 frames to speed), the analog floor
+keeps slow tilt at walking pace, and the tile magnet still pulls the crossing axis to centres. The
+read of "a person who decided to go somewhere" comes from the velocity ramp, not from a rotation
+delay.
 
-### 2.3 Input buffering
+**Grid magnet** (§2.4) is what keeps a free-roam walker from drifting half-tiles off the authored
+map, so the snap can stay instant without the world losing its authored grid.
 
-The bug that makes grid games feel broken: you press RIGHT during your turn animation, the turn
-system is mid-rotation, the press is consumed and discarded, and you have to press again. Players
-experience this as "the game didn't hear me" and cannot articulate it.
+### 2.3 Input buffering — retired
 
-```gdscript
-# Buffer the most recent directional press for BUFFER_WINDOW seconds.
-# On exiting TURNING, consume the buffer instead of requiring a fresh press.
-const BUFFER_WINDOW := 0.18
-
-var _buffer: Vector2i = Vector2i.ZERO
-var _buffer_age := 999.0
-
-func _buffer_input(dir: Vector2i) -> void:
-    _buffer = dir
-    _buffer_age = 0.0
-
-func _consume_buffer() -> Vector2i:
-    if _buffer_age <= BUFFER_WINDOW and _buffer != Vector2i.ZERO:
-        var d := _buffer
-        _buffer = Vector2i.ZERO
-        _buffer_age = 999.0
-        return d
-    return Vector2i.ZERO
-```
-
-180 ms is generous — about 11 frames. Generous is correct here; a dropped input feels far worse than
-a slightly-too-eager one.
+The old design buffered a directional press made during the turn animation for 180 ms, because the
+turn state could swallow it. With no turn state there is nothing to swallow: intent is read every
+physics frame from the stick/keyboard, so a press that arrives mid-step is simply the next frame's
+intent. Do not reintroduce a buffer without a state machine that can drop input.
 
 ### 2.4 Grid magnetism (corner correction)
 
@@ -145,9 +129,14 @@ One `TileSet` resource, painted in the editor, is exactly the workflow you were 
 # scenes/world/CameraRig.gd
 extends Camera2D
 
-@export var deadzone      := Vector2(48, 32)   # px — player moves freely inside this box
+@export var deadzone      := Vector2(36, 24)   # px — player moves freely inside this box
 @export var lookahead     := Vector2(24, 12)   # px — offset toward the facing direction
-@export var smooth_speed  := 8.0               # exponential follow, frame-rate independent
+@export var smooth_speed  := 11.0              # exponential follow, frame-rate independent
+
+# Tightened at playtest #3: 48 px + 8/s let the player cross three tiles before
+# the world answered, which on a phone reads as the same lag the input path was
+# blamed for. The box is still there — the calm is the point — but it is now
+# about two tiles wide, and 11/s catches up before the thumb does.
 @export var bounds_rect   := Rect2()           # set from the region's TileMap used rect
 ```
 

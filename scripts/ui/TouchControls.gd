@@ -10,14 +10,17 @@ class_name TouchControls
 ## version-dependent node to discover. It synthesises the same input actions
 ## the keyboard uses, so Player never knows the difference.
 ##
-## Analog magnitude drives speed exactly as Covenant's field.js did:
-##     push = min(1, distance / 44)
-## so a gentle tilt walks and a full tilt runs, making the run button a
-## convenience rather than a requirement.
+## Analog magnitude drives speed:
+##     push = min(1, distance / 40)
+## A gentle tilt walks (never below 72% of walk speed — a stick that crawls
+## for its first centimetre reads as lag), a tilt of 0.9+ runs, so the run
+## button is a convenience rather than a requirement. The dead zone is 8 px:
+## wide enough to ignore thumb tremor, narrow enough that the very first
+## nudge already moves the pilgrim.
 
 const MOUSE_ID := 99   # synthetic touch id for mouse input
-const DEADZONE := 12.0
-const FULL := 44.0
+const DEADZONE := 8.0
+const FULL := 40.0
 
 var player: Player = null
 var viz: Control = null

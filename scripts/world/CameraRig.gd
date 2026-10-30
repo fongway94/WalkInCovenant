@@ -7,9 +7,13 @@ class_name CameraRig
 ## Smoothing is frame-rate independent exponential lerp — never the
 ## `pos += (target-pos)*0.1` form, which changes with frame rate.
 
-@export var deadzone := Vector2(48, 32)
+# Tightened at playtest 3: a 48 px deadzone plus an 8/s lerp let the pilgrim
+# wander three tiles before the world answered, which on a phone screen reads
+# as the same lag the input path was blamed for. Still a deadzone — the calm
+# is the point — but the camera now notices within about two tiles.
+@export var deadzone := Vector2(36, 24)
 @export var lookahead := Vector2(24, 12)
-@export var smooth_speed := 8.0
+@export var smooth_speed := 11.0
 @export var shake_power := 2.0
 
 var follow: Node2D = null

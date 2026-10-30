@@ -1,12 +1,19 @@
 extends Node2D
 class_name Player
-## Player — grid-intent movement in continuous space, with the four things
-## that make it feel like a console game (docs/FEEL.md §2):
+## Player — grid-intent movement in continuous space, with the things that
+## make it feel like a console game on a phone (docs/FEEL.md §2):
 ##
-##   1. TURN-IN-PLACE   a direction change rotates first, then steps
-##   2. INPUT BUFFERING a press during the turn is remembered, not dropped
-##   3. GRID MAGNETISM  gentle pull to tile centres on the crossing axis
-##   4. CORNER NUDGE    slip past a corner instead of catching on it
+##   1. INSTANT FACING  a direction change rotates the sprite on the frame it
+##      is pressed and the walk re-aims without stopping. Playtest 3 killed
+##      the old 70 ms turn-in-place pause: on a phone every sweep of the thumb
+##      around the floating stick re-triggered it, and "a bit of delay" is
+##      exactly what a pause per direction change feels like.
+##   2. TWO-FRAME RAMP  velocity reaches the target in ~2 frames (accel 1800)
+##      and leaves it in ~1 (decel 2400): snappy, never teleported.
+##   3. ANALOG FLOOR    touch magnitude scales walk speed but never below 72%
+##      of it, and a full tilt (>= 0.9) runs — so a light touch still goes.
+##   4. GRID MAGNETISM  gentle pull to tile centres on the crossing axis
+##   5. CORNER NUDGE    slip past a corner instead of catching on it
 ##
 ## Deliberately NOT a CharacterBody2D: collision is a small feet box tested
 ## against the region grid, exactly as Covenant's tryMove() did. Fewer moving
@@ -16,13 +23,12 @@ const TILE := 16.0
 
 @export var walk_speed := 60.0        # px/s  → 3.75 tiles/s
 @export var run_speed := 96.0         # px/s  → 6.00 tiles/s
-@export var turn_time := 0.07         # s — the single most important number here
-@export var accel := 900.0
-@export var decel := 1200.0
-@export var magnet := 22.0            # px/s pull toward tile centre
-@export var buffer_window := 0.18     # s
+@export var accel := 1800.0           # px/s^2 — full walk speed in ~2 frames
+@export var decel := 2400.0           # px/s^2 — stop in ~1
+@export var magnet := 24.0            # px/s pull toward tile centre
+@export var run_push := 0.9           # touch magnitude that counts as running
 
-enum Mode { IDLE, TURNING, MOVING }
+enum Mode { IDLE, MOVING }
 
 var model: RegionModel = null
 var mode: Mode = Mode.IDLE
@@ -40,11 +46,6 @@ var _frame := 0.0
 var _anim_t := 0.0
 var _foot_t := 0.0
 var _foot_side := 0
-
-# input buffer
-var _buffer := Vector2i.ZERO
-var _buffer_age := 999.0
-var _turn_t := 0.0
 
 # journey-mirror "step" way: recorded per distance travelled, not per choice
 var _step_acc := 0.0
@@ -108,32 +109,13 @@ func _dir_from(v: Vector2) -> Vector2i:
 func _physics_process(delta: float) -> void:
 	if model == null:
 		return
-	_buffer_age += delta
 	var intent := _read_intent()
 
+	# Instant facing. The turn-in-place pause this replaces cost every
+	# direction change 70 ms of dead time; on a floating stick that pause
+	# fired on every thumb sweep and read as input lag (playtest 3).
 	if intent != Vector2.ZERO:
-		var want := _dir_from(intent)
-		if want != facing:
-			_buffer = want
-			_buffer_age = 0.0
-			if mode != Mode.TURNING:
-				mode = Mode.TURNING
-				_turn_t = 0.0
-				velocity = Vector2.ZERO
-		elif mode == Mode.TURNING:
-			# already turning toward it; keep going
-			pass
-
-	if mode == Mode.TURNING:
-		_turn_t += delta
-		if _turn_t >= turn_time:
-			# consume the buffer: the press made *during* the turn is honoured
-			var d := _consume_buffer()
-			if d != Vector2i.ZERO:
-				facing = d
-			mode = Mode.MOVING
-		_update_anim(0.0, delta)
-		return
+		facing = _dir_from(intent)
 
 	if intent == Vector2.ZERO:
 		mode = Mode.IDLE
@@ -143,8 +125,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	mode = Mode.MOVING
-	var running := Input.is_action_pressed("run")
+	var push: float = external_intent.length()
+	var running := Input.is_action_pressed("run") or push >= run_push
 	var base := run_speed if running else walk_speed
+	if external_intent != Vector2.ZERO and not running:
+		# Analog tilt walks slower the gentler it is, but never crawls: the
+		# floor keeps the first millimetres of stick travel at walking pace.
+		base *= clampf(0.72 + 0.28 * push * 1.2, 0.72, 1.0)
 	var surface := model.speed_at(global_position.x, global_position.y)
 	var target := intent * base * surface
 	velocity = velocity.move_toward(target, accel * delta)
@@ -168,15 +155,6 @@ func _physics_process(delta: float) -> void:
 			AudioDirector.play_sfx(s, -6.0 + (2.0 if _foot_side == 0 else 0.0))
 
 	_update_anim(velocity.length(), delta)
-
-
-func _consume_buffer() -> Vector2i:
-	if _buffer_age <= buffer_window and _buffer != Vector2i.ZERO:
-		var d := _buffer
-		_buffer = Vector2i.ZERO
-		_buffer_age = 999.0
-		return d
-	return Vector2i.ZERO
 
 
 func _decelerate(delta: float) -> void:
@@ -258,12 +236,12 @@ func _dir_row() -> int:
 func _update_anim(speed: float, delta: float) -> void:
 	if sprite == null:
 		return
-	var moving := speed > 4.0 and mode != Mode.TURNING
+	var moving := speed > 4.0 and mode == Mode.MOVING
 	var row := _dir_row()
 	if moving:
 		sprite.texture = walk_tex
 		sprite.hframes = 4
-		_anim_t += delta * (speed / walk_speed) * 7.0
+		_anim_t += delta * (speed / walk_speed) * 8.0
 		_frame = float(int(_anim_t) % 4)
 	else:
 		sprite.texture = idle_tex
