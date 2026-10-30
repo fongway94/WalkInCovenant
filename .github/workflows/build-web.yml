@@ -169,8 +169,20 @@ jobs:
         id: smoke
         continue-on-error: true
         run: |
-          godot --headless --path . --script tests/smoke.gd > smoke.txt 2>&1
+          # Booted as a SCENE, not --script: Main::start() builds a --script main
+          # loop long before it registers autoloads, so on that path this test and
+          # every script it pulls in die with "Identifier not found: GameState".
+          # A scene on the command line loads after the autoloads exist, which is
+          # also how the shipped game boots.
+          #
+          # `timeout` is a backstop, not a nicety. A scene-booted test that never
+          # reaches its quit() — a script that failed to compile, a dialogue box
+          # that never closes — would otherwise run to the job's 6-hour limit.
+          timeout 300 godot --headless --path . res://tests/smoke.tscn > smoke.txt 2>&1
           STATUS=$?
+          if [ "$STATUS" -eq 124 ]; then
+            echo "smoke: TIMEOUT — the playthrough never reached its final assertion" >> smoke.txt
+          fi
           cat smoke.txt
           exit $STATUS
 

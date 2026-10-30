@@ -1,4 +1,4 @@
-extends SceneTree
+extends Node
 ## tests/smoke.gd — plays the vertical slice headless and asserts the loop closes.
 ##
 ## run_all.gd checks the CONTENT is well formed. This checks the GAME WORKS.
@@ -9,7 +9,15 @@ extends SceneTree
 ## thumbs would use, so a regression in Region, DialogueBox, BecomeController or
 ## WordBattle fails the build instead of failing somebody's first playtest.
 ##
-##   godot --headless --path . --script tests/smoke.gd
+##   godot --headless --path . res://tests/smoke.tscn
+##
+## Booted as a SCENE, not with --script. Main::start() instantiates a --script
+## main loop (main.cpp:4438) a long way before it registers autoloads as global
+## constants (main.cpp:4498), so anything compiled on that path — this file and
+## every script its preload pulls in — dies with "Identifier not found:
+## AudioDirector" and never reaches an assertion. A scene passed on the command
+## line is loaded after the autoloads exist, which is also the path the shipped
+## game takes, so the test cannot drift from how the game really boots.
 ##
 ## Two bugs this file exists because of, both invisible to a green compile:
 ##   * Region never built its trigger list, so the challenge line could not fire
@@ -24,7 +32,7 @@ const FRAME_GUARD := 6000
 var fails := 0
 
 
-func _initialize() -> void:
+func _ready() -> void:
 	_run()
 
 
@@ -35,7 +43,7 @@ func _run() -> void:
 	GameState.data["settings"]["reduce_motion"] = true
 
 	var main = MainScene.instantiate()
-	root.add_child(main)
+	get_tree().root.add_child(main)
 	await _frames(4)
 
 	# ── 1. the valley exists ─────────────────────────────────────────────
@@ -104,7 +112,7 @@ func _run() -> void:
 	_check(region._paused, "the world holds still while you become David")
 	var waited := 0
 	while main.battle == null and waited < FRAME_GUARD:
-		await process_frame
+		await get_tree().process_frame
 		waited += 1
 	_check(main.battle != null, "the word battle exists after BECOME (waited %d frames)" % waited)
 	if main.battle == null:
@@ -131,7 +139,7 @@ func _run() -> void:
 	var settle := 0
 	while bool(main._in_battle) and settle < FRAME_GUARD:
 		_drain(region.dialogue)
-		await process_frame
+		await get_tree().process_frame
 		settle += 1
 	_check(not bool(main._in_battle), "RETURN completed and the valley is playable again")
 	_check(bool(GameState.flag("goliath_down")), "the valley remembers he is down")
@@ -166,7 +174,7 @@ func _check(ok: bool, msg: String) -> void:
 
 func _frames(n: int) -> void:
 	for i in range(n):
-		await process_frame
+		await get_tree().process_frame
 
 
 func _stand(region, tx: int, ty: int, frames: int) -> void:
@@ -226,7 +234,7 @@ func _finish_run() -> void:
 	Engine.time_scale = 1.0
 	if fails == 0:
 		print("smoke: PASS — the slice played start to finish")
-		quit(0)
+		get_tree().quit(0)
 	else:
 		printerr("smoke: FAIL — %d assertion(s) did not hold" % fails)
-		quit(1)
+		get_tree().quit(1)
