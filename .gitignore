@@ -52,3 +52,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Python bytecode (tools/ are run, not imported by the game)
+__pycache__/
+*.pyc
