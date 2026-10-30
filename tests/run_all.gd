@@ -135,7 +135,24 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 				_has_both(line.get("text"), "%s:trigger %s %s" % [rid, td.get("id"), key])
 	for line in m.briefing:
 		_has_both(line.get("text"), "%s:briefing line" % rid)
-	_ok("all dialogue and verses bilingual")
+	# The chapter ending and the HUD's objective lines are player-facing prose
+	# too. They are the newest way text reaches a player and the easiest to leave
+	# half-translated: one is shown once, at the very end, and the other is a
+	# single string no dialogue ever repeats.
+	for key in m.objectives:
+		_has_both(m.objectives.get(key), "%s:objective %s" % [rid, key])
+	for key in ["corin", "stones", "line", "done"]:
+		if not m.objectives.has(key):
+			_fail("%s: objectives is missing '%s' — the HUD would point at nothing" % [rid, key])
+	for line in (m.ending.get("lines", []) as Array):
+		_has_both(line.get("text"), "%s:ending line" % rid)
+	_has_both(m.ending.get("ask"), "%s:ending question" % rid)
+	for o in (m.ending.get("options", []) as Array):
+		_has_both(o.get("t"), "%s:ending option" % rid)
+		_has_both(o.get("insight"), "%s:ending insight" % rid)
+	if (m.ending.get("lines", []) as Array).is_empty():
+		_fail("%s: no ending — the chapter would stop the moment the giant falls" % rid)
+	_ok("all dialogue, verses, objectives and the ending are bilingual")
 
 	# 5. no unwinnable shout
 	var word_kinds := {}

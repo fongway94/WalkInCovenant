@@ -83,14 +83,30 @@ func _input(event: InputEvent) -> void:
 			_drag(mm.position)
 
 
+## Pressing an on-screen button must look EXACTLY like pressing the key.
+##
+## Input.action_press() only flips the internal action state; it does not put an
+## InputEvent into the input pipeline. Region and DialogueBox listen for
+## `event.is_action_pressed("interact")`, so on a phone the A button moved the
+## player's thumb and nothing else — the reported "cant talk with npc", and the
+## reason a conversation could stall with no way to advance it. Node._input sees
+## what parse_input_event delivers, so synthesise the real event.
+func _emit_action(action: String, pressed: bool) -> void:
+	var ev := InputEventAction.new()
+	ev.action = action
+	ev.pressed = pressed
+	ev.strength = 1.0 if pressed else 0.0
+	Input.parse_input_event(ev)
+
+
 func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
 	if pressed:
 		if _zone_a(pos, vs):
 			_a_held = true
-			Input.action_press("interact")
+			_emit_action("interact", true)
 		elif _zone_run(pos, vs):
 			_run_held = true
-			Input.action_press("run")
+			_emit_action("run", true)
 		elif pos.x < vs.x * 0.5:
 			_stick_id = idx
 			_origin = pos
@@ -102,10 +118,10 @@ func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
 			player.external_intent = Vector2.ZERO
 		if _a_held:
 			_a_held = false
-			Input.action_release("interact")
+			_emit_action("interact", false)
 		if _run_held:
 			_run_held = false
-			Input.action_release("run")
+			_emit_action("run", false)
 	viz.queue_redraw()
 
 
@@ -122,16 +138,25 @@ func _drag(pos: Vector2) -> void:
 
 
 func _draw_viz() -> void:
-	if _stick_id == -1:
-		return
-	# base ring + knob, drawn under the thumb
-	viz.draw_circle(_origin, 20, Color(1, 1, 1, 0.08))
-	viz.draw_arc(_origin, 20, 0, TAU, 24, Color(1, 1, 1, 0.18), 1.0)
-	viz.draw_circle(_origin + _vec * 16, 7, Color(0.97, 0.87, 0.65, 0.35))
-	# A / run hints
+	# The stick is floating: it is drawn only while a thumb is on it.
+	if _stick_id != -1:
+		viz.draw_circle(_origin, 20, Color(1, 1, 1, 0.08))
+		viz.draw_arc(_origin, 20, 0, TAU, 24, Color(1, 1, 1, 0.18), 1.0)
+		viz.draw_circle(_origin + _vec * 16, 7, Color(0.97, 0.87, 0.65, 0.35))
+	# The A and RUN buttons, on the other hand, are ALWAYS on screen. They used
+	# to be drawn inside the stick branch, so they existed only while a thumb was
+	# already on the screen — a player who had not yet touched anything could not
+	# see the button the briefing told them to press (playtest 6).
 	var vs := viz.get_viewport_rect().size
-	viz.draw_circle(Vector2(vs.x - 32, vs.y - 22), 12, Color(1, 1, 1, 0.10))
-	viz.draw_string(ThemeDB.fallback_font, Vector2(vs.x - 36, vs.y - 18), "A",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 1, 1, 0.5))
-	viz.draw_string(ThemeDB.fallback_font, Vector2(vs.x - 92, vs.y - 18), "»",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(1, 1, 1, 0.5))
+	var a_c := Vector2(vs.x - 30, vs.y - 26)
+	var r_c := Vector2(vs.x - 84, vs.y - 26)
+	# A: the biggest target on the screen, because it is the one button a player
+	# cannot get through the game without.
+	viz.draw_circle(a_c, 15, Color(0.97, 0.87, 0.65, 0.30 if _a_held else 0.16))
+	viz.draw_arc(a_c, 15, 0, TAU, 28, Color(0.97, 0.87, 0.65, 0.55), 1.0)
+	viz.draw_string(ThemeDB.fallback_font, a_c + Vector2(-4, 4), "A",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.75))
+	viz.draw_circle(r_c, 11, Color(1, 1, 1, 0.16 if _run_held else 0.09))
+	viz.draw_arc(r_c, 11, 0, TAU, 24, Color(1, 1, 1, 0.35), 1.0)
+	viz.draw_string(ThemeDB.fallback_font, r_c + Vector2(-4, 3), "»",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.6))

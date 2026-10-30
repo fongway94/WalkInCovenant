@@ -43,6 +43,11 @@ func _ready() -> void:
 	touch = TouchControls.new()
 	add_child(touch)
 
+	# Receiving a verse is the one reward the game never announced: the HUD's ☆
+	# ticked up and nothing else. A player who never noticed the counter has no
+	# reason to think the people they meet are worth meeting.
+	EventBus.verse_received.connect(_on_verse)
+
 	region = Region.new()
 	region.region_id = "elah"
 	region.region_ready.connect(_on_region_ready)
@@ -66,6 +71,84 @@ func _process(delta: float) -> void:
 		EventBus.toast_requested.emit(I18n.t({
 			"en": "The valley lets go of you. Walk on.",
 			"zh": "山谷松开了手。继续走吧。"}))
+	_update_guidance()
+
+
+## The objective line and the arrow. One sentence, one direction, always.
+##
+## Playtest 6: "no story telling, user not understand what to do". Everything
+## the game needed a player to know was in a dialogue that had already been
+## dismissed, so the valley was a field with five rocks in it. The chain is
+## deliberately short and always names the NEXT single action:
+##   Corin → the brook → the line → the fight → the ending.
+func _update_guidance() -> void:
+	if hud == null or region == null or region.player == null:
+		return
+	if region.dialogue != null and region.dialogue.is_open():
+		hud.set_prompt("")
+		return
+	var p: Player = region.player
+	var obj: Dictionary = region.model.objectives
+	var target := p.global_position
+	var point := false
+	var key := "done"
+
+	var corin: Npc = _npc("corin")
+	if corin != null and not corin.has_talked():
+		key = "corin"
+		target = corin.global_position
+		point = true
+	elif stones < _stones_total:
+		key = "stones"
+		var st: Vector2 = _nearest_stone(p.global_position)
+		target = st
+		point = st.distance_to(p.global_position) > 8.0
+	elif not bool(GameState.flag("goliath_down")):
+		key = "line"
+		var row := int(region.model.trigger_data("challenge").get("row", 11))
+		target = Vector2(p.global_position.x, float(row * 16))
+		point = true
+
+	var line: String = I18n.t(obj.get(key, {}))
+	if key == "stones":
+		line = "%s  %d／%d" % [line, stones, _stones_total]
+	hud.set_objective(line)
+	hud.point_at(target - p.global_position, point and target.distance_to(p.global_position) > 24.0)
+
+	# Teach the one button that matters, at the moment it matters: standing next
+	# to a person. This is the on-screen equivalent of the Z key the old
+	# briefing told a phone player to press (playtest 6).
+	if region.nearest_interactable() != null:
+		hud.set_prompt(I18n.t({"en": "A  ·  talk", "zh": "A  ·  交谈"}))
+	else:
+		hud.set_prompt("")
+
+
+func _npc(id: String) -> Npc:
+	for n in region.npcs:
+		if n.npc_id() == id:
+			return n
+	return null
+
+
+func _nearest_stone(from: Vector2) -> Vector2:
+	var best := Vector2.ZERO
+	var bd := 1e20
+	var found := false
+	for it in region.pickups:
+		if str(it.get("kind", "")) != "stone" or bool(it.get("got", false)):
+			continue
+		var node: Node2D = it["node"]
+		if not is_instance_valid(node):
+			continue
+		var d := node.global_position.distance_to(from)
+		if d < bd:
+			bd = d
+			best = node.global_position
+			found = true
+	if not found:
+		return from
+	return best
 
 
 func _on_region_ready() -> void:
@@ -92,6 +175,11 @@ func _brief_once() -> void:
 	region.set_paused(true)
 	region.dialogue.show_lines(region.model.briefing, func(_w): return {}, func():
 		region.set_paused(false))
+
+
+func _on_verse(_id: String, ref: String) -> void:
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "A verse to carry · %s", "zh": "记住了一句经文 · %s"}) % ref)
 
 
 func _on_pickup(id: String) -> void:
@@ -175,10 +263,18 @@ func _memory_beat() -> void:
 func _begin_become() -> void:
 	_in_battle = true
 	region.set_paused(true)
+	hud.set_objective(I18n.t({"en": "You are David. The line is behind you.",
+		"zh": "你就是大卫。界线在你身后。"}))
 	become.begin("david", {"en": "DAVID", "zh": "大卫"}, _start_battle)
 
 
 func _start_battle() -> void:
+	# The nameplate is the whole promise of this chapter: for the length of the
+	# fight the hands on the sling are David's (docs/FEEL.md §3).
+	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
+	hud.set_objective(I18n.t({
+		"en": "Answer him with what you carry. Then throw.",
+		"zh": "用你带着的经文回答他。然后，放手。"}))
 	battle = WordBattle.new()
 	add_child(battle)
 	battle.setup(region)
@@ -195,7 +291,6 @@ func _after_return() -> void:
 		battle.queue_free()
 		battle = null
 	_in_battle = false
-	region.set_paused(false)
 	# the valley is quiet: he will not shout again
 	GameState.set_flag("goliath_down", true)
 	GameState.grant_relic("stones")
@@ -204,7 +299,57 @@ func _after_return() -> void:
 	GameState.gather_fruit("faithfulness")
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
+	# The chapter has an ENDING, and it is played, not implied. This used to drop
+	# the player back into a silent valley the instant the giant fell — the
+	# "suddenly nothing to do" of playtest 6, on a screen with no words on it.
+	hud.set_role(I18n.t({"en": "pilgrim", "zh": "朝圣者"}),
+		int(GameState.data.get("level", 1)))
+	_play_ending()
+
+
+# ── chapter ending ────────────────────────────────────────────────────────
+func _play_ending() -> void:
+	var e: Dictionary = region.model.ending
+	var lines: Array = e.get("lines", [])
+	if lines.is_empty():
+		_end_and_free_roam()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, func(_w): return {}, _ending_ask)
+
+
+func _ending_ask() -> void:
+	var e: Dictionary = region.model.ending
+	var ask: Dictionary = e.get("ask", {})
+	var raw: Array = e.get("options", [])
+	if raw.is_empty():
+		_end_and_free_roam()
+		return
+	var options: Array = []
+	for o in raw:
+		options.append({"t": o.get("t", {})})
+	# The question goes first, as its own line, so the three ways forward are not
+	# read as a menu of nothing.
+	region.dialogue.show_lines([{"who": "", "text": ask}], func(_w): return {},
+		func(): region.dialogue.show_choices_standalone(options, _ending_pick))
+
+
+func _ending_pick(idx: int, _opt: Dictionary) -> void:
+	var raw: Array = region.model.ending.get("options", [])
+	if idx >= 0 and idx < raw.size():
+		var ins: Dictionary = raw[idx].get("insight", {})
+		region.dialogue.show_lines([{"who": "", "text": ins}], func(_w): return {},
+			_end_and_free_roam)
+	else:
+		_end_and_free_roam()
+
+
+func _end_and_free_roam() -> void:
 	# walk back down past the re-arm row, not just past the line: the trigger
 	# stays disarmed inside the dead band (see Region._check_triggers), and a
 	# return that lands inside it would leave the line permanently silent.
+	region.set_paused(false)
+	region.player.external_intent = Vector2.ZERO
+	region.player.velocity = Vector2.ZERO
 	region.player.global_position = Vector2(16 * 16 + 8, 14 * 16)
+	hud.set_objective(I18n.t(region.model.objectives.get("done", {})))

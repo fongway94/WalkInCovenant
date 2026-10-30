@@ -29,6 +29,8 @@ var briefing: Array = []             # first-run lines: what to do here
 var exits: Array = []                # {to, at:[x,y]}
 var words: Array = []                # the verses people hand you; become your moves
 var shouts: Array = []               # what the giant shouts at you
+var ending: Dictionary = {}          # the chapter's closing beats + reflection
+var objectives: Dictionary = {}       # the words the HUD points at each step
 var goliath := Vector2i.ZERO
 var challenge_row: int = -1
 
@@ -88,6 +90,8 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	exits = d.get("exits", [])
 	words = d.get("words", [])
 	shouts = d.get("shouts", [])
+	ending = d.get("ending", {})
+	objectives = d.get("objectives", {})
 	var gl: Array = d.get("goliath", [0, 0])
 	goliath = Vector2i(int(gl[0]), int(gl[1]))
 	challenge_row = int(d.get("challenge_row", -1))

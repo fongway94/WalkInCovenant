@@ -207,6 +207,7 @@ func _speaker_for(who: String) -> Dictionary:
 
 
 func _on_done() -> void:
+	queue_redraw()          # the mark over the head goes away once you have spoken
 	# UNPAUSE FIRST. This used to run after the word handout, so any error in
 	# receive_word / word_ref (or in a listener of verse_received) left the world
 	# paused for ever — the player stood in front of a finished dialogue with a
@@ -222,6 +223,10 @@ func _on_done() -> void:
 	if data.get("follow_after_talk", false):
 		state = State.FOLLOW
 	EventBus.player_interacted_with.emit(npc_id(), "npc")
+
+
+func has_talked() -> bool:
+	return _talked
 
 
 func start_follow() -> void:
@@ -267,3 +272,16 @@ func _update_anim(delta: float) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
+	# A mark over every person you have not spoken to yet. Playtest 6 walked past
+	# four people who each held a verse and never knew they were worth stopping
+	# for: the HUD prompt only appears once you are already in range, and a mark
+	# over the head is visible from across the camp.
+	if _talked or sprite == null:
+		return
+	var y := -20.0
+	var pts := PackedVector2Array()
+	pts.append(Vector2(0, y + 4))
+	pts.append(Vector2(-3, y))
+	pts.append(Vector2(3, y))
+	draw_colored_polygon(pts, Color(0.97, 0.87, 0.65, 0.95))
+	draw_rect(Rect2(Vector2(-1, y - 3), Vector2(2, 2)), Color(0.97, 0.87, 0.65, 0.95))

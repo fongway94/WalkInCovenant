@@ -801,23 +801,102 @@
   {
    "who": "",
    "text": {
-    "en": "The Valley of Elah. Two armies on two hills, and a brook running between them. You are walking it as a shepherd boy named David, but the hands are yours.",
-    "zh": "书卷在你手里发烫，墨迹像水一样流动。营火一盏一盏亮起来，尘土和羊群的气味扑到脸上。"
+    "en": "You are a pilgrim: one of the witnesses who walked with the army into the Valley of Elah.",
+    "zh": "你是朝圣者：随军走进以拉谷的见证人之一。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Left thumb moves you. Right side: A talks to whoever you face, » confirms. On a keyboard, arrows or WASD, Z to talk, X to step back.",
-    "zh": "左手拇指推着走。右下两个键：A 和面前的人说话，» 按住疾走。用键盘就是方向键或 WASD，Z 说话，按住 Shift 疾走。"
+    "en": "This valley is not your battle. For forty days you walk it, listen to its people, and carry what they give you. When the day comes, you will not be watching David. You will be him.",
+    "zh": "这场仗不是你的。四十天里你走这片山谷，听这里的人说话，把他们交给你的东西带上。到了那一天，你不是在看大卫——你会成为他。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Four people are waiting on this road. Listen to each of them, pick up what the brook is holding, and then walk north past the line in the dust.",
-    "zh": "有人在你身边站定，是个满身风尘、穿文士长袍的人。他叫柯林，此后一路与你同行。这条路上还有三个人在等你，把溪水里的东西捡起来，再往北走过尘土里那条界线。"
+    "en": "Left thumb anywhere on the left half: walk. Hold further out: run. A (bottom right): talk to whoever is near. Tap the screen to turn a page. Follow the arrow at the top right.",
+    "zh": "左手拇指按住屏幕左半边任何地方：走路。推得远一点：跑。右下角的 A：和身边的人说话。点屏幕翻页。看右上角那个箭头。"
    }
   }
- ]
+ ],
+ "objectives": {
+  "corin": {
+   "en": "Talk to Corin, the scribe",
+   "zh": "先和柯林说话"
+  },
+  "stones": {
+   "en": "Gather five smooth stones at the brook",
+   "zh": "到下游溪边，替大卫捡五块石子"
+  },
+  "line": {
+   "en": "Carry the stones north, to the line in the dust",
+   "zh": "带着石子，走到北边尘土里那条界线"
+  },
+  "done": {
+   "en": "Chapter complete · the valley is quiet now",
+   "zh": "本章完成 · 山谷安静了"
+  }
+ },
+ "ending": {
+  "lines": [
+   {
+    "who": "",
+    "text": {
+     "en": "The battle is the LORD's.",
+     "zh": "争战的胜败在乎耶和华。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "You did not throw the stone with your own hand. What you learned was to stop staring at the giant and see the God who is bigger than he is.",
+     "zh": "石子虽不是你亲手甩出的，但你真正学会的，是不再只盯着眼前的巨人，而是看见那位比巨人更大的神。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "Courage to face the giant in front of you comes from looking back at how God has already led you. Faith is not a thing you suddenly have. It is made firm, a little at a time, by remembering.",
+     "zh": "当你回头看见神曾如何带领你，才有勇气面对眼前的巨人。原来，信心不是突然拥有的，而是在一次次回望中慢慢坚定的。"
+    }
+   }
+  ],
+  "ask": {
+   "en": "What giant is standing in front of you now? What would the first step of faith look like?",
+   "zh": "你生命里现在有一个什么样的「巨人」？信心的第一步，对你来说会是什么？"
+  },
+  "options": [
+   {
+    "t": {
+     "en": "Remember the road God has already walked me through",
+     "zh": "先回想神已经带我走过的路"
+    },
+    "insight": {
+     "en": "That is where David started — not with the giant, but with the lion and the bear behind him. 1 Samuel 17:37",
+     "zh": "大卫就是这样开始的——不是从巨人开始，而是从身后的狮子和熊开始。撒母耳记上 17:37"
+    }
+   },
+   {
+    "t": {
+     "en": "Say it out loud to someone; do not carry it alone",
+     "zh": "找一个人说出口，不要一个人扛"
+    },
+    "insight": {
+     "en": "That is wisdom. Before David went out, he spoke to the men in the ranks. 1 Samuel 17:26",
+     "zh": "这是智慧。大卫出阵以前，也先跟阵上的人说过话。撒母耳记上 17:26"
+    }
+   },
+   {
+    "t": {
+     "en": "Take off armour that is not mine and go as myself",
+     "zh": "脱掉别人给我的盔甲，用自己的方式上"
+    },
+    "insight": {
+     "en": "Saul's armour was good. It simply was not David's. Discernment is knowing which help actually fits you. 1 Samuel 17:39",
+     "zh": "扫罗的盔甲很好——只是不合大卫。分辨力，就是分得清哪些帮助真的适合你。撒母耳记上 17:39"
+    }
+   }
+  ]
+ }
 }

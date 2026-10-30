@@ -270,6 +270,11 @@ func _open_choices(options: Array) -> void:
 	_choices = options
 	_clear_choices()
 	choice_box.visible = true
+	var n := int(options.size())
+	# Four verses stacked at 34 px each do not fit in the 76 px the box was
+	# anchored to; the fourth button simply hung off the bottom of the screen and
+	# the battle looked like it had three options and no way to answer the rest.
+	choice_box.offset_top = minf(-84.0, -(float(n) * 36.0 + 4.0))
 	for idx in range(options.size()):
 		var b := Button.new()
 		b.text = I18n.t(options[idx].get("t", ""))
@@ -309,7 +314,10 @@ func show_choices_standalone(options: Array, on_pick: Callable) -> void:
 	_box_id += 1
 	_open = true
 	_in_choices = true
-	panel.visible = false
+	# The line the choice answers must stay on screen. _finish() hides the panel
+	# before its callback runs, so a standalone choice box opened the question
+	# into an empty screen.
+	panel.visible = text_lbl != null and text_lbl.text != ""
 	_on_pick = on_pick
 	_open_choices(options)
 

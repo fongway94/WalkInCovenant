@@ -17,6 +17,13 @@ class_name WordBattle
 
 const PIPS := 5
 const HEARTS := 3
+## The argument is as long as the verses you actually carry — one exchange per
+## verse, two at minimum — and then it stops and the sling comes out. It used to
+## be a fixed five rounds regardless, so a player who had spoken to one person
+## answered the same single option five times: "i just keep talk with goliath
+## with nothing going on" (playtest 6).
+const MIN_ROUNDS := 2
+const MAX_ROUNDS := 4
 
 var region: Region = null
 var hand: Array = []            # word dicts you actually carry
@@ -24,6 +31,9 @@ var shout: Dictionary = {}
 var pips := PIPS
 var hearts := HEARTS
 var _round := 0
+var _rounds := MIN_ROUNDS
+var _queue: Array = []          # shouts still to be answered, no repeats
+var sling: SlingShot = null
 
 var on_win: Callable = Callable()
 
@@ -61,6 +71,9 @@ func start() -> void:
 	pips = PIPS
 	hearts = HEARTS
 	_round = 0
+	_rounds = clampi(hand.size(), MIN_ROUNDS, MAX_ROUNDS)
+	_queue = _shout_queue()
+	pips = _rounds
 	EventBus.become_active.emit("david")
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The rough of the cord is in your hand, and it is not your hand. For the length of this fight the name above you is not yours.",
@@ -73,6 +86,9 @@ func start() -> void:
 # ── round loop ──────────────────────────────────────────────────────────
 func _next_round() -> void:
 	_round += 1
+	if _round > _rounds:
+		_begin_sling()
+		return
 	shout = _pick_shout()
 	_lines([
 		{"who": "goliath", "text": shout["line"]},
@@ -80,20 +96,26 @@ func _next_round() -> void:
 	])
 
 
-func _pick_shout() -> Dictionary:
-	# Only shout something you can actually answer. A taunt with no matching
-	# verse in your hand would be an unwinnable round, and this game does not
-	# do unwinnable.
+func _shout_queue() -> Array:
+	# Only shouts you hold an answer for. An unanswerable taunt would be an
+	# unwinnable round, and this game does not do unwinnable.
 	var kinds := []
 	for w in hand:
-		kinds.append(w.get("kind"))
+		kinds.append(str(w.get("kind", "")))
 	var pool := []
 	for s in region.model.shouts:
-		if s.get("kind") in kinds:
+		if str(s.get("kind", "")) in kinds:
 			pool.append(s)
 	if pool.is_empty():
-		pool = region.model.shouts
-	return pool[_round % pool.size()]
+		pool = region.model.shouts.duplicate()
+	pool.shuffle()
+	return pool
+
+
+func _pick_shout() -> Dictionary:
+	if _queue.is_empty():
+		_queue = _shout_queue()
+	return _queue.pop_front()
 
 
 func _after_shout() -> void:
@@ -115,7 +137,7 @@ func _correct(opt: Dictionary) -> void:
 	EventBus.way_recorded.emit("step")
 	AudioDirector.play_sfx("sling", -4.0)
 	if pips <= 0:
-		_win()
+		_begin_sling()
 		return
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "You answer him with his own kind of shout, and something in him steps back. The sling takes a stone. %d of his bluster left." % pips,
@@ -141,6 +163,25 @@ func _wrong(opt: Dictionary) -> void:
 		{"who": "", "text": {"en": "That was not the shout he made. The cord bites your palm. Nerve %d of %d." % [hearts, HEARTS],
 			"zh": "他喊的不是这一句。绳子勒进掌心。胆气还剩 %d／%d。" % [hearts, HEARTS]}},
 	], _speaker, _next_round)
+
+
+## The argument is over; now the throw. This is the beat the whole chapter is
+## named after, and it was missing from the game entirely.
+func _begin_sling() -> void:
+	region.dialogue.show_lines([
+		{"who": "", "text": {"en": "He has run out of words, and so have you. Your hand is in the pouch.",
+			"zh": "他没话说了，你也没有。你的手伸进袋子。"}},
+		{"who": "", "text": {"en": "Five smooth stones. This one goes in the sling.",
+			"zh": "五块光滑的石子。这一块扣进皮兜。"}},
+	], _speaker, func():
+		sling = SlingShot.new()
+		add_child(sling)
+		sling.start()
+		sling.finished.connect(func():
+			if sling != null:
+				sling.queue_free()
+				sling = null
+			_win()))
 
 
 func _win() -> void:

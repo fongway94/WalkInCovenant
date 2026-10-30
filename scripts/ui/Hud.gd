@@ -11,8 +11,13 @@ var verses_lbl: Label = null
 var stones_lbl: Label = null
 var time_lbl: Label = null
 var toast_lbl: Label = null
+var objective_lbl: Label = null
+var prompt_lbl: Label = null
+var arrow: WaypointArrow = null
 var region: Region = null
 var _toast_t := 0.0
+var _objective := ""
+var _prompt := ""
 
 
 func _ready() -> void:
@@ -69,6 +74,46 @@ func _build() -> void:
 		_refresh())
 	bar.add_child(lang)
 
+	# ── objective line ────────────────────────────────────────────────────
+	# Always on screen, always one sentence, always the CURRENT task. Playtest 6
+	# ended in "i just keep talk with goliath with nothing going on then suddenly
+	# nothing to do": a game with no stated goal cannot be finished by a player
+	# who does not already know the story.
+	objective_lbl = Label.new()
+	objective_lbl.anchor_left = 0.0
+	objective_lbl.offset_left = 5
+	objective_lbl.offset_top = 16
+	objective_lbl.add_theme_font_size_override("font_size", 8)
+	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
+	objective_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	objective_lbl.add_theme_constant_override("shadow_offset_x", 1)
+	objective_lbl.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(objective_lbl)
+
+	arrow = WaypointArrow.new()
+	arrow.anchor_left = 1.0
+	arrow.anchor_right = 1.0
+	arrow.offset_left = -26
+	arrow.offset_right = -6
+	arrow.offset_top = 15
+	arrow.offset_bottom = 35
+	add_child(arrow)
+
+	# ── context prompt ────────────────────────────────────────────────────
+	prompt_lbl = Label.new()
+	prompt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt_lbl.anchor_left = 0.5; prompt_lbl.anchor_right = 0.5
+	prompt_lbl.anchor_top = 1.0; prompt_lbl.anchor_bottom = 1.0
+	prompt_lbl.offset_left = -110; prompt_lbl.offset_right = 110
+	prompt_lbl.offset_top = -22; prompt_lbl.offset_bottom = -8
+	prompt_lbl.add_theme_font_size_override("font_size", 9)
+	prompt_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
+	prompt_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	prompt_lbl.add_theme_constant_override("shadow_offset_x", 1)
+	prompt_lbl.add_theme_constant_override("shadow_offset_y", 1)
+	prompt_lbl.visible = false
+	add_child(prompt_lbl)
+
 	toast_lbl = Label.new()
 	toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_lbl.anchor_left = 0.5; toast_lbl.anchor_right = 0.5
@@ -116,6 +161,41 @@ func _refresh() -> void:
 		"night": {"en": "night", "zh": "夜晚"},
 		"dawn": {"en": "dawn", "zh": "黎明"},
 	}.get(GameState.data.get("time_of_day", "morning"), {"en": "", "zh": ""}))
+
+
+## Set by Main: the current task, in one sentence.
+func set_objective(text: String) -> void:
+	if text == _objective:
+		return
+	_objective = text
+	objective_lbl.text = text
+	objective_lbl.visible = text != ""
+
+
+## Set by Main: a world-space direction to the current task.
+func point_at(delta_world: Vector2, on: bool) -> void:
+	if arrow == null:
+		return
+	if on:
+		arrow.point_at(delta_world)
+	else:
+		arrow.hide_arrow()
+
+
+## Set by Main: "A · talk" when a person is close enough to speak to.
+func set_prompt(text: String) -> void:
+	if text == _prompt:
+		return
+	_prompt = text
+	prompt_lbl.text = text
+	prompt_lbl.visible = text != ""
+
+
+## Set by Main when the player BECOMES someone: the nameplate must say whose
+## hands are holding the sling (docs/FEEL.md §3).
+func set_role(who: String, level: int) -> void:
+	var fmt := I18n.t({"en": "%s · Lv%d", "zh": "%s · %d 级"})
+	name_lbl.text = fmt % [who, level]
 
 
 ## Set by Main: how many stones are in the pouch, out of how many exist.

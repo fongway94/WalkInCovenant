@@ -152,6 +152,28 @@ func _run() -> void:
 	main._brief_once()
 	_check(not region.dialogue._open, "the briefing does not repeat on a second visit")
 
+	# ── 2b. guidance: a goal on screen and a button that reaches the game ─
+	# Playtest 6 could not tell what to do and could not talk to anybody. Both
+	# are asserted here, because both were invisible to the compiler: the HUD
+	# line is just a Label, and the A button used to call Input.action_press(),
+	# which updates the action STATE without ever putting an InputEvent into the
+	# pipeline the world listens on.
+	await _frames(3)
+	var obj_before: String = main.hud.objective_lbl.text
+	_check(obj_before != "", "the HUD states the next objective (%s)" % obj_before)
+	await _stand(region, 16, 20, 3)
+	_check(main.hud.prompt_lbl.visible == false, "no talk prompt when nobody is near")
+	if main.touch != null:
+		var vs: Vector2 = region.get_viewport().get_visible_rect().size
+		main.touch._press(true, Vector2(vs.x - 30, vs.y - 26), 99, vs)
+		await _frames(2)
+		_check(Input.is_action_pressed("interact"),
+			"the on-screen A button presses the interact action")
+		main.touch._press(false, Vector2(vs.x - 30, vs.y - 26), 99, vs)
+		await _frames(2)
+		_check(not Input.is_action_pressed("interact"), "and releases it")
+		_check(not region.dialogue._open, "tapping A in an empty field talks to nobody")
+
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
 	for c in cast:
@@ -220,9 +242,9 @@ func _run() -> void:
 	var battle = main.battle
 	_check(battle.hand.size() >= 1, "you carry verses into the fight (%d)" % battle.hand.size())
 
-	# ── 7. five rounds of shouting back ──────────────────────────────────
+	# ── 7. the shouting match ────────────────────────────────────────────
 	var rounds := 0
-	while main.battle != null and rounds < 12:
+	while battle.sling == null and rounds < 12:
 		rounds += 1
 		_drain(region.dialogue)
 		if region.dialogue._in_choices:
@@ -232,14 +254,43 @@ func _run() -> void:
 				break
 			region.dialogue._pick(pick)
 		await _frames(3)
-	_check(main.battle == null, "the battle ended and was cleaned up (took %d rounds)" % rounds)
+	_check(rounds >= 2, "the argument ran at least two rounds (took %d)" % rounds)
 
-	# ── 8. RETURN, and what it left in the save ──────────────────────────
-	var settle := 0
-	while bool(main._in_battle) and settle < FRAME_GUARD:
+	# ── 7b. the throw ────────────────────────────────────────────────────
+	# The chapter is named after this and it used to be missing entirely: the
+	# quiz WAS the fight, so David never threw anything and the whole setpiece
+	# read as "talk to the giant and nothing happens" (playtest 6).
+	_check(battle.sling != null, "the argument ends with the sling in hand")
+	if battle.sling != null:
+		battle.sling.aim_perfect()
+		battle.sling.release()
+	var cleared := 0
+	while main.battle != null and cleared < FRAME_GUARD:
 		_drain(region.dialogue)
 		await get_tree().process_frame
+		cleared += 1
+	_check(main.battle == null, "the throw ends the fight and the battle is cleaned up")
+	await _frames(2)
+
+	# ── 8. RETURN, and what it left in the save ──────────────────────────
+	# RETURN hands the story back BEFORE the controls: the ending card, the
+	# reflection question and its three answers all play while the valley is
+	# still paused, and only then does the world resume. This used to dump the
+	# player into a silent field the instant the giant fell.
+	var settle := 0
+	var saw_reflection := false
+	while settle < FRAME_GUARD:
 		settle += 1
+		if region.dialogue._open:
+			if region.dialogue._in_choices:
+				saw_reflection = true
+				region.dialogue._pick(0)
+			else:
+				region.dialogue._advance()
+		elif not bool(main._in_battle) and not region._paused:
+			break
+		await get_tree().process_frame
+	_check(saw_reflection, "the chapter ends with a choice, not a dead stop")
 	_check(not bool(main._in_battle), "RETURN completed and the valley is playable again")
 	_check(bool(GameState.flag("goliath_down")), "the valley remembers he is down")
 	_check(_has(GameState.data["relics"], "stones"), "the five stones are kept as a relic")

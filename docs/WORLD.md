@@ -139,3 +139,50 @@ the lions' den; they stay because the valley is a place, and places are
 returnable, and returning is how you come to know anything — scripture included.
 
 The game is now built for the return.
+
+---
+
+## 6. The chapter loop, as built (Elah / David & Goliath)
+
+This is what a player actually does, in order. Every step is asserted by
+`tests/smoke.gd`, which plays the whole thing headless in CI — if a change
+breaks the loop, the build goes red instead of someone's first playtest.
+
+| # | The player | The game's job |
+|---|---|---|
+| 1 | Lands in the valley | Three briefing lines: **you are a witness**, this is not your battle, and at the end you will *be* David. Then the controls, in phone terms. |
+| 2 | Follows the arrow | HUD objective: `先和柯林说话`. A gold mark sits over every person not yet spoken to. |
+| 3 | Talks to four people | Each hands over one verse. A toast confirms it; the HUD's ☆ counts them. `A · 交谈` prompts whenever someone is in range. |
+| 4 | Follows the arrow to the brook | Picks up five smooth stones — **for David**, which is what Corin says they are for. |
+| 5 | Walks north to the line in the dust | Without five stones he refuses you and says how many you carry. With them, **BECOME**: letterbox, gold wash, the plate reads 大卫, and the nameplate changes. |
+| 6 | Fights Goliath | One exchange per verse you carry (2–4 rounds), then **the throw**: a sweeping marker, press A, the stone lands in his forehead. Misses cost a breath, never the story. |
+| 7 | Ends the chapter | RETURN, then the ending card, the reflection question and three answers — all played out before control comes back. |
+| 8 | Free roam | Objective reads `本章完成`. Walking back over the line gives the memory beat once. |
+
+### 6.1 Why the player is not David until step 5
+
+The mission and the role had to stop contradicting each other (playtest 6: *"i am
+朝圣者 or david? if i am not david then why i am given mission to pick the rock?"*).
+The answer is now stated twice, in-fiction and in the HUD line:
+
+* Corin, at the start: we are only witnesses; we cannot change the ending.
+* The stones are carried **for** the boy at the brook, not for you to throw.
+* At the line, the pilgrimage stops being observation: `BecomeController` hands
+  you his hands, and the HUD nameplate becomes 大卫 for the length of the fight.
+
+### 6.2 The interaction contract (and the bug that broke it)
+
+`Input.action_press()` updates an action's *state*; it does **not** put an
+`InputEvent` into the pipeline. The on-screen A button used it, and `Region` and
+`DialogueBox` both listen for `event.is_action_pressed("interact")` — so on a
+phone the A button moved a thumb and nothing else. "Cant talk with npc" was that
+one line. Touch controls now synthesise a real `InputEventAction` through
+`Input.parse_input_event()`, and the A/RUN buttons are drawn **always** rather
+than only while the stick is held (they were invisible until you touched the
+screen).
+
+Rules that follow from it:
+
+* Anything that can be pressed must produce an event, not just a state.
+* Every control a phone player needs must be visible before they touch anything.
+* A prompt appears where the action is possible, not in a manual.

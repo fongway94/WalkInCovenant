@@ -232,6 +232,13 @@ narration never borrows the character's first person. Compare:
 |---|---|
 | 他两只手抱着矛。「他们说他身高近三米……我看不清——我从来没走近过。」 | 他两只手抱着矛，不敢抬头。／「他们说他身高近三米，全身铜甲，枪杆粗得像织布的机轴。」／「我看不清。我从来没走近过。」 |
 
+**The ending is content too.** `data/regions/<id>.json` carries an `ending` block — the closing lines,
+the reflection question, and three answers with an insight each — because the end of a chapter is the
+one place a player is most likely to stop playing, and a blank screen there reads as a bug. Elah's
+ending and reflection are v1's, verbatim: *石子虽不是你亲手甩出的…* and the three ways forward
+(回想神已经带我走过的路 / 找一个人说出口 / 脱掉别人给我的盔甲). `tests/run_all.gd` fails the build if
+a line, question or answer is missing a language, or if the block is missing altogether.
+
 **Adding Malay later** (`strings.ms.json` in Covenant's roadmap) is cheap *if* the `{en, zh}` inline
   pattern becomes a general language map `{en, zh, ms}`. Do that in the converter now, while it is free.
 
