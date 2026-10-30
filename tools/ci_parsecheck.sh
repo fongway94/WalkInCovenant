@@ -40,7 +40,12 @@ for F in $(find scripts tests -name '*.gd' | sort); do
 		| grep -avE "Identifier not found: ($AUTOLOADS)")
 	if [ -n "$BAD" ]; then
 		FAILED=1
-		printf '%s :: %s\n' "$F" "$(printf '%s\n' "$BAD" | head -1)" >> "$OUT"
+		# Godot prints the offending file:line on the "at:" line that follows
+		# the error. Without it a parse error names the file but not the place,
+		# which turns every failure into another CI round-trip to locate.
+		WHERE=$(printf '%s\n' "$RES" | grep -a -m1 -A1 -F "$(printf '%s\n' "$BAD" | head -1)" \
+			| tail -1 | grep -aoE '\(res://[^)]*\)' | head -1)
+		printf '%s %s :: %s\n' "$F" "${WHERE:-}" "$(printf '%s\n' "$BAD" | head -1)" >> "$OUT"
 	fi
 done
 
