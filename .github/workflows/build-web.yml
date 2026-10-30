@@ -52,21 +52,32 @@ jobs:
         run: godot --headless --editor --quit || true
 
       - name: Content lint (regions, reachability, bilingual, red-letter-adjacent)
+        id: lint
+        continue-on-error: true
         run: |
           set -o pipefail
           godot --headless --path . --script tests/run_all.gd 2>&1 | tee lint.txt
 
-      # Raw logs live on a host that some tooling cannot reach; annotations do
-      # not. Re-emit every failure as a workflow annotation so the reason is
-      # readable through the plain REST API instead of only in the web UI.
-      - name: Surface failures as annotations
-        if: failure()
+      # Raw CI logs live on a host this project's authoring sandbox cannot
+      # reach, but check-run annotations are served from api.github.com and
+      # can. So the whole lint output is re-emitted as annotations: a failed
+      # build stays diagnosable without opening the web UI.
+      - name: Publish lint output as annotations
+        if: always()
         run: |
           if [ -f lint.txt ]; then
-            grep -E "FAIL|SCRIPT ERROR|Parse Error|ERROR:" lint.txt | head -40 | while read -r line; do
-              echo "::error::${line}"
+            tail -n 60 lint.txt | while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
             done
+          else
+            echo "::error::lint.txt was never written"
           fi
+
+      - name: Fail the job if the lint failed
+        if: steps.lint.outcome != 'success'
+        run: |
+          echo "content lint failed"
+          exit 1
 
   # ── export the web build ─────────────────────────────────────────────────
   export-web:
