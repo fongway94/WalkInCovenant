@@ -94,19 +94,24 @@ jobs:
           exit $STATUS
 
       # Raw CI logs live on a host this project's authoring sandbox cannot
-      # reach, but check-run annotations are served from api.github.com and
-      # can. So the whole lint output is re-emitted as annotations: a failed
-      # build stays diagnosable without opening the web UI.
-      - name: Publish lint output as annotations
+      # reach; check-run annotations come from api.github.com and can. But
+      # GitHub keeps only ~10 annotations per run, and Godot prints ANSI-coloured
+      # progress lines after the error — so an unfiltered tail fills the quota
+      # with noise and the actual failure disappears. Strip ANSI, drop the
+      # progress spam, dedupe, and spend the quota on error lines first.
+      - name: Publish failure output as annotations
         if: always()
         run: |
-          if [ -f lint.txt ]; then
-            tail -n 60 lint.txt | while IFS= read -r line; do
-              printf '::error::%s\n' "$line"
-            done
-          else
-            echo "::error::lint.txt was never written"
-          fi
+          for F in lint.txt export.txt; do
+            [ -f "$F" ] || continue
+            sed 's/\x1b\[[0-9;]*m//g' "$F" \
+              | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -aE "ERROR|FAIL|Parse Error|Cannot|Failed|error:|WARNING" \
+              | sort -u | head -8 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          done
 
       - name: Fail the job if the lint failed
         if: steps.lint.outcome != 'success'
@@ -155,14 +160,25 @@ jobs:
           cat export.txt
           exit $STATUS
 
-      - name: Publish export output as annotations
+      # Raw CI logs live on a host this project's authoring sandbox cannot
+      # reach; check-run annotations come from api.github.com and can. But
+      # GitHub keeps only ~10 annotations per run, and Godot prints ANSI-coloured
+      # progress lines after the error — so an unfiltered tail fills the quota
+      # with noise and the actual failure disappears. Strip ANSI, drop the
+      # progress spam, dedupe, and spend the quota on error lines first.
+      - name: Publish failure output as annotations
         if: always()
         run: |
-          if [ -f export.txt ]; then
-            tail -n 60 export.txt | while IFS= read -r line; do
-              printf '::error::%s\n' "$line"
-            done
-          fi
+          for F in lint.txt export.txt; do
+            [ -f "$F" ] || continue
+            sed 's/\x1b\[[0-9;]*m//g' "$F" \
+              | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -aE "ERROR|FAIL|Parse Error|Cannot|Failed|error:|WARNING" \
+              | sort -u | head -8 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          done
 
       - name: Fail the job if the export failed
         if: steps.export.outcome != 'success'
