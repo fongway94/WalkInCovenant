@@ -203,7 +203,8 @@ renderer/rendering_method.mobile="gl_compatibility" ; fastest on phones
 2d/snap/snap_2d_vertices_to_pixel=true
 
 [gui]
-theme/default_font_antialiasing=0
+theme/default_font_antialiasing=1   ; grayscale AA — small CJK stays legible
+theme/default_font_hinting=1        ; light hinting; the art itself stays nearest
 theme/default_font_subpixel_positioning=0
 ```
 

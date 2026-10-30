@@ -189,15 +189,16 @@ of these gates exists because it caught something real; the notes say what.
 | 2 | Export configuration | `tools/check_export.py` | `for_mobile=true` without `import_etc2_astc` — Godot refuses the export and prints **no reason**; an option key that does not exist (`progressive_download/enabled`), which is silently ignored; threads on a host that cannot send COOP/COEP; missing PWA icons |
 | 3 | Cross-script members | `tools/xref_check.py` | members called on our own classes and on the four autoloads; `class_name` cycles (`Region → Npc → Region`), which Godot reports against an unrelated file |
 | 4 | Engine API | `tools/api_check.py` | `AStarGrid2D.diagonal_enabled` (the property is `diagonal_mode`); `push_front` on a `PackedVector2Array`; `get_viewport_rect()` on a `CanvasLayer`; every `Class.CONSTANT` and `.new()`, verified against the class reference XML at the exact version tag |
-| 5 | Import | `godot --headless --import` | builds the global class cache; without it every `class_name` is unresolvable from other scripts |
-| 6 | Per-file parse | `tools/ci_parsecheck.sh` | names the file **and line** of a parse error, filtering the two noise classes inherent to checking one file at a time (unregistered autoloads, and the cascades they cause) |
-| 7 | Boot | `tools/ci_bootcheck.sh` | runs the real project headless for ten frames with autoloads present and the main scene instantiated. It greps for **runtime** errors too (`Invalid get index`, `Attempt to call function`, `null instance`, `Parent node is busy setting up children`) — parse-only grepping let a boot that built an empty world pass as healthy |
-| 8 | Content | `tests/run_all.gd` | legend covers the grid; spawn/NPCs/items on walkable ground; a path exists from spawn to every NPC and item; every line and verse bilingual; no shout without a matching verse |
-| 9 | **Playthrough** | `tests/smoke.tscn` | boots the game and *plays* it: briefing, four conversations, crossing the line empty-handed, five stones, BECOME, five rounds of the word battle, RETURN, revisit — then asserts the save state left behind. It caught four bugs gates 1–8 all passed; see below |
-| 10 | Export | `godot --export-release "Web"` | single-threaded, `gl_compatibility` |
-| 11 | No broken scripts shipped | grep gate | Godot writes the `.pck` and exits **0** even when a script inside it does not parse, so the log is grepped and the job fails |
-| 12 | PWA verify | `tools/inject_pwa.py` | confirms the engine emitted and wired `index.service.worker.js` + `index.manifest.json`; injects the fallback only if they are missing |
-| 13 | Size budget | `du -sk` | fails over 80 MB; pixel art should land near 10–20 MB |
+| 5 | Font coverage | `tools/check_font.py` | decodes the real cmap table out of `fonts/game.ttf` — stdlib only — and fails if any character `data/` or `scripts/` can put on screen has no glyph. A `✧` in the HUD shipped as tofu because the subsetter silently drops what the source face lacks and the charset file recorded the *request*, not the *result* |
+| 6 | Import | `godot --headless --import` | builds the global class cache; without it every `class_name` is unresolvable from other scripts |
+| 7 | Per-file parse | `tools/ci_parsecheck.sh` | names the file **and line** of a parse error, filtering the two noise classes inherent to checking one file at a time (unregistered autoloads, and the cascades they cause) |
+| 8 | Boot | `tools/ci_bootcheck.sh` | runs the real project headless for ten frames with autoloads present and the main scene instantiated. It greps for **runtime** errors too (`Invalid get index`, `Attempt to call function`, `null instance`, `Parent node is busy setting up children`) — parse-only grepping let a boot that built an empty world pass as healthy |
+| 9 | Content | `tests/run_all.gd` | legend covers the grid; spawn/NPCs/items on walkable ground; a path exists from spawn to every NPC and item; every line and verse bilingual; no shout without a matching verse |
+| 10 | **Playthrough** | `tests/smoke.tscn` | boots the game and *plays* it: briefing, four conversations, crossing the line empty-handed, five stones, BECOME, five rounds of the word battle, RETURN, revisit — then asserts the save state left behind. It caught four bugs gates 1–9 all passed; see below |
+| 11 | Export | `godot --export-release "Web"` | single-threaded, `gl_compatibility` |
+| 12 | No broken scripts shipped | grep gate | Godot writes the `.pck` and exits **0** even when a script inside it does not parse, so the log is grepped and the job fails |
+| 13 | PWA verify | `tools/inject_pwa.py` | confirms the engine emitted and wired `index.service.worker.js` + `index.manifest.json`; injects the fallback only if they are missing |
+| 14 | Size budget | `du -sk` | fails over 80 MB; pixel art should land near 10–20 MB |
 
 ### What a successful run produces
 
@@ -218,10 +219,10 @@ index.144x144.png / 180x180 / 512x512        PWA icons
 Verified on the run that first went green: `inject_pwa: OK — native PWA verified
 (index.service.worker.js + index.manifest.json)`.
 
-### Five things worth knowing about this pipeline
+### Six things worth knowing about this pipeline
 
 **A green build did not once mean a working game.** Godot exits 0 while packing a
-`.pck` that contains scripts which fail to parse. Gate 11 exists because of that.
+`.pck` that contains scripts which fail to parse. Gate 12 exists because of that.
 
 **Godot blames the wrong file.** A single pair of parentheses in `Player.gd`
 (`for ox in (-3.0, 3.0)` — GDScript has no tuples) made `Player` unparseable, so
@@ -229,11 +230,11 @@ five scripts that merely mention `Player` reported *"Could not parse global clas
 Player"*, and `Main.gd`, which never mentions it, reported *"Could not resolve
 external class member"*. Reading the analyzer source explains why: that message
 means resolving the member pushed errors into *another* script. The blamed file
-is a victim. That is why gate 6 prints `file:line` — without it, every failure
+is a victim. That is why gate 7 prints `file:line` — without it, every failure
 pointed somewhere that was not the cause.
 
-**Everything above can be green and the game still unplayable.** Gate 9 was
-added last, and on its first four runs it found four bugs that gates 1–8 had all
+**Everything above can be green and the game still unplayable.** Gate 10 was
+added last, and on its first four runs it found four bugs that gates 1–9 had all
 passed:
 
 1. `Region._build()` never populated its trigger list, so the challenge line at
@@ -253,7 +254,7 @@ passed:
 
 None of those is a parse error, a content error or an API error. All four are
 *wiring* errors — correct code assembled in the wrong order — and the only thing
-that finds them is playing the game. Note also that gate 9 boots a **scene**
+that finds them is playing the game. Note also that gate 10 boots a **scene**
 (`res://tests/smoke.tscn`), not `--script`: `Main::start()` instantiates a
 `--script` main loop at `main.cpp:4438` and only registers autoloads as global
 constants at `:4498`, so on that path the test and every script it pulls in fail
@@ -278,3 +279,17 @@ error, so a naive tail fills the quota with noise and the reason disappears. Eac
 gate therefore emits one joined annotation containing everything that matters,
 because `api.github.com` is reachable from environments where the raw-log host is
 not.
+
+**The font promised characters it did not carry.** `build_font.py` asks the
+subsetter for every character in `data/` and `scripts/`, and the subsetter drops
+— without a word — any glyph the *source* face lacks. Noto Sans SC has no `✧`
+(U+2727), so the HUD's verse counter rendered as tofu in the very build that
+"fixed" tofu; the charset file listed `✧` as covered because it recorded the
+request, not the result, and the first version of gate 5 trusted the file.
+`build_font.py` now verifies its own output against the built cmap, gate 5 reads
+that cmap directly, and the verified symbol vocabulary lives in `EXTRA`. One
+engine-side wrinkle from the same hunt: in a cold headless boot `has_char()` can
+answer from the glyphs *shaped so far* — one run knew `谷` (it appears in the
+briefing) yet denied `石` (not yet drawn anywhere) — so the smoke test asserts
+the char table only when `get_supported_chars()` returns the whole table, and
+prints a diagnostic either way.

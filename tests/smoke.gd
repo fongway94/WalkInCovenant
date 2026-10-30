@@ -110,19 +110,34 @@ func _run() -> void:
 	# ── 1c. the bundled face reaches the text pipeline ───────────────────
 	# Tofu shipped once because the build had no font at all, and then shipped
 	# AGAIN in effect because a byte-identical service worker kept serving the
-	# old cache. This is the in-engine half of the guarantee: the face loads,
-	# carries hanzi, and is registered where missing glyphs fall back to.
+	# old cache. A THIRD tofu (the HUD's ✧) slipped past both fixes because
+	# Noto Sans SC has no such glyph and the subsetter dropped it silently —
+	# tools/check_font.py now reads the built font's actual cmap and owns the
+	# byte-level guarantee. What stays to prove at runtime is the wiring: the
+	# resource loads, it carries real bytes, and it is what the theme falls
+	# back to when a glyph is missing.
 	var face = load("res://fonts/game.ttf")
 	_check(face != null, "the bundled CJK font loads")
 	if face != null:
-		# has_char() wants a CODEPOINT, not a String — it aborts the caller with
-		# "Cannot convert argument 1 from String to int" otherwise, which is how
-		# the run that added this assertion died before reaching its own quit().
-		var gu: int = "谷".to_utf32_buffer()[0]
-		var shi: int = "石".to_utf32_buffer()[0]
-		_check(bool(face.has_char(gu)), "the font carries hanzi")
-		_check(bool(face.has_char(shi)), "the font carries the stones' stone")
-	_check(ThemeDB.fallback_font != null, "ThemeDB has the project font registered")
+		var supported: String = face.get_supported_chars()
+		print("  diag  font: data=%d bytes, supported=%d chars"
+				% [face.data.size(), supported.length()])
+		_check(face.data.size() > 70000, "the font carries its glyph data")
+		# get_supported_chars()/has_char() walk the freetype cmap when the
+		# render path is warm, but a cold headless boot can answer from the
+		# glyphs shaped so far — one run knew 谷 (seen in the briefing) yet
+		# denied 石 (not yet drawn). So the table is asserted only when it IS
+		# the whole table; the diag line above says which world this was.
+		if supported.length() >= 400:
+			var gu: int = "谷".to_utf32_buffer()[0]
+			var shi: int = "石".to_utf32_buffer()[0]
+			_check(bool(face.has_char(gu)) and bool(face.has_char(shi)),
+					"the font's char table carries hanzi")
+	_check(ThemeDB.fallback_font != null, "ThemeDB has a fallback font registered")
+	if ThemeDB.fallback_font != null:
+		print("  diag  fallback font: %s" % ThemeDB.fallback_font.resource_path)
+		_check(ThemeDB.fallback_font.resource_path == "res://fonts/game.ttf",
+				"the theme falls back to the bundled font")
 
 	# ── 2. a first-time player is told what to do ────────────────────────
 	_check(region.dialogue._open, "the valley opens with a briefing")

@@ -211,7 +211,7 @@ Minimum viable set per character. Your current rig has exactly one (`frame` cycl
 | `emote_*` (surprise, question, joy) | 2 | no | driven by dialogue tags |
 
 Plus an **emote bubble** above the head — `!`, `?`, `♪`, `…`, `💧`. In a Bible game this carries real
-weight: a `?` over an NPC who has something to say, a `✧` when a verse is received. Covenant's
+weight: a `?` over an NPC who has something to say, a `☆` when a verse is received. Covenant's
 floating text (`floater()` in `field.js`) is the right idea; make it a sprite bubble with a pop tween.
 
 **Godot:** use `AnimatedSprite2D` + a `SpriteFrames` resource, with `left` mirrored from `right`

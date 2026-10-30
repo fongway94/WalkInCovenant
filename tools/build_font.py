@@ -35,7 +35,34 @@ CHARSET = ROOT / "fonts" / "game.charset.txt"
 
 # CJK punctuation and symbols the prose reaches for even where a file happens
 # not to contain one yet; cheaper to carry them than to rediscover tofu.
-EXTRA = set("「」『』【】《》〈〉—–…·、，。！？；：（）〈〉％＋×÷・〜")
+# NOTE: every one of these was verified present in Noto Sans SC — a symbol the
+# source face lacks is silently dropped by the subsetter (✧ U+2727 shipped as
+# tofu in the HUD for exactly that reason). verify() below now fails the build
+# instead, but pick from this list when writing new UI chrome.
+EXTRA = set("「」『』【】《》〈〉—–…·、，。！？；：（）〈〉％＋×÷・〜★☆※◆◇●○▲■□")
+
+
+def verify(chars: set) -> int:
+    """Every collected char must really be in the OUTPUT font's cmap.
+
+    The subsetter drops whatever the SOURCE face lacks without a word, and the
+    charset file used to record the promise instead of the outcome — which is
+    how ✧ reached players as tofu with every gate green. Read the built font
+    back and fail loudly if the promise and the bytes disagree.
+    """
+    from fontTools.ttLib import TTFont
+    cmap = TTFont(str(OUT), fontNumber=0, lazy=True).getBestCmap()
+    missing = sorted(ch for ch in chars if ord(ch) not in cmap)
+    if missing:
+        shown = "".join(missing[:40])
+        print("build_font: FAIL — %d character(s) are not in the built font; "
+              "the source face has no glyph for them and they would ship as "
+              "tofu:" % len(missing))
+        print("  %s" % shown)
+        print("  replace them in data/scripts with a glyph the font carries "
+              "(see EXTRA), or pick another source face.")
+        return 1
+    return 0
 
 
 def collect_chars() -> set:
@@ -83,6 +110,8 @@ def main() -> int:
         "--layout-features=kern,liga",
         "--name-IDs=1,2,3,4,6",
     ])
+    if verify(chars) != 0:
+        return 1
     CHARSET.write_text("".join(sorted(chars)), encoding="utf-8")
     print("build_font: %d glyphs -> %s (%d KB); charset in %s"
           % (len(chars), OUT.relative_to(ROOT), OUT.stat().st_size // 1024,

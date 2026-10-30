@@ -310,7 +310,7 @@ Direct port of Covenant's chapter template (`docs/GAME_DESIGN.md` §6), so the c
     }
   },
 
-  "ending":     { "seal": "✧", "title": {...}, "text": {...}, "takeaway": {...} },
+  "ending":     { "seal": "☆", "title": {...}, "text": {...}, "takeaway": {...} },
   "reflection": { "q": {...}, "options": [ /* exactly 3, each grows a virtue */ ] },
   "deeper":     { "ref": "1 Samuel 17:45", "observe": {...}, "question": {...} }
 }

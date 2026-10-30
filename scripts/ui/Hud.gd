@@ -87,7 +87,7 @@ func _refresh() -> void:
 		return
 	name_lbl.text = "%s · Lv%d" % [GameState.data.get("name", "pilgrim"), GameState.data.get("level", 1)]
 	var n: int = (GameState.data.get("words", []) as Array).size()
-	verses_lbl.text = "✧%d" % n
+	verses_lbl.text = "☆%d" % n
 	time_lbl.text = I18n.t({
 		"morning": {"en": "morning", "zh": "清晨"},
 		"noon": {"en": "noon", "zh": "正午"},
