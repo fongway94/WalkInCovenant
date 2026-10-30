@@ -71,6 +71,15 @@ func _build() -> void:
 	terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	add_child(terrain)
 
+	# Before anything that talks. Npc.setup() is handed the dialogue box by
+	# reference, and it used to be built after _spawn_npcs() — so every person in
+	# the valley held null, talk() hit its guard and returned, and pressing A
+	# next to anybody did nothing at all. The one interaction the game is built
+	# on, dead, with a green compile and a green boot check.
+	dialogue = DialogueBox.new()
+	add_child(dialogue)
+	dialogue.hide_box()
+
 	_ys = Node2D.new()
 	_ys.y_sort_enabled = true
 	add_child(_ys)
@@ -82,10 +91,6 @@ func _build() -> void:
 	_spawn_triggers()
 	_setup_camera()
 	_setup_light()
-
-	dialogue = DialogueBox.new()
-	add_child(dialogue)
-	dialogue.hide_box()
 
 
 func _read_json(path: String) -> Dictionary:

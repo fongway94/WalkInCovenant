@@ -124,8 +124,16 @@ func _run() -> void:
 		_check(npc != null, "%s is standing in the valley" % id)
 		if npc == null:
 			continue
+		# These are injected at spawn, so a build-order mistake shows up here as
+		# a dead A button rather than as an error anywhere. All four were null
+		# once: the dialogue box was built after the people who talk through it.
+		_check(npc.dialogue == region.dialogue, "%s can reach the dialogue box" % id)
+		_check(npc.player == region.player, "%s can see the player" % id)
+		_check(npc.pause_fn.is_valid(), "%s can pause the world" % id)
 		npc.talk()
 		_check(region.dialogue._open, "%s speaks when you press A" % id)
+		_check(region.dialogue.portrait.texture != null or not region.dialogue.portrait.visible,
+			"%s gets a portrait without a script error" % id)
 		_drain(region.dialogue)
 		_check(not region._paused, "talking to %s releases the world" % id)
 	var carried: Array = GameState.data["words"]

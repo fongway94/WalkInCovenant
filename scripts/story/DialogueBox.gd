@@ -62,6 +62,11 @@ func _build_ui() -> void:
 	portrait.custom_minimum_size = Vector2(28, 40)
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	# Nearest, so a 16x24 face stays crisp when the box scales it up. This
+	# belongs on the CanvasItem: AtlasTexture has no `filter` property, and
+	# assigning one is a runtime error that aborts the function it sits in —
+	# which is how every portrait after the first line silently vanished.
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	hbox.add_child(portrait)
 
 	var vbox := VBoxContainer.new()
@@ -145,7 +150,6 @@ func _set_portrait(actor: String) -> void:
 	at.region = Rect2(0, 0, 16, 24)      # row 0 (down), frame 0
 	portrait.texture = at
 	portrait.visible = true
-	portrait.texture.filter = 0          # nearest — keep it crisp
 
 
 func _process(delta: float) -> void:

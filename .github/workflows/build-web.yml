@@ -201,8 +201,12 @@ jobs:
           # call as "Attempt to call function ... on a null value" — the first
           # run of this test failed a single assertion and its own annotation
           # filtered the reason out, which cost a whole CI cycle to discover.
+          # awk-dedupe before the head: one repeated runtime error printed seven
+          # times pushed the assertions that actually named the bug out of the
+          # 3000-character annotation. Order is preserved, unlike sort -u.
           grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037\|first_scan_filesystem" "$CLEAN" \
             | grep -aE "FAIL|ERROR|Error|error:|Invalid|Cannot|Attempt|diag|smoke:" \
+            | awk '!seen[$0]++' \
             | head -14 \
             | tr '\n' '|' | cut -c1-3000 \
             | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
