@@ -182,7 +182,13 @@ func _run() -> void:
 	_drain(region.dialogue)
 	_check(not region._paused, "the refusal releases the world")
 	_check(_tile_of(region.player).y > 11, "the refusal steps you back south")
-	await _frames(3)
+	# Playtest 4 reported "it keeps prompting dialogue and looping": the beat
+	# pushed the player back a few tiles and re-armed at once, so a held thumb
+	# walked straight back in. The trigger now re-arms only past `rearm_row`.
+	await _stand(region, 16, 12, 3)
+	_check(not bool(region.triggers[0]["armed"]),
+		"standing in the dead band does not re-arm the line")
+	await _stand(region, 16, 15, 3)
 	_check(bool(region.triggers[0]["armed"]), "the line re-arms so the walk can be tried again")
 
 	await _stand(region, 16, 10, 4)

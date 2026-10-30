@@ -240,6 +240,17 @@ func _check_triggers() -> void:
 					t["spent"] = true
 				trigger_fired.emit(str(t["id"]))
 		else:
+			# Re-arm only once the player has genuinely LEFT the area. A beat
+			# that pushes you back a few tiles while your thumb is still
+			# pressing north re-fires the instant you arrive, and the player
+			# reads an endless wall of the same two lines as a soft-lock
+			# (playtest 4). `rearm_row` names how far out you must be.
+			var td: Dictionary = t["data"]
+			var rr := int(td.get("rearm_row", -99999))
+			if rr != -99999:
+				var py := int(floor(player.global_position.y / TILE))
+				if py < rr:
+					continue
 			t["armed"] = true
 
 

@@ -5,8 +5,8 @@
   "zh": "以拉谷"
  },
  "sub": {
-  "en": "1 Samuel 17",
-  "zh": "撒母耳记上 17"
+  "en": "David and Goliath · 1 Samuel 17",
+  "zh": "大卫与歌利亚 · 撒母耳记上 17 章"
  },
  "tile": 16,
  "legend": {
@@ -344,14 +344,14 @@
      "who": "corin",
      "text": {
       "en": "“You have no armour and no sword. What you have is a hand and a mouth.” He taps your chest. “When the moment comes, those are the only two things that will answer for you.”",
-      "zh": "「你身上没有铠甲，也没有刀。」他指了指你的手，又指了指你的嘴，「到那一刻，能替你答话的只有这两样。」"
+      "zh": "「你没有铠甲，也没有刀。你只有一只手和一张嘴。」他指了指你的手，又指了指你的嘴，「到那一刻，能替你答话的就这两样。」"
      }
     },
     {
      "who": "corin",
      "text": {
       "en": "“Keep this one. You will need it at the top of the road.”",
-      "zh": "「这一句你收好。走到路口的时候，你会用得上。」"
+      "zh": "「这一句你收好。走到路的尽头，你会用得上。」"
      }
     }
    ],
@@ -360,7 +360,7 @@
      "who": "corin",
      "text": {
       "en": "“Talk to the others before you go up. A man who goes up alone goes up with only his own voice.”",
-      "zh": "「上去之前，先和另外几个人说说话。一个人上去，身上就只有自己那一句话。」"
+      "zh": "「上去以前，先和另外几个人说话。一个人上去，身上就只剩自己那一句话。」"
      }
     }
    ]
@@ -382,21 +382,21 @@
      "who": "boy",
      "text": {
       "en": "He is holding his spear with both hands. “They say he is three metres tall. I cannot tell. I have never been close enough to look.”",
-      "zh": "他两只手抱着矛。「他们说他有三米高。我看不清。我从来没有走近过。」"
+      "zh": "他两只手抱着矛。「他们说他有三米高。我看不清——我从来没走近过。」"
      }
     },
     {
      "who": "boy",
      "text": {
       "en": "“My mother said, do not be afraid, when I left. Then she cried anyway.” He looks at you. “I keep thinking about that. She was afraid too, and she still said it.”",
-      "zh": "「我出门的时候，我妈说不要怕。说完她还是哭了。」他看着你，「我一直在想这件事。她自己也在怕，可她还是说了那句话。」"
+      "zh": "「我出门那天，我妈说不要怕。说完，她还是哭了。」他看着你，「这件事我一直想着。她自己也在怕，可她还是说了。」"
      }
     },
     {
      "who": "boy",
      "text": {
       "en": "“Take it with you. Somebody said it to a whole nation once, standing at the water. It is not mine to keep.”",
-      "zh": "「带着走吧。这句话从前有人站在水边，对着一整个国家说过。它不是我一个人的。」"
+      "zh": "「带着走吧。从前有人站在水边，对着一整个国家说过这句话。它不是我的。」"
      }
     }
    ],
@@ -405,7 +405,7 @@
      "who": "boy",
      "text": {
       "en": "“If you are going up, go up. I will be here when you come back down.”",
-      "zh": "「你要是上去，就上去。你下来的时候，我还在这里。」"
+      "zh": "「你要上去，就上去。你下来的时候，我还在这儿。」"
      }
     }
    ]
@@ -427,7 +427,7 @@
      "who": "woman",
      "text": {
       "en": "She is dividing bread and does not look up. “You are going up too, then. My husband went up. He has not come back down.”",
-      "zh": "她低着头分饼。「你也要上去。我男人上去了，还没下来。」"
+      "zh": "她低着头分饼，没有抬眼。「你也要上去。我男人上去了，还没下来。」"
      }
     },
     {
@@ -441,7 +441,7 @@
      "who": "woman",
      "text": {
       "en": "“Here. Bread, and a psalm. The bread will not last the road. The psalm might.”",
-      "zh": "「拿着。饼，还有一句诗。饼走不了多远，这句话也许可以陪你走远一点。」"
+      "zh": "「拿着。饼，还有一句诗。饼撑不了多久，这句话也许能陪你走远些。」"
      }
     }
    ],
@@ -450,7 +450,7 @@
      "who": "woman",
      "text": {
       "en": "“Eat something before you go. Nobody fights well hungry.”",
-      "zh": "「上去之前吃点东西。饿着的人打不好仗。」"
+      "zh": "「上去以前吃点东西。饿着肚子的人打不好仗。」"
      }
     }
    ]
@@ -490,21 +490,21 @@
      "who": "elder",
      "text": {
       "en": "An old man is sitting on a stone by the road, mending a strap. “They will not let you through, you know. The king himself has said it: you are too young, and he has been a fighting man since he was a boy.”",
-      "zh": "一个老人坐在路边的石头上修皮带。「他们不会让你过去的。连王都说了：你年纪太轻，他从小就打仗。」"
+      "zh": "一个老人坐在路边的石头上修皮带。「他们不会让你过去的。连王都这么说：你年纪太轻，他自幼就作战士。」"
      }
     },
     {
      "who": "elder",
      "text": {
       "en": "“He is not wrong about the years.” The old man pulls the strap tight. “He is only wrong about what they are for.”",
-      "zh": "「他说你年轻，这话没错。」老人把皮带拉紧，「他错在以为年轻就没有用。」"
+      "zh": "「他说你年轻，这话不假。」老人把皮带拉紧，「他错在以为年轻就没用。」"
      }
     },
     {
      "who": "elder",
      "text": {
       "en": "“I have been looked at my whole life, son. Take the word that answers it.”",
-      "zh": "「我这一辈子都在被人打量。」他说，「把能回这句话的那一句带上。」"
+      "zh": "「我这一辈子，都是被人这样看的。」他说，「带上一句能回这话的。」"
      }
     }
    ],
@@ -513,7 +513,7 @@
      "who": "elder",
      "text": {
       "en": "“The stones are at the brook, past the tents. Five is what he took. Not six.”",
-      "zh": "「石子在下游的溪边，过了帐篷就是。他当时捡了五块。不是六块。」"
+      "zh": "「石子在下游的溪边，过了帐篷就是。他当时捡了五块，不是六块。」"
      }
     }
    ]
@@ -562,11 +562,11 @@
    "kind": "threat",
    "line": {
     "en": "“Choose you a man, and let him come down to me!”",
-    "zh": "「你们叫一个人出来，与我交战吧！」"
+    "zh": "「你们拣选一个人，叫他下来到我这里来！」"
    },
    "tell": {
     "en": "He is shouting for the whole valley to hear. He wants you to count the distance.",
-    "zh": "他喊得整条山谷都听见，他要你先数一数自己离他有多远。"
+    "zh": "他喊得整条山谷都听见。他要你先数一数自己离他有多远。"
    }
   },
   {
@@ -577,7 +577,7 @@
    },
    "tell": {
     "en": "He is looking at your hands, and finding them empty.",
-    "zh": "他在看你的手，觉得你手里什么也没有。"
+    "zh": "他在看你的手，看你手里到底有没有东西。"
    }
   },
   {
@@ -595,7 +595,7 @@
    "kind": "doubt",
    "line": {
     "en": "“Forty days, and thy God has sent no one. Will he save thee?”",
-    "zh": "「四十天了，你的神没有派一个人。他真会救你吗？」"
+    "zh": "「四十天了，你的神没有派一个人来。他真会救你吗？」"
    },
    "tell": {
     "en": "This one is quiet. It is the one that has been working all along.",
@@ -655,6 +655,7 @@
    "id": "challenge",
    "kind": "row",
    "row": 11,
+   "rearm_row": 14,
    "note": "crossing north of this row with five stones begins the BECOME",
    "refuse": [
     {
@@ -683,8 +684,8 @@
     {
      "who": "",
      "text": {
-      "en": "1 Samuel 17:50 — “So David prevailed over the Philistine with a sling and with a stone.”",
-      "zh": "撒母耳记上 17:50 ——「这样，大卫用甩石机和石子，胜了那非利士人。」"
+      "en": "1 Samuel 17:47 — “And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD’s, and he will give you into our hands.”",
+      "zh": "撒母耳记上 17:47 ——「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"
      }
     }
    ]
@@ -696,21 +697,21 @@
    "who": "",
    "text": {
     "en": "The Valley of Elah. Two armies on two hills, and a brook running between them. You are walking it as a shepherd boy named David, but the hands are yours.",
-    "zh": "以拉谷。两支军队各占一座山，中间一条溪水。你要以牧童大卫的身份走这一趟，可这双手是你自己的。"
+    "zh": "以拉谷。两支军队各扎在一座山上，四十天来谁也没有下山，中间只有一条溪。你以牧童大卫的身份走这一趟——可这双手是你自己的。"
    }
   },
   {
    "who": "",
    "text": {
     "en": "Left thumb moves you. Right side: A talks to whoever you face, » confirms. On a keyboard, arrows or WASD, Z to talk, X to step back.",
-    "zh": "左拇指移动。右侧：A 与面前的人说话，» 确认。用键盘则是方向键或 WASD，Z 说话，X 后退。"
+    "zh": "左手拇指推着走。右下两个键：A 和面前的人说话，» 按住疾走。用键盘就是方向键或 WASD，Z 说话，按住 Shift 疾走。"
    }
   },
   {
    "who": "",
    "text": {
     "en": "Four people are waiting on this road. Listen to each of them, pick up what the brook is holding, and then walk north past the line in the dust.",
-    "zh": "这条路上有四个人在等。听他们每个人说话，捡起溪水里的东西，然后往北走过尘土中的那条界线。"
+    "zh": "这条路上有四个人在等你。把他们的话都听完，把溪水里的东西捡起来，再往北走过尘土里的那条界线。"
    }
   }
  ]

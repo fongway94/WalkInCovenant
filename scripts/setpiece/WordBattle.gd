@@ -64,9 +64,9 @@ func start() -> void:
 	EventBus.become_active.emit("david")
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The rough of the cord is in your hand, and it is not your hand. For the length of this fight the name above you is not yours.",
-			"zh": "绳子的粗糙在你手里，可那不是你的手。在这一场里，你头上的名字不是你的。"}},
+			"zh": "绳子粗粝，握在手里，可那不是你的手。这一场打完以前，你头上的名字不是你的。"}},
 		{"who": "goliath", "text": {"en": "He plants the butt of his spear in the dust and waits for you to be afraid first.",
-			"zh": "他把枪墩插进土里，等你先害怕。"}},
+			"zh": "他把枪杆的末端插进土里，等你先害怕。"}},
 	], _speaker, _next_round)
 
 
@@ -119,7 +119,7 @@ func _correct(opt: Dictionary) -> void:
 		return
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "You answer him with his own kind of shout, and something in him steps back. The sling takes a stone. %d of his bluster left." % pips,
-			"zh": "你用他自己的那种喊声回他，他有什么东西退了一步。甩石兜住进一块石子。他的气焰还剩 %d 。" % pips}},
+			"zh": "你把他那种口气原样还了回去，他退了半步。石子扣进皮兜。他的气焰还剩 %d 分。" % pips}},
 	], _speaker, _next_round)
 
 
@@ -146,10 +146,10 @@ func _wrong(opt: Dictionary) -> void:
 func _win() -> void:
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The fifth answer leaves you and the stone is already gone. The valley goes very quiet, in the way a room goes quiet when the largest thing in it falls.",
-			"zh": "第五句答完，石子已经出手。山谷突然很静，像一个房间里最大的东西倒下去时那样静。"}},
+			"zh": "第五句答完，石子已经出手。山谷静了下来——像一个房间里最大的东西倒下时，那种静。"}},
 		{"who": "goliath", "text": {"en": "…", "zh": "……"}},
-		{"who": "", "text": {"en": "1 Samuel 17:50 — “So David prevailed over the Philistine with a sling and with a stone.”",
-			"zh": "撒母耳记上 17:50 ——「这样，大卫用甩石机和石子，胜了那非利士人。」"}},
+		{"who": "", "text": {"en": "1 Samuel 17:47 — “And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD’s, and he will give you into our hands.”",
+			"zh": "撒母耳记上 17:47 ——「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"}},
 	], _speaker, func():
 		if on_win.is_valid():
 			on_win.call())

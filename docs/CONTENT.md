@@ -189,7 +189,31 @@ Small, high-value, and all in the spirit of the existing design:
   ~5,300 unique-enough characters subsets to a few hundred KB instead of a 10 MB full CJK font.
   **This is the difference between a 25 MB and a 60 MB web build.**
 
-- **Adding Malay later** (`strings.ms.json` in Covenant's roadmap) is cheap *if* the `{en, zh}` inline
+### 6.1 Chinese is written, not translated
+
+The remake's first Chinese draft was a translation of the English, and it read like one — mechanical
+clauses, "甩石兜住进一块石子" for a stone going into a sling pouch, and one verse quoted from memory
+rather than from the 和合本. Playtest 4 rejected it: *"the chinese translation is too bad. can you refer
+back to my first version project and take the translation there?"*
+
+**So v1 is the authority on Chinese voice.** `fongway94/Covenant`'s `src/data/zh-story.js` and
+`zh-ui.js` hold the authored Chinese (≈5,300 characters of prose plus a 389-line UI dictionary), and
+they are the register every new line has to match:
+
+| Rule | Why |
+|---|---|
+| Short spoken clauses, concrete verbs, 「」 for quoted speech | v1 is written as *spoken* Chinese, not as translated English. Carry the punctuation over too. |
+| Keep v1's names and objects: 柯林, 以拉谷, 五块光滑的石子, 大卫与歌利亚, 见证者 | Continuity is the point of a remake; a rename throws away recognition. |
+| Scripture is copied from the 和合本, never re-rendered from the KJV | The KJV is *English*; translating it into Chinese produces a third text nobody has ever read in church. |
+| When a beat exists in v1, lift v1's line and adjust only what the new scene needs | Cheapest way to get authored-quality Chinese. |
+
+**Applied in this slice:** the chapter heading is v1's 大卫与歌利亚, the refusal and battle beats were
+rewritten in v1's voice, and the closing verse moved from 1 Samuel 17:50 (which the draft had
+paraphrased) to **17:47**, the verse v1 actually carried — `又使这众人知道耶和华使人得胜，不是用刀用枪，
+因为争战的胜败全在乎耶和华。` Both halves are now verbatim (KJV and 和合本), which is what
+"witness, not author" means in practice.
+
+**Adding Malay later** (`strings.ms.json` in Covenant's roadmap) is cheap *if* the `{en, zh}` inline
   pattern becomes a general language map `{en, zh, ms}`. Do that in the converter now, while it is free.
 
 ---
