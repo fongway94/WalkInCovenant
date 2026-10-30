@@ -4,7 +4,7 @@
    "key": "olive_tree",
    "frames": 1,
    "w": 16,
-   "h": 24,
+   "h": 26,
    "footprint": [
     1,
     1
@@ -28,7 +28,7 @@
    "key": "fig_tree",
    "frames": 1,
    "w": 16,
-   "h": 22,
+   "h": 24,
    "footprint": [
     1,
     1

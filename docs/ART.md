@@ -182,6 +182,32 @@ measured against — but the language holds: warm gold highlights, and shadows t
 your house style. **Carry it across — it is the thing that will make the remake feel like the same
 game, and it is free.**
 
+### 5.3b Tile rules that survived playtest
+
+These are the rules the generator in `tools/artgen/` now enforces. They were
+learned by rendering `art/_preview/elah_mock.png` and looking at it, which is
+the only art review this project can afford:
+
+1. **Ground is quiet.** A ground tile carries a base tone, two very low
+   contrast macro blobs, and then *stops*. Per-tile brightness variation reads
+   as a checkerboard once the field is 20 tiles wide.
+2. **Detail is rare and variant-specific.** Four variants of grass = clean /
+   blades / one flower / blades+pebble. A blossom on every variant put the
+   same flower on a visible lattice and made the meadow look wallpapered.
+3. **Never paint full-width rows or columns into a tile.** The old water tile
+   had a dark row at the top and a lit row at the bottom; side by side they
+   joined into continuous stripes and the lake looked like brickwork. Water is
+   a flat field with two or three short crests, each with a foam pixel.
+4. **Everything solid gets a contact shadow.** One dithered ellipse under a
+   tree is what separates a place from a sticker.
+5. **One outline pass, after all drawing.** Outlines are what make generated
+   art read as intentional; every prop ends with `outline()`.
+
+Known gaps against the reference sheets, in priority order: terrain still has
+no dithered transition between grass and dirt/path (isolated single tiles read
+as squares), trees are one silhouette rather than several, and characters have
+no faces at 16×24 beyond eye pixels.
+
 ### 5.4 Godot import settings (non-negotiable for pixel art)
 
 `project.godot` in this repo already sets these; documented here so you know why:

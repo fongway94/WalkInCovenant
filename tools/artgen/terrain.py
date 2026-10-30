@@ -19,7 +19,8 @@ from .palette import c, ramp, blend, SHADOW
 # base terrain
 # ────────────────────────────────────────────────────────────────────────
 
-def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2):
+def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2,
+            macro_alpha=1.0):
     """Generic ground: clean mid base, broad macro mottling, sparse fine grain.
 
     The failure mode of generated tiles is uniform noise — every pixel jittered,
@@ -43,6 +44,11 @@ def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2):
         bx, by = rnd.randrange(-2, TILE), rnd.randrange(-2, TILE)
         br = rnd.randint(5, 8)
         tone = dark if rnd.random() < 0.5 else light
+        # the dial: at 1.0 the blob is the full ramp step (bare dirt), at 0.35
+        # it is a whisper (grass). Adjacent tiles at a strong step made every
+        # cell its own brightness square — a checkerboard with grass on it.
+        if macro_alpha < 1.0:
+            tone = blend(tone, base, macro_alpha)
         for y in range(TILE):
             for x in range(TILE):
                 d2 = (x - bx) ** 2 + (y - by) ** 2
@@ -57,8 +63,10 @@ def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2):
     if tufts:
         for _ in range(tufts):
             x, y = rnd.randrange(3, TILE - 2), rnd.randrange(4, TILE - 1)
-            tip = c(ramp_name, min(n - 1, base_step + 2))
-            stem = c(ramp_name, min(n - 1, base_step + 1))
+            # a tuft is a SHAPE, not a bright dot: tip only one step up from
+            # the base reads as grass; two steps read as sprinkled glitter
+            tip = c(ramp_name, min(n - 1, base_step + 1))
+            stem = c(ramp_name, max(0, base_step))
             cv.px(x - 1, y, stem)
             cv.px(x, y - 1, stem); cv.px(x, y, stem)
             cv.px(x + 1, y, stem)
@@ -76,11 +84,53 @@ def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2):
 
 
 def grass(seed=1):
-    return _ground("grass", seed, tufts=4, grains=0.06, base_step=2)
+    """Meadow. The base is DELIBERATELY quiet and the four variants each carry
+    a DIFFERENT kind of detail: nothing / blades / one flower / blades+pebble.
+
+    Why: the earlier build put a flower on every tile, and the seeded scatter
+    hash made the identical blossom reappear on a visible lattice — the field
+    read as wallpaper (playtest 3). Detail that is rare is detail that reads.
+    """
+    cv = _ground("grass", seed, tufts=2, grains=0.012, base_step=2,
+                 macro_alpha=0.35)
+    rnd = random.Random(seed + 41)
+    kind = seed % 4
+    bx, by = rnd.randrange(4, 12), rnd.randrange(5, 12)
+    tip = c("grass", 4)
+    stem = c("grass", 1)
+
+    def blade(x, y, h=2):
+        cv.px(x, y, tip)
+        for i in range(1, h + 1):
+            cv.px(x, y + i, stem)
+
+    if kind == 0:
+        blade(bx, by, 2)
+    elif kind == 1:
+        blade(bx, by, 2); blade(bx + 3, by - 1, 3); blade(bx + 5, by + 2, 2)
+    elif kind == 2:
+        # the one flower in four tiles — warm enough to catch the eye, small
+        # enough to disappear once the camera moves
+        petal = blend(c("linen", 5), c("gold", 3), 0.35)
+        cv.px(bx, by - 1, petal); cv.px(bx + 1, by - 1, petal)
+        cv.px(bx, by, petal); cv.px(bx + 1, by, c("gold", 4))
+        cv.px(bx, by + 1, stem)
+    else:
+        blade(bx, by, 3); blade(bx + 2, by + 1, 2)
+        cv.px(bx + 6, by + 3, blend(c("stone", 4), c("grass", 3), 0.4))
+        cv.px(bx + 7, by + 3, blend(c("stone", 3), c("grass", 2), 0.4))
+    return cv
 
 
 def dry(seed=2):
-    return _ground("dry", seed, grains=0.10, crack=True)
+    cv = _ground("dry", seed, tufts=3, grains=0.015, base_step=2, macro_alpha=0.5)
+    # green survivors at the edges tie the patch into the field around it
+    rnd = random.Random(seed + 13)
+    for _ in range(3):
+        x, y = rnd.randrange(1, TILE - 2), rnd.randrange(2, TILE - 1)
+        cv.px(x, y, blend(c("grass", 2), c("dry", 2), 0.35))
+        cv.px(x, y - 1, blend(c("grass", 3), c("dry", 3), 0.3))
+    return cv
 
 
 def path(seed=3):
@@ -91,8 +141,8 @@ def path(seed=3):
     lit = blend(c("stone", 4), c("path", 4), 0.5)
     mid = blend(c("stone", 3), c("path", 3), 0.5)
     sh = blend(c("stone", 2), c("path", 1), 0.5)
-    for _ in range(1):
-        x, y = rnd.randrange(4, TILE - 5), rnd.randrange(4, TILE - 5)
+    for _ in range(2):
+        x, y = rnd.randrange(3, TILE - 5), rnd.randrange(3, TILE - 5)
         cv.px(x, y, lit); cv.px(x + 1, y, mid)
         cv.px(x, y + 1, mid); cv.px(x + 1, y + 1, sh)
     # a couple of packed-rut marks along the walking direction
@@ -137,8 +187,9 @@ def stone_floor(seed=5):
 
 
 def mud(seed=6):
-    """Mud-brick / packed earth. The building material of the whole region."""
-    return _ground("mud", seed, grains=0.20, crack=True)
+    """Packed earth. Clean, not gravel: 0.20 grain turned the whole camp into
+    TV static at phone size."""
+    return _ground("mud", seed, grains=0.06, crack=True, macro_alpha=0.6)
 
 
 def water(seed=7, frame=0):
@@ -147,18 +198,20 @@ def water(seed=7, frame=0):
     stroke with a foam cap, which is how every handheld tileset draws water."""
     rnd = random.Random(seed + frame * 31)
     cv = Canvas(TILE, TILE)
-    cv.rect(0, 0, TILE, TILE, c("water", 2))
-    cv.hline(0, 0, TILE, c("water", 1))                    # far edge sits deeper
-    cv.hline(0, 1, TILE, blend(c("water", 1), c("water", 2), 0.5))
-    cv.hline(0, TILE - 1, TILE, c("water", 3))             # near edge catches light
-    shift = (frame % 2) * 3
-    for wy, wx in ((4, 2 + shift), (10, 7 - shift)):
-        for i in range(5):
-            cv.px(wx + i, wy, c("water", 4))
-        cv.px(wx + 2, wy - 1, c("foam", 2))
-        cv.px(wx + 3, wy - 1, c("water", 4))
-    for _ in range(3):
-        cv.px(rnd.randrange(TILE), rnd.randrange(2, TILE - 2), c("water", 3))
+    cv.rect(0, 0, TILE, TILE, c("water", 1))
+    # NO full-width rows. The old tile painted a darker row at y=0 and a lit row
+    # at y=15; side by side those lines joined into continuous horizontal bands
+    # and the lake looked like brickwork. Water is a flat field with a few
+    # discrete crests, and a crest is a short stroke with a foam cap.
+    shift = (frame % 2) * 2
+    for wy, wx in ((5, 2 + shift), (12, 6 - shift)):
+        for i in range(4):
+            cv.px(wx + i, wy, c("water", 2))
+        cv.px(wx + 1, wy, c("water", 3)); cv.px(wx + 2, wy, c("water", 3))
+        cv.px(wx + 2, wy - 1, c("water", 4))          # one lit crest pixel
+        cv.px(wx + 1, wy + 1, c("water", 0))          # trough under the crest
+    x, y = rnd.randrange(1, TILE - 2), rnd.randrange(2, TILE - 2)
+    cv.px(x, y, c("water", 2))
     return cv
 
 
@@ -167,15 +220,24 @@ def shallow(seed=8, frame=0):
     pebbles visible under the surface — the stones David picks up live here."""
     rnd = random.Random(seed + frame * 17)
     cv = Canvas(TILE, TILE)
-    cv.rect(0, 0, TILE, TILE, c("water", 3))
-    cv.rect(0, 0, TILE, 5, c("water", 2))
-    cv.hline(0, 5, TILE, c("foam", 2))
-    cv.hline(0, 6, TILE, c("foam", 1))
+    cv.rect(0, 0, TILE, TILE, blend(c("water", 2), c("sand", 2), 0.28))
+    # translucent water over sand: the bed shows through in patches
+    for _ in range(18):
+        x, y = rnd.randrange(TILE), rnd.randrange(6, TILE)
+        cv.px(x, y, blend(c("water", 2), c("sand", 3), 0.45))
+    # foam edge, WAVY and broken — a straight 2px line across every tile
+    # boundary tiled into a ruler-straight rule on the map
+    fx = frame % 2
+    for x in range(TILE):
+        wob = (0, 1, 0, -1)[(x + fx) % 4]
+        cv.px(x, 4 + wob, c("foam", 1))
+        if (x + fx) % 3:
+            cv.px(x, 5 + wob, blend(c("foam", 1), c("water", 3), 0.5))
     for _ in range(4):
         x, y = rnd.randrange(2, TILE - 3), rnd.randrange(8, TILE - 2)
         cv.px(x, y, c("sand", 3)); cv.px(x + 1, y, c("sand", 2))
-    for i in range(4):
-        cv.px(3 + i + (frame % 2), 3, c("water", 4))
+    for i in range(3):
+        cv.px(3 + i + (frame % 2), 10, c("water", 3))
     return cv
 
 
