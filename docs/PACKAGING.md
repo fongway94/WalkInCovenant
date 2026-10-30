@@ -159,27 +159,60 @@ apply," it is the cache, not the build. Hard-reload, or test in a private window
 
 ## 5. What CI enforces on every push
 
-1. `tests/run_all.gd` — the content lint: legend covers the grid; spawn/NPCs/items on
-   walkable ground; **a navigation path exists from spawn to every NPC and item**;
-   every line bilingual; **no shout without a matching verse** (no unwinnable rounds).
-   This is the descendant of Covenant's twelve `check:*` scripts.
-2. The export itself, single-threaded, `gl_compatibility`.
-3. PWA injection verified — CI fails if the manifest/SW block did not land.
-4. **80 MB size budget.** Pixel art should keep this around 10–20 MB; the budget exists
-   because solo developers do not notice gradual bloat.
-5. `tools/check_export.py` — the preset against the project. Godot can refuse an export
-   **without saying why**: `has_valid_project_configuration` returns `false` when a
-   preset asks for mobile VRAM compression but
-   `rendering/textures/vram_compression/import_etc2_astc` is off, and never fills in the
-   error string. CI printed `due to configuration errors:` with nothing after the colon.
-   This check encodes that rule, plus unknown option keys (a typo'd option is silently
-   ignored, so the setting you meant never applies), threads-on-Pages, missing PWA icons,
-   export paths outside the repo, and C# scripts that could never reach the web.
+This is the pipeline as it actually runs on `build-web.yml`, in order. Every one
+of these gates exists because it caught something real; the notes say what.
 
-`tools/gd_lint.py` and `tools/api_check.py` run before the engine: the first catches
-GDScript that is *error-level by default* (inferring a type from a Variant, overriding a
-native method with the wrong arity), the second verifies every engine constant,
-constructor and member access against Godot's class reference XML at the exact version
-tag. Between them, the exporter now only sees structurally sound, API-correct script.
+| # | Gate | Tool | What it caught |
+|---|---|---|---|
+| 1 | GDScript lint | `tools/gd_lint.py` | `:=` combined with a type; iterating an int; `var x := floor(...)` (Variant); `for x in (a, b)` (GDScript has no tuples); a ternary argument wrapped across lines; missing `res://` paths; duplicate `class_name`/`func`; signal handlers that do not exist; mixed indentation |
+| 2 | Export configuration | `tools/check_export.py` | `for_mobile=true` without `import_etc2_astc` — Godot refuses the export and prints **no reason**; an option key that does not exist (`progressive_download/enabled`), which is silently ignored; threads on a host that cannot send COOP/COEP; missing PWA icons |
+| 3 | Cross-script members | `tools/xref_check.py` | members called on our own classes and on the four autoloads; `class_name` cycles (`Region → Npc → Region`), which Godot reports against an unrelated file |
+| 4 | Engine API | `tools/api_check.py` | `AStarGrid2D.diagonal_enabled` (the property is `diagonal_mode`); `push_front` on a `PackedVector2Array`; `get_viewport_rect()` on a `CanvasLayer`; every `Class.CONSTANT` and `.new()`, verified against the class reference XML at the exact version tag |
+| 5 | Import | `godot --headless --import` | builds the global class cache; without it every `class_name` is unresolvable from other scripts |
+| 6 | Per-file parse | `tools/ci_parsecheck.sh` | names the file **and line** of a parse error, filtering the two noise classes inherent to checking one file at a time (unregistered autoloads, and the cascades they cause) |
+| 7 | Boot | `tools/ci_bootcheck.sh` | runs the real project headless for ten frames with autoloads present and the main scene instantiated — a parse check and a smoke test that the world builds |
+| 8 | Content | `tests/run_all.gd` | legend covers the grid; spawn/NPCs/items on walkable ground; a path exists from spawn to every NPC and item; every line and verse bilingual; no shout without a matching verse |
+| 9 | Export | `godot --export-release "Web"` | single-threaded, `gl_compatibility` |
+| 10 | No broken scripts shipped | grep gate | Godot writes the `.pck` and exits **0** even when a script inside it does not parse, so the log is grepped and the job fails |
+| 11 | PWA verify | `tools/inject_pwa.py` | confirms the engine emitted and wired `index.service.worker.js` + `index.manifest.json`; injects the fallback only if they are missing |
+| 12 | Size budget | `du -sk` | fails over 80 MB; pixel art should land near 10–20 MB |
 
-If any of these fail, nothing is published. A broken map never reaches a player.
+### What a successful run produces
+
+```
+index.html                            8 KB   loader page
+index.js                            276 KB   engine glue
+index.wasm                                   the engine (the bulk of the build)
+index.pck                                    every asset, scene and script
+index.audio.worklet.js                  8 KB
+index.audio.position.worklet.js         4 KB
+index.service.worker.js                      native PWA: offline cache
+index.manifest.json                          native PWA: install metadata
+index.icon.png                          8 KB
+index.apple-touch-icon.png             16 KB
+index.144x144.png / 180x180 / 512x512        PWA icons
+```
+
+Verified on the run that first went green: `inject_pwa: OK — native PWA verified
+(index.service.worker.js + index.manifest.json)`.
+
+### Two things worth knowing about this pipeline
+
+**A green build did not once mean a working game.** Godot exits 0 while packing a
+`.pck` that contains scripts which fail to parse. Gate 10 exists because of that.
+
+**Godot blames the wrong file.** A single pair of parentheses in `Player.gd`
+(`for ox in (-3.0, 3.0)` — GDScript has no tuples) made `Player` unparseable, so
+five scripts that merely mention `Player` reported *"Could not parse global class
+Player"*, and `Main.gd`, which never mentions it, reported *"Could not resolve
+external class member"*. Reading the analyzer source explains why: that message
+means resolving the member pushed errors into *another* script. The blamed file
+is a victim. That is why gate 6 prints `file:line` — without it, every failure
+pointed somewhere that was not the cause.
+
+**Diagnostics are written for a reader who cannot see the logs.** GitHub keeps
+about ten annotations per run and Godot prints ANSI progress lines *after* the
+error, so a naive tail fills the quota with noise and the reason disappears. Each
+gate therefore emits one joined annotation containing everything that matters,
+because `api.github.com` is reachable from environments where the raw-log host is
+not.
