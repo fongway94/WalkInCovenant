@@ -352,8 +352,18 @@ func _run() -> void:
 	_drain_one(region.dialogue)
 	await _frames(3)
 	_check(main.act_id() == "saul", "the brothers hand you to the king (act=%s)" % main.act_id())
-	_check(region.dialogue._open, "Saul speaking is a scene, not a line of narration")
-	_drain(region.dialogue)
+	# The king is a person in the camp you have to walk to, not a card that
+	# appears over the brothers. 1 Samuel 17:31 says they brought David to Saul;
+	# that walk is the beat.
+	var king: Npc = _find_npc(region, "saul")
+	_check(king != null, "the king is standing in the camp")
+	if king != null:
+		var kat: Array = king.data.get("at", [21, 41])
+		await _stand(region, int(kat[0]), int(kat[1]) + 1, 4)
+		king.talk()
+		await _frames(2)
+		_check(region.dialogue._open, "Saul speaks when you walk up to him")
+		_drain(region.dialogue)
 	await _frames(3)
 	_check(main.act_id() == "ready", "after the armour comes off you are sent down (act=%s)" % main.act_id())
 	_check(main.battle == null, "the king does not start the fight")

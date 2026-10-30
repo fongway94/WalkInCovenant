@@ -134,6 +134,10 @@ func _update_guidance() -> void:
 			key = "shepherd"
 		Act.SAUL:
 			key = "saul"
+			var king := _npc("saul")
+			if king != null:
+				target = king.global_position
+				point = true
 		Act.READY:
 			key = "ready"
 			var rrow := int(region.model.trigger_data("challenge").get("row", 11))
@@ -228,20 +232,34 @@ func _brothers_beat() -> void:
 	_brothers_met = true
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
-	region.dialogue.show_lines(lines, _errand_speaker, _start_saul)
+	region.dialogue.show_lines(lines, _errand_speaker, _summon_saul)
 
 
-## 1 Samuel 17:32-39: the king says he cannot go, David answers with the lion
-## and the bear, the armour goes on, and comes straight back off. Then — and only
-## then — you walk to the line and it is a fight.
-func _start_saul() -> void:
+## 1 Samuel 17:31-39: they bring him to Saul, who is a person in a tent you have
+## to walk to, not a card that appears. His lines are the chapter's own data.
+func _summon_saul() -> void:
 	act = Act.SAUL
-	region.set_paused(true)
-	var lines: Array = region.model.david_act.get("saul", {}).get("lines", [])
-	if lines.is_empty():
-		_ready_for_the_line()
+	region.set_paused(false)
+	if _npc("saul") != null:
 		return
-	region.dialogue.show_lines(lines, _errand_speaker, _ready_for_the_line)
+	var sd: Dictionary = region.model.david_act.get("saul", {})
+	var sp: Dictionary = region.model.david_act.get("speakers", {})
+	var king: Dictionary = sp.get("saul", {})
+	var dave: Dictionary = sp.get("david", {})
+	var d := {
+		"id": "saul",
+		"name": {"en": str(king.get("en", "Saul")), "zh": str(king.get("zh", "扫罗"))},
+		"actor": str(king.get("actor", "king")),
+		"at": sd.get("at", [21, 41]),
+		"lines": sd.get("lines", []),
+		"cast": {"david": {
+			"name": {"en": str(dave.get("en", "David")), "zh": str(dave.get("zh", "大卫"))},
+			"actor": str(dave.get("actor", "david"))}},
+	}
+	region.spawn_npc(d)
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "The king's tent is east of the brothers' post.",
+		"zh": "王的帐棚在哥哥们那边往东。"}))
 
 
 func _ready_for_the_line() -> void:
@@ -637,6 +655,9 @@ func _after_return() -> void:
 ## Corin is the one who has to hear it. When he finishes his lines the chapter
 ## closes — the same ending card either way, but now it comes after a person.
 func _on_interacted(id: String, _kind: String) -> void:
+	if act == Act.SAUL and id == "saul":
+		_ready_for_the_line()
+		return
 	if act != Act.AFTERMATH or id != "corin":
 		return
 	act = Act.DONE

@@ -156,6 +156,17 @@ func _spawn_npcs() -> void:
 		npcs.append(n)
 
 
+## Add one person after load. Saul is not standing in the camp when the chapter
+## opens — he arrives when the story does, which is also how a campaign adds a
+## character without editing the map.
+func spawn_npc(d: Dictionary) -> Npc:
+	var n := Npc.new()
+	n.setup(model, d, player, dialogue, set_paused)
+	_ys.add_child(n)
+	npcs.append(n)
+	return n
+
+
 func _spawn_pickups() -> void:
 	for it in model.items:
 		spawn_pickup(str(it["id"]), str(it.get("kind", "item")), str(it.get("sprite", "rock")),
