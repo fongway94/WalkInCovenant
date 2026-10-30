@@ -53,7 +53,11 @@ def scan(path):
             add(rel, i, "DUP-FUNC", "func %s defined twice" % f)
         seen.add(f)
 
+    depth = 0
     for i, line in enumerate(lines, 1):
+        probe = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line).split("#", 1)[0]
+        depth += probe.count("(") - probe.count(")")
+        _depth_at_end = depth
         if re.search(r"(var|const)\s+\w+\s*:=\s*[A-Z]\w*\s*=", line):
             add(rel, i, "INFER-TYPE",
                 "cannot combine := with an explicit type: %s" % line.strip())
@@ -94,6 +98,21 @@ def scan(path):
             add(rel, i, "JSON-INT",
                 "JSON numbers arrive as floats; wrap in int()/float(): %s"
                 % line.strip())
+
+        # A ternary split across a line continuation inside parentheses is a
+        # GDScript parser edge case ("Expected closing ) after grouping
+        # expression"). One such line made an entire class unparseable and
+        # cascaded into every script that referenced it.
+        # The precise shape that breaks: a ternary used as an argument whose
+        # list continues on the next line. A ternary that merely sits inside a
+        # multi-line call (e.g. in a lambda body) parses fine, so the test is
+        # "open paren depth > 0 AND the line ends with , or (" — otherwise this
+        # rule flags ordinary code.
+        if _depth_at_end > 0 and re.search(r"\bif\b.+\belse\b", code) \
+                and code.rstrip().endswith((",", "(")):
+            add(rel, i, "TERNARY-WRAP",
+                "ternary argument continues onto the next line inside "
+                "parentheses; hoist it into a typed local")
 
         # INFERENCE_ON_VARIANT is ERROR-level by default in Godot 4.7 ("most
         # likely done by accident"), so `var x := <Variant>` is a parse failure,

@@ -12,6 +12,9 @@
 # registered, so "Identifier not found: GameState" and friends are expected and
 # are filtered out here. Everything else is real.
 #
+# The autoload list must allow digits: the singleton is named I18n, and a
+# [A-Za-z_]+ pattern silently omitted it, so its expected error was reported.
+#
 # Output is ONE line per failing file (the first error), because GitHub caps
 # annotations per run and a full dump gets truncated before the interesting
 # file appears.
@@ -21,7 +24,7 @@
 set -u
 
 AUTOLOADS=$(sed -n '/^\[autoload\]/,/^\[/p' project.godot \
-	| grep -oE '^[*]?[A-Za-z_]+=' | tr -d '*=' | tr '\n' '|' | sed 's/|$//')
+	| grep -oE '^[*]?[A-Za-z_][A-Za-z0-9_]*=' | tr -d '*=' | tr '\n' '|' | sed 's/|$//')
 [ -n "$AUTOLOADS" ] || AUTOLOADS="__none__"
 echo "parse-check: treating autoload identifiers as expected: $AUTOLOADS"
 

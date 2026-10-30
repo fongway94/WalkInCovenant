@@ -273,6 +273,12 @@ func _draw() -> void:
 
 func face_toward(target: Vector2) -> void:
 	var d := target - global_position
-	facing = _dir_from(Vector2(signf(d.x) if absf(d.x) > absf(d.y) else 0,
-		signf(d.y) if absf(d.y) >= absf(d.x) else 0))
+	# Hoisted out of the argument list on purpose. A ternary split across a line
+	# continuation inside nested parentheses is a GDScript parser edge case:
+	# "Expected closing ) after grouping expression". That single line made
+	# Player.gd unparseable, which cascaded into every script that mentions
+	# Player and reported itself as "Could not parse global class Player".
+	var sx: float = signf(d.x) if absf(d.x) > absf(d.y) else 0.0
+	var sy: float = signf(d.y) if absf(d.y) >= absf(d.x) else 0.0
+	facing = _dir_from(Vector2(sx, sy))
 	mode = Mode.IDLE
