@@ -240,8 +240,10 @@ func _check_exits() -> void:
 
 # ── interaction ─────────────────────────────────────────────────────────
 ## The single interact query: nearest NPC in range and roughly in front.
-func nearest_interactable() -> Variant:
-	var best: Variant = null
+## Returns Npc, not Variant: a Variant return makes every `var x := call()`
+## at the call site an ERROR-level inference in Godot 4.7.
+func nearest_interactable() -> Npc:
+	var best: Npc = null
 	var bd := TALK_RANGE
 	for n in npcs:
 		var d := (n.global_position - player.global_position).length()

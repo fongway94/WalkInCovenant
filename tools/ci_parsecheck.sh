@@ -35,9 +35,16 @@ FAILED=0
 for F in $(find scripts tests -name '*.gd' | sort); do
 	RES=$(godot --headless --path . --check-only --script "$F" 2>&1 \
 		| sed 's/\x1b\[[0-9;]*m//g')
+	# Two classes of noise are inherent to checking one file at a time:
+	#   1. autoload singletons are not registered, so referencing them fails;
+	#   2. consequently any script that DEPENDS on such a script reports
+	#      "Failed to compile depended scripts" — a cascade, not a fault.
+	# Real cross-script problems are the boot check's job, which runs the whole
+	# project with autoloads present.
 	BAD=$(printf '%s\n' "$RES" \
 		| grep -aE "Parse Error|Compile Error" \
-		| grep -avE "Identifier not found: ($AUTOLOADS)")
+		| grep -avE "Identifier not found: ($AUTOLOADS)" \
+		| grep -av "Failed to compile depended scripts")
 	if [ -n "$BAD" ]; then
 		FAILED=1
 		# Godot prints the offending file:line on the "at:" line that follows

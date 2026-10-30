@@ -84,6 +84,29 @@ def add(path, line, rule, msg):
     findings.append((path, line, rule, msg))
 
 
+FUNC_RET = {}
+
+
+def build_return_map():
+    """{func_name: declared return type or None} across the whole project.
+
+    A call to a function that returns Variant, or that declares no return type
+    at all, is itself Variant — so `var x := f()` is an ERROR-level inference.
+    That cannot be seen from one file, so the map is built first.
+    """
+    for base, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in
+                   (".git", ".godot", "build", "node_modules", "__pycache__")]
+        for f in files:
+            if not f.endswith(".gd"):
+                continue
+            src = open(os.path.join(base, f), encoding="utf-8").read()
+            for name, ret in re.findall(
+                    r"^(?:static\s+)?func\s+(\w+)\s*\([^)]*\)\s*(?:->\s*([\w.]+))?",
+                    src, re.M | re.S):
+                FUNC_RET.setdefault(name, ret)
+
+
 def scan(path):
     rel = os.path.relpath(path, ROOT)
     src = open(path, encoding="utf-8").read()
@@ -142,6 +165,18 @@ def scan(path):
             add(rel, i, "JSON-INT",
                 "JSON numbers arrive as floats; wrap in int()/float(): %s"
                 % line.strip())
+
+        # `var x := f()` where f returns Variant or declares no return type is
+        # the same ERROR-level inference, but invisible from this file alone.
+        # capture the called name even when qualified: GameState.flag(...)
+        m = re.match(r"\s*var\s+\w+\s*:=\s*(?:\w+\.)*(\w+)\s*\(", code)
+        if m and m.group(1) in FUNC_RET:
+            ret = FUNC_RET[m.group(1)]
+            if ret is None or ret == "Variant":
+                add(rel, i, "UNTYPED-CALL",
+                    "%s() returns %s, so := infers Variant; declare the type at "
+                    "the call site or give the function a return type"
+                    % (m.group(1), ret or "no declared type"))
 
         # floor()/ceil()/round()/abs()/sign()/min()/max()/clamp()/lerp()/
         # wrap()/snapped() take and return Variant in Godot 4 — which is why
@@ -223,6 +258,7 @@ def scan(path):
 
 
 def main():
+    build_return_map()
     all_classes = {}
     gd_files = []
     for base, dirs, files in os.walk(ROOT):
