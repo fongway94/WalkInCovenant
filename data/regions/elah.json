@@ -493,15 +493,29 @@
     {
      "who": "boy",
      "text": {
-      "en": "“And shall say unto them, Hear, O Israel; ye draw near this day unto battle against your enemies.”",
-      "zh": "「官长又要对百姓说：以色列啊，你今日将要与仇敌争战，」"
+      "en": "“Hear, O Israel, ye approach this day unto battle against your enemies:”",
+      "zh": "「以色列人哪，你们当听，你们今日将要与仇敌争战，"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“Let not your heart faint; fear not, neither be ye terrified because of them.”",
-      "zh": "「不要胆怯，不要惧怕他们，也不要惊惶。」"
+      "en": "“let not your hearts faint, fear not, and do not tremble, neither be ye terrified because of them.”",
+      "zh": "不要胆怯，不要惧怕战兢，也不要因他们惊恐；」"
+     }
+    },
+    {
+     "who": "boy",
+     "text": {
+      "en": "“let not your hearts faint, fear not, and do not tremble, neither be ye terrified because of them.”",
+      "zh": "不要胆怯，不要惧怕战兢，也不要因他们惊恐。」"
+     }
+    },
+    {
+     "who": "boy",
+     "text": {
+      "en": "“That is Deuteronomy, chapter twenty, verse three. I cannot say it all. I only know these words.”",
+      "zh": "「这是《申命记》二十章三节。我记不全，只记得这几句。」"
      }
     },
     {
@@ -746,10 +760,10 @@
   {
    "id": "fear",
    "kind": "threat",
-   "ref": "Exodus 14:13",
+   "ref": "Deuteronomy 20:3",
    "text": {
-    "en": "“Fear not, stand still, and see the salvation of the LORD.”",
-    "zh": "「你们不要胆怯，不要惧怕他们，因为耶和华你们的神与你们同去。」"
+    "en": "“Hear, O Israel, ye approach this day unto battle against your enemies: let not your hearts faint, fear not, and do not tremble, neither be ye terrified because of them.”",
+    "zh": "「以色列人哪，你们当听，你们今日将要与仇敌争战，不要胆怯，不要惧怕战兢，也不要因他们惊恐；」"
    },
    "short": {
     "en": "Do not be afraid",
@@ -761,8 +775,8 @@
    "kind": "mock",
    "ref": "1 Samuel 17:45",
    "text": {
-    "en": "“Thou comest to me with a sword, and with a spear: but I come to thee in the name of the LORD.”",
-    "zh": "「你来攻击我，是靠刀枪和盾牌；我来攻击你，是靠万军之耶和华的名。」"
+    "en": "“Thou comest to me with a sword, and with a spear, and with a shield: but I come to thee in the name of the LORD of hosts, the God of the armies of Israel, whom thou hast defied.”",
+    "zh": "「你来攻击我，是靠着刀枪和铜戟；我来攻击你，是靠着万军之耶和华的名，就是你所怒骂带领以色列军队的神。」"
    },
    "short": {
     "en": "In the LORD's name",
@@ -774,7 +788,7 @@
    "kind": "contempt",
    "ref": "1 Samuel 16:7",
    "text": {
-    "en": "“Man looketh on the outward appearance, but the LORD looketh on the heart.”",
+    "en": "“for man looketh on the outward appearance, but the LORD looketh on the heart.”",
     "zh": "「耶和华不像人看人：人是看外貌，耶和华是看内心。」"
    },
    "short": {

@@ -70,6 +70,12 @@ def main() -> int:
         found = []
         walk(data, "", found)
         for path, pair in found:
+            # A verse is not a dialogue line: it is a card in the book and in
+            # the fight, and both wrap and scroll on their own. Its quotations
+            # still have to fit the box where somebody speaks them, and those
+            # live in npcs[].lines, which stays checked.
+            if path.startswith("words["):
+                continue
             zh, en = str(pair.get("zh", "")), str(pair.get("en", ""))
             r = max(rows_for(zh), rows_for(en))
             if r > limit:
