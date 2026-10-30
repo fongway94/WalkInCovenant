@@ -111,6 +111,34 @@ def inject_fallback(html_path, html, files):
     return ok, "fallback PWA injected (cache stamped %s)" % version
 
 
+def stamp_cache_version(build_dir, stamp):
+    """Give this build's service worker a cache name of its own.
+
+    The engine substitutes CACHE_VERSION with the GODOT VERSION (see the
+    template in misc/dist/html/service-worker.js), so two exports from the same
+    engine produce byte-identical workers. A browser compares worker bytes to
+    decide whether to update: identical bytes mean the phone keeps the old
+    worker, and the old worker serves the old index.pck cache-first — forever.
+    The template's own comment says incrementing CACHE_VERSION is what forces
+    cached resources to refresh; the build stamp is that increment. A playtest
+    reported "still tofu" on a build that had shipped a font, and this was why:
+    the font was on the server, the player's cache was not.
+    """
+    import pathlib
+    sws = sorted(pathlib.Path(build_dir).glob("*.service.worker.js"))
+    if not sws:
+        return "no service worker to stamp"
+    sw = sws[0]
+    txt = sw.read_text(encoding="utf-8")
+    new_txt, n = re.subn(r"const CACHE_VERSION = '([^']*)';",
+                        lambda m: "const CACHE_VERSION = '%s+%s';" % (m.group(1), stamp),
+                        txt, count=1)
+    if n != 1:
+        return "CACHE_VERSION line not found in %s" % sw.name
+    sw.write_text(new_txt, encoding="utf-8")
+    return "stamped %s cache version +%s" % (sw.name, stamp)
+
+
 def main():
     html_path = os.path.join(BUILD, "index.html")
     if not os.path.isfile(html_path):
@@ -118,6 +146,21 @@ def main():
 
     html = open(html_path, encoding="utf-8").read()
     files = os.listdir(BUILD)
+
+    stamp = os.environ.get("WIC_BUILD_STAMP", "")
+    if not stamp:
+        try:
+            stamp = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                                   capture_output=True, text=True,
+                                   cwd=os.path.dirname(os.path.abspath(__file__)),
+                                   ).stdout.strip()
+        except OSError:
+            stamp = ""
+    if stamp:
+        print("inject_pwa: %s" % stamp_cache_version(BUILD, stamp))
+    else:
+        print("inject_pwa: WARNING — no build stamp, service worker cache name "
+              "is engine-version only and will not bust old client caches")
 
     ok, msg = verify_native(html, files)
     if ok:

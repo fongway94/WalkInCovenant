@@ -218,7 +218,7 @@ index.144x144.png / 180x180 / 512x512        PWA icons
 Verified on the run that first went green: `inject_pwa: OK — native PWA verified
 (index.service.worker.js + index.manifest.json)`.
 
-### Four things worth knowing about this pipeline
+### Five things worth knowing about this pipeline
 
 **A green build did not once mean a working game.** Godot exits 0 while packing a
 `.pck` that contains scripts which fail to parse. Gate 11 exists because of that.
@@ -258,6 +258,19 @@ that finds them is playing the game. Note also that gate 9 boots a **scene**
 `--script` main loop at `main.cpp:4438` and only registers autoloads as global
 constants at `:4498`, so on that path the test and every script it pulls in fail
 to compile with *"Identifier not found: GameState"*.
+
+**A green deploy did not mean the player received it.** The engine's service
+worker template sets `CACHE_VERSION` to the *Godot version*, so two exports from
+the same engine produce byte-identical workers — and a browser decides whether
+to update a worker by comparing its bytes. Identical bytes mean a returning
+phone keeps the old worker, and the old worker serves its old `index.pck`
+cache-first: a playtest reported "still tofu" about a build that had shipped a
+font three commits earlier, because the font was on the server and the player's
+cache was not. `tools/inject_pwa.py` now stamps `CACHE_VERSION` with the run sha
+(`WIC_BUILD_STAMP`), and the exported page posts the worker's own `update`
+message — skipWaiting, claim, re-navigate every client — so a waiting worker is
+adopted on the next open instead of the one after. When a playtest contradicts a
+green pipeline, suspect the cache before the code.
 
 **Diagnostics are written for a reader who cannot see the logs.** GitHub keeps
 about ten annotations per run and Godot prints ANSI progress lines *after* the

@@ -383,6 +383,8 @@ jobs:
           echo "export contains no script parse errors"
 
       - name: Verify PWA (engine-native service worker + manifest)
+        env:
+          WIC_BUILD_STAMP: ${{ github.sha }}
         run: |
           python3 tools/inject_pwa.py build/web > inject.txt 2>&1
           STATUS=$?

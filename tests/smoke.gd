@@ -107,6 +107,18 @@ func _run() -> void:
 	if main.hud != null:
 		_check(main.hud.region == region, "the hud is bound to the region")
 
+	# ── 1c. the bundled face reaches the text pipeline ───────────────────
+	# Tofu shipped once because the build had no font at all, and then shipped
+	# AGAIN in effect because a byte-identical service worker kept serving the
+	# old cache. This is the in-engine half of the guarantee: the face loads,
+	# carries hanzi, and is registered where missing glyphs fall back to.
+	var face = load("res://fonts/game.ttf")
+	_check(face != null, "the bundled CJK font loads")
+	if face != null:
+		_check(bool(face.has_char("谷")), "the font carries hanzi")
+		_check(bool(face.has_char("石")), "the font carries the stones' stone")
+	_check(ThemeDB.fallback_font != null, "ThemeDB has the project font registered")
+
 	# ── 2. a first-time player is told what to do ────────────────────────
 	_check(region.dialogue._open, "the valley opens with a briefing")
 	_check(region._paused, "the briefing holds the world still")
