@@ -38,6 +38,15 @@ var _frame := 0.0
 var _moving := false
 var _talked := false
 
+# ── escort/lead ──────────────────────────────────────────────────────────
+# Playtest 7: "when they bring you along, they should lead you to talk to the
+# others." Following the player is a bodyguard; leading is a guide. A guide
+# walks to the next person, stops there, and waits for you to catch up — so the
+# chapter is a walk through people, not a list of fetch markers.
+var lead_target: Npc = null
+var lead_arrive_fn: Callable = Callable()
+var _lead_arrived := false
+
 
 func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 		pause: Callable) -> void:
@@ -130,6 +139,9 @@ func _do_patrol(delta: float) -> void:
 
 
 func _do_follow(delta: float) -> void:
+	if lead_target != null and is_instance_valid(lead_target) and not _lead_arrived:
+		_do_lead(delta)
+		return
 	var d := (player.global_position - global_position).length()
 	if d < FOLLOW_KEEPUP:
 		_moving = false
@@ -144,6 +156,53 @@ func _do_follow(delta: float) -> void:
 		_path_i = 0
 	if _path_i < _path.size():
 		_step_toward(_path[_path_i], FOLLOW_SPEED, delta)
+
+
+## Walk to the person we are introducing, then stand there facing the player.
+func _do_lead(delta: float) -> void:
+	var goal := lead_target.global_position
+	if global_position.distance_to(goal) < 30.0:
+		_moving = false
+		_path = PackedVector2Array()
+		_lead_arrived = true
+		face_toward(player.global_position)
+		if lead_arrive_fn.is_valid():
+			var cb := lead_arrive_fn
+			lead_arrive_fn = Callable()
+			cb.call()
+		return
+	_repath -= delta
+	if _repath <= 0 or _path_i >= _path.size():
+		_repath = REPATH_EVERY
+		var there := Vector2i(int(floor(goal.x / TILE)),
+			int(floor((goal.y - 2) / TILE)))
+		# one tile short of them, so the guide never stands inside the person
+		if there == _tile_here():
+			there = model.nearest_open(there + Vector2i(0, 1))
+		_path = model.path(_tile_here(), model.nearest_open(there))
+		_path_i = 0
+	if _path_i < _path.size():
+		_step_toward(_path[_path_i], FOLLOW_SPEED * 1.15, delta)
+
+
+func lead_to(n: Npc, on_arrive: Callable) -> void:
+	lead_target = n
+	lead_arrive_fn = on_arrive
+	_lead_arrived = false
+	_repath = 0.0
+	_path = PackedVector2Array()
+	_path_i = 0
+	state = State.FOLLOW
+
+
+func clear_lead() -> void:
+	lead_target = null
+	lead_arrive_fn = Callable()
+	_lead_arrived = false
+
+
+func has_arrived() -> bool:
+	return _lead_arrived
 
 
 func _tile_behind_player() -> Vector2i:

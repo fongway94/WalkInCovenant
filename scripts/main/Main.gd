@@ -14,6 +14,15 @@ var stones := 0
 var _stones_total := 0
 var _refusals := 0
 var _in_battle := false
+## Act I you are the witness; Act II you are David, and the story rewinds to his
+## father's errand before it lets you fight. Playtest 7 asked for exactly this:
+## "being told by father to send provision, collect provision, then walk walk
+## then go to the place then properly then talk.. then fight goliath".
+enum Act { WITNESS, ERRAND, FIGHT, DONE }
+var act: int = Act.WITNESS
+var provisions := 0
+var _brothers_met := false
+var _provision_total := 3
 ## Seconds the world has been paused with nothing on screen able to end it. This
 ## is the belt to the dialogue box's braces: a beat that pauses the valley and
 ## then fails to open (or to close) its own box used to leave the player standing
@@ -92,26 +101,60 @@ func _update_guidance() -> void:
 	var target := p.global_position
 	var point := false
 	var key := "done"
+	var line := ""
 
-	var corin: Npc = _npc("corin")
-	if corin != null and not corin.has_talked():
-		key = "corin"
-		target = corin.global_position
-		point = true
-	elif stones < _stones_total:
-		key = "stones"
-		var st: Vector2 = _nearest_stone(p.global_position)
-		target = st
-		point = st.distance_to(p.global_position) > 8.0
-	elif not bool(GameState.flag("goliath_down")):
-		key = "line"
-		var row := int(region.model.trigger_data("challenge").get("row", 11))
-		target = Vector2(p.global_position.x, float(row * 16))
-		point = true
+	match act:
+		Act.ERRAND:
+			var da: Dictionary = region.model.david_act
+			var bat: Array = da.get("brothers_at", [16, 40])
+			var brothers := Vector2(float(bat[0]) * 16.0 + 8.0, float(bat[1]) * 16.0 + 8.0)
+			if provisions < _provision_total:
+				key = "provision"
+				target = _nearest_pickup("provision", p.global_position)
+				point = true
+				line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), provisions, _provision_total]
+			else:
+				key = "brothers"
+				target = brothers
+				point = true
+				# Arriving is the trigger: no extra button to find.
+				if not _brothers_met and p.global_position.distance_to(brothers) < 26.0:
+					_brothers_beat()
+		Act.FIGHT:
+			key = "fight"
+		_:
+			var corin: Npc = _npc("corin")
+			if corin != null and not corin.has_talked():
+				key = "corin"
+				target = corin.global_position
+				point = true
+			elif corin != null and corin.has_talked() and _next_unspoken() != null:
+				# He walks you to the next person. Not a marker on a map: an
+				# escort who stops beside the villager and waits for you.
+				var nxt: Npc = _next_unspoken()
+				key = "npc"
+				target = nxt.global_position
+				point = true
+				line = I18n.t(obj.get(key, {})) % nxt.display_name()
+				if corin.lead_target != nxt:
+					corin.lead_to(nxt, func(): _lead_arrived())
+			elif stones < _stones_total:
+				key = "stones"
+				target = _nearest_pickup("stone", p.global_position)
+				point = stones < _stones_total
+				line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), stones, _stones_total]
+			elif not bool(GameState.flag("goliath_down")):
+				key = "line"
+				var row := int(region.model.trigger_data("challenge").get("row", 11))
+				target = Vector2(p.global_position.x, float(row * 16))
+				point = true
 
-	var line: String = I18n.t(obj.get(key, {}))
-	if key == "stones":
-		line = "%s  %d／%d" % [line, stones, _stones_total]
+	if key != "npc":
+		var co: Npc = _npc("corin")
+		if co != null and co.lead_target != null:
+			co.clear_lead()
+	if line == "":
+		line = I18n.t(obj.get(key, {}))
 	hud.set_objective(line)
 	hud.point_at(target - p.global_position, point and target.distance_to(p.global_position) > 24.0)
 
@@ -124,19 +167,60 @@ func _update_guidance() -> void:
 		hud.set_prompt("")
 
 
-func _npc(id: String) -> Npc:
+## Names for the people who only exist inside the errand. They come from the
+## same data as their words, so a translator never has to open a script.
+func _errand_speaker(who: String) -> Dictionary:
+	if who == "":
+		return {}
+	var table: Dictionary = region.model.david_act.get("speakers", {})
+	var nm: Dictionary = table.get(who, {})
+	if nm.is_empty():
+		return {}
+	return {"name": I18n.t(nm), "actor": who}
+
+
+## The brothers see him arrive with bread and want him gone. This is the last
+## beat before the fight and it is straight out of 1 Samuel 17:28.
+func _brothers_beat() -> void:
+	if _brothers_met:
+		return
+	_brothers_met = true
+	region.set_paused(true)
+	var lines: Array = region.model.david_act.get("brothers", [])
+	region.dialogue.show_lines(lines, _errand_speaker, func(): _start_battle())
+
+
+## The first person in the camp you have not spoken to yet. The order is the
+## order the content gives, so the story's own sequence decides the walk.
+func _next_unspoken() -> Npc:
 	for n in region.npcs:
-		if n.npc_id() == id:
-			return n
+		var npc: Npc = n
+		if npc.npc_id() == "corin" or npc.has_talked():
+			continue
+		if str(npc.data.get("word", "")) == "":
+			continue
+		return npc
 	return null
 
 
-func _nearest_stone(from: Vector2) -> Vector2:
-	var best := Vector2.ZERO
+## He has brought you to someone. One line, then it is your turn to speak.
+func _lead_arrived() -> void:
+	var co: Npc = _npc("corin")
+	if co == null:
+		return
+	var note: Dictionary = co.data.get("lead_note", {})
+	if note.is_empty():
+		return
+	EventBus.toast_requested.emit(I18n.t(note))
+
+
+## Nearest uncollected pickup of a kind, or the player's own feet if there is
+## none left (so the arrow simply switches off instead of pointing at nothing).
+func _nearest_pickup(kind: String, from: Vector2) -> Vector2:
+	var best := from
 	var bd := 1e20
-	var found := false
 	for it in region.pickups:
-		if str(it.get("kind", "")) != "stone" or bool(it.get("got", false)):
+		if str(it.get("kind", "")) != kind or bool(it.get("got", false)):
 			continue
 		var node: Node2D = it["node"]
 		if not is_instance_valid(node):
@@ -145,10 +229,14 @@ func _nearest_stone(from: Vector2) -> Vector2:
 		if d < bd:
 			bd = d
 			best = node.global_position
-			found = true
-	if not found:
-		return from
 	return best
+
+
+func _npc(id: String) -> Npc:
+	for n in region.npcs:
+		if n.npc_id() == id:
+			return n
+	return null
 
 
 func _on_region_ready() -> void:
@@ -183,6 +271,17 @@ func _on_verse(_id: String, ref: String) -> void:
 
 
 func _on_pickup(id: String) -> void:
+	if id.begins_with("prov"):
+		provisions += 1
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "Your father's provision · %d/%d", "zh": "父亲给的东西 · %d／%d"})
+			% [provisions, _provision_total])
+		AudioDirector.play_sfx("pickup", -4.0)
+		if provisions >= _provision_total:
+			EventBus.toast_requested.emit(I18n.t({
+				"en": "That is everything. Your brothers are at the edge of the camp.",
+				"zh": "东西都齐了。哥哥们在营地边上。"}))
+		return
 	if id.begins_with("stone"):
 		stones += 1
 		if hud != null:
@@ -195,7 +294,7 @@ func _on_pickup(id: String) -> void:
 
 
 func _on_trigger(id: String) -> void:
-	if id != "challenge" or _in_battle:
+	if id != "challenge" or _in_battle or act == Act.ERRAND or act == Act.FIGHT:
 		return
 	if stones >= 5:
 		var down := bool(GameState.flag("goliath_down"))
@@ -265,10 +364,31 @@ func _begin_become() -> void:
 	region.set_paused(true)
 	hud.set_objective(I18n.t({"en": "You are David. The line is behind you.",
 		"zh": "你就是大卫。界线在你身后。"}))
-	become.begin("david", {"en": "DAVID", "zh": "大卫"}, _start_battle)
+	become.begin("david", {"en": "DAVID", "zh": "大卫"}, _start_david_act)
+
+
+## Act II opens on the errand that put David in the valley at all: Jesse's
+## provisions, the walk, the brothers who do not want him there. Without this
+## beat the stones and the fight arrive with no story under them.
+func _start_david_act() -> void:
+	act = Act.ERRAND
+	provisions = 0
+	_brothers_met = false
+	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
+	var da: Dictionary = region.model.david_act
+	var items: Array = da.get("items", [])
+	_provision_total = items.size()
+	for it in items:
+		var at: Array = it.get("at", [0, 0])
+		region.spawn_pickup(str(it.get("id", "prov")), "provision",
+			str(it.get("sprite", "jar")), int(at[0]), int(at[1]))
+	region.set_paused(true)
+	region.dialogue.show_lines(da.get("lines", []), _errand_speaker, func():
+		region.set_paused(false))
 
 
 func _start_battle() -> void:
+	act = Act.FIGHT
 	# The nameplate is the whole promise of this chapter: for the length of the
 	# fight the hands on the sling are David's (docs/FEEL.md §3).
 	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
@@ -345,6 +465,7 @@ func _ending_pick(idx: int, _opt: Dictionary) -> void:
 
 
 func _end_and_free_roam() -> void:
+	act = Act.DONE
 	# walk back down past the re-arm row, not just past the line: the trigger
 	# stays disarmed inside the dead band (see Region._check_triggers), and a
 	# return that lands inside it would leave the line permanently silent.

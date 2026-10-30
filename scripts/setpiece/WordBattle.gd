@@ -33,7 +33,7 @@ var hearts := HEARTS
 var _round := 0
 var _rounds := MIN_ROUNDS
 var _queue: Array = []          # shouts still to be answered, no repeats
-var sling: SlingShot = null
+var fight: GoliathFight = null
 
 var on_win: Callable = Callable()
 
@@ -77,9 +77,9 @@ func start() -> void:
 	EventBus.become_active.emit("david")
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The rough of the cord is in your hand, and it is not your hand. For the length of this fight the name above you is not yours.",
-			"zh": "他是人，我也是人；他靠的是刀、枪、盾牌，我靠的是万军之耶和华的名。绳子握在手里，可那不是你的手。"}},
+			"zh": "绳子在你手里。可那不是你的手。\n\n他靠的是刀、枪、盾牌。你靠的是万军之耶和华的名。"}},
 		{"who": "goliath", "text": {"en": "He plants the butt of his spear in the dust and waits for you to be afraid first.",
-			"zh": "「我岂是狗呢，你竟拿杖来攻击我？来吧，我要把你的肉给空中的飞鸟、田野的走兽吃！」他把枪杆插进土里，等你先害怕。"}},
+			"zh": "「我岂是狗呢，你竟拿杖来攻击我？」\n\n他把枪杆插进土里，等你先害怕。"}},
 	], _speaker, _next_round)
 
 
@@ -87,7 +87,7 @@ func start() -> void:
 func _next_round() -> void:
 	_round += 1
 	if _round > _rounds:
-		_begin_sling()
+		_begin_fight()
 		return
 	shout = _pick_shout()
 	_lines([
@@ -137,11 +137,11 @@ func _correct(opt: Dictionary) -> void:
 	EventBus.way_recorded.emit("step")
 	AudioDirector.play_sfx("sling", -4.0)
 	if pips <= 0:
-		_begin_sling()
+		_begin_fight()
 		return
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "You answer him with his own kind of shout, and something in him steps back. The sling takes a stone. %d of his bluster left." % pips,
-			"zh": "你把他那种口气原样还了回去，他退了半步。石子扣进皮兜。他的气焰还剩 %d 分。" % pips}},
+			"zh": "你把这句话还了回去。他退了半步。石子扣进皮兜。他的气焰还剩 %d 分。" % pips}},
 	], _speaker, _next_round)
 
 
@@ -155,44 +155,44 @@ func _wrong(opt: Dictionary) -> void:
 		GameState.record_way("wait")
 		region.dialogue.show_lines([
 			{"who": "", "text": {"en": "The wrong word leaves your mouth and the valley hears it. Your hand shakes. So you stop, and you breathe, and you let the cord go slack until your heartbeat is only yours again.",
-				"zh": "错的话出了口，整条山谷都听见。你的手在抖。于是你停下来，呼吸，让绳子松着，直到心跳重新只是你自己的。"}},
+				"zh": "说错了。整条山谷都听见了。你的手在抖。\n\n停下来，呼吸。让绳子松着，直到心跳重新是你自己的。"}},
 			{"who": "", "text": {"en": "Nerve returns, one breath at a time.", "zh": "胆气一口一口回来了。"}},
 		], _speaker, _next_round)
 		return
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "That was not the shout he made. The cord bites your palm. Nerve %d of %d." % [hearts, HEARTS],
-			"zh": "他喊的不是这一句。绳子勒进掌心。胆气还剩 %d／%d。" % [hearts, HEARTS]}},
+			"zh": "这句话不对。绳子勒进掌心。胆气还剩 %d／%d。" % [hearts, HEARTS]}},
 	], _speaker, _next_round)
 
 
 ## The argument is over; now the throw. This is the beat the whole chapter is
 ## named after, and it was missing from the game entirely.
-func _begin_sling() -> void:
+func _begin_fight() -> void:
 	region.dialogue.show_lines([
-		{"who": "", "text": {"en": "He has run out of words, and so have you. Your hand is in the pouch.",
-			"zh": "他没话说了，你也没有。你的手伸进袋子。"}},
-		{"who": "", "text": {"en": "Five smooth stones. This one goes in the sling.",
-			"zh": "五块光滑的石子。这一块扣进皮兜。"}},
+		{"who": "", "text": {"en": "He has run out of words. So have you.",
+			"zh": "他没话说了。你也没有。"}},
+		{"who": "", "text": {"en": "His spear comes down off his shoulder. Five smooth stones. One of them goes in the sling.",
+			"zh": "他把枪从肩上放下来。你手里有五块光滑的石子。这一块扣进皮兜。"}},
 	], _speaker, func():
-		sling = SlingShot.new()
-		add_child(sling)
-		sling.start()
-		sling.finished.connect(func():
-			if sling != null:
-				sling.queue_free()
-				sling = null
+		fight = GoliathFight.new()
+		add_child(fight)
+		fight.start()
+		fight.finished.connect(func():
+			if fight != null:
+				fight.queue_free()
+				fight = null
 			_win()))
 
 
 func _win() -> void:
 	region.dialogue.show_lines([
 		{"who": "", "text": {"en": "The fifth answer leaves you and the stone is already gone. The valley goes very quiet, in the way a room goes quiet when the largest thing in it falls.",
-			"zh": "石子陷进巨人的额头。歌利亚脸朝下，扑倒在他骂了四十天的那片尘土里。"}},
-		{"who": "goliath", "text": {"en": "…", "zh": "非利士人的阵线一下子散了，以色列全军在同一刻找回了声音。"}},
+			"zh": "石子陷进巨人的额头。\n\n歌利亚脸朝下，扑倒在他骂了四十天的那片尘土里。"}},
+		{"who": "goliath", "text": {"en": "…", "zh": "非利士人的阵线一下子散了。以色列全军在同一刻喊了出来。"}},
 		{"who": "", "text": {"en": "This was never the story of a boy beating a giant. It is the story of a God who keeps covenant, and a boy who knew the battle was not his.",
-			"zh": "这从来不是「小男孩打败大巨人」的故事，而是一位守约的神，和一个知道这场仗不属于自己的少年。"}},
+			"zh": "这从来不是「小男孩打败大巨人」的故事。\n\n这是一位守约的神，和一个知道这场仗不属于自己的少年。"}},
 		{"who": "", "text": {"en": "1 Samuel 17:47 — “And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD’s, and he will give you into our hands.”",
-			"zh": "撒母耳记上 17:47 ——「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"}},
+			"zh": "撒母耳记上 17:47\n「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"}},
 	], _speaker, func():
 		if on_win.is_valid():
 			on_win.call())

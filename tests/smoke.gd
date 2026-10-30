@@ -227,15 +227,47 @@ func _run() -> void:
 
 	var level_before := int(GameState.data["level"])
 
-	# ── 6. BECOME ────────────────────────────────────────────────────────
+	# ── 6. BECOME, and then David's own errand ───────────────────────────
+	# Act II is not the fight: it is 1 Samuel 17:17-28. The father's provisions,
+	# the walk, the brothers who want him gone. Playtest 7 asked for the story,
+	# not just the duel, and this is where it is proved to be wired.
 	await _stand(region, 16, 10, 4)
 	_check(bool(main._in_battle), "crossing with five stones begins BECOME")
 	_check(region._paused, "the world holds still while you become David")
 	var waited := 0
-	while main.battle == null and waited < FRAME_GUARD:
+	while int(main.act) != 1 and waited < FRAME_GUARD:
 		await get_tree().process_frame
 		waited += 1
-	_check(main.battle != null, "the word battle exists after BECOME (waited %d frames)" % waited)
+	_check(int(main.act) == 1, "the become hands over to David's errand (waited %d frames)" % waited)
+	await _frames(2)
+	_check(region.dialogue._open, "the father speaks before anything else")
+	var pickups_before := (region.pickups as Array).size()
+	_drain(region.dialogue)
+	await _frames(2)
+	_check(not region._paused, "the errand releases the world")
+	_check((region.pickups as Array).size() == pickups_before + 3,
+		"three provisions appear (had %d, now %d)" % [pickups_before, (region.pickups as Array).size()])
+
+	# collecting them: walk onto each tile, exactly as a thumb would
+	var prov_tiles := []
+	var da: Dictionary = region.model.david_act
+	for it in da.get("items", []):
+		var at: Array = it["at"]
+		prov_tiles.append([int(at[0]), int(at[1])])
+	for t in prov_tiles:
+		await _stand(region, int(t[0]), int(t[1]), 3)
+	_check(int(main.provisions) == 3, "three provisions gathered (got %d)" % int(main.provisions))
+
+	# arriving at the brothers is the trigger — no extra button to find
+	var bat: Array = da.get("brothers_at", [16, 40])
+	await _stand(region, int(bat[0]), int(bat[1]) + 1, 5)
+	_check(bool(main._brothers_met), "walking to the brothers opens their beat")
+	_drain(region.dialogue)
+	var waited2 := 0
+	while main.battle == null and waited2 < FRAME_GUARD:
+		await get_tree().process_frame
+		waited2 += 1
+	_check(main.battle != null, "the argument with Goliath begins after the brothers")
 	if main.battle == null:
 		_finish_run()
 		return
@@ -244,7 +276,7 @@ func _run() -> void:
 
 	# ── 7. the shouting match ────────────────────────────────────────────
 	var rounds := 0
-	while battle.sling == null and rounds < 12:
+	while battle.fight == null and rounds < 12:
 		rounds += 1
 		_drain(region.dialogue)
 		if region.dialogue._in_choices:
@@ -256,21 +288,45 @@ func _run() -> void:
 		await _frames(3)
 	_check(rounds >= 2, "the argument ran at least two rounds (took %d)" % rounds)
 
-	# ── 7b. the throw ────────────────────────────────────────────────────
-	# The chapter is named after this and it used to be missing entirely: the
-	# quiz WAS the fight, so David never threw anything and the whole setpiece
-	# read as "talk to the giant and nothing happens" (playtest 6).
-	_check(battle.sling != null, "the argument ends with the sling in hand")
-	if battle.sling != null:
-		battle.sling.aim_perfect()
-		battle.sling.release()
+	# ── 7b. the fight: he attacks, you dodge, you throw ──────────────────
+	# Playtest 7: "should make it more interesting like fighting goliath. throw
+	# stone to attack goliath and avoid its attack". Both halves are driven here
+	# through the same press() a thumb uses.
+	_check(battle.fight != null, "the argument ends in the fight itself")
+	var nerve_start := 0
+	if battle.fight != null:
+		nerve_start = int(battle.fight.nerve)
+	var saw_strike := false
+	var saw_aim := false
+	var fight_frames := 0
+	# Play the duel at real speed. Everything else in this test runs at 24x, and
+	# at 24x a strike phase is two frames long — the assertions below would then
+	# be racing the engine instead of testing the fight.
+	Engine.time_scale = 1.0
+	while battle.fight != null and fight_frames < FRAME_GUARD:
+		fight_frames += 1
+		if battle.fight.is_striking():
+			saw_strike = true
+			battle.fight.press()          # dodge
+		elif battle.fight.is_aiming():
+			saw_aim = true
+			battle.fight.aim_perfect()
+			battle.fight.press()          # throw
+		await get_tree().process_frame
+	Engine.time_scale = 24.0
+	_check(saw_strike, "Goliath attacks, and the strike phase is reachable")
+	_check(saw_aim, "the throw phase is reachable")
+	_check(battle.fight == null, "three stones end the fight")
+	_check(nerve_start == 3, "a dodged strike costs no nerve (nerve was %d)" % nerve_start)
+	await _frames(4)
+
+	# the win lines, then RETURN, which hands the story back before the controls
 	var cleared := 0
 	while main.battle != null and cleared < FRAME_GUARD:
 		_drain(region.dialogue)
 		await get_tree().process_frame
 		cleared += 1
-	_check(main.battle == null, "the throw ends the fight and the battle is cleaned up")
-	await _frames(2)
+	_check(main.battle == null, "the win closes the battle and cleans it up")
 
 	# ── 8. RETURN, and what it left in the save ──────────────────────────
 	# RETURN hands the story back BEFORE the controls: the ending card, the

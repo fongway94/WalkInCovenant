@@ -81,7 +81,12 @@ func _build() -> void:
 	# who does not already know the story.
 	objective_lbl = Label.new()
 	objective_lbl.anchor_left = 0.0
+	objective_lbl.anchor_right = 1.0
 	objective_lbl.offset_left = 5
+	# Wrapped and bounded: the objective is a whole sentence now (an errand, a
+	# person's name), and an unbounded Label at 320 px simply ran off the screen.
+	objective_lbl.offset_right = -30
+	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_lbl.offset_top = 16
 	objective_lbl.add_theme_font_size_override("font_size", 8)
 	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
@@ -116,9 +121,10 @@ func _build() -> void:
 
 	toast_lbl = Label.new()
 	toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast_lbl.anchor_left = 0.5; toast_lbl.anchor_right = 0.5
+	toast_lbl.anchor_left = 0.0; toast_lbl.anchor_right = 1.0
 	toast_lbl.anchor_top = 0.0
-	toast_lbl.offset_left = -120; toast_lbl.offset_right = 120
+	toast_lbl.offset_left = 12; toast_lbl.offset_right = -12
+	toast_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_lbl.offset_top = 18
 	toast_lbl.add_theme_font_size_override("font_size", 9)
 	toast_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))

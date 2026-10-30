@@ -151,13 +151,19 @@ breaks the loop, the build goes red instead of someone's first playtest.
 | # | The player | The game's job |
 |---|---|---|
 | 1 | Lands in the valley | Three briefing lines: **you are a witness**, this is not your battle, and at the end you will *be* David. Then the controls, in phone terms. |
-| 2 | Follows the arrow | HUD objective: `先和柯林说话`. A gold mark sits over every person not yet spoken to. |
-| 3 | Talks to four people | Each hands over one verse. A toast confirms it; the HUD's ☆ counts them. `A · 交谈` prompts whenever someone is in range. |
+| 2 | Talks to Corin | He does not just mark a map. `follow_after_talk` turns him into an escort, and then a *guide*: `Npc.lead_to()` walks him to the next person, he stops beside them, and one toast points you at them. |
+| 3 | Talks to the other three | Each hands over one verse. A toast confirms it; the HUD's ☆ counts them. `A · 交谈` prompts whenever someone is in range — and an escort never steals the prompt from the villager you walked up to. |
 | 4 | Follows the arrow to the brook | Picks up five smooth stones — **for David**, which is what Corin says they are for. |
 | 5 | Walks north to the line in the dust | Without five stones he refuses you and says how many you carry. With them, **BECOME**: letterbox, gold wash, the plate reads 大卫, and the nameplate changes. |
-| 6 | Fights Goliath | One exchange per verse you carry (2–4 rounds), then **the throw**: a sweeping marker, press A, the stone lands in his forehead. Misses cost a breath, never the story. |
-| 7 | Ends the chapter | RETURN, then the ending card, the reflection question and three answers — all played out before control comes back. |
-| 8 | Free roam | Objective reads `本章完成`. Walking back over the line gives the memory beat once. |
+| 6 | **Becomes David — three days earlier** | `david_act` in the region data: Jesse at the door, three provisions spawned in Bethlehem, the walk to the camp, Eliab's accusation at the brothers' post, the armour that has never been proved. The errand is a real objective line, `父亲给的东西 1／3`, not a cutscene. |
+| 7 | Fights Goliath | One exchange per verse you carry (2–4 rounds), then **the fight proper**: he telegraphs and strikes (press A to dodge), then the sling sweeps (press A in the gold band to throw). `GoliathFight` — three stones land, missed dodges cost *nerve*, never the story. |
+| 8 | Ends the chapter | RETURN, then the ending card, the reflection question and three answers — all played out before control comes back. |
+| 9 | Free roam | Objective reads `本章完成`. Walking back over the line gives the memory beat once. |
+
+Every box also carries a visible `»»` skip in its header and honours Escape: it
+jumps to the last line of the beat and a second press closes it **through the
+same on_done**, so skipping can never eat the beat that follows it. Playtests 5,
+6 and 7 each asked for that in their own words.
 
 ### 6.1 Why the player is not David until step 5
 

@@ -23,6 +23,7 @@ var name_lbl: Label = null
 var text_lbl: Label = null
 var adv: Label = null
 var choice_box: VBoxContainer = null
+var skip_btn: Button = null
 
 var _lines: Array = []
 var _i := 0
@@ -45,28 +46,36 @@ func _ready() -> void:
 
 
 func _build_ui() -> void:
+	# ── the panel ─────────────────────────────────────────────────────────
+	# Full width minus a margin, anchored to the bottom, and GROWING UPWARD to
+	# fit its content. It used to be a fixed 312x78 rectangle, so any line longer
+	# than about two rows simply ran out of the box — that is the "dialog box
+	# sometimes goes over the screen" report, and it hit the longest and most
+	# important lines (the verses) first.
 	panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.09, 0.12, 0.92)
+	sb.bg_color = Color(0.05, 0.09, 0.12, 0.93)
 	sb.border_color = Color(0.79, 0.64, 0.36, 0.8)
 	sb.set_border_width_all(1)
-	sb.set_content_margin_all(6)
+	sb.set_content_margin_all(5)
 	sb.set_corner_radius_all(3)
 	panel.add_theme_stylebox_override("panel", sb)
-	panel.anchor_left = 0.5; panel.anchor_right = 0.5
+	panel.anchor_left = 0.0; panel.anchor_right = 1.0
 	panel.anchor_top = 1.0; panel.anchor_bottom = 1.0
-	panel.offset_left = -156; panel.offset_right = 156
-	panel.offset_top = -84; panel.offset_bottom = -6
+	panel.offset_left = 5; panel.offset_right = -5
+	panel.offset_top = -5; panel.offset_bottom = -5
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(panel)
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 6)
+	hbox.add_theme_constant_override("separation", 5)
 	panel.add_child(hbox)
 
 	portrait = TextureRect.new()
-	portrait.custom_minimum_size = Vector2(28, 40)
+	portrait.custom_minimum_size = Vector2(30, 38)
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	# Nearest, so a 16x16 face stays crisp when the box scales it up. This
 	# belongs on the CanvasItem: AtlasTexture has no `filter` property, and
 	# assigning one is a runtime error that aborts the function it sits in —
@@ -76,34 +85,54 @@ func _build_ui() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 1)
 	hbox.add_child(vbox)
+
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	vbox.add_child(head)
 
 	name_lbl = Label.new()
 	name_lbl.add_theme_font_size_override("font_size", 9)
 	name_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
-	vbox.add_child(name_lbl)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(name_lbl)
+
+	# Playtests 6 and 7 both said the same thing: "every dialogue box must always
+	# have an escape." Tapping is one, but a tap is invisible — this is the button.
+	# It SKIPS the rest of the beat rather than cancelling it, so the beat's
+	# on_done still runs: skipping a verse must never eat the fight that follows.
+	skip_btn = Button.new()
+	skip_btn.text = "»»"
+	skip_btn.flat = true
+	skip_btn.add_theme_font_size_override("font_size", 9)
+	skip_btn.custom_minimum_size = Vector2(22, 16)
+	skip_btn.tooltip_text = "skip"
+	skip_btn.pressed.connect(func(): _skip_rest())
+	head.add_child(skip_btn)
 
 	text_lbl = Label.new()
 	text_lbl.add_theme_font_size_override("font_size", 10)
-	text_lbl.add_theme_color_override("font_color", Color(0.9, 0.93, 0.94))
+	text_lbl.add_theme_color_override("font_color", Color(0.90, 0.93, 0.94))
+	text_lbl.add_theme_constant_override("line_spacing", 2)
 	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_lbl.custom_minimum_size = Vector2(0, 46)
+	text_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(text_lbl)
 
+	# Choices live INSIDE the same panel, under the line they answer. As a
+	# separate bottom-anchored box they overlapped the text they belonged to and
+	# hung off the screen edge once there were four of them.
+	choice_box = VBoxContainer.new()
+	choice_box.add_theme_constant_override("separation", 3)
+	choice_box.visible = false
+	vbox.add_child(choice_box)
+
 	adv = Label.new()
-	adv.text = "▼"          # glyph only: no words to translate
+	adv.text = "▼"
 	adv.add_theme_font_size_override("font_size", 8)
 	adv.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36))
 	adv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	vbox.add_child(adv)
-
-	choice_box = VBoxContainer.new()
-	choice_box.anchor_left = 0.5; choice_box.anchor_right = 0.5
-	choice_box.anchor_top = 1.0; choice_box.anchor_bottom = 1.0
-	choice_box.offset_left = -150; choice_box.offset_right = 150
-	choice_box.offset_top = -150; choice_box.offset_bottom = -74
-	choice_box.add_theme_constant_override("separation", 4)
-	add_child(choice_box)
 
 
 func is_open() -> bool:
@@ -214,12 +243,46 @@ func _input(event: InputEvent) -> void:
 		advance = (event as InputEventMouseButton).pressed
 	elif event is InputEventKey:
 		var k := event as InputEventKey
+		if k.pressed and not k.echo and k.keycode == KEY_ESCAPE:
+			_skip_rest()
+			get_viewport().set_input_as_handled()
+			return
 		advance = k.pressed and not k.echo
 	elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
 		advance = true
 	if advance:
 		_advance()
 		get_viewport().set_input_as_handled()
+
+
+## Jump to the last line of this beat and show it whole. A second press closes
+## the beat, which still runs its on_done — the story cannot be skipped into a
+## broken state, only read faster.
+func _skip_rest() -> void:
+	if not _open:
+		return
+	_idle = 0.0
+	if _in_choices:
+		_finish()
+		return
+	if _lines.is_empty():
+		_finish()
+		return
+	if _i >= _lines.size() - 1 and _shown >= 1.0:
+		_finish()
+		return
+	_i = _lines.size() - 1
+	var last: Dictionary = _lines[_i]
+	if last.has("choices"):
+		_i = maxi(0, _i - 1)
+		_render_line()
+		_shown = 1e9
+		return
+	_render_line()
+	var full: String = I18n.t(last.get("text", ""))
+	_shown = float(full.length())
+	text_lbl.text = full
+	adv.visible = true
 
 
 func _advance() -> void:
@@ -270,16 +333,14 @@ func _open_choices(options: Array) -> void:
 	_choices = options
 	_clear_choices()
 	choice_box.visible = true
-	var n := int(options.size())
-	# Four verses stacked at 34 px each do not fit in the 76 px the box was
-	# anchored to; the fourth button simply hung off the bottom of the screen and
-	# the battle looked like it had three options and no way to answer the rest.
-	choice_box.offset_top = minf(-84.0, -(float(n) * 36.0 + 4.0))
 	for idx in range(options.size()):
+		var opt: Dictionary = options[idx]
 		var b := Button.new()
-		b.text = I18n.t(options[idx].get("t", ""))
+		b.text = I18n.t(opt.get("t", ""))
 		b.add_theme_font_size_override("font_size", 10)
-		b.custom_minimum_size = Vector2(0, 34)   # a thumb, not a pixel
+		b.custom_minimum_size = Vector2(0, 26)   # a thumb, not a pixel
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.flat = false
 		var picked := idx
 		b.pressed.connect(func(): _pick(picked))

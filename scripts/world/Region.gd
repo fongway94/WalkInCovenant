@@ -148,17 +148,26 @@ func _spawn_npcs() -> void:
 
 func _spawn_pickups() -> void:
 	for it in model.items:
-		var node := Node2D.new()
-		node.global_position = Vector2(int(it["at"][0]) * TILE + 8, int(it["at"][1]) * TILE + 12)
-		var tex := load("res://art/props/%s.png" % it.get("sprite", "rock"))
-		if tex != null:
-			var s := Sprite2D.new()
-			s.texture = tex
-			s.scale = Vector2(0.6, 0.6)
-			node.add_child(s)
-		_ys.add_child(node)
-		pickups.append({"id": it["id"], "kind": it.get("kind", "item"), "node": node,
-			"got": false, "ref": it.get("ref", ""), "data": it})
+		spawn_pickup(str(it["id"]), str(it.get("kind", "item")), str(it.get("sprite", "rock")),
+			int(it["at"][0]), int(it["at"][1]), it)
+
+
+## Add one pickup to the world after load. The David act lays out the provisions
+## in his father's hand this way — they belong to a scene that has not happened
+## yet when the valley is first built.
+func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
+		extra: Dictionary = {}) -> void:
+	var node := Node2D.new()
+	node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
+	var tex := load("res://art/props/%s.png" % sprite)
+	if tex != null:
+		var sp := Sprite2D.new()
+		sp.texture = tex
+		sp.scale = Vector2(0.6, 0.6)
+		node.add_child(sp)
+	_ys.add_child(node)
+	pickups.append({"id": id, "kind": kind, "node": node,
+		"got": false, "ref": extra.get("ref", ""), "data": extra})
 
 
 func _spawn_triggers() -> void:
@@ -281,13 +290,22 @@ func _check_exits() -> void:
 ## Returns Npc, not Variant: a Variant return makes every `var x := call()`
 ## at the call site an ERROR-level inference in Godot 4.7.
 func nearest_interactable() -> Npc:
-	var best: Npc = null
-	var bd := TALK_RANGE
-	for n in npcs:
-		var d := (n.global_position - player.global_position).length()
-		if d < bd:
-			bd = d; best = n
-	return best
+	# Two passes: someone standing still first, an escort second. Corin follows
+	# you for the whole chapter, so with one pass he was always the nearest
+	# person and the A button re-opened him instead of the villager you had
+	# walked up to.
+	for pass_ in range(2):
+		var best: Npc = null
+		var bd := TALK_RANGE
+		for n in npcs:
+			if (pass_ == 0) == (n.state == Npc.State.FOLLOW):
+				continue
+			var d := (n.global_position - player.global_position).length()
+			if d < bd:
+				bd = d; best = n
+		if best != null:
+			return best
+	return null
 
 
 func _unhandled_input(event: InputEvent) -> void:
