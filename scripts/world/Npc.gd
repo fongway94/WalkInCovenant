@@ -17,7 +17,14 @@ enum State { IDLE, PATROL, FOLLOW, TALK }
 
 var model: RegionModel = null
 var data: Dictionary = {}
-var region: Region = null
+# Injected, not held as a typed Region. Region spawns Npc, so a typed
+# back-reference is a class_name CYCLE (Region -> Npc -> Region). Godot 4
+# reports that as "Could not resolve external class member" in whichever script
+# happened to trigger the compile — here Main.gd, two files away from the cause.
+# Npc only ever needed the player, the dialogue box and a way to pause.
+var player: Player = null
+var dialogue: DialogueBox = null
+var pause_fn: Callable = Callable()
 var state: State = State.IDLE
 
 var sprite: Sprite2D = null
@@ -32,10 +39,13 @@ var _moving := false
 var _talked := false
 
 
-func setup(m: RegionModel, d: Dictionary, r: Region) -> void:
+func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
+		pause: Callable) -> void:
 	model = m
 	data = d
-	region = r
+	player = p
+	dialogue = dlg
+	pause_fn = pause
 	var actor: String = d.get("actor", "villager_a")
 	sprite = Sprite2D.new()
 	sprite.centered = true
@@ -120,11 +130,11 @@ func _do_patrol(delta: float) -> void:
 
 
 func _do_follow(delta: float) -> void:
-	var d := (region.player.global_position - global_position).length()
+	var d := (player.global_position - global_position).length()
 	if d < FOLLOW_KEEPUP:
 		_moving = false
 		_path = PackedVector2Array()
-		face_toward(region.player.global_position)
+		face_toward(player.global_position)
 		return
 	_repath -= delta
 	if _repath <= 0 or _path_i >= _path.size():
@@ -139,9 +149,9 @@ func _do_follow(delta: float) -> void:
 func _tile_behind_player() -> Vector2i:
 	# stand one tile behind the player relative to their facing, so an escort
 	# walks *with* you rather than into you
-	var f: Vector2i = region.player.facing
-	var t := Vector2i(int(floor(region.player.global_position.x / TILE)),
-		int(floor(region.player.global_position.y / TILE)))
+	var f: Vector2i = player.facing
+	var t := Vector2i(int(floor(player.global_position.x / TILE)),
+		int(floor(player.global_position.y / TILE)))
 	return model.nearest_open(t - f)
 
 
@@ -169,18 +179,18 @@ func face_toward(target: Vector2) -> void:
 
 # ── conversation ─────────────────────────────────────────────────────────
 func talk() -> void:
-	if region == null or region.dialogue == null:
+	if player == null or dialogue == null:
 		return
 	state = State.TALK
 	_moving = false
-	face_toward(region.player.global_position)
-	region.set_paused(true)
+	face_toward(player.global_position)
+	pause_fn.call(true)
 	GameState.record_way("stay")          # stopping to listen is a way of walking
 
 	var lines: Array = (data.get("after", []) if _talked else data.get("lines", []))
 	if lines.is_empty():
 		lines = data.get("lines", [])
-	region.dialogue.show_lines(lines, _speaker_for, _on_done)
+	dialogue.show_lines(lines, _speaker_for, _on_done)
 
 
 func _speaker_for(who: String) -> Dictionary:
@@ -202,7 +212,7 @@ func _on_done() -> void:
 		var word: String = data.get("word", "")
 		if word != "":
 			GameState.receive_word(word, word_ref(word))
-	region.set_paused(false)
+	pause_fn.call(false)
 	state = State.PATROL if (data.get("patrol", []) as Array).size() > 0 else State.IDLE
 	if data.get("follow_after_talk", false):
 		state = State.FOLLOW

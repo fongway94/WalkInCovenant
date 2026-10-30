@@ -219,6 +219,44 @@ def main():
     # NO-CLASS depends on being able to ask the engine whether a type is its
     # own. Without network the reference is empty and every engine type would
     # look like a typo, so those findings are dropped rather than trusted.
+    # 4. class_name dependency cycles. Godot 4 compiles a cycle by giving up
+    #    partway, and reports it as "Could not resolve external class member"
+    #    in whatever script triggered the compile — usually an innocent one two
+    #    files away, which is what made this cost so many CI round-trips.
+    named = {rel: sc for rel, sc in scripts.items() if sc.class_name}
+    by_class = {sc.class_name: sc for sc in named.values()}
+    edges = {}
+    for cname, sc in by_class.items():
+        body = "\n".join(
+            re.sub(r'"(?:[^"\\]|\\.)*"', '""', l).split("#", 1)[0]
+            for l in sc.lines)
+        edges[cname] = sorted(
+            o for o in by_class if o != cname and re.search(r"\b%s\b" % o, body))
+
+    cycles = []
+    seen_pairs = set()
+
+    def walk(node, stack):
+        for nxt in edges.get(node, []):
+            if nxt in stack:
+                cyc = stack[stack.index(nxt):] + [nxt]
+                key = frozenset(cyc)
+                if key not in seen_pairs:
+                    seen_pairs.add(key)
+                    cycles.append(cyc)
+            else:
+                walk(nxt, stack + [nxt])
+
+    for cname in sorted(by_class):
+        walk(cname, [cname])
+
+    for cyc in cycles:
+        first = by_class[cyc[0]]
+        add(first.rel, 1, "CYCLE",
+            "class_name cycle: %s. Godot cannot compile this and blames an "
+            "unrelated script; break it by injecting what the child needs "
+            "instead of a typed reference back to its parent." % " -> ".join(cyc))
+
     # Both of these checks need the engine's class reference to know what a
     # script INHERITS. Without it, `player.global_position` looks like a typo
     # and every engine type looks like a class that does not exist — so those

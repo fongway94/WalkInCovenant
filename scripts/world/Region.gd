@@ -130,7 +130,9 @@ func _spawn_player() -> void:
 func _spawn_npcs() -> void:
 	for nd in model.npcs:
 		var n := Npc.new()
-		n.setup(model, nd, self)
+		# player / dialogue / set_paused are injected so Npc never needs a typed
+		# reference back to Region — that reference was a class_name cycle.
+		n.setup(model, nd, player, dialogue, set_paused)
 		_ys.add_child(n)
 		npcs.append(n)
 

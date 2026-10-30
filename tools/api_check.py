@@ -214,15 +214,23 @@ def split_funcs(lines):
     next column-0 declaration. Tracking this matters: a parameter named `d` in
     one function must not be assumed to have the same type as a `d` in another,
     which is exactly the false positive this file used to produce.
+
+    A signature may wrap onto following lines; those are joined so parameters on
+    the continuation are visible to every check that reads the signature.
     """
     segs = []
     cur_start = 0
     cur_sig = None
     for i, line in enumerate(lines):
-        if re.match(r"^(func|static func)\s", line):
+        if re.match(r"^(?:static\s+)?func\s", line):
             if i > cur_start:
                 segs.append((cur_start, i, cur_sig))
-            cur_start, cur_sig = i, line
+            cur_start = i
+            cur_sig = line.rstrip()
+            j = i
+            while not cur_sig.endswith(":") and j + 1 < len(lines):
+                j += 1
+                cur_sig = cur_sig + " " + lines[j].strip()
         elif re.match(r"^(var|const|signal|enum|class|@|static var)\s*", line) \
                 and cur_sig is not None and not line.startswith("\t"):
             segs.append((cur_start, i, cur_sig))
@@ -235,7 +243,11 @@ def types_in(lines, a, b, sig, global_types, preloads):
     """Visible types for one segment: class members, params, local vars."""
     t = dict(global_types)
     if sig:
-        params = sig[sig.index("(") + 1:sig.rindex(")")] if "(" in sig else ""
+        params = ""
+        if "(" in sig:
+            start = sig.index("(") + 1
+            end = sig.rindex(")") if ")" in sig else len(sig)
+            params = sig[start:end]
         for part in params.split(","):
             if ":" in part:
                 name, _, ptype = part.partition(":")
