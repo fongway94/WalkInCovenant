@@ -128,7 +128,7 @@ jobs:
           # "Could not resolve external class member" in an unrelated file.
           godot --headless --import || godot --headless --editor --quit || true
           if [ -f .godot/global_script_class_cache.cfg ]; then
-            echo "::notice::global class cache present ($(grep -c 'class_name' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+            echo "::notice::global class cache present ($(grep -c '"class":' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
           else
             echo "::warning::global_script_class_cache.cfg was not written"
           fi
@@ -136,6 +136,9 @@ jobs:
       # Boots the real project headless: autoloads registered, global classes
       # resolved, main scene instantiated. A per-file --check-only run cannot do
       # this, and drowned in cascade errors from unregistered autoloads.
+      - name: Parse-check each script individually (names the file that fails)
+        run: sh tools/ci_parsecheck.sh
+
       - name: Boot the project headless (parse + smoke check)
         run: sh tools/ci_bootcheck.sh 10
 
@@ -234,7 +237,7 @@ jobs:
           # "Could not resolve external class member" in an unrelated file.
           godot --headless --import || godot --headless --editor --quit || true
           if [ -f .godot/global_script_class_cache.cfg ]; then
-            echo "::notice::global class cache present ($(grep -c 'class_name' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+            echo "::notice::global class cache present ($(grep -c '"class":' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
           else
             echo "::warning::global_script_class_cache.cfg was not written"
           fi
