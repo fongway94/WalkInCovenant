@@ -18,9 +18,10 @@ var _in_battle := false
 ## father's errand before it lets you fight. Playtest 7 asked for exactly this:
 ## "being told by father to send provision, collect provision, then walk walk
 ## then go to the place then properly then talk.. then fight goliath".
-enum Act { WITNESS, ERRAND, FIGHT, DONE }
+enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
+var practice: SlingPractice = null
 var _brothers_met := false
 var _provision_total := 3
 ## Seconds the world has been paused with nothing on screen able to end it. This
@@ -29,6 +30,16 @@ var _provision_total := 3
 ## in a frozen world with no key that did anything (playtest 5).
 var _dead_pause := 0.0
 const DEAD_PAUSE_SECS := 6.0
+
+## The act as a word, for the smoke test and for anything that needs to print
+## where the chapter is. An enum's integer value is an implementation detail;
+## "shepherd" is not.
+const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "ready", "fight",
+	"aftermath", "done"]
+
+
+func act_id() -> String:
+	return str(ACT_NAMES[clampi(act, 0, ACT_NAMES.size() - 1)])
 
 
 func _ready() -> void:
@@ -56,6 +67,7 @@ func _ready() -> void:
 	# ticked up and nothing else. A player who never noticed the counter has no
 	# reason to think the people they meet are worth meeting.
 	EventBus.verse_received.connect(_on_verse)
+	EventBus.player_interacted_with.connect(_on_interacted)
 
 	region = Region.new()
 	# Which story this is comes from the registry, not from a line of code.
@@ -70,7 +82,7 @@ func _process(delta: float) -> void:
 	if region == null or region.dialogue == null:
 		return
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
-		and not _in_battle and battle == null
+		and not _in_battle and battle == null and practice == null
 	if stuck:
 		_dead_pause += delta
 	else:
@@ -105,6 +117,21 @@ func _update_guidance() -> void:
 	var line := ""
 
 	match act:
+		Act.SHEPHERD:
+			key = "shepherd"
+		Act.SAUL:
+			key = "saul"
+		Act.READY:
+			key = "ready"
+			var rrow := int(region.model.trigger_data("challenge").get("row", 11))
+			target = Vector2(p.global_position.x, float(rrow * 16))
+			point = true
+		Act.AFTERMATH:
+			var co := _npc("corin")
+			key = "aftermath"
+			if co != null:
+				target = co.global_position
+				point = true
 		Act.ERRAND:
 			var da: Dictionary = region.model.david_act
 			var bat: Array = da.get("brothers_at", [16, 40])
@@ -188,7 +215,29 @@ func _brothers_beat() -> void:
 	_brothers_met = true
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
-	region.dialogue.show_lines(lines, _errand_speaker, func(): _start_battle())
+	region.dialogue.show_lines(lines, _errand_speaker, _start_saul)
+
+
+## 1 Samuel 17:32-39: the king says he cannot go, David answers with the lion
+## and the bear, the armour goes on, and comes straight back off. Then — and only
+## then — you walk to the line and it is a fight.
+func _start_saul() -> void:
+	act = Act.SAUL
+	region.set_paused(true)
+	var lines: Array = region.model.david_act.get("saul", {}).get("lines", [])
+	if lines.is_empty():
+		_ready_for_the_line()
+		return
+	region.dialogue.show_lines(lines, _errand_speaker, _ready_for_the_line)
+
+
+func _ready_for_the_line() -> void:
+	act = Act.READY
+	region.set_paused(false)
+	hud.set_objective(I18n.t(region.model.objectives.get("ready", {})))
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "The line is north. They have stopped shouting.",
+		"zh": "界线在北边。他们不喊了。"}))
 
 
 ## The first person in the camp you have not spoken to yet. The order is the
@@ -295,7 +344,14 @@ func _on_pickup(id: String) -> void:
 
 
 func _on_trigger(id: String) -> void:
-	if id != "challenge" or _in_battle or act == Act.ERRAND or act == Act.FIGHT:
+	if id != "challenge" or _in_battle:
+		return
+	if act == Act.READY:
+		# You crossed that line once as a witness and were told it was not your
+		# battle. Now you cross it as the boy who said it was not his either.
+		_start_battle()
+		return
+	if act != Act.WITNESS and act != Act.DONE:
 		return
 	if stones >= 5:
 		var down := bool(GameState.flag("goliath_down"))
@@ -369,26 +425,63 @@ func _begin_become() -> void:
 		_start_david_act)
 
 
-## Act II opens on the errand that put David in the valley at all: Jesse's
-## provisions, the walk, the brothers who do not want him there. Without this
-## beat the stones and the fight arrive with no story under them.
+## Act II opens three days earlier, on the slope where David kept his father's
+## sheep. The drill is here for one reason: the fight asks exactly one input in
+## its aim phase, and nothing in the game taught it before the giant was already
+## standing in front of you (playtest 8: "throw stone to attack goliath").
 func _start_david_act() -> void:
-	act = Act.ERRAND
-	provisions = 0
-	_brothers_met = false
 	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
 	var da: Dictionary = region.model.david_act
 	if da.is_empty():
-		# A region may not have the act at all. Then becoming David goes straight
-		# to the line, exactly as it did before the act existed.
+		# A region may not have the act at all: then becoming David goes straight
+		# to the line, exactly as it did before any of this existed.
 		_start_battle()
 		return
+	act = Act.SHEPHERD
+	var sh: Dictionary = da.get("shepherd", {})
+	var st: Array = sh.get("start_at", [])
+	if st.size() == 2:
+		region.player.global_position = Vector2(float(st[0]) * 16.0 + 8.0,
+			float(st[1]) * 16.0 + 8.0)
+		region.snap_camera()
+	region.set_paused(true)
+	region.dialogue.show_lines(sh.get("lines", []), _errand_speaker, _start_practice)
+
+
+## The drill. Three jars, the same sweeping marker the fight uses, no penalty
+## for missing — the band narrows instead, so the third throw is nearly the
+## fight's timing.
+func _start_practice() -> void:
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	practice = SlingPractice.new()
+	add_child(practice)
+	practice.finished.connect(func():
+		if practice != null:
+			practice.queue_free()
+			practice = null
+		_practice_done())
+	practice.start(int(sh.get("targets", 3)))
+
+
+func _practice_done() -> void:
+	region.set_paused(true)
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	region.dialogue.show_lines(sh.get("done_lines", []), _errand_speaker, _start_errand)
+
+
+## Jesse's errand: the provisions, the walk, the brothers who do not want him
+## there. Without this beat the stones and the fight arrive with no story under
+## them (1 Samuel 17:17-28).
+func _start_errand() -> void:
+	act = Act.ERRAND
+	provisions = 0
+	_brothers_met = false
+	var da: Dictionary = region.model.david_act
 	var items: Array = da.get("items", [])
 	_provision_total = items.size()
-	# Stand him where the errand happens. He became David at the line in the
-	# dust, but the next beat is three days EARLIER and a day's walk south, and
-	# making the player walk that distance to find three small props was reported
-	# as "the quest item cannot be seen on the map".
+	# Stand him where the errand happens, with the camera already there: the
+	# provisions are small props, and making the player walk 35 tiles to find
+	# them was reported as "the quest item cannot be seen on the map".
 	var st: Array = da.get("start_at", [])
 	if st.size() == 2:
 		region.player.global_position = Vector2(float(st[0]) * 16.0 + 8.0,
@@ -440,6 +533,23 @@ func _after_return() -> void:
 	# "suddenly nothing to do" of playtest 6, on a screen with no words on it.
 	hud.set_role(I18n.t({"en": "pilgrim", "zh": "朝圣者"}),
 		int(GameState.data.get("level", 1)))
+	# Chapter 6 is witnessed, not narrated: the army's reaction is a person you
+	# can still walk up to. Corin's `after_win` lines are the aftermath; the
+	# ending card follows them.
+	if _npc("corin") != null:
+		act = Act.AFTERMATH
+		hud.set_objective(I18n.t(region.model.objectives.get("aftermath", {})))
+	else:
+		act = Act.DONE
+		_play_ending()
+
+
+## Corin is the one who has to hear it. When he finishes his lines the chapter
+## closes — the same ending card either way, but now it comes after a person.
+func _on_interacted(id: String, _kind: String) -> void:
+	if act != Act.AFTERMATH or id != "corin":
+		return
+	act = Act.DONE
 	_play_ending()
 
 

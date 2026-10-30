@@ -396,7 +396,37 @@
    "lead_note": {
     "en": "“This one. Ask what he saw.”",
     "zh": "「就是他。问他看见了什么。」"
-   }
+   },
+   "after_win": [
+    {
+     "who": "",
+     "text": {
+      "en": "You came back.",
+      "zh": "你回来了。"
+     }
+    },
+    {
+     "who": "corin",
+     "text": {
+      "en": "“We all saw it. The boy went down there without armour on.”",
+      "zh": "「我们都看见了。那孩子没穿铠甲就下去了。」"
+     }
+    },
+    {
+     "who": "corin",
+     "text": {
+      "en": "“That thing he said, at the end — did you keep it?”",
+      "zh": "「他最后说的那句话，你记住了没有？」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "You did.",
+      "zh": "你记住了。"
+     }
+    }
+   ]
   },
   {
    "id": "boy",
@@ -922,6 +952,22 @@
   "npc": {
    "en": "Walk with Corin. He will bring you to %s.",
    "zh": "跟着柯林走。他带你去找%s。"
+  },
+  "shepherd": {
+   "en": "A stone in the pouch. Practise on the jars.",
+   "zh": "皮兜里放一块石子。对着陶罐练手。"
+  },
+  "saul": {
+   "en": "Listen to the king. Then go.",
+   "zh": "听完王的话，再下去。"
+  },
+  "ready": {
+   "en": "Walk to the line. The whole army is watching.",
+   "zh": "走到界线那里。全军都在看着你。"
+  },
+  "aftermath": {
+   "en": "Corin is waiting to hear it from you.",
+   "zh": "柯林在等你说给他听。"
   }
  },
  "ending": {
@@ -1078,50 +1124,29 @@
    {
     "who": "",
     "text": {
-     "en": "Your brothers see you. The eldest one's face closes like a door.",
-     "zh": "哥哥们看见你。大哥的脸一下子沉了下来。"
+     "en": "Your brothers see you come up the road.",
+     "zh": "哥哥们看见你走上坡来。"
     }
    },
    {
     "who": "eliab",
     "text": {
-     "en": "“Why have you come down here? Who did you leave those few sheep with in the wilderness?”",
+     "en": "“Why are you down here? Who is looking after those few sheep in the wilderness?”",
      "zh": "「你下来做什么？旷野里的那几只羊，你交给谁了？」"
     }
    },
    {
     "who": "eliab",
     "text": {
-     "en": "“I know your pride, and the wickedness of your heart. You came down to watch the battle.”",
+     "en": "“I know your pride. You came down to watch the battle.”",
      "zh": "「我知道你的骄傲，也知道你心里的恶意。你下来，不过是想看打仗。」"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "You say nothing. Someone leads you to the king's tent.",
+     "en": "You say nothing. Someone takes you to the king's tent.",
      "zh": "你什么也没说。有人把你带到王的帐棚里。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "They put Saul's armour on you. You take two steps and nearly fall.",
-     "zh": "他们给你穿上扫罗的盔甲。你走了两步，差点摔倒。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "You take it off. It was never yours.",
-     "zh": "你把它脱下来。那从来不是你的。"
-    }
-   },
-   {
-    "who": "david",
-    "text": {
-     "en": "“I cannot go with these. I have not proved them.”",
-     "zh": "「我不能穿这个去。我素来没有穿惯。」"
     }
    }
   ],
@@ -1145,11 +1170,140 @@
     "en": "The boy",
     "zh": "少年人",
     "actor": "boy"
+   },
+   "saul": {
+    "en": "Saul",
+    "zh": "扫罗",
+    "actor": "king"
    }
   },
   "start_at": [
    16,
    45
-  ]
+  ],
+  "shepherd": {
+   "start_at": [
+    20,
+    35
+   ],
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "Three days earlier. The slope south of Bethlehem.",
+      "zh": "三天前。伯利恒南边的坡上。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "The sheep graze behind you. The sling in your hand is worn shiny by your palm.",
+      "zh": "羊在你背后吃草。机弦在你手里，被手心磨得发亮。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "A row of clay jars stands on the slope. You throw at them every day until your arm aches.",
+      "zh": "坡上立着一排陶罐。你每天对着它们扔石头，扔到手臂发酸。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "This is not war. This is practice.",
+      "zh": "这不是打仗，是练手。"
+     }
+    }
+   ],
+   "targets": 3,
+   "done_lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The last jar breaks. Someone below the slope is calling your name.",
+      "zh": "最后一只罐子也碎了。坡下有人喊你的名字。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Your father wants you at the camp. Your brothers are there.",
+      "zh": "父亲要你去一趟军营。哥哥们在那边。"
+     }
+    }
+   ]
+  },
+  "saul": {
+   "at": [
+    21,
+    41
+   ],
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "Saul is a head taller than every man in the tent.",
+      "zh": "扫罗比帐棚里所有人都高出一头。"
+     }
+    },
+    {
+     "who": "saul",
+     "text": {
+      "en": "1 Samuel 17:33 — “And Saul said to David, Thou art not able to go against this Philistine to fight with him: for thou art but a youth, and he a man of war from his youth.”",
+      "zh": "撒母耳记上 17:33\n「扫罗对大卫说：你不能去与那非利士人战斗；因为你年纪太轻，他自幼就作战士。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“The LORD that delivered me out of the paw of the lion, and out of the paw of the bear, he will deliver me out of the hand of this Philistine.”",
+      "zh": "「耶和华救我脱离狮子和熊的爪，也必救我脱离这非利士人的手。」"
+     }
+    },
+    {
+     "who": "saul",
+     "text": {
+      "en": "1 Samuel 17:37 — “Go, and the LORD be with thee.”",
+      "zh": "撒母耳记上 17:37\n「你可以去吧！耶和华必与你同在。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "1 Samuel 17:38 — “And Saul armed David with his armour, and he put an helmet of brass upon his head; also he armed him with a coat of mail.”",
+      "zh": "撒母耳记上 17:38\n「扫罗就把自己的战衣给大卫穿上，将铜盔给他戴上，又给他穿上铠甲。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "It is too heavy. You take two steps and nearly fall.",
+      "zh": "太重了。你走两步，差点摔倒。"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "1 Samuel 17:39 — “I cannot go with these; for I have not proved them.”",
+      "zh": "撒母耳记上 17:39\n「我穿戴这些不能走，因为素来没有穿惯。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "You put it off. It was never yours.",
+      "zh": "你把它脱下来。那从来不是你的。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Then you walk down the slope, and the whole army watches you go.",
+      "zh": "然后你往山下走。全军都在看你。"
+     }
+    }
+   ]
+  }
  }
 }

@@ -120,6 +120,15 @@ def _figure(dir_, frame, s):
         cv.px(hx, hy + 1, c("linen", 5)); cv.px(hx + 3, hy + 2, c("linen", 5))
         cv.px(hx + hw * 2, hy + 2, c("linen", 1))
         cv.vline(hx + hw * 2, hy + 3, 3, c("linen", 2))      # tail down the back
+    if s.get("crown"):
+        # A band of gold across the brow, lit on one side. At eight pixels a
+        # crown is a colour, not a shape — so it is two rows of gold above the
+        # eyes, and the top row of the hair mass alternates to read as points.
+        cv.hline(hx + 1, hy, hw * 2 - 2, c("gold", 3))
+        cv.hline(hx - 1, hy + 1, hw * 2 + 2, c("gold", 2))
+        cv.hline(hx - 1, hy, 1, c("gold", 2))
+        cv.px(hx + 2, hy, c("gold", 4))
+        cv.px(hx + hw * 2 - 2, hy, c("gold", 4))
     if s.get("veil"):
         cv.vline(hx - 1, hy + 2, 5, c("linen", 3))
         cv.vline(hx + hw * 2, hy + 2, 5, c("linen", 1))
@@ -277,6 +286,8 @@ CHARS = {
     "villager_c": dict(robe="robe_elder", skin="skin", hair="hair_grey", trim="wool", beard=True),
     "shepherd": dict(robe="robe_pilgrim", skin="skin", hair="hair_dark",
                     trim="wool", staff=True, headcloth=True),
+    "king":    dict(robe="robe_king", skin="skin", hair="hair_grey",
+                    trim="gold", beard=True, crown=True),
 }
 
 

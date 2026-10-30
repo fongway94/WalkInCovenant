@@ -75,6 +75,9 @@ RAMPS = {
     # character/ground check in tools/pack_art.py)
     "robe_priest":  ["#6e6a5e", "#8a8578", "#a6a094", "#c0bbae", "#d8d3c6"],
     "robe_pharisee": ["#2a3c66","#385080","#48649a","#5a7ab4","#7092cc"],
+    # royal crimson: Saul. Nothing else in the game wears it, so the king is
+    # recognisable across a 320px screen before he says a word.
+    "robe_king":    ["#4a1c2a","#6b2838","#8c3448","#ad4258","#c85a70"],
 
     "hair_dark": ["#20242c","#2c323c","#3a424e","#4a5460"],
     "hair_grey":  ["#6b6a66", "#8a8985", "#a5a4a0", "#c2c1bd"],

@@ -251,7 +251,15 @@ func talk() -> void:
 	pause_fn.call(true)
 	GameState.record_way("stay")          # stopping to listen is a way of walking
 
-	var lines: Array = (data.get("after", []) if _talked else data.get("lines", []))
+	# Third state, and the one chapter 6 needs: once the giant is down some
+	# people have a different thing to say, and it is not their first line.
+	var lines: Array = []
+	if bool(GameState.flag("goliath_down")) and not (data.get("after_win", []) as Array).is_empty():
+		lines = data.get("after_win", [])
+	elif _talked:
+		lines = data.get("after", [])
+	else:
+		lines = data.get("lines", [])
 	if lines.is_empty():
 		lines = data.get("lines", [])
 	dialogue.show_lines(lines, _speaker_for, _on_done)

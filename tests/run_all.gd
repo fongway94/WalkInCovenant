@@ -172,6 +172,16 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		var st := Vector2i(int(sa[0]), int(sa[1]))
 		if m.solid_at_tile(st.x, st.y):
 			_fail("%s: the errand starts on a solid tile %s" % [rid, st])
+	# The shepherd beat teleports too, and a teleport into a solid tile is a
+	# player standing inside a rock with no way to tell anyone why.
+	var sh: Dictionary = m.david_act.get("shepherd", {})
+	var sh_at: Array = sh.get("start_at", [])
+	if sh_at.size() == 2:
+		var sht := Vector2i(int(sh_at[0]), int(sh_at[1]))
+		if m.solid_at_tile(sht.x, sht.y):
+			_fail("%s: the shepherd chapter starts on a solid tile %s" % [rid, sht])
+		if m.path(m.spawn, sht).is_empty():
+			_fail("%s: the shepherd chapter is walled off from spawn" % rid)
 	_ok("spawn / npcs / items / provisions all on walkable ground")
 
 	# 3. reachability
@@ -207,6 +217,14 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	for key in ["lines", "brothers"]:
 		for line in (m.david_act.get(key, []) as Array):
 			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
+	for key in ["shepherd", "saul"]:
+		for line in ((m.david_act.get(key, {}) as Dictionary).get("lines", []) as Array):
+			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
+	for line in ((m.david_act.get("shepherd", {}) as Dictionary).get("done_lines", []) as Array):
+		_has_both(line.get("text"), "%s:david_act shepherd done" % rid)
+	for n in m.npcs:
+		for line in (n.get("after_win", []) as Array):
+			_has_both(line.get("text"), "%s:npc %s after_win" % [rid, n.get("id")])
 	for sp in (m.david_act.get("speakers", {}) as Dictionary).values():
 		_has_both(sp, "%s:david_act speaker name" % rid)
 	# The chapter ending and the HUD's objective lines are player-facing prose

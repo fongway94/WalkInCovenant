@@ -241,30 +241,51 @@ func _run() -> void:
 
 	var level_before := int(GameState.data["level"])
 
-	# ── 6. BECOME, and then David's own errand ───────────────────────────
-	# Act II is not the fight: it is 1 Samuel 17:17-28. The father's provisions,
-	# the walk, the brothers who want him gone. Playtest 7 asked for the story,
-	# not just the duel, and this is where it is proved to be wired.
+	# ── 6. BECOME, and then David's whole story ─────────────────────────
+	# Chapter 2 first: three days earlier, the sheep slope, and the drill that
+	# teaches the one input the fight asks for. Then Jesse's errand. Then the
+	# king. Only then is there a fight.
 	await _stand(region, 16, 10, 4)
 	_check(bool(main._in_battle), "crossing with five stones begins BECOME")
 	_check(region._paused, "the world holds still while you become David")
 	var waited := 0
-	while int(main.act) != 1 and waited < FRAME_GUARD:
+	while main.act_id() != "shepherd" and waited < FRAME_GUARD:
 		await get_tree().process_frame
 		waited += 1
-	_check(int(main.act) == 1, "the become hands over to David's errand (waited %d frames)" % waited)
+	_check(main.act_id() == "shepherd",
+		"the become hands over to the shepherd chapter (waited %d frames)" % waited)
 	await _frames(2)
-	_check(region.dialogue._open, "the father speaks before anything else")
+	_check(region.dialogue._open, "the slope speaks before anything else")
 	_drain(region.dialogue)
 	await _frames(2)
-	_check(not region._paused, "the errand releases the world")
+
+	# ── 6a. the drill ────────────────────────────────────────────────────
+	_check(main.practice != null, "the sling drill starts after the narration")
+	var throws := 0
+	var practice_frames := 0
+	while main.practice != null and practice_frames < FRAME_GUARD:
+		practice_frames += 1
+		if main.practice != null and main.practice.is_aiming():
+			main.practice.aim_perfect()
+			main.practice.press()
+			throws += 1
+		await get_tree().process_frame
+	_check(main.practice == null, "three jars end the drill")
+	_check(throws == 3, "the drill asks for three throws, not one (took %d)" % throws)
+	await _frames(2)
+	_check(region.dialogue._open, "the slope has one more thing to say")
+	_drain(region.dialogue)
+	await _frames(3)
+	_check(main.act_id() == "errand", "the drill hands over to the errand (act=%s)" % main.act_id())
+
+	# ── 6b. the errand ───────────────────────────────────────────────────
 	var prov_spawned := 0
 	for it in region.pickups:
 		if str(it.get("kind", "")) == "provision":
 			prov_spawned += 1
 	_check(prov_spawned == 3, "three provisions are laid out in Bethlehem (got %d)" % prov_spawned)
 	# BUG B: "the item cannot be seen on the map". One provision used to sit
-	# inside a solid altar prop four tiles from anywhere the camera looked.
+	# inside a solid altar prop, 35 tiles from anywhere the camera looked.
 	var dact: Dictionary = region.model.david_act
 	var farthest := 0.0
 	for it in dact.get("items", []):
@@ -276,27 +297,36 @@ func _run() -> void:
 		farthest = maxf(farthest, d.distance_to(region.player.global_position) / 16.0)
 	_check(farthest <= 6.0,
 		"every provision is within six tiles of the errand start (%.1f)" % farthest)
-
-	# collecting them: walk onto each tile, exactly as a thumb would
 	var prov_tiles := []
-	var da: Dictionary = region.model.david_act
-	for it in da.get("items", []):
+	for it in dact.get("items", []):
 		var at: Array = it["at"]
 		prov_tiles.append([int(at[0]), int(at[1])])
 	for t in prov_tiles:
 		await _stand(region, int(t[0]), int(t[1]), 3)
 	_check(int(main.provisions) == 3, "three provisions gathered (got %d)" % int(main.provisions))
 
-	# arriving at the brothers is the trigger — no extra button to find
-	var bat: Array = da.get("brothers_at", [16, 40])
+	# ── 6c. the brothers, and then the king ──────────────────────────────
+	var bat: Array = dact.get("brothers_at", [16, 40])
 	await _stand(region, int(bat[0]), int(bat[1]) + 1, 5)
 	_check(bool(main._brothers_met), "walking to the brothers opens their beat")
 	_drain(region.dialogue)
+	await _frames(3)
+	_check(main.act_id() == "saul", "the brothers hand you to the king (act=%s)" % main.act_id())
+	_check(region.dialogue._open, "Saul speaking is a scene, not a line of narration")
+	_drain(region.dialogue)
+	await _frames(3)
+	_check(main.act_id() == "ready", "after the armour comes off you are sent down (act=%s)" % main.act_id())
+	_check(main.battle == null, "the king does not start the fight")
+	_check(not region._paused, "the walk to the line is yours to make")
+
+	# ── 6d. walk to the line, as David ───────────────────────────────────
+	await _stand(region, 16, 15, 3)
+	await _stand(region, 16, 10, 4)
 	var waited2 := 0
 	while main.battle == null and waited2 < FRAME_GUARD:
 		await get_tree().process_frame
 		waited2 += 1
-	_check(main.battle != null, "the argument with Goliath begins after the brothers")
+	_check(main.battle != null, "crossing the line again starts the fight")
 	if main.battle == null:
 		_finish_run()
 		return
@@ -356,6 +386,19 @@ func _run() -> void:
 		await get_tree().process_frame
 		cleared += 1
 	_check(main.battle == null, "the win closes the battle and cleans it up")
+
+	# ── 7c. chapter 6 is witnessed: the aftermath is a person ────────────
+	var corin: Npc = _find_npc(region, "corin")
+	_check(main.act_id() == "aftermath",
+		"the giant falling hands you back to the witness (act=%s)" % main.act_id())
+	_check(corin != null, "Corin is still there to tell")
+	if corin != null:
+		_check(not (corin.data.get("after_win", []) as Array).is_empty(),
+			"Corin has something new to say once the giant is down")
+		corin.talk()
+		await _frames(2)
+		_check(region.dialogue._open, "the aftermath is played, not summarised")
+		_drain(region.dialogue)
 
 	# ── 8. RETURN, and what it left in the save ──────────────────────────
 	# RETURN hands the story back BEFORE the controls: the ending card, the

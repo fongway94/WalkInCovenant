@@ -188,7 +188,7 @@ name).
    idle sheet, so there is nothing extra to draw.
 5. **Chinese** — written, not translated (see 6.1), then
    `tools/build_font.py && tools/check_font.py`, and
-   `tools/check_text_fit.py --max-rows 3`.
+   `tools/check_text_fit.py --max-rows 4` (four rows is still a box that fits a 320x180 screen; a quoted verse needs the fourth).
 6. **Hero mechanics** — if the story needs one (Moses and water, Daniel and a
    night in the den), add `scripts/setpiece/<Thing>.gd` with the same contract
    `GoliathFight` keeps: a `start()`, a public `press()` a thumb can drive, a
