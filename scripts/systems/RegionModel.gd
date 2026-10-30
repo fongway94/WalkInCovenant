@@ -31,6 +31,9 @@ var words: Array = []                # the verses people hand you; become your m
 var shouts: Array = []               # what the giant shouts at you
 var ending: Dictionary = {}          # the chapter's closing beats + reflection
 var objectives: Dictionary = {}       # the words the HUD points at each step
+## 1 Samuel 17:17-39, as data: the errand that put David in the valley. Absent
+## in a region that has no such act, so it is an empty dictionary, never null.
+var david_act: Dictionary = {}
 var goliath := Vector2i.ZERO
 var challenge_row: int = -1
 
@@ -92,6 +95,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	shouts = d.get("shouts", [])
 	ending = d.get("ending", {})
 	objectives = d.get("objectives", {})
+	david_act = d.get("david_act", {})
 	var gl: Array = d.get("goliath", [0, 0])
 	goliath = Vector2i(int(gl[0]), int(gl[1]))
 	challenge_row = int(d.get("challenge_row", -1))

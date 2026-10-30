@@ -376,6 +376,11 @@ func _start_david_act() -> void:
 	_brothers_met = false
 	hud.set_role(I18n.t({"en": "David", "zh": "大卫"}), 1)
 	var da: Dictionary = region.model.david_act
+	if da.is_empty():
+		# A region may not have the act at all. Then becoming David goes straight
+		# to the line, exactly as it did before the act existed.
+		_start_battle()
+		return
 	var items: Array = da.get("items", [])
 	_provision_total = items.size()
 	for it in items:
