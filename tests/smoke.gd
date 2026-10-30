@@ -161,6 +161,8 @@ func _run() -> void:
 		await _stand(region, int(at[0]), int(at[1]), 3)
 	_check(int(main.stones) == 5, "five stones gathered (got %d)" % int(main.stones))
 
+	var level_before := int(GameState.data["level"])
+
 	# ── 6. BECOME ────────────────────────────────────────────────────────
 	await _stand(region, 16, 10, 4)
 	_check(bool(main._in_battle), "crossing with five stones begins BECOME")
@@ -200,7 +202,16 @@ func _run() -> void:
 	_check(bool(GameState.flag("goliath_down")), "the valley remembers he is down")
 	_check(_has(GameState.data["relics"], "stones"), "the five stones are kept as a relic")
 	_check(_has(GameState.data["completed"], "elah"), "chapter I is marked complete")
-	_check(int(GameState.data["xp"]) >= 120, "xp was awarded (got %s)" % str(GameState.data["xp"]))
+	# Not "xp >= 120". add_xp() SPENDS xp on levels: it subtracts xp_needed() for
+	# each level-up, so data["xp"] is the remainder inside the current level, not
+	# a running total. 120 from level 1 buys level 3 (40 + 70) and leaves 10 —
+	# asserting a total here was asserting the wrong thing, and it failed against
+	# a game that was behaving correctly.
+	var lvl := int(GameState.data["level"])
+	var left := int(GameState.data["xp"])
+	_check(lvl > level_before, "RETURN levels you up (was %d, now %d)" % [level_before, lvl])
+	_check(left >= 0 and left < GameState.xp_needed(lvl),
+		"leftover xp sits inside the new level (%d of %d)" % [left, GameState.xp_needed(lvl)])
 	_check(_has(GameState.data["fruits"], "faithfulness"), "fruit was gathered")
 	_check(not region._paused, "the valley is unpaused after RETURN")
 	_check(region.player != null, "you are still yourself after RETURN")
