@@ -430,6 +430,11 @@ func _begin_become() -> void:
 ## its aim phase, and nothing in the game taught it before the giant was already
 ## standing in front of you (playtest 8: "throw stone to attack goliath").
 func _start_david_act() -> void:
+	# `_in_battle` guarded the line while BECOME played. From here the act
+	# itself guards it (SHEPHERD/ERRAND/SAUL ignore the line, READY answers it),
+	# so leaving the flag set made the one crossing that matters — the one that
+	# starts the fight — the one crossing `_on_trigger` refused.
+	_in_battle = false
 	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
 	var da: Dictionary = region.model.david_act
 	if da.is_empty():
@@ -498,6 +503,7 @@ func _start_errand() -> void:
 
 func _start_battle() -> void:
 	act = Act.FIGHT
+	_in_battle = true
 	# The nameplate is the whole promise of this chapter: for the length of the
 	# fight the hands on the sling are David's (docs/FEEL.md §3).
 	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)

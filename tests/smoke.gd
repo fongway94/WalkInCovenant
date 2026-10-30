@@ -309,7 +309,10 @@ func _run() -> void:
 	var bat: Array = dact.get("brothers_at", [16, 40])
 	await _stand(region, int(bat[0]), int(bat[1]) + 1, 5)
 	_check(bool(main._brothers_met), "walking to the brothers opens their beat")
-	_drain(region.dialogue)
+	# Step ONE beat, not the whole chain: _drain() follows chained beats, which
+	# is what makes it useful elsewhere and exactly wrong here — it would eat the
+	# king's scene and hand back an act that had already moved on.
+	_drain_one(region.dialogue)
 	await _frames(3)
 	_check(main.act_id() == "saul", "the brothers hand you to the king (act=%s)" % main.act_id())
 	_check(region.dialogue._open, "Saul speaking is a scene, not a line of narration")
@@ -470,6 +473,18 @@ func _stand(region, tx: int, ty: int, frames: int) -> void:
 	var p = region.player
 	p.global_position = Vector2(float(tx) * TILE + 8.0, float(ty) * TILE + 8.0)
 	await _frames(frames)
+
+
+func _drain_one(dlg) -> void:
+	## Advance exactly one beat: stop as soon as the box id changes, so a chained
+	## beat stays on screen for the assertions that come next.
+	var id0 := int(dlg._box_id)
+	var guard := 0
+	while dlg._open and not dlg._in_choices and int(dlg._box_id) == id0 and guard < 300:
+		dlg._advance()
+		guard += 1
+	if guard >= 300:
+		_check(false, "a dialogue box would not advance")
 
 
 func _drain(dlg) -> void:
