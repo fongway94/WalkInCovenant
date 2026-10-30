@@ -8,6 +8,7 @@ var bar: HBoxContainer = null
 var name_lbl: Label = null
 var place_lbl: Label = null
 var verses_lbl: Label = null
+var stones_lbl: Label = null
 var time_lbl: Label = null
 var toast_lbl: Label = null
 var region: Region = null
@@ -44,6 +45,12 @@ func _build() -> void:
 	bar.add_child(place_lbl)
 	verses_lbl = _label(Color(0.79, 0.64, 0.36))
 	bar.add_child(verses_lbl)
+	# Stones get their own counter because the player cannot read a pouch.
+	# Playtest 4 walked to the line short of five and the refusal was the first
+	# time anything named the number — a goal you cannot see is a wall.
+	stones_lbl = _label(Color(0.62, 0.74, 0.86))
+	stones_lbl.visible = false
+	bar.add_child(stones_lbl)
 	time_lbl = _label(Color(0.55, 0.62, 0.66))
 	bar.add_child(time_lbl)
 
@@ -55,6 +62,10 @@ func _build() -> void:
 		I18n.toggle()
 		lang.text = "EN" if I18n.is_zh() else "中"
 		if region: place_lbl.text = I18n.t(region.model.display_name)
+		if stones_lbl != null and stones_lbl.visible:
+			# re-render the counter in the new language without waiting for the
+			# next pickup
+			stones_lbl.text = I18n.t({"en": "◆%s", "zh": "◆%s"}) % stones_lbl.text.substr(1)
 		_refresh())
 	bar.add_child(lang)
 
@@ -95,6 +106,14 @@ func _refresh() -> void:
 		"night": {"en": "night", "zh": "夜晚"},
 		"dawn": {"en": "dawn", "zh": "黎明"},
 	}.get(GameState.data.get("time_of_day", "morning"), {"en": "", "zh": ""}))
+
+
+## Set by Main: how many stones are in the pouch, out of how many exist.
+func set_stones(n: int, total: int) -> void:
+	if stones_lbl == null:
+		return
+	stones_lbl.visible = total > 0
+	stones_lbl.text = I18n.t({"en": "◆%d/%d", "zh": "◆%d／%d"}) % [n, total]
 
 
 func _toast(text: String) -> void:

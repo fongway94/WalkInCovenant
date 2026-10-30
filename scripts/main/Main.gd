@@ -11,6 +11,7 @@ var become: BecomeController = null
 var battle: WordBattle = null
 
 var stones := 0
+var _stones_total := 0
 var _refusals := 0
 var _in_battle := false
 
@@ -47,6 +48,11 @@ func _ready() -> void:
 func _on_region_ready() -> void:
 	touch.bind(region.player)
 	hud.bind(region)
+	_stones_total = 0
+	for it in region.model.items:
+		if str(it.get("kind", "")) == "stone":
+			_stones_total += 1
+	hud.set_stones(stones, _stones_total)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
 	_brief_once()
@@ -68,6 +74,8 @@ func _brief_once() -> void:
 func _on_pickup(id: String) -> void:
 	if id.begins_with("stone"):
 		stones += 1
+		if hud != null:
+			hud.set_stones(stones, _stones_total)
 		GameState.record_way("notice")
 		EventBus.toast_requested.emit(I18n.t({
 			"en": "A smooth stone · %d/5" % stones,
