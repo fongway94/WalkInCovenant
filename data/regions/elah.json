@@ -1306,43 +1306,41 @@
    ]
   }
  },
- "prologue": {
-  "lines": [
-   {
-    "who": "",
-    "text": {
-     "en": "You fell asleep on the bus home.",
-     "zh": "你在回家的车上睡着了。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "You wake with the sun straight overhead, and your mouth full of dust.",
-     "zh": "醒来的时候，太阳正悬在头顶，嘴里全是土。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "Your clothes are not your clothes. Coarse wool. A leather cord at your waist.",
-     "zh": "衣服不是你的。粗羊毛，腰上一条皮绳。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "Two armies are standing on the hills either side of the valley. Nobody is moving.",
-     "zh": "山谷两边的山上都站着军队。没有一个人在动。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "A man is crying quietly somewhere behind you. You understand every word he says.",
-     "zh": "有人在你背后小声地哭。他说的每一个字你都听得懂。"
-    }
+ "prologue": [
+  {
+   "who": "",
+   "text": {
+    "en": "You fell asleep on the bus home.",
+    "zh": "你在回家的车上睡着了。"
    }
-  ]
- }
+  },
+  {
+   "who": "",
+   "text": {
+    "en": "You wake with the sun straight overhead, and your mouth full of dust.",
+    "zh": "醒来的时候，太阳正悬在头顶，嘴里全是土。"
+   }
+  },
+  {
+   "who": "",
+   "text": {
+    "en": "Your clothes are not your clothes. Coarse wool. A leather cord at your waist.",
+    "zh": "衣服不是你的。粗羊毛，腰上一条皮绳。"
+   }
+  },
+  {
+   "who": "",
+   "text": {
+    "en": "Two armies are standing on the hills either side of the valley. Nobody is moving.",
+    "zh": "山谷两边的山上都站着军队。没有一个人在动。"
+   }
+  },
+  {
+   "who": "",
+   "text": {
+    "en": "A man is crying quietly somewhere behind you. You understand every word he says.",
+    "zh": "有人在你背后小声地哭。他说的每一个字你都听得懂。"
+   }
+  }
+ ]
 }

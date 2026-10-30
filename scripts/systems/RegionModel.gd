@@ -91,7 +91,14 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	props = d.get("props", [])
 	triggers = d.get("triggers", [])
 	briefing = d.get("briefing", [])
-	prologue = d.get("prologue", [])
+	# `briefing` and `prologue` are plain arrays of lines, and a JSON object here
+	# would type-error into an Array and abort the whole load (it did: the grid
+	# never finished, and the terrain drew out of bounds for the rest of the run).
+	var raw_pr: Variant = d.get("prologue", [])
+	if raw_pr is Dictionary:
+		prologue = (raw_pr as Dictionary).get("lines", [])
+	else:
+		prologue = raw_pr
 	exits = d.get("exits", [])
 	words = d.get("words", [])
 	shouts = d.get("shouts", [])
