@@ -22,7 +22,7 @@ var cam: CameraRig = null
 # an ERROR-level warning in Godot 4.7 and stops the script compiling.
 var npcs: Array[Npc] = []
 var pickups: Array = []         # {id, kind, node, got}
-var triggers: Array = []        # {id, kind, data, fired}
+var triggers: Array = []        # {id, kind, data, spent, armed}
 var dialogue: DialogueBox = null
 
 var _ys: Node2D = null
@@ -79,6 +79,7 @@ func _build() -> void:
 	_spawn_player()
 	_spawn_npcs()
 	_spawn_pickups()
+	_spawn_triggers()
 	_setup_camera()
 	_setup_light()
 
@@ -155,6 +156,18 @@ func _spawn_pickups() -> void:
 			"got": false, "ref": it.get("ref", ""), "data": it})
 
 
+func _spawn_triggers() -> void:
+	for td in model.triggers:
+		var d: Dictionary = td
+		triggers.append({
+			"id": str(d.get("id", "")),
+			"kind": str(d.get("kind", "")),
+			"data": d,
+			"spent": false,
+			"armed": true,
+		})
+
+
 func _setup_camera() -> void:
 	cam = CameraRig.new()
 	add_child(cam)
@@ -209,11 +222,20 @@ func _check_pickups() -> void:
 
 func _check_triggers() -> void:
 	for t in triggers:
-		if t["fired"]:
+		if bool(t["spent"]):
 			continue
 		if _trigger_hit(t):
-			t["fired"] = true
-			trigger_fired.emit(t["id"])
+			# Edge-triggered, not level-triggered: fire on ENTERING the area.
+			# A beat that sends you back (five stones missing) has to be able to
+			# happen again once you have gone and got them, and a beat that has
+			# played must not replay every frame you stand inside it.
+			if bool(t["armed"]):
+				t["armed"] = false
+				if bool(t["data"].get("once", false)):
+					t["spent"] = true
+				trigger_fired.emit(str(t["id"]))
+		else:
+			t["armed"] = true
 
 
 func _trigger_hit(t: Dictionary) -> bool:

@@ -30,6 +30,7 @@ var _in_choices := false
 var _choices: Array = []
 var _on_pick: Callable = Callable()
 var _blip_acc := 0
+var _box_id := 0          # increments every time a new beat opens
 
 
 func _ready() -> void:
@@ -106,6 +107,7 @@ func hide_box() -> void:
 
 
 func show_lines(lines: Array, speaker_fn: Callable, on_done: Callable) -> void:
+	_box_id += 1
 	_lines = lines
 	_i = 0
 	_shown = 0.0
@@ -223,10 +225,17 @@ func _pick(idx: int) -> void:
 	choice_box.visible = false
 	GameState.record_way("notice")
 	EventBus.choice_made.emit(str(_i), idx)
+	var opened := _box_id
 	if _on_pick.is_valid():
 		_on_pick.call(idx, _choices[idx])
+	# The callback usually opens the next beat itself (the word battle shows a
+	# feedback line, an NPC continues). If it did, this box is already a new
+	# one: advancing here would instantly finish a line the player never saw and
+	# fire its on_done early, which skipped every single-line follow-up — the
+	# battle's "the sling takes a stone" beat among them.
+	if _box_id != opened:
+		return
 	# continue after the chosen reply, if the node defines one
-	var opt: Dictionary = _choices[idx]
 	_i += 1
 	if _i >= _lines.size():
 		_finish()
@@ -235,6 +244,7 @@ func _pick(idx: int) -> void:
 
 
 func show_choices_standalone(options: Array, on_pick: Callable) -> void:
+	_box_id += 1
 	_open = true
 	_in_choices = true
 	panel.visible = false

@@ -24,7 +24,8 @@ var music: String = "valley"
 var npcs: Array = []                 # raw dicts from json
 var items: Array = []
 var props: Array = []                # {type, at:[x,y]}
-var triggers: Array = []             # {id, kind, ...}
+var triggers: Array = []             # {id, kind, once, refuse, memory, ...}
+var briefing: Array = []             # first-run lines: what to do here
 var exits: Array = []                # {to, at:[x,y]}
 var words: Array = []                # the verses people hand you; become your moves
 var shouts: Array = []               # what the giant shouts at you
@@ -53,6 +54,15 @@ func load_from(path: String, tiles_meta: Dictionary) -> bool:
 	return _init_from(parsed, tiles_meta)
 
 
+func trigger_data(id: String) -> Dictionary:
+	## The authored trigger object, so beats stay in data (docs/ARCHITECTURE.md).
+	for t in triggers:
+		var td: Dictionary = t
+		if str(td.get("id", "")) == id:
+			return td
+	return {}
+
+
 func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	id = d.get("id", id)
 	display_name = d.get("name", {})
@@ -74,6 +84,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	items = d.get("items", [])
 	props = d.get("props", [])
 	triggers = d.get("triggers", [])
+	briefing = d.get("briefing", [])
 	exits = d.get("exits", [])
 	words = d.get("words", [])
 	shouts = d.get("shouts", [])

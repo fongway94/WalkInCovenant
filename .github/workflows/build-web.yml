@@ -153,6 +153,40 @@ jobs:
           cat lint.txt
           exit $STATUS
 
+      # The gates above prove the project COMPILES and the content is well
+      # formed. Neither proves the game can be PLAYED: Godot packs unparseable
+      # scripts and still exits 0, and a region file can be valid while the loop
+      # through it is broken. This boots Main.tscn and plays the slice — briefing,
+      # four conversations, crossing the line empty-handed, five stones, BECOME,
+      # five rounds of the word battle, RETURN, and the revisit — then asserts the
+      # save state it left behind. It exists because two bugs reached this repo
+      # that no compile-time gate could see: Region never built its trigger list
+      # (the fight was unreachable by walking), and DialogueBox._pick() advanced a
+      # box its own callback had just replaced (every single-line follow-up was
+      # skipped). If a future change breaks the loop again, the build goes red
+      # instead of somebody's first playtest.
+      - name: Play the slice headless (integration smoke test)
+        id: smoke
+        continue-on-error: true
+        run: |
+          godot --headless --path . --script tests/smoke.gd > smoke.txt 2>&1
+          STATUS=$?
+          cat smoke.txt
+          exit $STATUS
+
+      # One joined annotation, not a tail: the playthrough prints ~40 "ok" lines
+      # and GitHub keeps only ~10 annotations per run, so a tail spends the quota
+      # on passing assertions and the actual FAIL scrolls out of view.
+      - name: Publish smoke failures as one annotation
+        if: always()
+        run: |
+          [ -f smoke.txt ] || exit 0
+          sed 's/\x1b\[[0-9;]*m//g' smoke.txt \
+            | grep -a "FAIL\|SCRIPT ERROR\|Parse Error\|smoke:" \
+            | head -12 \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+
       # Raw CI logs live on a host this project's authoring sandbox cannot
       # reach; check-run annotations come from api.github.com and can. But
       # GitHub keeps only ~10 annotations per run, and Godot prints ANSI-coloured
@@ -181,6 +215,12 @@ jobs:
         if: steps.lint.outcome != 'success'
         run: |
           echo "content lint failed"
+          exit 1
+
+      - name: Fail the job if the playthrough failed
+        if: steps.smoke.outcome != 'success'
+        run: |
+          echo "the headless playthrough did not complete"
           exit 1
 
   # ── export the web build ─────────────────────────────────────────────────

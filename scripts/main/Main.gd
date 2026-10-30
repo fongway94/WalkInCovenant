@@ -38,6 +38,20 @@ func _on_region_ready() -> void:
 	hud.bind(region)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
+	_brief_once()
+
+
+func _brief_once() -> void:
+	## First time in the valley, say what the place is and what the hands do.
+	## After that the region is just a place to walk in (docs/WORLD.md §4).
+	if GameState.flag(str(region.region_id) + "_briefed") == true:
+		return
+	if region.model.briefing.is_empty():
+		return
+	GameState.set_flag(str(region.region_id) + "_briefed", true)
+	region.set_paused(true)
+	region.dialogue.show_lines(region.model.briefing, func(_w): return {}, func():
+		region.set_paused(false))
 
 
 func _on_pickup(id: String) -> void:
@@ -54,16 +68,37 @@ func _on_trigger(id: String) -> void:
 	if id != "challenge" or _in_battle:
 		return
 	if stones >= 5:
-		_begin_become()
+		var down := bool(GameState.flag("goliath_down"))
+		if down:
+			_memory_beat()
+		else:
+			_begin_become()
 	else:
-		# No fail state: he simply will not let you past without them.
-		region.set_paused(true)
-		region.dialogue.show_lines([
-			{"who": "", "text": {"en": "You reach the line, and your hand closes on an empty pouch. Five stones. The brook is behind you.",
-				"zh": "你走到界线前，手在袋子里摸了个空。要五块石子。溪水在你身后。"}},
-		], func(_w): return {}, func():
-			region.set_paused(false)
-			region.player.global_position.y += 16.0 * 3)
+		_refuse(id)
+
+
+func _beat_lines(id: String, key: String) -> Array:
+	## Story beats live in the region file, never in here.
+	var td := region.model.trigger_data(id)
+	var lines: Array = td.get(key, [])
+	return lines
+
+
+func _refuse(id: String) -> void:
+	# No fail state: he simply will not let you past without them. Step the
+	# player back south so the trigger re-arms and the walk can be tried again.
+	region.set_paused(true)
+	region.dialogue.show_lines(_beat_lines(id, "refuse"), func(_w): return {}, func():
+		region.set_paused(false)
+		region.player.global_position.y += 16.0 * 3)
+
+
+func _memory_beat() -> void:
+	## The valley is quiet and the fight is over. Coming back is a memory, not a
+	## replay: two lines and the verse, then you are free to keep walking.
+	region.set_paused(true)
+	region.dialogue.show_lines(_beat_lines("challenge", "memory"), func(_w): return {}, func():
+		region.set_paused(false))
 
 
 func _begin_become() -> void:

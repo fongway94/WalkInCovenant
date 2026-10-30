@@ -126,6 +126,15 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	for s in m.shouts:
 		_has_both(s.get("line"), "%s:shout line" % rid)
 		_has_both(s.get("tell"), "%s:shout tell" % rid)
+	# the beats a trigger speaks (refusing you, remembering the fight) and the
+	# first-run briefing are player-facing prose too
+	for t in m.triggers:
+		var td: Dictionary = t
+		for key in ["refuse", "memory"]:
+			for line in (td.get(str(key), []) as Array):
+				_has_both(line.get("text"), "%s:trigger %s %s" % [rid, td.get("id"), key])
+	for line in m.briefing:
+		_has_both(line.get("text"), "%s:briefing line" % rid)
 	_ok("all dialogue and verses bilingual")
 
 	# 5. no unwinnable shout
