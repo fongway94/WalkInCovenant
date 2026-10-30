@@ -111,26 +111,47 @@ auntie who cannot open a link" case, build the APK — do not try to resurrect t
 
 ---
 
-## 3b. The one switch only you can flip
+## 3b. The one switch only you can flip — now flipped
 
-Everything in the pipeline is automated **except** creating the Pages site, which
+Everything in the pipeline is automated **except** the Pages site itself, which
 requires repository admin. Neither the workflow's `GITHUB_TOKEN` nor an automated
-agent token is granted it — the API answers:
+agent token is granted it, for either creating the site or changing how it builds:
 
 ```
-Create Pages site failed. Error: Resource not accessible by integration
+POST /repos/:owner/:repo/pages   → 403 Resource not accessible by integration
+PUT  /repos/:owner/:repo/pages   → 403 Resource not accessible by integration
+   (with build_type=workflow)
 ```
 
-So, once, by hand:
+Done by hand on 2026-10-30. The site is:
 
-> **Repo → Settings → Pages → Build and deployment → Source: `GitHub Actions`**
+> **https://fongway94.github.io/WalkInCovenant/** — one URL, one QR code.
 
-Until then the `deploy` job stays green, publishes nothing, and prints that instruction
-as an annotation. The moment the switch is flipped, the next push publishes to
-`https://fongway94.github.io/WalkInCovenant/` — that URL is your QR code.
+### The trap in that settings page
 
-**To play it before then:** the CI run uploads a `web` artifact containing the complete
-build. Download it, unzip, and serve it — never double-click `index.html` (§1):
+**Source: `Deploy from a branch` is the default, and it is the wrong one.** It
+creates the site with `build_type: "legacy"`, which makes Pages Jekyll-build the
+*repository root* of whichever branch is selected. Two consequences, both
+confusing:
+
+1. The URL goes live immediately and serves repository text instead of the game,
+   so it looks like it worked.
+2. `actions/deploy-pages` cannot publish to a legacy site at all, so the `deploy`
+   job would keep succeeding while publishing nothing.
+
+The Source dropdown must read **`GitHub Actions`**, which sets `build_type:
+"workflow"`. Verify from the API rather than the page:
+
+```bash
+gh api repos/fongway94/WalkInCovenant/pages --jq '.build_type'   # → workflow
+gh api repos/fongway94/WalkInCovenant/pages/deployments --jq '.[0].status'
+```
+
+Until that reads `workflow`, the `deploy` job stays green, publishes nothing, and
+prints the instruction as an annotation.
+
+**Playing it without Pages at all:** the CI run uploads a `web` artifact containing
+the complete build. Download it, unzip, and serve it — never double-click `index.html` (§1):
 
 ```bash
 unzip web.zip -d web && cd web && python3 -m http.server 8080
