@@ -80,38 +80,44 @@ jobs:
           fi
           echo "python3: $(command -v python3 || echo MISSING)"
 
-      - name: GDScript lint (fast, no engine needed)
-        run: |
-          if command -v python3 >/dev/null 2>&1; then
-            python3 tools/gd_lint.py
-          else
-            echo "::warning::python3 unavailable, skipping gd_lint"
-          fi
-
-      - name: Cross-script member check (our own classes and the autoloads)
+      # All four static tools in one step, with the whole output published as a
+      # single joined annotation. Separate steps meant a failing tool's output
+      # was only in the raw log, which this project's authoring sandbox cannot
+      # reach — so a failure in CI was undiagnosable. One annotation of 3000
+      # characters cannot be crowded out by GitHub's ~10-per-run cap.
+      - name: Static checks (gd_lint, check_export, xref_check, api_check)
+        id: static
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if command -v python3 >/dev/null 2>&1; then
-            python3 tools/xref_check.py
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "::warning::python3 unavailable, static checks skipped"
+            exit 0
+          fi
+          : > static.txt
+          for T in gd_lint check_export xref_check api_check; do
+            echo "===== $T =====" >> static.txt
+            python3 "tools/$T.py" >> static.txt 2>&1
+            echo "exit=$?" >> static.txt
+          done
+          cat static.txt
+          if grep -q "^exit=[^0]" static.txt; then
+            exit 1
           fi
 
-      - name: Godot API check (verify engine calls against the 4.7 class reference)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish static check output as one annotation
+        if: always()
         run: |
-          if command -v python3 >/dev/null 2>&1; then
-            python3 tools/api_check.py
-          fi
+          [ -f static.txt ] || exit 0
+          tr '\n' '|' < static.txt | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
 
-      # Godot can refuse an export WITHOUT stating why (see tools/check_export.py),
-      # so the preset is validated against project settings and the engine's real
-      # option list before an export is ever attempted.
-      - name: Export configuration check
+      - name: Fail the job if a static check failed
+        if: steps.static.outcome != 'success'
         run: |
-          if command -v python3 >/dev/null 2>&1; then
-            python3 tools/check_export.py
-          fi
+          echo "a static check failed"
+          exit 1
 
       - name: Import resources and build the global class cache
         run: |
