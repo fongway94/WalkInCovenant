@@ -26,6 +26,7 @@ var items: Array = []
 var props: Array = []                # {type, at:[x,y]}
 var triggers: Array = []             # {id, kind, once, refuse, memory, ...}
 var briefing: Array = []             # first-run lines: what to do here
+var prologue: Array = []             # the modern-day arrival, before the briefing
 var exits: Array = []                # {to, at:[x,y]}
 var words: Array = []                # the verses people hand you; become your moves
 var shouts: Array = []               # what the giant shouts at you
@@ -90,6 +91,7 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	props = d.get("props", [])
 	triggers = d.get("triggers", [])
 	briefing = d.get("briefing", [])
+	prologue = d.get("prologue", [])
 	exits = d.get("exits", [])
 	words = d.get("words", [])
 	shouts = d.get("shouts", [])

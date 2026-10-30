@@ -172,12 +172,12 @@ breaks the loop, the build goes red instead of someone's first playtest.
 
 | # | The player | The game's job |
 |---|---|---|
-| 1 | Lands in the valley | Three briefing lines: **you are a witness**, this is not your battle, and at the end you will *be* David. Then the controls, in phone terms. |
+| 1 | **Chapter 1 — the arrival** | Five lines in the witness's own century: a bus, waking with dust in your mouth, clothes that are not yours, two armies that are not moving. Then the briefing: **you are a witness**, this is not your battle, and at the end you will *be* David. Then the controls, in phone terms. The screen comes up out of black. |
 | 2 | Talks to Corin | He does not just mark a map. `follow_after_talk` turns him into an escort, and then a *guide*: `Npc.lead_to()` walks him to the next person, he stops beside them, and one toast points you at them. |
 | 3 | Talks to the other three | Each hands over one verse. A toast confirms it; the HUD's ☆ counts them. `A · 交谈` prompts whenever someone is in range — and an escort never steals the prompt from the villager you walked up to. |
 | 4 | Follows the arrow to the brook | Picks up five smooth stones — **for David**, which is what Corin says they are for. |
 | 5 | Walks north to the line in the dust | Without five stones he refuses you and says how many you carry. With them, **BECOME**: letterbox, gold wash, the plate reads 大卫, and the nameplate changes. |
-| 6 | **Chapter 2 — the shepherd slope** | Three days earlier. Narration, then a drill: three clay jars, the same sweeping marker the fight uses, a band that narrows with each jar (no penalty for missing). It exists so the fight's single input is learned before the giant is in frame. |
+| 6 | **Chapter 2 — the shepherd slope** | Three days earlier, and the cut is a cut: half a second of black, then the slope (`ScreenFade`). Narration, then a drill: three clay jars, the same sweeping marker the fight uses, a band that narrows with each jar (no penalty for missing). It exists so the fight's single input is learned before the giant is in frame. |
 | 6b | **Chapter 4 — Jesse's errand** | Three provisions spawned in Bethlehem, a real objective line (`父亲给的东西 1／3`), the walk to the camp, Eliab's accusation at the brothers' post. |
 | 6c | **Chapter 4b — the king's tent** | 1 Samuel 17:32-39 played out: Saul says he cannot go (17:33), David answers with the lion and the bear (17:37), the armour goes on (17:38) and comes straight off (17:39). Then the line is yours to walk to — crossing it while `Act.READY` starts the fight, and there is no dialogue in between to click through. |
 | 7 | Fights Goliath | One exchange per verse you carry (2–4 rounds), then **the fight proper**: he telegraphs and strikes (press A to dodge), then the sling sweeps (press A in the gold band to throw). `GoliathFight` — three stones land, missed dodges cost *nerve*, never the story. |

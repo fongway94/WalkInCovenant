@@ -214,6 +214,8 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 				_has_both(line.get("text"), "%s:trigger %s %s" % [rid, td.get("id"), key])
 	for line in m.briefing:
 		_has_both(line.get("text"), "%s:briefing line" % rid)
+	for line in m.prologue:
+		_has_both(line.get("text"), "%s:prologue line" % rid)
 	for key in ["lines", "brothers"]:
 		for line in (m.david_act.get(key, []) as Array):
 			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])

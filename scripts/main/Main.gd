@@ -22,6 +22,7 @@ enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
 var practice: SlingPractice = null
+var fade: ScreenFade = null
 var _brothers_met := false
 var _provision_total := 3
 ## Seconds the world has been paused with nothing on screen able to end it. This
@@ -56,6 +57,10 @@ func _ready() -> void:
 	#    already exist when region_ready fires. Build them first.
 	become = BecomeController.new()
 	add_child(become)
+
+	fade = ScreenFade.new()
+	add_child(fade)
+	fade.open_up(0.7)
 
 	hud = Hud.new()
 	add_child(hud)
@@ -299,7 +304,23 @@ func _on_region_ready() -> void:
 	hud.set_stones(stones, _stones_total)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
-	_brief_once()
+	_prologue_once()
+
+
+## Chapter 1. The witness is not from here, and saying so once, at the top, in
+## their own century, is the difference between a setting and a story. Then the
+## valley explains itself (the briefing).
+func _prologue_once() -> void:
+	if GameState.flag(str(region.region_id) + "_opened") == true:
+		_brief_once()
+		return
+	if region.model.prologue.is_empty():
+		_brief_once()
+		return
+	GameState.set_flag(str(region.region_id) + "_opened", true)
+	region.set_paused(true)
+	region.dialogue.show_lines(region.model.prologue, func(_w): return {}, func():
+		_brief_once())
 
 
 func _brief_once() -> void:
@@ -445,12 +466,19 @@ func _start_david_act() -> void:
 	act = Act.SHEPHERD
 	var sh: Dictionary = da.get("shepherd", {})
 	var st: Array = sh.get("start_at", [])
-	if st.size() == 2:
-		region.player.global_position = Vector2(float(st[0]) * 16.0 + 8.0,
-			float(st[1]) * 16.0 + 8.0)
-		region.snap_camera()
 	region.set_paused(true)
-	region.dialogue.show_lines(sh.get("lines", []), _errand_speaker, _start_practice)
+	# A cut, not a jump: black, the slope, then the words.
+	fade.run(0.45, func(): _place_at(st), 0.35, func():
+		region.dialogue.show_lines(sh.get("lines", []), _errand_speaker, _start_practice))
+
+
+## Put the player on a tile and take the camera with them, with no glide.
+func _place_at(tile: Array) -> void:
+	if tile.size() != 2 or region.player == null:
+		return
+	region.player.global_position = Vector2(float(tile[0]) * 16.0 + 8.0,
+		float(tile[1]) * 16.0 + 8.0)
+	region.snap_camera()
 
 
 ## The drill. Three jars, the same sweeping marker the fight uses, no penalty
@@ -488,17 +516,16 @@ func _start_errand() -> void:
 	# provisions are small props, and making the player walk 35 tiles to find
 	# them was reported as "the quest item cannot be seen on the map".
 	var st: Array = da.get("start_at", [])
-	if st.size() == 2:
-		region.player.global_position = Vector2(float(st[0]) * 16.0 + 8.0,
-			float(st[1]) * 16.0 + 8.0)
-		region.snap_camera()
-	for it in items:
-		var at: Array = it.get("at", [0, 0])
-		region.spawn_pickup(str(it.get("id", "prov")), "provision",
-			str(it.get("sprite", "jar")), int(at[0]), int(at[1]))
 	region.set_paused(true)
-	region.dialogue.show_lines(da.get("lines", []), _errand_speaker, func():
-		region.set_paused(false))
+	fade.run(0.45, func():
+		_place_at(st)
+		for it in items:
+			var at: Array = it.get("at", [0, 0])
+			region.spawn_pickup(str(it.get("id", "prov")), "provision",
+				str(it.get("sprite", "jar")), int(at[0]), int(at[1]))
+		, 0.35, func():
+			region.dialogue.show_lines(da.get("lines", []), _errand_speaker, func():
+				region.set_paused(false)))
 
 
 func _start_battle() -> void:

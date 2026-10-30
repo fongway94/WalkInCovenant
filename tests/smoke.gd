@@ -148,7 +148,11 @@ func _run() -> void:
 				"the theme falls back to the bundled font")
 
 	# ── 2. a first-time player is told what to do ────────────────────────
-	_check(region.dialogue._open, "the valley opens with a briefing")
+	# Chapter 1 first: the witness arrives from somewhere with buses.
+	_check(region.dialogue._open, "the valley opens with the arrival")
+	_check(bool(GameState.flag("elah_opened")), "the prologue runs once and is marked")
+	_check(region.dialogue._lines.size() >= 4 or region.dialogue._box_id > 0,
+		"the arrival is a scene, not a single line")
 	_check(region._paused, "the briefing holds the world still")
 	_drain(region.dialogue)
 	_check(not region._paused, "the briefing releases the world")
@@ -254,7 +258,7 @@ func _run() -> void:
 		waited += 1
 	_check(main.act_id() == "shepherd",
 		"the become hands over to the shepherd chapter (waited %d frames)" % waited)
-	await _frames(2)
+	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the slope speaks before anything else")
 	_drain(region.dialogue)
 	await _frames(2)
@@ -272,11 +276,12 @@ func _run() -> void:
 		await get_tree().process_frame
 	_check(main.practice == null, "three jars end the drill")
 	_check(throws == 3, "the drill asks for three throws, not one (took %d)" % throws)
-	await _frames(2)
+	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the slope has one more thing to say")
 	_drain(region.dialogue)
-	await _frames(3)
+	await _wait_open(region.dialogue)
 	_check(main.act_id() == "errand", "the drill hands over to the errand (act=%s)" % main.act_id())
+	_check(region.dialogue._open, "the father speaks in Bethlehem")
 
 	# ── 6b. the errand ───────────────────────────────────────────────────
 	var prov_spawned := 0
@@ -473,6 +478,15 @@ func _stand(region, tx: int, ty: int, frames: int) -> void:
 	var p = region.player
 	p.global_position = Vector2(float(tx) * TILE + 8.0, float(ty) * TILE + 8.0)
 	await _frames(frames)
+
+
+func _wait_open(dlg, guard: int = 900) -> void:
+	## Fades sit between the act changes and the words. Waiting for the box to
+	## open is honest; counting frames is guessing at a tween's length.
+	var i := 0
+	while not dlg._open and i < guard:
+		await get_tree().process_frame
+		i += 1
 
 
 func _drain_one(dlg) -> void:
