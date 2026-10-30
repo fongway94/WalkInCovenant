@@ -9,8 +9,12 @@ Inherited from Covenant's existing colour language, which was already coherent:
     rig.js    CHARS.pilgrim.robe #1b2a33  trim #c9a45c  hair #14202a
     styles.css  gold #f7dda5, indigo shadow #14202a
 
-House style: deep indigo-teal shadows, warm gold highlights. Never pure black,
-never pure white, never a fully-saturated colour.
+House style, revised after the first playtest: the original ramps inherited
+Covenant's deep indigo-teal shadows, and on a phone screen that read as mud next
+to the GBA-bright tilesets the game is measured against. Ramps now sit at
+handheld saturation — mid-tones carry the hue, index 0 still carries ambient
+occlusion, and the warm-gold highlight language is untouched. Never pure black,
+never pure white.
 """
 
 # Each ramp is ordered dark → light. Index 0 is the deepest shadow, the last is
@@ -18,32 +22,32 @@ never pure white, never a fully-saturated colour.
 # occlusion and 4 (where present) is a rim light.
 RAMPS = {
     # ── ground ──────────────────────────────────────────────────────────
-    "grass":  ["#16211a", "#1f2e25", "#2b3d33", "#374c3e", "#46604d"],
-    "dry":    ["#2a2519", "#3a3325", "#4a4130", "#5d5240", "#736650"],
-    "path":   ["#332c20", "#463d2c", "#5a4e39", "#6e6047", "#857458"],
-    "sand":   ["#574829", "#75613a", "#8f7849", "#a89160", "#c4ac78"],
-    "wheat":  ["#4a4020", "#6a5c2c", "#8a7838", "#a8944a", "#c8b468"],
-    "mud":    ["#3a2b1e", "#4e3a28", "#634a33", "#7a5d41", "#937354"],
+    "grass": ["#2e6b34","#3f8a40","#58a850","#74c462","#98dc78"],
+    "dry": ["#6b5a38","#8a7448","#a89058","#c4ac74","#dcc894"],
+    "path": ["#7a6242","#98805a","#b49a6e","#ccb484","#e0cc9c"],
+    "sand": ["#8a7448","#a89060","#c4ac78","#dcc894","#f0e0b4"],
+    "wheat": ["#8a7428","#a89438","#c4b44c","#dccc64","#f0e084"],
+    "mud": ["#5a4430","#74583e","#8c6e4c","#a48460","#bc9c74"],
 
     # ── stone & rock ────────────────────────────────────────────────────
-    "stone":  ["#131a20", "#1e2932", "#2c3a45", "#3d4d59", "#546572", "#6f808c"],
-    "cliff":  ["#0c1216", "#131c22", "#1d282f", "#2a373f", "#3a4a53"],
+    "stone": ["#4a545c","#626e78","#7c8894","#98a4ae","#b4bec6","#ccd4da"],
+    "cliff": ["#333c44","#46505a","#5a646e","#727c86","#8a949e"],
 
     # ── water ───────────────────────────────────────────────────────────
-    "water":  ["#0a1620", "#122834", "#1a3b4a", "#245261", "#33707e", "#4d94a0"],
-    "foam":   ["#3d7280", "#5d96a2", "#8abcc4", "#b8dce2"],
+    "water": ["#1a3c7c","#2858a8","#3878c8","#58a0e0","#88c8f0","#c0e8fc"],
+    "foam": ["#78b8d8","#a0d4e8","#c8ecf8","#e8f8fc"],
 
     # ── foliage ─────────────────────────────────────────────────────────
-    "olive":  ["#1d2617", "#2b3820", "#3c4d2b", "#4f6437", "#657c47", "#7e9659"],
-    "palm":   ["#1a2b1c", "#24402a", "#335a37", "#45743f", "#5b8f4a"],
-    "dark_leaf": ["#101a13", "#1a2a1e", "#263d2a", "#345236"],
+    "olive": ["#3c5424","#506c2c","#688838","#84a448","#a0c060","#bcda7c"],
+    "palm": ["#2c5c30","#3c7840","#4c9450","#60b060","#78cc74"],
+    "dark_leaf": ["#24422a","#34583a","#46704a","#5a8a5c"],
 
     # ── wood ────────────────────────────────────────────────────────────
-    "wood":   ["#1a120b", "#2b1e13", "#3e2c1c", "#55402a", "#6d5539", "#876c4a"],
+    "wood": ["#4a3220","#64462c","#7e5a38","#987248","#b28a58","#cca46c"],
 
     # ── cloth & linen ───────────────────────────────────────────────────
     "linen":  ["#5c6470", "#7b8492", "#9aa3ae", "#bcc3ca", "#dde2e5", "#f2f5f6"],
-    "wool":   ["#4a4034", "#63574a", "#7d6f5e", "#998a76"],
+    "wool": ["#6a5c48","#84745c","#9e8c72","#b8a688"],
 
     # ── skin ────────────────────────────────────────────────────────────
     "skin":   ["#5e3f28", "#7d5436", "#a06f45", "#c08e5c", "#d9ad7c", "#eec99c"],
@@ -59,19 +63,19 @@ RAMPS = {
     "spirit": ["#16303c", "#2f6272", "#5d96a2", "#a8d8e0", "#e0f4f8"],
 
     # ── robe colours per character (Covenant's CHARS table) ─────────────
-    "robe_pilgrim": ["#0e171d", "#16242c", "#1b2a33", "#24363f", "#33485a"],
-    "robe_scribe":  ["#241d2e", "#312840", "#3a2f46", "#4a3d59", "#5c4d6e"],
-    "robe_soldier": ["#252e24", "#313d30", "#3d4a3a", "#4b5a46", "#5e6f58"],
-    "robe_woman":   ["#2e2029", "#3d2b36", "#4a3340", "#5b4250", "#705264"],
-    "robe_david":   ["#4a3220", "#5f4128", "#7a5230", "#8d6339", "#a3764a"],
-    "robe_elder":   ["#1e272e", "#28343d", "#2f3b46", "#3d4c58", "#4e606e"],
-    "robe_giant":   ["#181e25", "#212a33", "#2b3540", "#3a4550", "#4a5763"],
+    "robe_pilgrim": ["#3c4c28","#4e6234","#627a40","#78924e","#90ac60"],
+    "robe_scribe": ["#4a3860","#5e4a78","#745e92","#8a74aa","#a28cc2"],
+    "robe_soldier": ["#3e4a34","#506044","#647654","#7a8c66","#92a47a"],
+    "robe_woman": ["#6a3848","#844a5c","#9e5e72","#b8768a","#d292a4"],
+    "robe_david": ["#7a4028","#945232","#ae6640","#c87e50","#e09a68"],
+    "robe_elder": ["#3a4a5c","#4c5e72","#607488","#768a9e","#8ea2b4"],
+    "robe_giant": ["#4a3a28","#5e4c34","#746042","#8a7452","#a28a64"],
     "robe_priest":  ["#8a8578", "#a8a294", "#c4beb0", "#ddd8cc", "#f0ece4"],
-    "robe_pharisee": ["#141f2e", "#1d2c40", "#263a52", "#33496a", "#435c82"],
+    "robe_pharisee": ["#2a3c66","#385080","#48649a","#5a7ab4","#7092cc"],
 
-    "hair_dark":  ["#080c10", "#0e151b", "#14202a", "#1e2c38"],
+    "hair_dark": ["#20242c","#2c323c","#3a424e","#4a5460"],
     "hair_grey":  ["#6b6a66", "#8a8985", "#a5a4a0", "#c2c1bd"],
-    "hair_red":   ["#3a1a10", "#5c2a18", "#7d3c22", "#9d5230"],
+    "hair_red": ["#5c2a18","#7a3a20","#98492a","#b65c36"],
 }
 
 

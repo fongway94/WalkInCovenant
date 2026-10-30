@@ -175,7 +175,10 @@ Lock this before drawing a single tile. Everything imported gets indexed to it.
 | Shadow | Never pure black — a desaturated indigo `#14202a` (Covenant already uses this) |
 
 **This palette is already in your old code.** `rig.js` `CHARS`, `field.js` `COL`, and `styles.css`
-encode a consistent Covenant colour language: deep indigo-teal shadows, warm gold highlights. That is
+encode a consistent Covenant colour language. After the first playtest the ramps
+moved from Covenant's deep indigo-teal shadows up to handheld brightness — on a
+phone the old mid-tones read as mud next to the GBA tilesets this game is
+measured against — but the language holds: warm gold highlights, and shadows that are
 your house style. **Carry it across — it is the thing that will make the remake feel like the same
 game, and it is free.**
 

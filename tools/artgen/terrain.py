@@ -76,7 +76,7 @@ def _ground(ramp_name, seed, tufts=None, grains=0.08, crack=None, base_step=2):
 
 
 def grass(seed=1):
-    return _ground("grass", seed, tufts=3, grains=0.06, base_step=2)
+    return _ground("grass", seed, tufts=4, grains=0.06, base_step=2)
 
 
 def dry(seed=2):
@@ -142,55 +142,40 @@ def mud(seed=6):
 
 
 def water(seed=7, frame=0):
-    """Animated water: a clean mid base, sparse depth mottling, and two or three
-    swell lines that drift across the four frames. The lines are the animation;
-    the base must stay calm or the motion reads as fizz."""
-    rnd = random.Random(seed)
+    """Open water: a depth gradient plus two wave crests that shift with the
+    frame. Scattered single-pixel dashes read as static; a crest is a horizontal
+    stroke with a foam cap, which is how every handheld tileset draws water."""
+    rnd = random.Random(seed + frame * 31)
     cv = Canvas(TILE, TILE)
     cv.rect(0, 0, TILE, TILE, c("water", 2))
-    # sparse depth mottling (darker pools), low contrast
-    for _ in range(10):
-        x, y = rnd.randrange(TILE), rnd.randrange(TILE)
-        cv.px(x, y, c("water", 1))
-    # swell lines: 2 rows, drifting, with one bright crest pixel each
-    for i, y in enumerate((4, 10)):
-        yy = (y + frame * 2) % TILE
-        for x in range(TILE):
-            # a broken line: on for 3px, off for 2px, drifting with the frame
-            if ((x + frame * 3) % 5) < 3:
-                cv.px(x, yy, c("water", 3))
-        cv.px((i * 7 + frame * 3) % TILE, yy, c("water", 4))
-        cv.px((i * 7 + frame * 3 + 1) % TILE, yy, c("foam", 1))
+    cv.hline(0, 0, TILE, c("water", 1))                    # far edge sits deeper
+    cv.hline(0, 1, TILE, blend(c("water", 1), c("water", 2), 0.5))
+    cv.hline(0, TILE - 1, TILE, c("water", 3))             # near edge catches light
+    shift = (frame % 2) * 3
+    for wy, wx in ((4, 2 + shift), (10, 7 - shift)):
+        for i in range(5):
+            cv.px(wx + i, wy, c("water", 4))
+        cv.px(wx + 2, wy - 1, c("foam", 2))
+        cv.px(wx + 3, wy - 1, c("water", 4))
+    for _ in range(3):
+        cv.px(rnd.randrange(TILE), rnd.randrange(2, TILE - 2), c("water", 3))
     return cv
 
 
 def shallow(seed=8, frame=0):
-    """The ford — you can see the sand through clear water, with a foam lip.
-
-    The previous version washed sand and water into one grey. The trick is
-    layering: sand first, then water as a TRANSLUCENT tint, then foam where the
-    current breaks. That reads as shallow water instantly.
-    """
-    cv = sand(seed + 50)
-    rnd = random.Random(seed + frame)
-    # Translucent water over the sand — but NOT uniformly. Real shallows have
-    # clear windows where the bottom shows and darker sheets where it deepens,
-    # so tint only in patches and leave some sand readable.
-    for y in range(TILE):
-        for x in range(TILE):
-            pool = ((x // 5) + (y // 5)) % 2 == 0
-            t = 0.55 if pool else 0.30
-            cv.px(x, y, blend(cv.get(x, y), c("water", 3), t))
-    # current lines, thinner than deep water, bright crests
-    for yy0 in (5, 11):
-        yy = (yy0 + frame * 2) % TILE
-        for x in range(TILE):
-            if ((x + frame * 2) % 6) < 3:
-                cv.px(x, yy, c("water", 4))
-    # foam where it breaks over stones
+    """The ford: water over sand, with a foam line where the two meet and
+    pebbles visible under the surface — the stones David picks up live here."""
+    rnd = random.Random(seed + frame * 17)
+    cv = Canvas(TILE, TILE)
+    cv.rect(0, 0, TILE, TILE, c("water", 3))
+    cv.rect(0, 0, TILE, 5, c("water", 2))
+    cv.hline(0, 5, TILE, c("foam", 2))
+    cv.hline(0, 6, TILE, c("foam", 1))
     for _ in range(4):
-        x, y = rnd.randrange(TILE - 1), rnd.randrange(TILE)
-        cv.px(x, y, c("foam", 2)); cv.px(x + 1, y, c("foam", 3))
+        x, y = rnd.randrange(2, TILE - 3), rnd.randrange(8, TILE - 2)
+        cv.px(x, y, c("sand", 3)); cv.px(x + 1, y, c("sand", 2))
+    for i in range(4):
+        cv.px(3 + i + (frame % 2), 3, c("water", 4))
     return cv
 
 

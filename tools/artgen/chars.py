@@ -48,7 +48,7 @@ def _figure(dir_, frame, s):
     # but fills more of it, which is how he reads as huge without a new system.
     top = 0 if big else 3
     head_h = 7 if big else 6
-    head_w = 8 if big else 7
+    head_w = 8 if big else 6
     body_top = top + head_h + (0 if big else 1)
     body_bot = CHAR_H - 4          # feet occupy the last 4 rows
     cx = CHAR_W // 2
@@ -70,11 +70,13 @@ def _figure(dir_, frame, s):
             cv.hline(hx, hy, head_w, c("bronze", 4))
             cv.px(cx, hy - 1, c("bronze", 4))
         if s.get("headcloth"):
-            # a cloth that falls past the shoulders — the single strongest
-            # "ancient Near East" silhouette cue at this size
-            cv.rect(hx - 1, hy, head_w + 2, head_h, S(3))
-            cv.vline(hx - 1, hy, head_h, S(2)); cv.vline(hx + head_w, hy, head_h, S(2))
-            cv.hline(hx - 1, hy, head_w + 2, S(4))
+            # A cloth that falls past the shoulders — the strongest "ancient
+            # Near East" silhouette cue at this size. Draped as a top band and
+            # two side columns ONLY: a full rectangle over the head box is what
+            # turned every hooded character into a slab in the first playtest.
+            cv.hline(hx - 1, hy, head_w + 2, c("linen", 4))
+            cv.vline(hx - 1, hy + 1, head_h - 1, c("linen", 2))
+            cv.vline(hx + head_w, hy + 1, head_h - 1, c("linen", 2))
         # face — hair frames the temples so the crown doesn't read as a hat,
         # and the eyes sit at the MID of the face, not under the hairline
         fy = hy + 2
@@ -124,8 +126,12 @@ def _figure(dir_, frame, s):
         for i in range(rows):
             t = i / max(1, rows - 1)
             w = int(w_top + (w_bot - w_top) * t)
+            if 2 <= i <= 3:
+                w -= 1          # the waist: without it the robe is a traffic cone
             x0 = cx - w // 2
-            col = R(2) if i < rows * 0.5 else R(1)
+            # row 0 is the neck shadow: without it the head fuses into the
+            # torso and the figure reads as two stacked boxes
+            col = c("cliff", 0) if i == 0 else (R(2) if i < rows * 0.5 else R(1))
             cv.hline(x0, oy + i, w, col)
             # lit left edge, shadowed right edge — the whole figure's form light
             cv.px(x0, oy + i, R(3))
@@ -137,29 +143,37 @@ def _figure(dir_, frame, s):
         return w_bot
 
     def feet(w_bot, frame):
-        y = CHAR_H - 3
+        # Legs, not pixels: two-wide columns with a sandal row, striding on the
+        # frame offsets. Single-pixel feet were invisible at 1x, so the walk
+        # cycle had nothing to show and the figures looked like they slid.
+        y = CHAR_H - 4
         if dir_ in ("down", "up"):
             (nx, ny), (fx, fy) = FRONT_FEET[frame]
-            cv.px(cx - 2 + nx, y + ny, c("wood", 1))
-            cv.px(cx + 1 + fx, y + fy, c("wood", 1))
-            cv.px(cx - 2 + nx, y + ny + 1, c("wood", 0))
-            cv.px(cx + 1 + fx, y + fy + 1, c("wood", 0))
+            cv.rect(cx - 3 + nx, y + ny - 1, 2, 3, R(0))
+            cv.rect(cx + 1 + fx, y + fy - 1, 2, 3, R(0))
+            cv.hline(cx - 3 + nx, y + ny + 2, 2, c("wood", 1))
+            cv.hline(cx + 1 + fx, y + fy + 2, 2, c("wood", 1))
         else:
             (nx, ny), (fx, fy) = SIDE_FEET[frame]
-            cv.px(cx + nx, y + ny, c("wood", 1))
-            cv.px(cx + fx, y + fy + 1, c("wood", 0))
-            cv.px(cx + nx, y + ny + 1, c("wood", 0))
+            cv.rect(cx - 1 + nx, y + ny - 1, 2, 3, R(0))
+            cv.rect(cx - 1 + fx, y + fy - 1, 2, 3, R(1))
+            cv.hline(cx - 1 + nx, y + ny + 2, 2, c("wood", 1))
+            cv.hline(cx - 1 + fx, y + fy + 2, 2, c("wood", 0))
 
     def arms(oy):
-        """One visible arm per direction, swinging on side views."""
+        """Arms hang OUTSIDE the robe silhouette with a bare hand at the end.
+        Drawn inside the body edge they vanish into the outline and the figure
+        reads as a vending machine."""
         y = oy + 2 + SIDE_ARM[frame] if dir_ in ("left", "right") else oy + 3
+        ax_l = cx - w_top // 2 - 1
+        ax_r = cx + w_top // 2
         if dir_ == "right":
-            cv.vline(cx + head_w // 2, y, 4, R(3)); cv.px(cx + head_w // 2, y + 4, S(3))
+            cv.vline(ax_r, y, 4, R(3)); cv.px(ax_r, y + 4, S(3))
         elif dir_ == "left":
-            cv.vline(cx - head_w // 2 - 1, y, 4, R(3)); cv.px(cx - head_w // 2 - 1, y + 4, S(3))
+            cv.vline(ax_l, y, 4, R(3)); cv.px(ax_l, y + 4, S(3))
         elif dir_ == "down":
-            cv.vline(cx - head_w // 2 - 1, y, 4, R(2)); cv.px(cx - head_w // 2 - 1, y + 4, S(3))
-            cv.vline(cx + head_w // 2, y, 4, R(0)); cv.px(cx + head_w // 2, y + 4, S(2))
+            cv.vline(ax_l, y, 4, R(3)); cv.px(ax_l, y + 4, S(3))
+            cv.vline(ax_r, y, 4, R(0)); cv.px(ax_r, y + 4, S(2))
         if s.get("staff") and dir_ != "up":
             sx = cx + head_w // 2 + 2 if dir_ == "right" else cx - head_w // 2 - 3
             cv.vline(sx, top + 2, CHAR_H - top - 5, c("wood", 3))
