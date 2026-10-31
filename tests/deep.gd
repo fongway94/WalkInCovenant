@@ -460,10 +460,13 @@ func _check_touch_interact() -> void:
 	up.position = a_pos
 	Input.parse_input_event(up)
 	await _frames(2)
-	_check(npc.has_talked(),
-		"a tap on the phone's A button talks to the person beside you (%s)" % npc.npc_id())
+	# `has_talked()` is written when the conversation CLOSES, so the tap's
+	# immediate proof is the open box; the lasting proof is the flag after it.
+	_check(region.dialogue.is_open(),
+		"a tap on the phone's A button opens a conversation (%s)" % npc.npc_id())
 	await _drain(region.dialogue)
 	await _frames(2)
+	_check(npc.has_talked(), "and finishing it marks the person met")
 
 
 # ── BUG-012: the book always has a way out ────────────────────────────────
