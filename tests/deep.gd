@@ -283,10 +283,12 @@ func _check_journal_escape() -> void:
 	main._open_journal()
 	await _frames(2)
 	if not j.is_open():
+		var box := "-"
+		if main.region.dialogue != null:
+			box = str(main.region.dialogue.is_open())
 		print("  diag  journal open=%s dialogue=%s paused=%s in_battle=%s fight=%s"
-			% [str(j.is_open()),
-				str(main.region.dialogue.is_open()) if main.region.dialogue != null else "-",
-				str(main.region.is_paused()), str(main._in_battle), str(main.fight)])
+			% [str(j.is_open()), box, str(main.region.is_paused()),
+				str(main._in_battle), str(main.fight)])
 	_check(j.is_open(), "the book opens")
 	_check(main.region.is_paused(), "and holds the world still while it is open")
 	var ev := InputEventKey.new()
