@@ -306,6 +306,15 @@ func _check_region_any(m, rid: String) -> void:
 		var it_t := Vector2i(int(idict["at"][0]), int(idict["at"][1]))
 		if m.solid_at_tile(it_t.x, it_t.y):
 			_fail("%s: item %s sits inside a solid tile" % [rid, idict.get("id")])
+		# The platform's pickup handler only knows one kind of item (the
+		# provisions of 1 Samuel 17:17). A region that lays anything else down
+		# would put it on the map, let the player walk over it, and count
+		# nothing — a quest item that vanishes is worse than one that is absent
+		# (BUG-014). Gate the data rather than let it fail silently in play.
+		var iid := str(idict.get("id", ""))
+		if not iid.begins_with("prov"):
+			_fail("%s: item '%s' is not a kind the platform can collect (Main only handles 'prov*')"
+				% [rid, iid])
 		if m.path(m.spawn, it_t).is_empty():
 			_fail("%s: no walkable path from spawn to item %s" % [rid, idict.get("id")])
 

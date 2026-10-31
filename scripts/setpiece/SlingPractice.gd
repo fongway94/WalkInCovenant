@@ -115,6 +115,32 @@ func _on_gui(event: InputEvent) -> void:
 		press()
 
 
+## The keyboard and the pad. This scene only listened to the GUI, so on a desktop
+## the player could not take a single shot: the panel covers the screen and takes
+## the mouse, the touch controls are blocked while a setpiece is up, and the one
+## button every other scene in the game answers — Space/Enter/A — did nothing
+## here. The first mission of Act II was therefore unfinishable without a mouse
+## (BUG-015). The duel's `_input` is the model: the same keys, the same TapGate.
+func _input(event: InputEvent) -> void:
+	if phase == Phase.DONE:
+		return
+	var pressed := false
+	if event is InputEventKey:
+		var k := event as InputEventKey
+		if not k.pressed or k.echo:
+			return
+		pressed = k.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_A]
+	elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+		pressed = true
+	if not pressed:
+		return
+	if not TapGate.take():
+		get_viewport().set_input_as_handled()
+		return
+	get_viewport().set_input_as_handled()
+	press()
+
+
 ## The one button. Dodging is not a thing here; every press is a release.
 func press() -> void:
 	if phase != Phase.AIM:

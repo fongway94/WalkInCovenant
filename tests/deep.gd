@@ -60,6 +60,7 @@ func _run() -> void:
 	_check_place_at_solid()
 	await _check_dialogue_taps()
 	await _check_journal_escape()
+	await _check_drill_keys()
 	_finish()
 
 
@@ -318,6 +319,40 @@ func _check_journal_escape() -> void:
 	await _frames(2)
 	_check(not j.is_open(), "Escape closes the book (the only exit used to be a button)")
 	_check(not main.region.is_paused(), "and hands the world back")
+
+
+# ── BUG-015: the drill answers the keyboard ───────────────────────────────
+func _check_drill_keys() -> void:
+	var drill := SlingPractice.new()
+	add_child(drill)
+	drill.start(1)
+	await _frames(1)
+	var hits0 := int(drill.hits)
+	var done := [false]
+	# Connected BEFORE the shot: with one target the drill can finish inside the
+	# resolve window, and a listener attached afterwards would miss it.
+	drill.finished.connect(func(): done[0] = true)
+	drill.aim_perfect()
+	# Through the real input pipeline, not by calling press(): the bug was that
+	# no key event reached this scene at all.
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_SPACE
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await _frames(2)
+	var up := InputEventKey.new()
+	up.keycode = KEY_SPACE
+	up.pressed = false
+	Input.parse_input_event(up)
+	_check(int(drill.hits) == hits0 + 1,
+		"Space takes a shot in the drill (hits %d -> %d)" % [hits0, int(drill.hits)])
+	var guard := 0
+	while not done[0] and guard < 200:
+		await _frames(1)
+		guard += 1
+	_check(done[0], "and the drill can be finished on a keyboard")
+	drill.queue_free()
+	await _frames(1)
 
 
 # ── harness ───────────────────────────────────────────────────────────────
