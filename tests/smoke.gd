@@ -355,6 +355,10 @@ func _run() -> void:
 	# king. Only then is there a fight.
 	var level_before := int(GameState.data["level"])
 	await _stand(region, 16, 10, 4)
+	# The mission opens by saying where to go, so the crossing box comes first.
+	await _wait_open(region.dialogue)
+	_drain(region.dialogue)
+	await _frames(3)
 	_check(bool(main._in_battle), "crossing with the camp's words in hand begins BECOME")
 	_check(region._paused, "the world holds still while you become David")
 	# 1 Samuel 17:11 is spoken at the line, Corin says the story is changing
