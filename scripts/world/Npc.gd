@@ -40,8 +40,12 @@ var dialogue: DialogueBox = null
 var pause_fn: Callable = Callable()
 var state: State = State.IDLE
 var talk_state: Talk = Talk.READY
-var _cool := 0.0
-const TALK_COOLDOWN := 0.5
+## Wall clock, not accumulated delta. The cooldown used to tick inside
+## _physics_process — which is switched OFF whenever the region is paused, i.e.
+## exactly when a conversation ends. A person whose last box closed while the
+## world was paused could stay untalkable for ever. Milliseconds cannot stall.
+var _cool_until := 0
+const TALK_COOLDOWN_MS := 500
 
 var sprite: Sprite2D = null
 var facing := Vector2i(0, 1)
@@ -114,11 +118,13 @@ func display_name() -> String:
 
 
 # ── movement ─────────────────────────────────────────────────────────────
+func _sync_talk() -> void:
+	if talk_state == Talk.COOLDOWN and Time.get_ticks_msec() >= _cool_until:
+		talk_state = Talk.READY
+
+
 func _physics_process(delta: float) -> void:
-	if talk_state == Talk.COOLDOWN:
-		_cool = maxf(0.0, _cool - delta)
-		if _cool <= 0.0:
-			talk_state = Talk.READY
+	_sync_talk()
 	match state:
 		State.IDLE:
 			_moving = false
@@ -260,6 +266,7 @@ func face_toward(target: Vector2) -> void:
 ## May this person be spoken to right now? Pure — asks nothing, changes nothing,
 ## so the HUD prompt can call it every frame.
 func can_talk() -> bool:
+	_sync_talk()
 	if player == null or dialogue == null:
 		return false
 	if talk_state != Talk.READY:
@@ -312,7 +319,7 @@ func _speaker_for(who: String) -> Dictionary:
 
 func _on_done() -> void:
 	talk_state = Talk.COOLDOWN
-	_cool = TALK_COOLDOWN
+	_cool_until = Time.get_ticks_msec() + TALK_COOLDOWN_MS
 	queue_redraw()          # the mark over the head goes away once you have spoken
 	# UNPAUSE FIRST. This used to run after the word handout, so any error in
 	# receive_word / word_ref (or in a listener of verse_received) left the world

@@ -594,6 +594,10 @@ func _run() -> void:
 		_check(not region.dialogue._open, "the conversation closes on its own")
 		_check(not region._paused, "closing a box hands the world back")
 		_check(not main.touch.blocked, "the touch controls come back with it")
+		# The cooldown is real time (a wall clock, not frame deltas: this run is
+		# at Engine.time_scale 24 and the world is paused half of it), so wait
+		# real time for it rather than guessing a number of frames.
+		OS.delay_msec(560)
 		_check(witness.can_talk(), "and the person is talkable again after the cooldown")
 
 	_finish_run()
