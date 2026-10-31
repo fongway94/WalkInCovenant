@@ -1,0 +1,147 @@
+{
+  "_comment": [
+    "Where every pixel of the game comes from. Read by tools/pack_art.py.",
+    "",
+    "Ninja Adventure Asset Pack — Pixel-Boy & AAA, CC0 (public domain, no credit",
+    "required, commercial use fine). Source: github.com/pixel-boy/NinjaAdventure,",
+    "content/map/*.png, vendored unmodified in art/pack/. Coordinates are px in",
+    "those sheets; tiles are on the 16px grid.",
+    "",
+    "The pack is the base layer, not the whole wardrobe: keys absent from this",
+    "file keep their generated art from tools/artgen/. That is deliberate — the",
+    "pack has no tent, no jar of the right shape and no fire, and the generated",
+    "versions of those are already readable.",
+    "mud is DELIBERATELY not from the pack: its dirt tile has vertical grooves that line up into corduroy when tiled — the same rule ART.md §5.3b sets for our own tilesets applies to borrowed ones.",
+    "rocky/cliff are not from the pack yet: the rects I could reach are the wrong colour and the rock cells need their own pass."
+  ],
+  "terrain": {
+    "grass": [
+      [
+        "floor",
+        176,
+        192
+      ],
+      [
+        "floor",
+        192,
+        192
+      ],
+      [
+        "floor",
+        208,
+        192
+      ],
+      [
+        "floor",
+        224,
+        192
+      ]
+    ],
+    "dry": [
+      [
+        "floor",
+        32,
+        176
+      ],
+      [
+        "floor",
+        48,
+        176
+      ],
+      [
+        "floor",
+        32,
+        192
+      ],
+      [
+        "floor",
+        48,
+        192
+      ]
+    ],
+    "path": [
+      [
+        "floor",
+        192,
+        176
+      ],
+      [
+        "floor",
+        224,
+        176
+      ],
+      [
+        "floor",
+        240,
+        176
+      ],
+      [
+        "floor",
+        256,
+        176
+      ]
+    ]
+  },
+  "props": {
+    "olive_tree": {
+      "sheet": "village",
+      "rect": [
+        0,
+        95,
+        65,
+        49
+      ],
+      "frames": 1
+    },
+    "bush": {
+      "sheet": "village",
+      "rect": [
+        143,
+        85,
+        35,
+        29
+      ],
+      "frames": 1
+    },
+    "rock": {
+      "sheet": "village",
+      "rect": [
+        110,
+        80,
+        34,
+        33
+      ],
+      "frames": 1
+    },
+    "boulder": {
+      "sheet": "village",
+      "rect": [
+        129,
+        47,
+        33,
+        31
+      ],
+      "frames": 1
+    },
+    "jar": {
+      "sheet": "village",
+      "rect": [
+        62,
+        56,
+        18,
+        26
+      ],
+      "frames": 1
+    },
+    "house": {
+      "sheet": "village",
+      "rect": [
+        190,
+        95,
+        66,
+        83
+      ],
+      "frames": 1
+    }
+  }
+}

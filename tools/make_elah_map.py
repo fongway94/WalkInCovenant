@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""Author data/regions/elah.json — the Valley of Elah, as content not code.
+
+This is Covenant's `world/elah.js buildGrid()` idea, demoted from runtime code
+to authored data: the script STAMPS a coherent map once and writes an ASCII grid
+into JSON. From that moment the map is a text file a human can read, review and
+edit by hand — which is the property the old generated-at-runtime grid never had.
+
+The four NPCs, their dialogue, and the four verses they hand over are ported
+VERBATIM from Covenant's elah.js (fongway94/Covenant, MIT-of-the-author). Those
+four verses become the four moves in the word-battle: the game does not give you
+a weapon the walk did not earn.
+
+Run:  python3 tools/make_elah_map.py
+"""
+import json, os, random
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+OUT = os.path.join(ROOT, "data", "regions", "elah.json")
+
+W, H = 32, 48
+
+T = dict(CLIFF="#", GRASS=".", PATH=",", WATER="~", FORD="=",
+         DRY="d", SAND="s", ROCKY="r", WHEAT="w", FLOWER="f",
+         MUD="m", STONE="p", DARK="g", REED="e", SNOW="n")
+
+g = [[T["CLIFF"]] * W for _ in range(H)]
+
+
+def set_(x, y, t):
+    if 0 < x < W - 1 and 0 < y < H - 1:
+        g[y][x] = t
+
+
+def rect(x0, y0, x1, y1, t):
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            set_(x, y, t)
+
+
+# 1. valley floor: dry earth on the Philistine side (north), grass at home
+rect(1, 1, W - 2, H - 2, T["GRASS"])
+rect(1, 1, W - 2, 9, T["DRY"])
+
+# 2. the road: one climb from the camp to the challenge line
+rect(15, 8, 17, 45, T["PATH"])
+rect(12, 6, 20, 9, T["DRY"])            # the flat ground where he waits
+
+# 3. the brook, and the shallow ford you cross it at
+rect(1, 26, W - 2, 27, T["WATER"])
+rect(12, 24, 19, 29, T["FORD"])
+for x in (11, 20):
+    set_(x, 26, T["REED"]); set_(x, 27, T["REED"])
+
+# 4. the Israelite camp: packed earth, wheat at the edges
+rect(6, 40, 26, 46, T["MUD"])
+rect(3, 41, 5, 45, T["WHEAT"])
+rect(27, 40, 29, 45, T["WHEAT"])
+
+# 5. hand-placed texture: rocky slopes, flowered pasture, dark grass under trees
+rnd = random.Random(1701)
+for (x, y) in [(3, 33), (4, 36), (27, 32), (28, 35), (3, 44), (28, 46),
+               (2, 30), (29, 29), (9, 31), (24, 30), (2, 12), (29, 14)]:
+    set_(x, y, T["ROCKY"])
+for (x, y) in [(4, 37), (27, 40), (5, 24), (26, 26), (3, 8), (28, 7),
+               (9, 34), (22, 33), (12, 33), (18, 23), (7, 17), (25, 18)]:
+    if g[y][x] == T["GRASS"]:
+        set_(x, y, T["FLOWER"])
+for (x, y) in [(6, 34), (7, 35), (25, 34), (26, 35), (10, 38), (22, 38)]:
+    if g[y][x] == T["GRASS"]:
+        set_(x, y, T["DARK"])
+
+grid = ["".join(row) for row in g]
+
+# ── props: the camp and the slope ────────────────────────────────────────
+props = [
+    # the camp: goat-hair tents, a well, a fire, an altar of unhewn stones
+    {"type": "tent", "at": [7, 43]}, {"type": "tent", "at": [10, 41]},
+    {"type": "tent", "at": [20, 42]}, {"type": "tent", "at": [23, 45]},
+    {"type": "tent", "at": [8, 46]}, {"type": "tent", "at": [21, 46]},
+    {"type": "well", "at": [16, 43]},
+    {"type": "fire", "at": [15, 45]},
+    {"type": "altar_stones", "at": [12, 45]},
+    {"type": "jar", "at": [9, 44]}, {"type": "jar", "at": [22, 44]},
+    {"type": "wheat_sheaf", "at": [4, 43]}, {"type": "wheat_sheaf", "at": [28, 42]},
+    # olives on the slope, boulders in the valley
+    {"type": "olive_tree", "at": [4, 34]}, {"type": "olive_tree", "at": [5, 37]},
+    {"type": "olive_tree", "at": [26, 33]}, {"type": "olive_tree", "at": [27, 36]},
+    {"type": "olive_tree", "at": [4, 45]}, {"type": "olive_tree", "at": [27, 47 - 1]},
+    {"type": "olive_tree", "at": [3, 31]}, {"type": "olive_tree", "at": [28, 30]},
+    {"type": "fig_tree", "at": [9, 32]}, {"type": "fig_tree", "at": [23, 31]},
+    {"type": "boulder", "at": [5, 14]}, {"type": "boulder", "at": [25, 17]},
+    {"type": "rock", "at": [7, 21]}, {"type": "rock", "at": [23, 20]},
+    {"type": "rock", "at": [4, 19]}, {"type": "rock", "at": [27, 23]},
+    {"type": "rock", "at": [10, 15]}, {"type": "rock", "at": [21, 15]},
+    # the giant's ground: nothing but dry earth and one boulder
+    {"type": "boulder", "at": [10, 7]}, {"type": "boulder", "at": [22, 7]},
+]
+
+# ── the four who each hand you one verse ─────────────────────────────────
+# Ported verbatim from Covenant elah.js. word ids map to WORDS below.
+NPCS = [
+    {
+        "id": "corin", "actor": "corin", "at": [16, 44],
+        "name": {"en": "Corin", "zh": "柯林"},
+        "word": "name",
+        "lines": [
+            {"who": "corin", "text": {"en": "“You came.” He closes the scroll and tucks it into his sleeve. “The valley is just up this road. That voice has been shouting morning and evening for forty days.”", "zh": "「你来了。」他把书卷合上，收进袖子里，「山谷就在这条路上去。那声音早晚各喊一次，已经喊了四十天。」"}},
+            {"who": "corin", "text": {"en": "“You have no armour and no sword. What you have is a hand and a mouth.” He taps your chest. “When the moment comes, those are the only two things that will answer for you.”", "zh": "「你身上没有铠甲，也没有刀。」他指了指你的手，又指了指你的嘴，「到那一刻，能替你答话的只有这两样。」"}},
+            {"who": "corin", "text": {"en": "“Keep this one. You will need it at the top of the road.”", "zh": "「这一句你收好。走到路口的时候，你会用得上。」"}},
+        ],
+        "after": [
+            {"who": "corin", "text": {"en": "“Talk to the others before you go up. A man who goes up alone goes up with only his own voice.”", "zh": "「上去之前，先和另外几个人说说话。一个人上去，身上就只有自己那一句话。」"}},
+        ],
+    },
+    {
+        "id": "boy", "actor": "boy", "at": [10, 44],
+        "name": {"en": "A young soldier", "zh": "少年兵"},
+        "word": "fear",
+        "lines": [
+            {"who": "boy", "text": {"en": "He is holding his spear with both hands. “They say he is three metres tall. I cannot tell. I have never been close enough to look.”", "zh": "他两只手抱着矛。「他们说他有三米高。我看不清。我从来没有走近过。」"}},
+            {"who": "boy", "text": {"en": "“My mother said, do not be afraid, when I left. Then she cried anyway.” He looks at you. “I keep thinking about that. She was afraid too, and she still said it.”", "zh": "「我出门的时候，我妈说不要怕。说完她还是哭了。」他看着你，「我一直在想这件事。她自己也在怕，可她还是说了那句话。」"}},
+            {"who": "boy", "text": {"en": "“Take it with you. Somebody said it to a whole nation once, standing at the water. It is not mine to keep.”", "zh": "「带着走吧。这句话从前有人站在水边，对着一整个国家说过。它不是我一个人的。」"}},
+        ],
+        "after": [
+            {"who": "boy", "text": {"en": "“If you are going up, go up. I will be here when you come back down.”", "zh": "「你要是上去，就上去。你下来的时候，我还在这里。」"}},
+        ],
+    },
+    {
+        "id": "woman", "actor": "woman", "at": [21, 43],
+        "name": {"en": "A woman at the tent", "zh": "帐前的妇人"},
+        "word": "shepherd",
+        "lines": [
+            {"who": "woman", "text": {"en": "She is dividing bread and does not look up. “You are going up too, then. My husband went up. He has not come back down.”", "zh": "她低着头分饼。「你也要上去。我男人上去了，还没下来。」"}},
+            {"who": "woman", "text": {"en": "“I do not pray that he wins,” she says. “I pray that he does not lose himself up there.”", "zh": "「我不祷告他打赢。」她说，「我祷告他别把自己丢在上面。」"}},
+            {"who": "woman", "text": {"en": "“Here. Bread, and a psalm. The bread will not last the road. The psalm might.”", "zh": "「拿着。饼，还有一句诗。饼走不了多远，这句话也许可以陪你走远一点。」"}},
+        ],
+        "after": [
+            {"who": "woman", "text": {"en": "“Eat something before you go. Nobody fights well hungry.”", "zh": "「上去之前吃点东西。饿着的人打不好仗。」"}},
+        ],
+    },
+    {
+        "id": "elder", "actor": "elder", "at": [18, 32],
+        "name": {"en": "An old soldier", "zh": "老兵"},
+        "word": "look",
+        "patrol": [[18, 32], [18, 35], [16, 35], [16, 32]],
+        "lines": [
+            {"who": "elder", "text": {"en": "An old man is sitting on a stone by the road, mending a strap. “They will not let you through, you know. The king himself has said it: you are too young, and he has been a fighting man since he was a boy.”", "zh": "一个老人坐在路边的石头上修皮带。「他们不会让你过去的。连王都说了：你年纪太轻，他从小就打仗。」"}},
+            {"who": "elder", "text": {"en": "“He is not wrong about the years.” The old man pulls the strap tight. “He is only wrong about what they are for.”", "zh": "「他说你年轻，这话没错。」老人把皮带拉紧，「他错在以为年轻就没有用。」"}},
+            {"who": "elder", "text": {"en": "“I have been looked at my whole life, son. Take the word that answers it.”", "zh": "「我这一辈子都在被人打量。」他说，「把能回这句话的那一句带上。」"}},
+        ],
+        "after": [
+            {"who": "elder", "text": {"en": "“The stones are at the brook, past the tents. Five is what he took. Not six.”", "zh": "「石子在下游的溪边，过了帐篷就是。他当时捡了五块。不是六块。」"}},
+        ],
+    },
+]
+
+# the four verses. These become the four moves in the fight.
+WORDS = [
+    {"id": "fear", "kind": "threat", "ref": "Exodus 14:13",
+     "text": {"en": "“Fear not, stand still, and see the salvation of the LORD.”",
+              "zh": "「不要惧怕，只管站住，看耶和华今天向你们所要施行的救恩。」"}},
+    {"id": "name", "kind": "mock", "ref": "1 Samuel 17:45",
+     "text": {"en": "“Thou comest to me with a sword, and with a spear: but I come to thee in the name of the LORD.”",
+              "zh": "「你来攻击我，是靠着刀枪和铜戟；我来攻击你，是靠着万军之耶和华的名。」"}},
+    {"id": "look", "kind": "contempt", "ref": "1 Samuel 16:7",
+     "text": {"en": "“Man looketh on the outward appearance, but the LORD looketh on the heart.”",
+              "zh": "「耶和华不像人看人：人是看外貌，耶和华是看内心。」"}},
+    {"id": "shepherd", "kind": "doubt", "ref": "Psalm 23:1",
+     "text": {"en": "“The LORD is my shepherd; I shall not want.”",
+              "zh": "「耶和华是我的牧者，我必不致缺乏。」"}},
+]
+
+SHOUTS = [
+    {"kind": "threat",
+     "line": {"en": "“Choose you a man, and let him come down to me!”", "zh": "「你们叫一个人出来，与我交战吧！」"},
+     "tell": {"en": "He is shouting for the whole valley to hear. He wants you to count the distance.", "zh": "他喊得整条山谷都听见，他要你先数一数自己离他有多远。"}},
+    {"kind": "mock",
+     "line": {"en": "“Am I a dog, that thou comest to me with staves?”", "zh": "「你拿杖到我这里来，我岂是狗吗？」"},
+     "tell": {"en": "He is looking at your hands, and finding them empty.", "zh": "他在看你的手，觉得你手里什么也没有。"}},
+    {"kind": "contempt",
+     "line": {"en": "“Whose son is this youth? He is but a boy.”", "zh": "「这少年人是谁的儿子？他不过是个孩子。」"},
+     "tell": {"en": "He has stopped talking to you and started talking about you.", "zh": "他不再对你说话，开始对别人说你。"}},
+    {"kind": "doubt",
+     "line": {"en": "“Forty days, and thy God has sent no one. Will he save thee?”", "zh": "「四十天了，你的神没有派一个人。他真会救你吗？」"},
+     "tell": {"en": "This one is quiet. It is the one that has been working all along.", "zh": "这一句很轻。它已经在你心里响了四十天。"}},
+]
+
+items = [
+    {"id": "stone1", "kind": "stone", "at": [13, 28], "sprite": "rock"},
+    {"id": "stone2", "kind": "stone", "at": [17, 27], "sprite": "rock"},
+    {"id": "stone3", "kind": "stone", "at": [14, 25], "sprite": "rock"},
+    {"id": "stone4", "kind": "stone", "at": [12, 24], "sprite": "rock"},
+    {"id": "stone5", "kind": "stone", "at": [16, 29], "sprite": "rock"},
+]
+
+triggers = [
+    {"id": "challenge", "kind": "row", "row": 11,
+     "note": "crossing north of this row with five stones begins the BECOME"},
+]
+
+doc = {
+    "id": "elah",
+    "name": {"en": "The Valley of Elah", "zh": "以拉谷"},
+    "sub": {"en": "1 Samuel 17", "zh": "撒母耳记上 17"},
+    "tile": 16,
+    "legend": {v: k.lower() for k, v in {
+        "grass": ".", "dry": "d", "path": ",", "water": "~", "shallow": "=",
+        "sand": "s", "rocky": "r", "wheat": "w", "flowers": "f", "mud": "m",
+        "stone_floor": "p", "dark_grass": "g", "reeds": "e", "snow": "n",
+        "cliff": "#"}.items()} if False else {
+        ".": "grass", "d": "dry", ",": "path", "~": "water", "=": "shallow",
+        "s": "sand", "r": "rocky", "w": "wheat", "f": "flowers", "m": "mud",
+        "p": "stone_floor", "g": "dark_grass", "e": "reeds", "n": "snow",
+        "#": "cliff",
+    },
+    "grid": grid,
+    "spawn": [16, 45],
+    "music": "valley",
+    "goliath": [16, 7],
+    "challenge_row": 11,
+    "props": props,
+    "npcs": NPCS,
+    "words": WORDS,
+    "shouts": SHOUTS,
+    "items": items,
+    "triggers": triggers,
+    "exits": [],
+}
+
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
+with open(OUT, "w", encoding="utf-8") as f:
+    json.dump(doc, f, indent=1, ensure_ascii=False)
+print("wrote", OUT, "grid %dx%d" % (W, H))

@@ -1,0 +1,516 @@
+# Build the web export on every push and publish it to GitHub Pages.
+#
+# WHY THIS EXISTS: the sandbox that authors this project cannot run Godot
+# (release binaries live on a host outside its network). GitHub Actions can.
+# So packaging is not a manual step someone forgets — it happens on push, and
+# the result is one URL / one QR code that plays in a browser and, after first
+# load, works fully offline via the service worker (see tools/inject_pwa.py).
+#
+# This is the replacement for Covenant's single-file Covenant-offline.html.
+# A WASM build cannot be one double-clickable file (browsers refuse file://
+# for module + .pck loads), so the "one artifact anyone can open" property is
+# delivered as: one URL, installable, offline-capable. See docs/PACKAGING.md.
+#
+# SHELL NOTE: container jobs run under /bin/sh, which is dash in this image —
+# no `set -o pipefail`, no bash arrays. Every step below is POSIX. Both apk and
+# apt-get are handled because the godot-ci image base has changed over time.
+
+name: build-web
+
+on:
+  push:
+    branches: [arena/b60cd21d-walkincovenant, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  EXPORT_PRESET: Web
+
+jobs:
+  # ── content lint: the world data must be valid before we build it ────────
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.7.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export templates into place
+        run: |
+          # The image has moved its template directory between releases, and a
+          # missing template dir surfaces only as a vague "configuration
+          # errors" at export time. So search the usual locations, link
+          # whatever is there, and report exactly what was found.
+          TARGET="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$TARGET"
+          for SRC in /root/.local/share/godot/export_templates \
+                     /usr/local/share/godot/export_templates \
+                     /opt/godot/export_templates \
+                     /home/runner/.local/share/godot/export_templates; do
+            [ -d "$SRC" ] || continue
+            for V in "$SRC"/*; do
+              [ -d "$V" ] || continue
+              N=$(basename "$V")
+              if [ ! -e "$TARGET/$N" ]; then
+                ln -s "$V" "$TARGET/$N" 2>/dev/null || cp -r "$V" "$TARGET/$N" || true
+              fi
+            done
+          done
+          echo "::notice::godot version: $(godot --version 2>/dev/null | head -1)"
+          echo "::notice::template dirs: $(ls "$TARGET" 2>/dev/null | tr '\n' ' ')"
+          echo "::notice::web template files: $(ls "$TARGET/${GODOT_VERSION}.stable" 2>/dev/null | grep -c web || echo 0)"
+
+      - name: Install build deps (fontconfig for Godot, python3 for tools)
+        run: |
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache fontconfig ttf-dejavu python3 || true
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq || true
+            apt-get install -y -qq --no-install-recommends \
+              fontconfig python3 || true
+          fi
+          echo "python3: $(command -v python3 || echo MISSING)"
+
+      # All four static tools in one step, with the whole output published as a
+      # single joined annotation. Separate steps meant a failing tool's output
+      # was only in the raw log, which this project's authoring sandbox cannot
+      # reach — so a failure in CI was undiagnosable. One annotation of 3000
+      # characters cannot be crowded out by GitHub's ~10-per-run cap.
+      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, pack_art)
+        id: static
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "::warning::python3 unavailable, static checks skipped"
+            exit 0
+          fi
+          : > static.txt
+          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars; do
+            echo "===== $T =====" >> static.txt
+            python3 "tools/$T.py" >> static.txt 2>&1
+            echo "exit=$?" >> static.txt
+          done
+          # pack_art needs Pillow, which the runner does not ship — try, and
+          # report clearly rather than failing the build on a missing wheel.
+          echo "===== pack_art =====" >> static.txt
+          if python3 -c "import PIL" 2>/dev/null; then
+            python3 tools/pack_art.py --check >> static.txt 2>&1
+            echo "exit=$?" >> static.txt
+          else
+            echo "skip: Pillow not installed on this runner (art is committed, layout is verified locally)" >> static.txt
+            echo "exit=0" >> static.txt
+          fi
+          cat static.txt
+          if grep -q "^exit=[^0]" static.txt; then
+            exit 1
+          fi
+
+      - name: Publish static check output as one annotation
+        if: always()
+        run: |
+          [ -f static.txt ] || exit 0
+          tr '\n' '|' < static.txt | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+
+      - name: Fail the job if a static check failed
+        if: steps.static.outcome != 'success'
+        run: |
+          echo "a static check failed"
+          exit 1
+
+      - name: Import resources and build the global class cache
+        run: |
+          # --import does a full headless import and exits; --editor --quit can
+          # bail during the first filesystem scan, leaving
+          # .godot/global_script_class_cache.cfg unwritten. Without that cache a
+          # class_name cannot be resolved from another script, which surfaces as
+          # "Could not resolve external class member" in an unrelated file.
+          godot --headless --import || godot --headless --editor --quit || true
+          if [ -f .godot/global_script_class_cache.cfg ]; then
+            echo "::notice::global class cache present ($(grep -c '"class":' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+          else
+            echo "::warning::global_script_class_cache.cfg was not written"
+          fi
+
+      # Boots the real project headless: autoloads registered, global classes
+      # resolved, main scene instantiated. A per-file --check-only run cannot do
+      # this, and drowned in cascade errors from unregistered autoloads.
+      - name: Parse-check each script individually (names the file that fails)
+        run: sh tools/ci_parsecheck.sh
+
+      - name: Boot the project headless (parse + smoke check)
+        run: sh tools/ci_bootcheck.sh 10
+
+      - name: Content lint (regions, reachability, bilingual)
+        id: lint
+        continue-on-error: true
+        run: |
+          # POSIX sh only: no `set -o pipefail`. Capture, print, then propagate
+          # Godot's own exit code so a failed lint still gates the build.
+          godot --headless --path . --script tests/run_all.gd > lint.txt 2>&1
+          STATUS=$?
+          cat lint.txt
+          exit $STATUS
+
+      # The gates above prove the project COMPILES and the content is well
+      # formed. Neither proves the game can be PLAYED: Godot packs unparseable
+      # scripts and still exits 0, and a region file can be valid while the loop
+      # through it is broken. This boots Main.tscn and plays the slice — briefing,
+      # four conversations, crossing the line empty-handed, five stones, BECOME,
+      # five rounds of the word battle, RETURN, and the revisit — then asserts the
+      # save state it left behind. It exists because two bugs reached this repo
+      # that no compile-time gate could see: Region never built its trigger list
+      # (the fight was unreachable by walking), and DialogueBox._pick() advanced a
+      # box its own callback had just replaced (every single-line follow-up was
+      # skipped). If a future change breaks the loop again, the build goes red
+      # instead of somebody's first playtest.
+      - name: Play the slice headless (integration smoke test)
+        id: smoke
+        continue-on-error: true
+        run: |
+          # Booted as a SCENE, not --script: Main::start() builds a --script main
+          # loop long before it registers autoloads, so on that path this test and
+          # every script it pulls in die with "Identifier not found: GameState".
+          # A scene on the command line loads after the autoloads exist, which is
+          # also how the shipped game boots.
+          #
+          # `timeout` is a backstop, not a nicety. A scene-booted test that never
+          # reaches its quit() — a script that failed to compile, a dialogue box
+          # that never closes — would otherwise run to the job's 6-hour limit.
+          timeout 300 godot --headless --path . res://tests/smoke.tscn > smoke.txt 2>&1
+          STATUS=$?
+          if [ "$STATUS" -eq 124 ]; then
+            echo "smoke: TIMEOUT — the playthrough never reached its final assertion" >> smoke.txt
+          fi
+          cat smoke.txt
+          exit $STATUS
+
+      # The regression suite. `smoke` proves the happy path still closes; this
+      # proves the SECOND one is safe — a save reloaded, a transition
+      # interrupted, a scene finished on a keyboard, a person met before the tab
+      # was closed. Every check in it is the regression test for a bug recorded
+      # in docs/BUGS.md, and each one failed against the code before its fix.
+      - name: Interruptions and reloads (regression suite)
+        id: deep
+        continue-on-error: true
+        run: |
+          timeout 240 godot --headless --path . res://tests/deep.tscn > deep.txt 2>&1
+          STATUS=$?
+          if [ "$STATUS" -eq 124 ]; then
+            echo "deep: TIMEOUT — a regression check never returned" >> deep.txt
+          fi
+          cat deep.txt
+          exit $STATUS
+
+      - name: Publish the regression suite
+        if: always()
+        run: |
+          [ -f deep.txt ] || exit 0
+          CLEAN=/tmp/deep.clean
+          sed 's/\x1b\[[0-9;]*m//g' deep.txt > "$CLEAN"
+          if [ "${{ steps.deep.outcome }}" = "success" ]; then
+            grep -a "deep: PASS" "$CLEAN" | head -1 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+            exit 0
+          fi
+          grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037\|first_scan_filesystem" "$CLEAN" \
+            | grep -aE "FAIL|ERROR|Error|error:|Invalid|Cannot|Attempt|deep:" \
+            | awk '!seen[$0]++' \
+            | head -18 \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+
+      # One joined annotation, not a tail: the playthrough prints ~40 "ok" lines
+      # and GitHub keeps only ~10 annotations per run, so a tail spends the quota
+      # on passing assertions and the actual FAIL scrolls out of view.
+      # Split by outcome on purpose. Emitting ::error:: under `if: always()` put
+      # a red annotation on a green run — the PASS line itself arrived as a
+      # failure, which trains everybody to ignore the red ones.
+      - name: Publish the playthrough pass
+        if: steps.smoke.outcome == 'success'
+        run: |
+          [ -f smoke.txt ] || exit 0
+          sed 's/\x1b\[[0-9;]*m//g' smoke.txt \
+            | grep -a "smoke: PASS" | head -1 \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+
+      - name: Publish smoke failures as one annotation
+        if: steps.smoke.outcome != 'success'
+        run: |
+          [ -f smoke.txt ] || exit 0
+          CLEAN=/tmp/smoke.clean
+          sed 's/\x1b\[[0-9;]*m//g' smoke.txt > "$CLEAN"
+          # Match everything that could EXPLAIN a failure, not only lines that
+          # contain the word FAIL. Godot reports a missing property as "Invalid
+          # get index", a broken script as a bare "Compile Error", and a null
+          # call as "Attempt to call function ... on a null value" — the first
+          # run of this test failed a single assertion and its own annotation
+          # filtered the reason out, which cost a whole CI cycle to discover.
+          # awk-dedupe before the head: one repeated runtime error printed seven
+          # times pushed the assertions that actually named the bug out of the
+          # 3000-character annotation. Order is preserved, unlike sort -u.
+          grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037\|first_scan_filesystem" "$CLEAN" \
+            | grep -aE "FAIL|ERROR|Error|error:|Invalid|Cannot|Attempt|diag|smoke:" \
+            | awk '!seen[$0]++' \
+            | head -14 \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          # And the head of the run as context: when a test stops early, the
+          # checks that PASSED first are what narrow down where it stopped.
+          head -24 "$CLEAN" \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+
+      # Raw CI logs live on a host this project's authoring sandbox cannot
+      # reach; check-run annotations come from api.github.com and can. But
+      # GitHub keeps only ~10 annotations per run, and Godot prints ANSI-coloured
+      # progress lines after the error — so an unfiltered tail fills the quota
+      # with noise and the actual failure disappears. Strip ANSI, drop the
+      # progress spam, dedupe, and spend the quota on error lines first.
+      - name: Publish failure output as annotations
+        if: always()
+        run: |
+          for F in lint.txt export.txt; do
+            [ -f "$F" ] || continue
+            # Each error line plus the five that follow it: Godot lists the
+            # actual reasons UNDER "due to configuration errors", and filtering
+            # to matching lines only ever showed the header.
+            sed 's/\x1b\[[0-9;]*m//g' "$F" \
+              | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037" \
+              | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
+              | head -8 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          done
+
+      - name: Fail the job if the lint failed
+        if: steps.lint.outcome != 'success'
+        run: |
+          echo "content lint failed"
+          exit 1
+
+      - name: Fail the job if the playthrough failed
+        if: steps.smoke.outcome != 'success'
+        run: |
+          echo "the headless playthrough did not complete"
+          exit 1
+
+      - name: Fail the job if the regression suite failed
+        if: steps.deep.outcome != 'success'
+        run: |
+          echo "an interruption or reload regression check failed"
+          exit 1
+
+  # ── export the web build ─────────────────────────────────────────────────
+  export-web:
+    needs: lint
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.7.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export templates into place
+        run: |
+          # The image has moved its template directory between releases, and a
+          # missing template dir surfaces only as a vague "configuration
+          # errors" at export time. So search the usual locations, link
+          # whatever is there, and report exactly what was found.
+          TARGET="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$TARGET"
+          for SRC in /root/.local/share/godot/export_templates \
+                     /usr/local/share/godot/export_templates \
+                     /opt/godot/export_templates \
+                     /home/runner/.local/share/godot/export_templates; do
+            [ -d "$SRC" ] || continue
+            for V in "$SRC"/*; do
+              [ -d "$V" ] || continue
+              N=$(basename "$V")
+              if [ ! -e "$TARGET/$N" ]; then
+                ln -s "$V" "$TARGET/$N" 2>/dev/null || cp -r "$V" "$TARGET/$N" || true
+              fi
+            done
+          done
+          echo "::notice::godot version: $(godot --version 2>/dev/null | head -1)"
+          echo "::notice::template dirs: $(ls "$TARGET" 2>/dev/null | tr '\n' ' ')"
+          echo "::notice::web template files: $(ls "$TARGET/${GODOT_VERSION}.stable" 2>/dev/null | grep -c web || echo 0)"
+
+      - name: Install build deps (fontconfig for Godot, python3 for tools)
+        run: |
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache fontconfig ttf-dejavu python3 || true
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq || true
+            apt-get install -y -qq --no-install-recommends \
+              fontconfig python3 || true
+          fi
+          echo "python3: $(command -v python3 || echo MISSING)"
+
+      - name: Import resources and build the global class cache
+        run: |
+          # --import does a full headless import and exits; --editor --quit can
+          # bail during the first filesystem scan, leaving
+          # .godot/global_script_class_cache.cfg unwritten. Without that cache a
+          # class_name cannot be resolved from another script, which surfaces as
+          # "Could not resolve external class member" in an unrelated file.
+          godot --headless --import || godot --headless --editor --quit || true
+          if [ -f .godot/global_script_class_cache.cfg ]; then
+            echo "::notice::global class cache present ($(grep -c '"class":' .godot/global_script_class_cache.cfg 2>/dev/null || echo 0) entries)"
+          else
+            echo "::warning::global_script_class_cache.cfg was not written"
+          fi
+
+      # Boots the real project headless: autoloads registered, global classes
+      # resolved, main scene instantiated. A per-file --check-only run cannot do
+      # this, and drowned in cascade errors from unregistered autoloads.
+      - name: Boot the project headless (parse + smoke check)
+        run: sh tools/ci_bootcheck.sh 10
+
+      - name: Export Web (single-threaded, gl_compatibility)
+        id: export
+        continue-on-error: true
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release "${EXPORT_PRESET}" build/web/index.html > export.txt 2>&1
+          STATUS=$?
+          cat export.txt
+          exit $STATUS
+
+      # Raw CI logs live on a host this project's authoring sandbox cannot
+      # reach; check-run annotations come from api.github.com and can. But
+      # GitHub keeps only ~10 annotations per run, and Godot prints ANSI-coloured
+      # progress lines after the error — so an unfiltered tail fills the quota
+      # with noise and the actual failure disappears. Strip ANSI, drop the
+      # progress spam, dedupe, and spend the quota on error lines first.
+      - name: Publish failure output as annotations
+        if: always()
+        run: |
+          for F in lint.txt export.txt; do
+            [ -f "$F" ] || continue
+            # Each error line plus the five that follow it: Godot lists the
+            # actual reasons UNDER "due to configuration errors", and filtering
+            # to matching lines only ever showed the header.
+            sed 's/\x1b\[[0-9;]*m//g' "$F" \
+              | grep -av "first_scan_filesystem\|^\[ *[0-9]*% \]" \
+              | grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037" \
+              | awk 'BEGIN{k=0} /ERROR|Parse Error|Cannot|Failed|FAIL|error:/{k=6} k>0{print;k--}' \
+              | head -8 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            sed 's/\x1b\[[0-9;]*m//g' "$F" | tail -n 2 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          done
+
+      - name: Fail the job if the export failed
+        if: steps.export.outcome != 'success'
+        run: |
+          echo "web export failed"
+          exit 1
+
+      # Godot writes the .pck and exits 0 even when a script inside it does not
+      # parse, so a green export can still ship a game that black-screens.
+      - name: Refuse to publish a build containing unparseable scripts
+        run: |
+          if [ -f export.txt ] && grep -aqE "Parse Error|Failed to load script" export.txt; then
+            sed 's/\x1b\[[0-9;]*m//g' export.txt \
+              | grep -aE "Parse Error|Failed to load script|Could not resolve" \
+              | head -20 | tr '\n' '|' | cut -c1-3000 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+            echo "export contains script parse errors"
+            exit 1
+          fi
+          echo "export contains no script parse errors"
+
+      - name: Verify PWA (engine-native service worker + manifest)
+        env:
+          WIC_BUILD_STAMP: ${{ github.sha }}
+        run: |
+          python3 tools/inject_pwa.py build/web > inject.txt 2>&1
+          STATUS=$?
+          cat inject.txt
+          exit $STATUS
+
+      - name: Publish build summary as annotations
+        if: always()
+        run: |
+          for F in inject.txt; do
+            [ -f "$F" ] || continue
+            while IFS= read -r line; do printf '::notice::%s\n' "$line"; done < "$F"
+          done
+          ls build/web | while IFS= read -r f; do
+            printf '::notice::artifact %s (%s KB)\n' "$f" \
+              "$(du -sk "build/web/$f" | cut -f1)"
+          done
+
+      - name: Size budget (fail over 80 MB; pixel art should keep this ~10-20 MB)
+        run: |
+          # busybox/coreutils du differs, so budget in kilobytes (80 MB = 81920 KB)
+          KB=$(du -sk build/web | cut -f1)
+          echo "web export: ${KB} KB"
+          ls -la build/web
+          if [ "$KB" -gt 81920 ]; then
+            echo "::error::web export is ${KB} KB, over the 80 MB budget"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+  # ── publish to GitHub Pages ──────────────────────────────────────────────
+  # Creating a Pages site requires repository admin, which neither this
+  # workflow's GITHUB_TOKEN nor an automated agent token is granted:
+  # "Create Pages site failed. Error: Resource not accessible by integration".
+  # So the one-time switch is manual — Settings → Pages → Source: GitHub
+  # Actions — and until it is flipped this job stays green, publishes nothing,
+  # and says exactly what to do. The build artifact is uploaded regardless, so
+  # the game is playable locally in the meantime.
+  deploy:
+    needs: export-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+      - id: pages
+        name: Configure Pages
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+        with:
+          enablement: true
+
+      - name: Report that Pages needs a one-time switch
+        if: steps.pages.outcome != 'success'
+        run: |
+          echo "::warning::GitHub Pages is not enabled on this repository, so nothing was published."
+          echo "::notice::Fix once: repo Settings -> Pages -> Build and deployment -> Source: GitHub Actions. Then re-run this workflow."
+          echo "::notice::Meanwhile the 'web' artifact holds the full build: unzip it and run 'python3 -m http.server 8080' inside, then open http://localhost:8080."
+
+      - name: Upload Pages artifact
+        if: steps.pages.outcome == 'success'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - id: deployment
+        name: Deploy to GitHub Pages
+        if: steps.pages.outcome == 'success'
+        uses: actions/deploy-pages@v4

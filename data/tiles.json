@@ -1,0 +1,523 @@
+{
+ "tile": 16,
+ "columns": 16,
+ "tiles": [
+  {
+   "key": "grass",
+   "variant": 0,
+   "atlas_index": 0,
+   "walkable": true,
+   "note": "pasture, hills of Galilee",
+   "sfx": "step_grass",
+   "speed": 1.0,
+   "source": "ninja:floor@176,192"
+  },
+  {
+   "key": "grass",
+   "variant": 1,
+   "atlas_index": 1,
+   "walkable": true,
+   "note": "pasture, hills of Galilee",
+   "sfx": "step_grass",
+   "speed": 1.0,
+   "source": "ninja:floor@192,192"
+  },
+  {
+   "key": "grass",
+   "variant": 2,
+   "atlas_index": 2,
+   "walkable": true,
+   "note": "pasture, hills of Galilee",
+   "sfx": "step_grass",
+   "speed": 1.0,
+   "source": "ninja:floor@208,192"
+  },
+  {
+   "key": "grass",
+   "variant": 3,
+   "atlas_index": 3,
+   "walkable": true,
+   "note": "pasture, hills of Galilee",
+   "sfx": "step_grass",
+   "speed": 1.0,
+   "source": "ninja:floor@224,192"
+  },
+  {
+   "key": "dark_grass",
+   "variant": 0,
+   "atlas_index": 4,
+   "walkable": true,
+   "note": "shaded ground under trees",
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  {
+   "key": "dark_grass",
+   "variant": 1,
+   "atlas_index": 5,
+   "walkable": true,
+   "note": "shaded ground under trees",
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  {
+   "key": "dry",
+   "variant": 0,
+   "atlas_index": 6,
+   "walkable": true,
+   "note": "dry earth, the Shephelah",
+   "sfx": "step_dirt",
+   "speed": 1.0,
+   "source": "ninja:floor@32,176"
+  },
+  {
+   "key": "dry",
+   "variant": 1,
+   "atlas_index": 7,
+   "walkable": true,
+   "note": "dry earth, the Shephelah",
+   "sfx": "step_dirt",
+   "speed": 1.0,
+   "source": "ninja:floor@48,176"
+  },
+  {
+   "key": "dry",
+   "variant": 2,
+   "atlas_index": 8,
+   "walkable": true,
+   "note": "dry earth, the Shephelah",
+   "sfx": "step_dirt",
+   "speed": 1.0,
+   "source": "ninja:floor@32,192"
+  },
+  {
+   "key": "dry",
+   "variant": 3,
+   "atlas_index": 9,
+   "walkable": true,
+   "note": "dry earth, the Shephelah",
+   "sfx": "step_dirt",
+   "speed": 1.0,
+   "source": "ninja:floor@48,192"
+  },
+  {
+   "key": "path",
+   "variant": 0,
+   "atlas_index": 10,
+   "walkable": true,
+   "note": "trodden road — walk speed unchanged",
+   "sfx": "step_dirt",
+   "speed": 1.05,
+   "source": "ninja:floor@192,176"
+  },
+  {
+   "key": "path",
+   "variant": 1,
+   "atlas_index": 11,
+   "walkable": true,
+   "note": "trodden road — walk speed unchanged",
+   "sfx": "step_dirt",
+   "speed": 1.05,
+   "source": "ninja:floor@224,176"
+  },
+  {
+   "key": "path",
+   "variant": 2,
+   "atlas_index": 12,
+   "walkable": true,
+   "note": "trodden road — walk speed unchanged",
+   "sfx": "step_dirt",
+   "speed": 1.05,
+   "source": "ninja:floor@240,176"
+  },
+  {
+   "key": "path",
+   "variant": 3,
+   "atlas_index": 13,
+   "walkable": true,
+   "note": "trodden road — walk speed unchanged",
+   "sfx": "step_dirt",
+   "speed": 1.05,
+   "source": "ninja:floor@256,176"
+  },
+  {
+   "key": "sand",
+   "variant": 0,
+   "atlas_index": 14,
+   "walkable": true,
+   "note": "desert, beach, Egypt",
+   "sfx": "step_sand",
+   "speed": 0.86
+  },
+  {
+   "key": "sand",
+   "variant": 1,
+   "atlas_index": 15,
+   "walkable": true,
+   "note": "desert, beach, Egypt",
+   "sfx": "step_sand",
+   "speed": 0.86
+  },
+  {
+   "key": "sand",
+   "variant": 2,
+   "atlas_index": 16,
+   "walkable": true,
+   "note": "desert, beach, Egypt",
+   "sfx": "step_sand",
+   "speed": 0.86
+  },
+  {
+   "key": "sand",
+   "variant": 3,
+   "atlas_index": 17,
+   "walkable": true,
+   "note": "desert, beach, Egypt",
+   "sfx": "step_sand",
+   "speed": 0.86
+  },
+  {
+   "key": "rocky",
+   "variant": 0,
+   "atlas_index": 18,
+   "walkable": true,
+   "note": "wilderness of Judea and Sinai",
+   "sfx": "step_stone",
+   "speed": 0.94
+  },
+  {
+   "key": "rocky",
+   "variant": 1,
+   "atlas_index": 19,
+   "walkable": true,
+   "note": "wilderness of Judea and Sinai",
+   "sfx": "step_stone",
+   "speed": 0.94
+  },
+  {
+   "key": "rocky",
+   "variant": 2,
+   "atlas_index": 20,
+   "walkable": true,
+   "note": "wilderness of Judea and Sinai",
+   "sfx": "step_stone",
+   "speed": 0.94
+  },
+  {
+   "key": "rocky",
+   "variant": 3,
+   "atlas_index": 21,
+   "walkable": true,
+   "note": "wilderness of Judea and Sinai",
+   "sfx": "step_stone",
+   "speed": 0.94
+  },
+  {
+   "key": "mud",
+   "variant": 0,
+   "atlas_index": 22,
+   "walkable": true,
+   "note": "packed earth, threshing floor",
+   "sfx": "step_dirt",
+   "speed": 1.0
+  },
+  {
+   "key": "mud",
+   "variant": 1,
+   "atlas_index": 23,
+   "walkable": true,
+   "note": "packed earth, threshing floor",
+   "sfx": "step_dirt",
+   "speed": 1.0
+  },
+  {
+   "key": "stone_floor",
+   "variant": 0,
+   "atlas_index": 24,
+   "walkable": true,
+   "note": "paving: temple, palace, city",
+   "sfx": "step_stone",
+   "speed": 1.0
+  },
+  {
+   "key": "stone_floor",
+   "variant": 1,
+   "atlas_index": 25,
+   "walkable": true,
+   "note": "paving: temple, palace, city",
+   "sfx": "step_stone",
+   "speed": 1.0
+  },
+  {
+   "key": "stone_floor",
+   "variant": 2,
+   "atlas_index": 26,
+   "walkable": true,
+   "note": "paving: temple, palace, city",
+   "sfx": "step_stone",
+   "speed": 1.0
+  },
+  {
+   "key": "stone_floor",
+   "variant": 3,
+   "atlas_index": 27,
+   "walkable": true,
+   "note": "paving: temple, palace, city",
+   "sfx": "step_stone",
+   "speed": 1.0
+  },
+  {
+   "key": "wheat",
+   "variant": 0,
+   "atlas_index": 28,
+   "walkable": true,
+   "note": "standing grain — Ruth gleaned here",
+   "sfx": "step_grass",
+   "speed": 0.92
+  },
+  {
+   "key": "wheat",
+   "variant": 1,
+   "atlas_index": 29,
+   "walkable": true,
+   "note": "standing grain — Ruth gleaned here",
+   "sfx": "step_grass",
+   "speed": 0.92
+  },
+  {
+   "key": "wheat",
+   "variant": 2,
+   "atlas_index": 30,
+   "walkable": true,
+   "note": "standing grain — Ruth gleaned here",
+   "sfx": "step_grass",
+   "speed": 0.92
+  },
+  {
+   "key": "flowers",
+   "variant": 0,
+   "atlas_index": 31,
+   "walkable": true,
+   "note": "lilies of the field",
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  {
+   "key": "flowers",
+   "variant": 1,
+   "atlas_index": 32,
+   "walkable": true,
+   "note": "lilies of the field",
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  {
+   "key": "snow",
+   "variant": 0,
+   "atlas_index": 33,
+   "walkable": true,
+   "note": "Hermon, Lebanon",
+   "sfx": "step_sand",
+   "speed": 0.9
+  },
+  {
+   "key": "snow",
+   "variant": 1,
+   "atlas_index": 34,
+   "walkable": true,
+   "note": "Hermon, Lebanon",
+   "sfx": "step_sand",
+   "speed": 0.9
+  },
+  {
+   "key": "water",
+   "variant": 0,
+   "atlas_index": 35,
+   "walkable": false,
+   "note": "deep water — impassable, animated",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "water",
+   "variant": 1,
+   "atlas_index": 36,
+   "walkable": false,
+   "note": "deep water — impassable, animated",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "water",
+   "variant": 2,
+   "atlas_index": 37,
+   "walkable": false,
+   "note": "deep water — impassable, animated",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "water",
+   "variant": 3,
+   "atlas_index": 38,
+   "walkable": false,
+   "note": "deep water — impassable, animated",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "shallow",
+   "variant": 0,
+   "atlas_index": 39,
+   "walkable": true,
+   "note": "the ford — passable, slows you",
+   "sfx": "step_water",
+   "speed": 0.72
+  },
+  {
+   "key": "shallow",
+   "variant": 1,
+   "atlas_index": 40,
+   "walkable": true,
+   "note": "the ford — passable, slows you",
+   "sfx": "step_water",
+   "speed": 0.72
+  },
+  {
+   "key": "shallow",
+   "variant": 2,
+   "atlas_index": 41,
+   "walkable": true,
+   "note": "the ford — passable, slows you",
+   "sfx": "step_water",
+   "speed": 0.72
+  },
+  {
+   "key": "shallow",
+   "variant": 3,
+   "atlas_index": 42,
+   "walkable": true,
+   "note": "the ford — passable, slows you",
+   "sfx": "step_water",
+   "speed": 0.72
+  },
+  {
+   "key": "reeds",
+   "variant": 0,
+   "atlas_index": 43,
+   "walkable": true,
+   "note": "marsh edge",
+   "sfx": "step_water",
+   "speed": 0.8
+  },
+  {
+   "key": "reeds",
+   "variant": 1,
+   "atlas_index": 44,
+   "walkable": true,
+   "note": "marsh edge",
+   "sfx": "step_water",
+   "speed": 0.8
+  },
+  {
+   "key": "cliff",
+   "variant": 0,
+   "atlas_index": 45,
+   "walkable": false,
+   "note": "rock face — impassable",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "cliff",
+   "variant": 1,
+   "atlas_index": 46,
+   "walkable": false,
+   "note": "rock face — impassable",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "cliff",
+   "variant": 2,
+   "atlas_index": 47,
+   "walkable": false,
+   "note": "rock face — impassable",
+   "sfx": null,
+   "speed": 0.0
+  },
+  {
+   "key": "cliff",
+   "variant": 3,
+   "atlas_index": 48,
+   "walkable": false,
+   "note": "rock face — impassable",
+   "sfx": null,
+   "speed": 0.0
+  }
+ ],
+ "surface": {
+  "grass": {
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  "dark_grass": {
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  "dry": {
+   "sfx": "step_dirt",
+   "speed": 1.0
+  },
+  "path": {
+   "sfx": "step_dirt",
+   "speed": 1.05
+  },
+  "sand": {
+   "sfx": "step_sand",
+   "speed": 0.86
+  },
+  "rocky": {
+   "sfx": "step_stone",
+   "speed": 0.94
+  },
+  "mud": {
+   "sfx": "step_dirt",
+   "speed": 1.0
+  },
+  "stone_floor": {
+   "sfx": "step_stone",
+   "speed": 1.0
+  },
+  "wheat": {
+   "sfx": "step_grass",
+   "speed": 0.92
+  },
+  "flowers": {
+   "sfx": "step_grass",
+   "speed": 1.0
+  },
+  "snow": {
+   "sfx": "step_sand",
+   "speed": 0.9
+  },
+  "water": {
+   "sfx": null,
+   "speed": 0.0
+  },
+  "shallow": {
+   "sfx": "step_water",
+   "speed": 0.72
+  },
+  "reeds": {
+   "sfx": "step_water",
+   "speed": 0.8
+  },
+  "cliff": {
+   "sfx": null,
+   "speed": 0.0
+  }
+ },
+ "atlas": "res://art/tiles/terrain.png",
+ "rows": 4
+}

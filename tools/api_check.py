@@ -1,0 +1,416 @@
+#!/usr/bin/env python3
+"""api_check.py — verify every Godot engine API this project touches, offline.
+
+WHY: this project is authored in a sandbox that cannot run Godot. A wrong
+property name is not a parse error — `astar.diagonal_enabled = false` compiles
+fine and then aborts the function at runtime, which left the A* grid dirty and
+silently froze every NPC. Finding that cost several CI round-trips of ~70s each.
+
+So instead of guessing, check the engine's own source of truth: the class
+reference XML that ships in the Godot repository at the exact version tag in
+project.godot. Every `Class.CONSTANT`, every `.new()`, and every member access
+on a variable whose type we can see is verified against it, walking the
+inheritance chain so inherited members count.
+
+Cached under /tmp/godot-docs, so repeat runs are instant. Needs network only on
+a cold cache; CI re-verifies on every push.
+
+Usage:  python3 tools/api_check.py            # exits non-zero on any finding
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+CACHE = "/tmp/godot-docs"
+REF = None          # git tag, resolved from project.godot below
+REPO = "godotengine/godot"
+
+VAR_TYPE = re.compile(
+    r"^\s*(?:@onready\s+|@export\s+)*var\s+(\w+)\s*:\s*([A-Z]\w*)")
+VAR_INFER = re.compile(r"^\s*var\s+(\w+)\s*:=\s*([A-Z]\w*)(?:\.new\()?\(")
+PARAM_TYPE = re.compile(r"func\s+\w+\s*\(([^)]*)\)")
+NEW_CALL = re.compile(r"\b([A-Z]\w*)\.new\(")
+CLASS_CONST = re.compile(r"\b([A-Z]\w*)\.([A-Z][A-Z0-9_]{2,})\b")
+MEMBER = re.compile(r"\b(\w+)\.(\w+)")
+
+# Our own classes and GDScript builtins are not engine classes; skip them.
+SKIP_TYPES = set()
+# @GlobalScope functions plus keywords that look like calls. A bare call that
+# is none of these, and not a method of the script's own base class, is a
+# parse error — this is how `get_viewport_rect()` inside a CanvasLayer hid.
+GD_GLOBALS = {
+    "abs", "absf", "absi", "acos", "acosh", "asin", "asinh", "atan", "atan2",
+    "atanh", "assert", "beep", "bytes_to_var", "bytes_to_var_with_objects",
+    "cart_to_polar", "ceil", "ceilf", "ceili", "clamp", "clampf", "clampi",
+    "cos", "cosh", "cubic_interpolate", "db_to_linear", "deg_to_rad",
+    "dict_to_inst", "ease", "error_string", "exp", "floor", "floorf", "floori",
+    "fmod", "fposmod", "get_instance_from_id", "get_stack", "get_weakref",
+    "hash", "inst_to_dict", "inverse_lerp", "is_equal_approx", "is_finite",
+    "is_inf", "is_instance_id_valid", "is_instance_valid", "is_nan", "is_same",
+    "is_zero_approx", "lerp", "lerp_angle", "lerpf", "linear_to_db", "load",
+    "log", "max", "maxf", "maxi", "min", "minf", "mini", "move_toward",
+    "nearest_po2", "polar_to_cart", "posmod", "pow", "preload", "print",
+    "print_rich", "print_verbose", "printerr", "prints", "printt",
+    "push_error", "push_warning", "rad_to_deg", "rand_from_seed", "randf",
+    "randfn", "randi", "randomize", "range", "range_lerp", "remap",
+    "rid_allocate_id", "rid_from_int64", "rotate_toward", "round", "roundf",
+    "roundi", "seed", "sign", "signf", "signi", "sin", "sinh", "smoothstep",
+    "snapped", "snappedf", "snappedi", "sqrt", "step_decimals", "str",
+    "str_to_var", "super", "tan", "tanh", "type_convert", "type_string",
+    "typeof", "var_to_bytes", "var_to_str", "weakref", "wrap", "wrapf",
+    "wrapi", "int", "float", "bool", "len", "randf_range", "randi_range",
+    "func", "await", "signal", "static", "class", "enum", "match",
+    "if", "elif", "else", "for", "while", "return", "and", "or", "not", "in",
+    "is", "as", "pass", "break", "continue", "breakpoint", "void",
+}
+
+GD_BUILTINS = {
+    "Array", "Dictionary", "String", "StringName", "NodePath", "Variant",
+    "int", "float", "bool", "Vector2", "Vector2i", "Vector3", "Rect2",
+    "Rect2i", "Color", "PackedByteArray", "PackedStringArray",
+    "PackedInt32Array", "PackedInt64Array", "PackedFloat32Array",
+    "PackedFloat64Array", "PackedVector2Array", "PackedVector3Array",
+    "PackedColorArray", "Callable", "Signal", "RID", "Transform2D",
+}
+
+docs = {}
+findings = []
+own_classes = set()
+
+
+def godot_version():
+    txt = open(os.path.join(ROOT, "project.godot"), encoding="utf-8").read()
+    m = re.search(r'config/features=PackedStringArray\("([^"]+)"', txt)
+    if m:
+        return m.group(1)
+    m = re.search(r'config_version=(\d+)', txt)
+    return "4.7"
+
+
+def gh(path):
+    """Fetch a file from the Godot repo at our exact version tag.
+
+    Uses the gh CLI when present (authoring sandbox), otherwise curl with
+    GITHUB_TOKEN (CI containers, which do not ship gh). Returns None when the
+    network is unavailable so the caller can degrade to a warning rather than
+    fail a build over a missing lookup.
+    """
+    import base64
+    rel = "repos/%s/contents/%s?ref=%s-stable" % (REPO, path, REF)
+    try:
+        if subprocess.run(["which", "gh"], capture_output=True).returncode == 0:
+            out = subprocess.run(["gh", "api", rel, "--jq", ".content"],
+                                 capture_output=True, text=True, timeout=60)
+            if out.returncode == 0 and out.stdout.strip():
+                return base64.b64decode(out.stdout.strip()).decode("utf-8", "replace")
+        # stdlib HTTP: the CI image has neither gh nor curl, and a missing
+        # reference turns every engine-inherited member into a false positive.
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.github.com/" + rel,
+            headers={"Accept": "application/vnd.github.raw+json",
+                     **({"Authorization": "Bearer %s" % os.environ["GITHUB_TOKEN"]}
+                        if os.environ.get("GITHUB_TOKEN") else {})})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            body = r.read().decode("utf-8", "replace")
+        if body:
+            return body
+    except Exception:
+        pass
+    return None
+
+
+def fetch_doc(cls):
+    """Class reference for `cls`, or None if the engine has no such class."""
+    if cls in docs:
+        return docs[cls]
+    path = os.path.join(CACHE, "v3-" + cls + ".json")
+    if os.path.isfile(path):
+        docs[cls] = json.load(open(path, encoding="utf-8"))
+        return docs[cls]
+
+    xml = gh("doc/classes/%s.xml" % cls)
+    if xml is None:
+        docs[cls] = None
+        return None
+    root = ET.fromstring(xml)
+    members = set()
+    for tag in ("method", "member", "constant", "signal"):
+        for el in root.iter(tag):
+            if el.get("name"):
+                members.add(el.get("name"))
+    # arity ranges, so an override with the wrong signature can be detected:
+    # NATIVE_METHOD_OVERRIDE is ERROR-level by default in Godot 4.7.
+    methods = {}
+    virtuals = set()
+    for el in root.iter("method"):
+        name = el.get("name")
+        if not name:
+            continue
+        if "virtual" in (el.get("qualifiers") or ""):
+            virtuals.add(name)
+        args = list(el.iter("argument"))
+        required = len([a for a in args if not a.get("default_value")])
+        lo, hi = methods.get(name, (required, len(args)))
+        methods[name] = [min(lo, required), max(hi, len(args))]
+    doc = {"inherits": root.get("inherits"), "members": sorted(members),
+           "methods": methods, "virtuals": sorted(virtuals)}
+    docs[cls] = doc
+    os.makedirs(CACHE, exist_ok=True)
+    json.dump(doc, open(path, "w", encoding="utf-8"))
+    return doc
+
+
+def all_members(cls, depth=0):
+    """Members of `cls` plus everything it inherits."""
+    if depth > 8:
+        return set()
+    doc = fetch_doc(cls)
+    if not doc:
+        return set()
+    out = set(doc["members"])
+    if doc.get("inherits"):
+        out |= all_members(doc["inherits"], depth + 1)
+    return out
+
+
+def native_methods(cls, depth=0):
+    """{name: [min_args, max_args]} for `cls` and everything it inherits.
+
+    Virtual methods (_ready, _process, _input, ...) are omitted: the class
+    reference documents them with no arguments at all, so an arity comparison
+    against them reports every correct override as wrong.
+    """
+    if depth > 8:
+        return {}
+    doc = fetch_doc(cls)
+    if not doc:
+        return {}
+    out = {}
+    if doc.get("inherits"):
+        out.update(native_methods(doc["inherits"], depth + 1))
+    virt = set(doc.get("virtuals", []))
+    for name, arity in doc.get("methods", {}).items():
+        if name not in virt:
+            out[name] = arity
+    for name in virt:
+        out.pop(name, None)
+    return out
+
+
+def add(path, line, rule, msg):
+    findings.append((path, line, rule, msg))
+
+
+def split_funcs(lines):
+    """Yield (first_index, last_index_exclusive, func_signature_or_None).
+
+    A segment is either the class body (no signature) or one function. GDScript
+    is indentation-scoped, so a column-0 `func` starts a body that ends at the
+    next column-0 declaration. Tracking this matters: a parameter named `d` in
+    one function must not be assumed to have the same type as a `d` in another,
+    which is exactly the false positive this file used to produce.
+
+    A signature may wrap onto following lines; those are joined so parameters on
+    the continuation are visible to every check that reads the signature.
+    """
+    segs = []
+    cur_start = 0
+    cur_sig = None
+    for i, line in enumerate(lines):
+        if re.match(r"^(?:static\s+)?func\s", line):
+            if i > cur_start:
+                segs.append((cur_start, i, cur_sig))
+            cur_start = i
+            cur_sig = line.rstrip()
+            j = i
+            while not cur_sig.endswith(":") and j + 1 < len(lines):
+                j += 1
+                cur_sig = cur_sig + " " + lines[j].strip()
+        elif re.match(r"^(var|const|signal|enum|class|@|static var)\s*", line) \
+                and cur_sig is not None and not line.startswith("\t"):
+            segs.append((cur_start, i, cur_sig))
+            cur_start, cur_sig = i, None
+    segs.append((cur_start, len(lines), cur_sig))
+    return segs
+
+
+def types_in(lines, a, b, sig, global_types, preloads):
+    """Visible types for one segment: class members, params, local vars."""
+    t = dict(global_types)
+    if sig:
+        params = ""
+        if "(" in sig:
+            start = sig.index("(") + 1
+            end = sig.rindex(")") if ")" in sig else len(sig)
+            params = sig[start:end]
+        for part in params.split(","):
+            if ":" in part:
+                name, _, ptype = part.partition(":")
+                ptype = ptype.strip().split("=", 1)[0].strip()
+                if re.fullmatch(r"[A-Z]\w*", ptype):
+                    t[name.strip()] = ptype
+    for line in lines[a:b]:
+        m = VAR_TYPE.match(line)
+        if m:
+            t[m.group(1)] = m.group(2)
+        m = VAR_INFER.match(line)
+        if m:
+            t[m.group(1)] = m.group(2)
+        # a loop variable's type depends on the container; treat as unknown
+        m = re.match(r"\s*for\s+(\w+)\s+in\b", line)
+        if m:
+            t.pop(m.group(1), None)
+    for name in preloads:
+        t.pop(name, None)
+    return t
+
+
+def scan(path):
+    rel = os.path.relpath(path, ROOT)
+    src = open(path, encoding="utf-8").read()
+    lines = src.split("\n")
+
+    preloads = set(re.findall(r"^const\s+(\w+)\s*=\s*preload\(", src, re.M))
+    global_types = {}
+    for line in lines:
+        if line.startswith("var ") or line.startswith("@onready var ") \
+                or line.startswith("@export var "):
+            m = VAR_TYPE.match(line)
+            if m:
+                global_types[m.group(1)] = m.group(2)
+
+    for i, raw in enumerate(lines, 1):
+        code = re.sub(r'"(?:[^"\\]|\\.)*"', '""', raw)
+        code = code.split("#", 1)[0]
+        for cls in NEW_CALL.findall(code):
+            if cls in own_classes or cls in SKIP_TYPES or cls in preloads:
+                continue
+            if fetch_doc(cls) is None:
+                add(rel, i, "NO-CLASS", "%s.new() — no such engine class" % cls)
+        for cls, const in CLASS_CONST.findall(code):
+            if cls in own_classes or cls in SKIP_TYPES or cls in GD_BUILTINS \
+                    or cls in preloads:
+                continue
+            if fetch_doc(cls) is None:
+                continue
+            if const not in all_members(cls):
+                add(rel, i, "NO-CONSTANT",
+                    "%s.%s does not exist in Godot %s" % (cls, const, REF))
+
+    # Bare calls (implicit self) must exist on this script or its base chain.
+    m = re.search(r"^extends\s+([A-Z]\w*)", src, re.M)
+    self_base = m.group(1) if m else "RefCounted"
+    self_members = set(re.findall(r"^(?:static\s+)?func\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^var\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^const\s+(\w+)", src, re.M))
+    self_members |= set(re.findall(r"^signal\s+(\w+)", src, re.M))
+    for cls in own_classes:
+        self_members.add(cls)
+    base_members = all_members(self_base) if fetch_doc(self_base) else set()
+    if base_members:
+        for i, raw in enumerate(lines, 1):
+            code = re.sub(r'"(?:[^"\\]|\\.)*"', '""', raw).split("#", 1)[0]
+            code = re.sub(r"\$\w+", "", code)          # $Path node shorthand
+            for name in re.findall(r"(?<![.\w$])([a-z_]\w*)\s*\(", code):
+                if (name in self_members or name in base_members
+                        or name in GD_GLOBALS):
+                    continue
+                add(rel, i, "UNKNOWN-CALL",
+                    "%s() is not a method of this script, of %s, or a GDScript "
+                    "global — this is a parse error, not a warning"
+                    % (name, self_base))
+
+    # NATIVE_METHOD_OVERRIDE: a script method shadowing a native one with a
+    # different signature is ERROR-level, so it breaks the export outright.
+    m = re.search(r"^extends\s+([A-Z]\w*)", src, re.M)
+    base = m.group(1) if m else "RefCounted"
+    if fetch_doc(base):
+        natives = native_methods(base)
+        for i, line in enumerate(lines, 1):
+            fm = re.match(r"^(?:static\s+)?func\s+(\w+)\s*\((.*)\)", line)
+            if not fm:
+                continue
+            fname, params = fm.group(1), fm.group(2).strip()
+            if fname not in natives:
+                continue
+            argc = 0 if params == "" else len(
+                [x for x in re.split(r",(?![^()\[\]]*[)\]])", params) if x.strip()])
+            lo, hi = natives[fname]
+            if not (lo <= argc <= hi):
+                add(rel, i, "NO-OVERRIDE",
+                    "%s() takes %d arg(s) here but %s.%s takes %d-%d — "
+                    "NATIVE_METHOD_OVERRIDE is an error in Godot %s"
+                    % (fname, argc, base, fname, lo, hi, REF))
+
+    for a, b, sig in split_funcs(lines):
+        t = types_in(lines, a, b, sig, global_types, preloads)
+        for i in range(a, b):
+            code = re.sub(r'"(?:[^"\\]|\\.)*"', '""', lines[i])
+            code = code.split("#", 1)[0]
+            for var, member in MEMBER.findall(code):
+                ty = t.get(var)
+                # Variant-typed locals hold JSON results; skip them
+                if not ty or ty == "Variant" or ty in own_classes \
+                        or ty in SKIP_TYPES:
+                    continue
+                doc = fetch_doc(ty)
+                if doc is None:
+                    continue
+                if member not in all_members(ty):
+                    add(rel, i + 1, "NO-MEMBER",
+                        "%s is a %s and has no '%s' in Godot %s"
+                        % (var, ty, member, REF))
+
+
+def main():
+    global REF, SKIP_TYPES, own_classes
+    REF = godot_version()
+    SKIP_TYPES = set()
+    own_classes = set()
+    for base, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in (".git", ".godot", "build")]
+        for f in files:
+            if f.endswith(".gd"):
+                own_classes |= set(re.findall(
+                    r"^class_name\s+(\w+)",
+                    open(os.path.join(base, f), encoding="utf-8").read(), re.M))
+    print("api_check: verifying against Godot %s class reference" % REF)
+
+    gd = []
+    for base, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in
+                   (".git", ".godot", "build", "node_modules", "__pycache__")]
+        for f in files:
+            if f.endswith(".gd"):
+                gd.append(os.path.join(base, f))
+
+    for path in sorted(gd):
+        scan(path)
+
+    if not any(docs.values()):
+        print("api_check: could not reach the Godot class reference "
+              "(no network / no token) — skipped, not failed")
+        return 0
+
+    if findings:
+        seen = set()
+        print("api_check: %d finding(s)" % len(findings))
+        for path, line, rule, msg in sorted(findings):
+            key = (rule, msg)
+            if key in seen:
+                continue
+            seen.add(key)
+            print("  %-11s %s:%d  %s" % (rule, path, line, msg))
+        return 1
+    print("api_check: clean (%d files, %d engine classes verified)"
+          % (len(gd), len([c for c in docs.values() if c])))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

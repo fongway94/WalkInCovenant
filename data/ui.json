@@ -1,0 +1,11 @@
+{
+ "journal": {
+  "title": {"en": "The pilgrim's book", "zh": "行囊手记"},
+  "objective": {"en": "Now", "zh": "现在"},
+  "verses": {"en": "Verses carried", "zh": "带着的经文"},
+  "stones": {"en": "Smooth stones", "zh": "光滑的石子"},
+  "seals": {"en": "Marks", "zh": "记号"},
+  "empty": {"en": "Nothing yet.", "zh": "还什么都没有。"},
+  "close": {"en": "Close", "zh": "收起"}
+ }
+}
