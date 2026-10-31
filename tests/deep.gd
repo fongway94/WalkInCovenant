@@ -424,7 +424,15 @@ func _check_touch_interact() -> void:
 	if region == null or main.touch == null:
 		_check(false, "the world and its touch layer exist")
 		return
-	await _drain(region.dialogue)
+	# Settle the world first. The previous check deliberately ends by standing in
+	# a trigger's area with a box open, and that trigger fires when the box
+	# closes — so one drain is not enough, and a paused world would make this
+	# test about the last test rather than about the tap.
+	var settle := 0
+	while (region.dialogue.is_open() or region.is_paused()) and settle < 60:
+		await _drain(region.dialogue)
+		await _frames(2)
+		settle += 1
 	# Someone who has not been spoken to yet, so the tap is the first one.
 	var npc: Npc = null
 	for cand in ["boy", "woman", "elder"]:
