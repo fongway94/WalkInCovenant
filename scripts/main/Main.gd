@@ -350,7 +350,7 @@ func _on_missions_done() -> void:
 func _tick_armour(delta: float) -> void:
 	if act != Act.ARMOUR or _armour_busy or region.player == null:
 		return
-	if region.dialogue.is_open() or region.is_paused():
+	if region.dialogue.is_open():
 		return
 	# Measured in "time spent trying to walk", not in distance covered: a player
 	# pushing into a tent pole is still finding out that they cannot walk, and
