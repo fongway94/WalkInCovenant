@@ -62,8 +62,12 @@ func _run() -> void:
 	_check_place_at_solid()
 	await _check_dialogue_taps()
 	await _check_touch_interact()
+	await _check_two_thumbs()
 	await _check_journal_escape()
 	await _check_journal_verse_text()
+	await _check_journal_language()
+	await _check_pouch_restore()
+	await _check_place_card_language()
 	await _check_drill_keys()
 	await _check_fight_input()
 	await _check_duel_resupply()
@@ -426,6 +430,46 @@ func _check_dialogue_taps() -> void:
 ## action. That indirection has broken before ("cant talk with npc"), and a test
 ## that calls `npc.talk()` would never have seen it. This sends a real
 ## InputEventScreenTouch at the A button's drawn position and uses nothing else.
+# ── BUG-032: two thumbs, and the A button one of them is holding ──────────
+## A phone is used with two fingers at once: one walks, the other answers. The
+## release path matched a release to a control by *kind* rather than by finger,
+## so lifting the walking thumb sent the A release as well — a thumb still
+## resting on A was silently cancelled.
+func _check_two_thumbs() -> void:
+	var touch: TouchControls = main.touch
+	if touch == null:
+		_check(false, "the touch layer exists")
+		return
+	touch.release_all()
+	# The A press is delivered as a real action, exactly as it is on a phone. With
+	# the world live, that could open a conversation wherever the suite happens to
+	# be standing, so the world is held still for the length of the check — the
+	# touch layer itself does not consult `paused`.
+	var was_paused: bool = main.region.is_paused()
+	main.region.set_paused(true)
+	var vs: Vector2 = touch.get_viewport().get_visible_rect().size
+	var stick := Vector2(vs.x * 0.25, vs.y * 0.62)
+	var a_btn := Vector2(vs.x - 30.0, vs.y - 26.0)
+	# Finger 0 walks.
+	touch._press(true, stick, 0, vs)
+	touch._drag(stick + Vector2(24, 0))
+	_check(touch._stick_id == 0, "the walking thumb owns the stick")
+	_check(main.region.player.external_intent != Vector2.ZERO,
+		"and dragging it is actually pushing the player")
+	# Finger 1 answers.
+	touch._press(true, a_btn, 1, vs)
+	_check(touch._a_held, "the second thumb presses A while the first is walking")
+	# Finger 0 lifts. Finger 1 has not.
+	touch._press(false, stick, 0, vs)
+	_check(touch._a_held,
+		"and lifting the walking thumb does not release the answer button")
+	_check(touch._stick_id == -1, "the stick is still put down")
+	touch._press(false, a_btn, 1, vs)
+	_check(not touch._a_held, "while lifting the answering thumb does release it")
+	touch.release_all()
+	main.region.set_paused(was_paused)
+
+
 func _check_touch_interact() -> void:
 	var region = main.region
 	if region == null or main.touch == null:
@@ -704,6 +748,10 @@ func _check_journal_verse_text() -> void:
 		_check(false, "the region hands out verses")
 		return
 	var w: Dictionary = words[0]
+	# The checks after this one count the verses in the save (the witness will not
+	# turn back until four people have spoken to him), so the word is put back
+	# afterwards: a test may not move the world it is standing in.
+	var bag: Array = (GameState.data["words"] as Array).duplicate()
 	GameState.receive_word(str(w["id"]), str(w["ref"]))
 	var want := I18n.t(w.get("text", {})).strip_edges()
 	main._open_journal()
@@ -721,6 +769,90 @@ func _check_journal_verse_text() -> void:
 	_check(n == 1, "and opening it twice does not duplicate the verse (found %d)" % n)
 	main._close_journal()
 	await _frames(2)
+	GameState.data["words"] = bag
+
+
+# ── BUG-029: the book follows the switch too ──────────────────────────────
+## The HUD's language button is on screen around an open book. The book was built
+## once, in the language it was opened in, and stayed that way — title, headings,
+## verses, marks and its own close button.
+func _check_journal_language() -> void:
+	var before := I18n.lang
+	I18n.set_lang("zh")
+	main.region.set_paused(false)
+	main._open_journal()
+	await _frames(3)
+	var close_before := str(main.journal._close_btn.text)
+	var title_before := str(main.journal._title.text)
+	I18n.set_lang("en")
+	await _frames(3)
+	_check(str(main.journal._title.text) == I18n.t(CampaignModel.current().get("title", {})),
+		"the book's title follows the language switch")
+	_check(str(main.journal._close_btn.text) == I18n.t(main.journal._labels.get("close", {})),
+		"and so does its close button (was '%s', now '%s')"
+			% [close_before, str(main.journal._close_btn.text)])
+	# The objective at the top is recomputed, not translated in place: it is the
+	# HUD's own sentence, and it must agree with what the HUD now says.
+	_check(str(main.journal._body.get_child(1).text).strip_edges()
+			== str(main.hud.objective_lbl.text).strip_edges(),
+		"and the objective line is the one the HUD is showing")
+	main._close_journal()
+	await _frames(2)
+	_check(str(main.journal._title.text).length() > 0 and title_before != "",
+		"the page was actually printed before the switch")
+	I18n.set_lang(before)
+
+
+# ── BUG-030: a save restores the pouch on screen, not only in memory ──────
+## _on_region_ready() blanks the counter (it must not be up while the witness is
+## still watching the valley); the resume then read `stones` back into the script
+## and never told the HUD, so a reload after the brook showed an empty pouch.
+func _check_pouch_restore() -> void:
+	var old_stones: int = main.stones
+	var old_total: int = main.hud._stones_total
+	var old_prov: int = main.provisions
+	var old_brothers: bool = main._brothers_met
+	var old_index: int = main._resume_index
+	var saved_progress: Dictionary = GameState.data.get("progress", {})
+	main.hud.set_stones(0, 0)
+	# No "pos" key: _restore_pos() leaves the player where they are, so this
+	# check cannot move the world out from under the tests after it.
+	GameState.data["progress"] = {"act": "ready", "stones": 5}
+	main._resume_story()
+	_check(main.stones == 5 and main.hud._stones_n == 5,
+		"a save mid-chapter brings the pouch back with the stones in it (hud said %d)"
+			% main.hud._stones_n)
+	_check(main.hud._stones_total >= 5 and main.hud.stones_lbl.visible,
+		"and the counter is on screen, not hidden at 0/0")
+	main.stones = old_stones
+	main.provisions = old_prov
+	main._brothers_met = old_brothers
+	main._resume_index = old_index
+	main.hud.set_stones(old_stones, old_total)
+	GameState.data["progress"] = saved_progress
+
+
+# ── BUG-031: the place card is on screen during the switch too ────────────
+func _check_place_card_language() -> void:
+	var before := I18n.lang
+	I18n.set_lang("en")
+	main.card._busy = false
+	main.card.show_card({"en": "Bethlehem", "zh": "伯利恒"},
+		{"en": "the house of bread", "zh": "粮食之家"})
+	await _frames(2)
+	_check(str(main.card.title_lbl.text) == "Bethlehem", "the place card names the place")
+	I18n.set_lang("zh")
+	await _frames(2)
+	_check(str(main.card.title_lbl.text) == "伯利恒"
+			and str(main.card.sub_lbl.text) == "粮食之家",
+		"and names it in the language the player is now reading (got '%s')"
+			% str(main.card.title_lbl.text))
+	# The card is a tween with a 2.4s hold: put it away rather than letting it
+	# hold the screen for the rest of the suite.
+	main.card.title_lbl.modulate.a = 0.0
+	main.card.sub_lbl.modulate.a = 0.0
+	main.card._busy = false
+	I18n.set_lang(before)
 
 
 func _journal_has(text: String) -> bool:

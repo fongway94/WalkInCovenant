@@ -99,6 +99,11 @@ func _ready() -> void:
 	journal = Journal.new()
 	add_child(journal)
 	journal.closed.connect(_close_journal)
+	# The language switch lives on the HUD, which is always on screen — including
+	# around an open book. One connection, made once, so a reprinted page cannot
+	# re-connect itself into a second call.
+	if not I18n.language_changed.is_connected(_on_language_changed):
+		I18n.language_changed.connect(_on_language_changed)
 
 	hud = Hud.new()
 	add_child(hud)
@@ -872,6 +877,12 @@ func _resume_story() -> void:
 	var pr: Dictionary = GameState.data.get("progress", {})
 	var was := str(pr.get("act", "witness"))
 	stones = int(pr.get("stones", 0))
+	# The pouch is part of the state a save restores. It was read back but never
+	# handed to the HUD, which _on_region_ready() has just blanked — so a player
+	# who reloaded after choosing the five stones walked to the line carrying
+	# nothing the screen would admit to (BUG-030).
+	if stones > 0 and hud != null:
+		hud.set_stones(stones, maxi(_stones_total, stones))
 	provisions = int(pr.get("provisions", 0))
 	_brothers_met = bool(pr.get("brothers", false))
 	_restore_pos(pr)
@@ -1145,6 +1156,19 @@ func _open_journal() -> void:
 		return
 	if _in_battle or fight != null or practice != null:
 		return
+	region.set_paused(true)
+	# `ui.wav` was the one sound in the shelf nothing ever asked for, and the book
+	# and the two switches were the interactions that answered with nothing.
+	AudioDirector.play_sfx("ui", -12.0)
+	_print_journal()
+
+
+## The book's page, built from the live save. Separate from opening it because a
+## language switch has to reprint the page the player is already reading — with
+## a freshly recomputed objective line, not the one captured in the old language.
+func _print_journal() -> void:
+	if journal == null or region == null:
+		return
 	var refs: Array = []
 	for id in (GameState.data.get("words", []) as Array):
 		for w in region.model.words:
@@ -1157,12 +1181,20 @@ func _open_journal() -> void:
 	for sid in seals:
 		titles[str(sid)] = GameState.seal_title(str(sid))
 	var c: Dictionary = CampaignModel.current()
-	region.set_paused(true)
-	# `ui.wav` was the one sound in the shelf nothing ever asked for; the book
-	# and the two switches are the interactions that had no answer at all.
-	AudioDirector.play_sfx("ui", -12.0)
 	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
 		stones, _stones_total, seals, titles)
+
+
+## The two HUD switches can be pressed with the book open. Everything on the
+## page that comes from data re-reads itself on reprint; the objective is
+## recomputed here first, so the sentence at the top of the page is in the
+## language the rest of it just changed to.
+func _on_language_changed(_lang: String) -> void:
+	if region == null:
+		return
+	_update_guidance()
+	if journal != null and journal.is_open():
+		_print_journal()
 
 
 func _close_journal() -> void:
