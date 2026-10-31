@@ -465,13 +465,15 @@ func _run() -> void:
 		"and he moves at %.0f%% of his own speed" % (dave.speed_scale() * 100.0))
 	_check(main.hud.prompt_lbl.visible, "the way out of the armour is on screen")
 	_check(main.fight == null, "the king does not start the fight")
-	# Walk in it. The intent is the same vector a thumb would push.
-	dave.external_intent = Vector2(1, 0)
+	# Walk in it, through the real input path: the keyboard action the stick
+	# emulates. (Poking external_intent would not do: TouchControls rewrites it
+	# every frame from the thumb, which is exactly what a test should respect.)
+	Input.action_press("move_right")
 	var stagger := 0
 	while main.act_id() == "armour" and stagger < 240:
 		await get_tree().process_frame
 		stagger += 1
-	dave.external_intent = Vector2.ZERO
+	Input.action_release("move_right")
 	_check(stagger < 240, "walking in the armour ends the scene (after %d frames)" % stagger)
 	_check(region.dialogue._open, "and it ends in 17:39, on screen")
 	_drain(region.dialogue)
