@@ -17,6 +17,13 @@ extends Node
 const TILE := 16.0
 
 var fails := 0
+var passes := 0
+## A floor, not a target. Deleting or skipping checks is the cheapest way to make
+## a red suite green, and nothing else in this project can see the difference
+## between "the suite passes" and "the suite stopped asking". The number is
+## deliberately below the count at the time of writing (116 call sites), so it
+## fails only on real loss of coverage.
+const MIN_CHECKS := 100
 var main = null
 
 
@@ -1055,6 +1062,7 @@ func _check_save_shape() -> void:
 # ── harness ───────────────────────────────────────────────────────────────
 func _check(ok: bool, msg: String) -> void:
 	if ok:
+		passes += 1
 		print("  ok    " + msg)
 	else:
 		fails += 1
@@ -1090,8 +1098,12 @@ func _find(region, id: String) -> Npc:
 
 
 func _finish() -> void:
+	if passes < MIN_CHECKS:
+		fails += 1
+		printerr("  FAIL  the suite ran %d checks; it must run at least %d"
+			% [passes, MIN_CHECKS])
 	if fails == 0:
-		print("deep: PASS — every regression check holds")
+		print("deep: PASS — %d checks hold" % passes)
 		get_tree().quit(0)
 	else:
 		printerr("deep: %d FAILURE(S)" % fails)

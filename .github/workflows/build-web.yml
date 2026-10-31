@@ -486,6 +486,11 @@ jobs:
   # the game is playable locally in the meantime.
   deploy:
     needs: export-web
+    # Pages has an environment protection rule that lets only `main` deploy, so
+    # every working-branch push used to end in a red deploy job after a fully
+    # green lint and export — a build that had nothing wrong with it reported as
+    # a failure. A branch is checked, not published: its artifact is the build.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

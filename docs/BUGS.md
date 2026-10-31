@@ -9,6 +9,8 @@ run in which its own check executed and passed:
 
 | Run | Commit | Result |
 |---|---|---|
+| `41210725885` | `f01f81b` | pass 3: lint ✅ (static gates, content lint + reachability, playthrough, regression suite with the ten new checks) · export ✅ · deploy rejected by the Pages environment rule (only `main` may deploy) — the workflow now skips deploy on a working branch |
+| `41203462329` | `e7e7c40` | merge of pass 1–2 to `main`: lint ✅ · export ✅ · deploy ✅ |
 | `41197972787` | `85d24db` | lint ✅ (incl. the phone's A→world check) · export ✅ · deploy ✅ |
 | `41195649414` | `805de7c` | lint ✅ (incl. the HUD band measurement) · export ✅ · deploy ✅ |
 | `41195229562` | `9b67f29` | lint ✅ (incl. the choice-box button check) · export ✅ · deploy ✅ |
@@ -25,6 +27,14 @@ run in which its own check executed and passed:
 | `41197178237` | `3992d4e` | red: preconditions green, tap still inert — the message split "the touch never arrived" from "nobody was in reach" |
 | `41197584293` | `9049467` | red: `interact_action_opens=true` — the world's path worked, the parsed touch did not |
 | `41178541547` | `7a5cabe` | red: seven suite failures, caused by un-awaited test coroutines — a fault in the *test*, fixed by fixing the test, not by weakening it |
+
+**What proves a check actually ran.** A green job is not proof that a check
+still exists: the regression suite now counts the checks it passes and fails if
+the count falls below a floor (`MIN_CHECKS`), and prints the count in its PASS
+line. The suite also had to be reachable at all — the workflow listed one
+working branch by name, so the first push of this pass ran **no** build and the
+entries below would have been reported from a commit CI never compiled. That is
+fixed too; it is recorded here because "green" and "ran" are not the same claim.
 
 **Method.** The build cannot be run in the authoring sandbox (Godot's release
 binaries are on a host outside its network), so the loop is: inspect the source
