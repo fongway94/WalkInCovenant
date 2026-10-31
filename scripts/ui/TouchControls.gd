@@ -173,12 +173,22 @@ func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
 	viz.queue_redraw()
 
 
-## Is this event mine? A press belongs to this layer if it lands on a button or
-## on the stick half; a release belongs to it if it finishes something we started.
-## Anything else (a tap in the top-right, a tap on the book) is left alone.
+## Is this event mine? A press belongs to this layer if it lands on a button, or
+## on the stick half BELOW the top HUD band; a release belongs to it if it
+## finishes something we started.
+##
+## The band matters: this layer consumes what it claims, and `_input` runs before
+## the GUI system. The book (≡) and the language switch are real Buttons in the
+## top left, so claiming the whole left half swallowed them — a tap that was
+## meant to open the journal went to the stick instead. Above the band, the HUD's
+## own controls get the tap.
+const HUD_BAND := 0.22
+
 func _owns(pos: Vector2, pressed: bool, idx: int, vs: Vector2) -> bool:
 	if pressed:
-		return _zone_a(pos, vs) or _zone_run(pos, vs) or pos.x < vs.x * 0.5
+		if _zone_a(pos, vs) or _zone_run(pos, vs):
+			return true
+		return pos.y > vs.y * HUD_BAND and pos.x < vs.x * 0.5
 	if idx == _stick_id:
 		return true
 	return _a_held or _run_held

@@ -167,6 +167,15 @@ func _run() -> void:
 	_check(main.card != null and main.card.title_lbl.text == I18n.t(region.model.display_name),
 		"the caption says the region's name, not a hardcoded one")
 
+	# The book and the language switch are real Buttons in the top-left. The
+	# touch layer consumes what it claims and runs before the GUI, so it must not
+	# claim the top band — tapping ≡ has to open the book, not start a walk.
+	var vs_top: Vector2 = get_viewport().get_visible_rect().size
+	_check(not main.touch._owns(Vector2(8, 20), true, 0, vs_top),
+		"a tap on the book button belongs to the HUD, not the stick")
+	_check(main.touch._owns(Vector2(40, vs_top.y - 40), true, 0, vs_top),
+		"a tap in the stick half still belongs to the stick")
+
 	# ── 2b. guidance: a goal on screen and a button that reaches the game ─
 	# Playtest 6 could not tell what to do and could not talk to anybody. Both
 	# are asserted here, because both were invisible to the compiler: the HUD
