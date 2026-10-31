@@ -12,8 +12,64 @@ browser, so:
 - **READ** = proven by reading the code; not executed.
 - **DEVICE** = needs a human on a phone. Not claimed.
 
-Latest green run: **41163459324** — lint → export → deploy all succeeded.
+Latest green run: **41168702816** — lint → export → deploy all succeeded.
 Live: <https://fongway94.github.io/WalkInCovenant/>
+
+---
+
+## Mission architecture pass — the spine, the armour, and the stones
+
+### MissionRunner
+
+`Main.gd` was the chapter: order, objectives, rewards and mechanics in one file.
+The **order, objectives and rewards are now data** (`missions` in the region
+file) and the lifecycle lives in `scripts/systems/MissionRunner.gd`; `Main` keeps
+only the mechanics a story needs, hooked in by the mission's `enter` name.
+
+Two decisions worth flagging, because they went wrong first:
+
+- **Two condition kinds, not a language.** `flag` and `count`. Everything else is
+  an interaction, and interactions belong in the mission's own code.
+- **Transitions are event-driven, not polled.** With polling, `elah_ended` and
+  the runner's next frame could disagree, and the chapter walked *back* a beat
+  after the ending. `Main._story_flag()` sets the flag and ticks the runner in
+  the same breath. That bug was found by the smoke test, not by reading.
+
+Rewards are granted behind a save flag (`mission:<id>:rewarded`), and the test
+completes the same mission twice to prove nothing pays twice.
+
+### Saul's armour (1 Samuel 17:38-39)
+
+The armour was a paragraph. It is now a scene: the world comes back wearing it —
+speed at 42%, a stagger drawn into the walk, bronze helmet and coat of mail drawn
+over David — and it ends when the player has genuinely tried to walk (0.9 s of
+intent, so pushing into a tent pole counts), or immediately on A. 17:39 is
+spoken at the moment of taking it off.
+
+Bugs found and fixed while testing this: the scene re-fired as soon as its box
+closed (the player got 17:39 in a loop), and it measured distance covered rather
+than intent, so a player walking into a wall never finished it.
+
+### Five stones by hand (1 Samuel 17:40)
+
+`scripts/setpiece/StoneChoice.gd`: nine stones in the shallow water, tap to take,
+tap again to put back, five wanted, a `KEEP THEM` button once the fifth is in the
+bag, a sixth stone refused. 17:40 is spoken *after* the choice, because the verse
+reports what he did. The bag fills at the bottom of the screen, in the same pixel
+world as the brook, so it reads as picking stones and not as a menu.
+
+**Files.** `scripts/systems/MissionRunner.gd` (new), `scripts/setpiece/StoneChoice.gd`
+(new), `scripts/main/Main.gd`, `scripts/world/Player.gd` (armour), 
+`scripts/systems/RegionModel.gd` (`missions`), `data/regions/elah.json`
+(missions, armour block, brook block), `tests/run_all.gd` (mission gate),
+`tests/smoke.gd` (§6c2 armour, §6c3 stones, §9b resume, rewards-once).
+
+**Tested (CI).** The whole chapter again, including: armour on → speed 0.42 →
+walk → 17:39 → armour off → speed 1.0; the brook opening only when reached;
+taking and putting back a stone; three, then five, then a refused sixth;
+confirming; exactly five in the pouch; the mission gate reopening the line; and
+a save that resumes into the right mission. **Not tested:** the feel of the
+armour's weight or the picking hand on a real phone.
 
 ---
 

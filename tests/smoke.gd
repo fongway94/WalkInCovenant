@@ -487,10 +487,6 @@ func _run() -> void:
 	_check(not bool(dave.armour), "the armour comes off")
 	_check(absf(dave.speed_scale() - 1.0) < 0.001, "and David walks like himself again")
 	_check(bool(GameState.flag("elah_armour_off")), "the chapter records that it came off")
-	print("  diag  mission=%s closing=%s flag=%s paused=%s open=%s" % [
-		str(main.runner.current_id()), str(main.runner._closing),
-		str(GameState.flag("elah_armour_off")), str(region._paused),
-		str(region.dialogue._open)])
 	_check(main.act_id() == "stones",
 		"the mission moves on to the brook (act=%s)" % main.act_id())
 	_check(int(main._stones_total) == 5, "the brook asks for five stones (got %d)" % int(main._stones_total))
@@ -675,6 +671,15 @@ func _run() -> void:
 	for sid in ["first_verse", "five_stones", "the_drill", "the_argument",
 			"giant_down", "chapter_one"]:
 		_check(_has(GameState.data["seals"], str(sid)), "the mark '%s' was earned" % sid)
+	# Mission rewards are granted once, guarded by a save flag — a reload cannot
+	# pay them twice, and a second completion is a no-op.
+	_check(bool(GameState.flag("mission:the_line:rewarded")),
+		"the chapter's last mission records that it has paid out")
+	var relics_before := (GameState.data["relics"] as Array).size()
+	main.runner.complete()
+	main.runner.complete()
+	_check((GameState.data["relics"] as Array).size() == relics_before,
+		"completing the same mission twice pays nothing twice")
 	_check(not region._paused, "the valley is unpaused after RETURN")
 	_check(region.player != null, "you are still yourself after RETURN")
 	_check(_tile_of(region.player) == Vector2i(16, 14), "you are stood back south of the line, past the re-arm row")

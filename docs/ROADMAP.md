@@ -29,9 +29,13 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
    slope, and the sling drill that teaches the one input the fight asks for.
 8. **Jesse's errand** — provisions, the walk, and the brothers who want him gone
    (17:17-28).
-9. **Saul** — the armour that cannot be walked in (17:31-39).
-10. **The brook** — 17:40 is spoken, and the five stones appear in the shallow
-    water for the first time in the game. Five, not six.
+9. **Saul** — the armour goes *on*, and the player is handed the world back
+   wearing it: 42% speed, a stagger in the walk, bronze drawn over the sprite.
+   The scene ends when they have actually tried to walk, or on A. Then 17:39.
+10. **The brook** — the picking scene: nine stones in the water, tap to take,
+    tap to put back, five wanted, a KEEP THEM button when the fifth is in the
+    bag. 17:40 is spoken after the choice, because the verse reports what he
+    did.
 11. **The line, as David** — 17:44-45, then a real duel: telegraph, spear,
     step aside, aim, throw. Three stones, five in the pouch, no game over.
 12. **The aftermath** — the giant falls and stays on screen while 17:47 is
@@ -55,6 +59,9 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 | Autosave + resume into the right act | done | CI smoke §9b |
 | Bilingual content, verse integrity, font coverage | done | CI run_all + check_font |
 | Ending, chapter completion, seals, XP, free roam | done | CI smoke §7c/§8 |
+| `MissionRunner`: missions as data, lifecycle in one place | done | CI smoke whole run + run_all mission gate |
+| Saul's armour is a playable scene (weight, look, 17:39) | done | CI smoke §6c2 |
+| Five stones chosen by hand at the brook | done | CI smoke §6c3 |
 
 ## Known gaps (honest)
 
@@ -63,19 +70,46 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 | How any of it *feels* on a real phone | No device and no browser in the build environment. Layout is proven geometrically, not by eye. |
 | Audio mix, music transitions | SFX and music are wired; nobody has heard the mix on a phone speaker. |
 | Mission *types* beyond walk/talk/drill/fight | The chapter uses four interaction shapes. More (carrying a load and being turned back, choosing stones with the verse attached) are designed in `RESET-REPORT.md` but not built. |
-| `Main.gd` still carries this chapter's story | ~900 lines. It is the last campaign-specific piece; a `MissionRunner` driven by a `missions` list in data is the refactor that makes campaign #2 a content change. Deliberately after the chapter is stable. |
+| `Main.gd` is still ~1,050 lines | The mission *order* and the rewards now live in data, and the HUD/guidance is generic — but this chapter's mechanics (drill, errand, armour, brook, duel) are still functions here. That is the intended split: the runner is reusable, the mechanics are this campaign's. A second campaign would add a ~200-line campaign script of its own, not edit this one. |
 | Mid-act resume replays the act's opening beat | Honest and safe: the chapter, not the frame. Documented in `Main._resume_story`. |
 | Chinese as a native reader would judge it | Rewritten throughout by hand; needs your ear, not mine. |
 
+## MissionRunner — how the chapter is wired now
+
+`scripts/systems/MissionRunner.gd` owns the lifecycle, once, for every mission:
+
+    briefing → objective → tracking → completion → rewards (once) → next
+
+A mission is a dictionary in `data/regions/elah.json`:
+
+    {"id": "brook_stones", "act": "stones", "objective": "brook",
+     "enter": "brook",
+     "complete": {"kind": "count", "key": "stones", "at_least": 5}}
+
+- **`enter`** names a mechanic this chapter implements (`become_david`, `errand`,
+  `saul`, `brook`, `ready`). `Main` switches on that name — the runner never
+  knows what a sling is.
+- **Completion conditions** are two kinds on purpose: `flag` and `count`. A
+  condition *language* is where mission systems go to die; anything richer is an
+  interaction, and interactions belong in the mission's own code.
+- **Rewards** (`xp`, `seal`, `relic`, `fruit`) are granted by the runner behind a
+  save flag (`mission:<id>:rewarded`), so a reload cannot pay twice.
+- **Transitions are event-driven**: `Main._story_flag()` sets a flag and ticks the
+  runner in the same breath. Polling alone left a one-frame window in which the
+  chapter had already ended and the runner then walked it *back* a beat — the
+  exact kind of bug a dual state machine invites.
+- A resumed save is "start the list at this index", so a reload replays the
+  current mission's opening beat instead of dropping the player mid-scene.
+
+The chapter list: `witness_camp → witness_line → shepherd_drill → errand →
+saul_armour → brook_stones → the_line → aftermath`.
+
 ## Next, in order
 
-1. `MissionRunner` — missions as data (objective, briefing, completion,
-   reward, transition) so `Main` is boot and wiring, and campaign #2 needs no
-   script. This is also the fix for "the chapter is a chain of beats" if it ever
-   reads that way again.
-2. Two more interaction shapes in David's act: the armour *walk* (slow, clumsy,
-   then take it off) and choosing the five stones by hand with 17:40 attached.
-3. A second region stub (Bethlehem, Ruth 1–4) purely to prove the registry, then
-   stop — no second campaign content this pass.
-4. Device pass: real phone, landscape, several aspect ratios, touch through the
-   whole chapter.
+1. Device pass: real phone, landscape, several aspect ratios, thumbs through the
+   whole chapter. Nothing here replaces that.
+2. A second region stub (Bethlehem, Ruth 1–4) with its own `missions` list, purely
+   to prove the registry and the data contract, then stop.
+3. The armour and the brook are the template for "unique mechanics with a shared
+   spine": the next chapter's mechanics should be a campaign script that talks to
+   `MissionRunner`, never a branch inside `Main.gd`.
