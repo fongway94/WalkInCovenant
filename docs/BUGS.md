@@ -33,7 +33,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 18 found, 18 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 19 found, 19 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -393,6 +393,35 @@ save-corruption class and is fixed structurally rather than worked around.
   pickup by standing on it, asserts the flag, then asks the region for the same
   item again and asserts it does **not** come back, and that the derived count
   agrees.
+
+## BUG-019 — a question could only be answered with a mouse or a thumb
+
+- **Severity:** P2 · **Status:** Fixed
+- **Where:** `scripts/story/DialogueBox.gd` → `_input()`, `_open_choices()`, `_pick()`
+- **Reproduce:** reach any choice — the ending's question is the one that
+  matters — and press the game's one button (A on the phone, Space/E on a
+  keyboard, the pad's A). Nothing. The answers are `Button`s; the only ways in
+  were a mouse click, a tap, or the number keys, none of which the game ever
+  tells the player about.
+- **Expected:** the same button that advances every other line answers a
+  question, and a d-pad player can reach the second answer at all.
+- **Actual:** with a gamepad the chapter's final question was a dead end, and on
+  a desktop the game's own control scheme silently stopped working at the one
+  moment it asks the player what they want to do.
+- **Root cause:** choices were built as GUI widgets and the input path was
+  written for widgets — "the click will land on the Button" — while every other
+  line in the game is driven by `_input` and the `interact` action. Two input
+  models, one screen.
+- **Fix:** the in-choices branch of `_input` now understands the d-pad
+  (left/right/up/down move the highlight, wrapping), and `interact` / `ui_accept`
+  / Space / Enter answer the highlighted one. The highlight is a real focus ring
+  (`grab_focus`), so the player can see what the button will do. `_pick()` is
+  also idempotent now: the game path and the Button's own `pressed` signal can
+  both deliver one press, and picking an ending twice must not run its callback
+  twice.
+- **Regression test:** `tests/deep.gd` → `_check_choice_keys()`, which opens a
+  two-answer box, pushes a real `KEY_DOWN` and a real `interact` action through
+  `Input.parse_input_event`, and asserts the second answer is the one chosen.
 
 ---
 

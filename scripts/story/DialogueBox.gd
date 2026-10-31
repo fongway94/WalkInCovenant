@@ -57,6 +57,7 @@ var _open := false
 var _in_choices := false
 var _choices: Array = []
 var _on_pick: Callable = Callable()
+var _choice_i := 0        # which answer has the highlight (BUG-019)
 var _blip_acc := 0
 var _box_id := 0          # increments every time a new beat opens
 var _idle := 0.0          # seconds since the last input while open
@@ -417,21 +418,49 @@ func _input(event: InputEvent) -> void:
 	_idle = 0.0
 
 	if _in_choices:
-		# A choice box must never be a trap either: Escape closes the beat, and
-		# the number keys pick. It is NOT "any key picks the first option" any
-		# more — walking away with W picked an answer for the player (AUDIT B5).
-		if event is InputEventKey and (event as InputEventKey).pressed \
-				and not (event as InputEventKey).echo:
-			var code := (event as InputEventKey).keycode
+		# A choice box must never be a trap either: Escape closes the beat, the
+		# number keys pick, and — since an answer could otherwise only be given
+		# with a mouse or a thumb — the d-pad moves the highlight and the same
+		# one button that advances every other line answers. The A button on the
+		# phone, the pad, and Space/Enter all arrive as "interact"/"ui_accept";
+		# before this they reached nothing at all while answers were on screen
+		# (BUG-019). It is still NOT "any key picks the first option" — walking
+		# away with W picked an answer for the player (AUDIT B5), so W and A are
+		# only ever a direction here.
+		var want := -1
+		var step := 0
+		if event is InputEventKey:
+			var k := event as InputEventKey
+			if not k.pressed or k.echo:
+				return
+			var code := k.keycode
 			if code == KEY_ESCAPE:
 				_finish()
+				get_viewport().set_input_as_handled()
+				return
 			elif code >= KEY_1 and code <= KEY_9:
 				var idx := code - KEY_1
 				if idx < _choices.size():
-					_pick(idx)
+					want = idx
+			elif code in [KEY_UP, KEY_LEFT]:
+				step = -1
+			elif code in [KEY_DOWN, KEY_RIGHT]:
+				step = 1
+			elif code in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] \
+					or event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+				want = _choice_i
 			else:
 				return
-			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+			want = _choice_i
+		else:
+			# Taps and clicks belong to the answer buttons themselves.
+			return
+		if step != 0:
+			_move_choice(step)
+		elif want >= 0 and want < _choices.size():
+			_pick(want)
+		get_viewport().set_input_as_handled()
 		return
 
 	# Touch and mouse are the same gesture as far as this box is concerned; the
@@ -597,11 +626,36 @@ func _open_choices(options: Array) -> void:
 		var picked := idx
 		b.pressed.connect(func(): _pick(picked))
 		choice_box.add_child(b)
+	_choice_i = 0
+	_focus_choice()
 	if _pages.size() > 0:
 		# the question stays whole behind the answers
 		_shown = float(_current_page_text().length())
 		text_lbl.text = _current_page_text()
 		adv.visible = false
+
+
+## Put the ring on an answer, so a keyboard or pad player can see what A will do.
+func _focus_choice() -> void:
+	if choice_box == null or not _in_choices:
+		return
+	var kids := choice_box.get_children()
+	if kids.is_empty():
+		return
+	_choice_i = clampi(_choice_i, 0, kids.size() - 1)
+	var b: Button = kids[_choice_i] as Button
+	if b != null:
+		b.grab_focus()
+
+
+## Wrap-around, because a two-answer question at the bottom of the screen is not
+## the place to teach a player that the list does not wrap.
+func _move_choice(step: int) -> void:
+	var n := choice_box.get_child_count()
+	if n <= 0:
+		return
+	_choice_i = ((_choice_i + step) % n + n) % n
+	_focus_choice()
 
 
 ## Choices used the engine's default theme and were the one place the pixel style
@@ -618,6 +672,10 @@ func _choice_style(alpha: float) -> StyleBoxFlat:
 
 
 func _pick(idx: int) -> void:
+	# The answer can arrive twice — the game's input path and the button's own
+	# signal — and picking an ending twice must not run its callback twice.
+	if not _in_choices or idx < 0 or idx >= _choices.size():
+		return
 	_in_choices = false
 	_clear_choices()
 	choice_box.visible = false

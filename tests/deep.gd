@@ -63,6 +63,7 @@ func _run() -> void:
 	await _check_journal_escape()
 	await _check_drill_keys()
 	await _check_fight_input()
+	await _check_choice_keys()
 	_finish()
 
 
@@ -476,6 +477,54 @@ func _check_fight_input() -> void:
 	Engine.time_scale = 24.0
 	f.queue_free()
 	await _frames(2)
+
+
+# ── BUG-019: a question can be answered with the one button ───────────────
+## Answers were Buttons and nothing else: the game's single button, the pad and
+## the phone's A reached the choice box and stopped there, so the ending's
+## question could only be answered with a mouse or a thumb. The d-pad moves the
+## highlight now, and the button that advances every other line answers.
+func _check_choice_keys() -> void:
+	var box := DialogueBox.new()
+	add_child(box)
+	await _frames(2)
+	var got := [-1]
+	box.show_choices_standalone(
+		[{"t": {"en": "Go on.", "zh": "去吧。"}}, {"t": {"en": "Stay.", "zh": "留下。"}}],
+		func(i, _o): got[0] = i)
+	await _frames(2)
+	_check(box._in_choices, "a question is on screen with its answers")
+	_check(box._choice_i == 0, "and the first answer has the highlight")
+
+	TapGate.reset()
+	_key(KEY_DOWN)
+	await _frames(2)
+	_check(box._choice_i == 1, "the d-pad moves the highlight (i=%d)" % box._choice_i)
+
+	TapGate.reset()
+	var ev := InputEventAction.new()
+	ev.action = "interact"
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await _frames(3)
+	_check(got[0] == 1, "the A button answers it (got %d)" % got[0])
+	_check(not box._in_choices, "and the answers go away")
+	# and the answer cannot be delivered twice by the two input paths
+	_check(got[0] == 1, "one press answers once")
+	box.queue_free()
+	await _frames(1)
+
+
+## A key press through the real pipeline, the way a keyboard sends one.
+func _key(code: int) -> void:
+	var down := InputEventKey.new()
+	down.keycode = code
+	down.pressed = true
+	Input.parse_input_event(down)
+	var up := InputEventKey.new()
+	up.keycode = code
+	up.pressed = false
+	Input.parse_input_event(up)
 
 
 ## A real mouse click, through the pipeline, so this is the event a browser
