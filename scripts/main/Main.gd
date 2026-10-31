@@ -1160,11 +1160,18 @@ func _close_journal() -> void:
 		region.set_paused(false)
 
 
+## Put the player on a tile. ALWAYS on a walkable one: a save can name a tile
+## that has since become solid, an exit can sit in a wall by an editing mistake,
+## and the collision box refuses every direction it is inside — the player boots
+## into a wall and cannot move at all, which is indistinguishable from a crash
+## (BUG-010). The snap is the model's own query, so nothing here knows the map.
 func _place_at(tile: Array) -> void:
-	if tile.size() != 2 or region.player == null:
+	if tile.size() != 2 or region.player == null or region.model == null:
 		return
-	region.player.global_position = Vector2(float(tile[0]) * 16.0 + 8.0,
-		float(tile[1]) * 16.0 + 8.0)
+	var want := Vector2i(int(tile[0]), int(tile[1]))
+	var safe := region.model.nearest_open(want)
+	region.player.global_position = Vector2(float(safe.x) * 16.0 + 8.0,
+		float(safe.y) * 16.0 + 8.0)
 	region.snap_camera()
 
 

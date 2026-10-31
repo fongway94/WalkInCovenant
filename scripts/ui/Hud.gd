@@ -316,11 +316,22 @@ func set_stones(n: int, total: int) -> void:
 	stones_lbl.text = I18n.t({"en": "◆%d/%d", "zh": "◆%d／%d"}) % [n, total]
 
 
+## One toast at a time. Two toasts within a second used to leave two tweens
+## animating `modulate:a`, and whichever finished last decided what the player
+## saw: the newer line could be erased half a frame after it appeared, or an old
+## one could sit there at 40% alpha (BUG-009). The old tween is killed first.
+var _toast_tw: Tween = null
+
+
 func _toast(text: String) -> void:
 	if toast_lbl == null:
 		return
+	if _toast_tw != null and _toast_tw.is_valid():
+		_toast_tw.kill()
 	toast_lbl.text = text
+	toast_lbl.modulate.a = 0.0
 	var tw := create_tween()
+	_toast_tw = tw
 	tw.tween_property(toast_lbl, "modulate:a", 1.0, 0.15)
 	tw.tween_interval(1.6)
 	tw.tween_property(toast_lbl, "modulate:a", 0.0, 0.45)

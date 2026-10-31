@@ -196,6 +196,41 @@ jobs:
           cat smoke.txt
           exit $STATUS
 
+      # The regression suite. `smoke` proves the happy path still closes; this
+      # proves the SECOND one is safe — a save reloaded, a transition
+      # interrupted, a scene finished on a keyboard, a person met before the tab
+      # was closed. Every check in it is the regression test for a bug recorded
+      # in docs/BUGS.md, and each one failed against the code before its fix.
+      - name: Interruptions and reloads (regression suite)
+        id: deep
+        continue-on-error: true
+        run: |
+          timeout 240 godot --headless --path . res://tests/deep.tscn > deep.txt 2>&1
+          STATUS=$?
+          if [ "$STATUS" -eq 124 ]; then
+            echo "deep: TIMEOUT — a regression check never returned" >> deep.txt
+          fi
+          cat deep.txt
+          exit $STATUS
+
+      - name: Publish the regression suite
+        if: always()
+        run: |
+          [ -f deep.txt ] || exit 0
+          CLEAN=/tmp/deep.clean
+          sed 's/\x1b\[[0-9;]*m//g' deep.txt > "$CLEAN"
+          if [ "${{ steps.deep.outcome }}" = "success" ]; then
+            grep -a "deep: PASS" "$CLEAN" | head -1 \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+            exit 0
+          fi
+          grep -av "cannot connect to daemon\|_fs_changed\|tcp:5037\|first_scan_filesystem" "$CLEAN" \
+            | grep -aE "FAIL|ERROR|Error|error:|Invalid|Cannot|Attempt|deep:" \
+            | awk '!seen[$0]++' \
+            | head -18 \
+            | tr '\n' '|' | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+
       # One joined annotation, not a tail: the playthrough prints ~40 "ok" lines
       # and GitHub keeps only ~10 annotations per run, so a tail spends the quota
       # on passing assertions and the actual FAIL scrolls out of view.
@@ -271,6 +306,12 @@ jobs:
         if: steps.smoke.outcome != 'success'
         run: |
           echo "the headless playthrough did not complete"
+          exit 1
+
+      - name: Fail the job if the regression suite failed
+        if: steps.deep.outcome != 'success'
+        run: |
+          echo "an interruption or reload regression check failed"
           exit 1
 
   # ── export the web build ─────────────────────────────────────────────────

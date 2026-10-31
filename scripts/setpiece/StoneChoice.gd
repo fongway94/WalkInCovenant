@@ -155,11 +155,11 @@ func toggle(i: int) -> void:
 		return
 	var s: Dictionary = stones[i]
 	if bool(s["taken"]):
-		if is_full():
-			# The player has five; they must give one back before taking another.
-			_msg = I18n.t({"en": "Put one back first.", "zh": "先放回一块。"})
-			_msg_t = 1.0
-			return
+		# Putting one back is ALWAYS allowed, including when the bag is full —
+		# that is exactly the moment the player needs it, and the old guard
+		# refused here while the message told them to do the impossible
+		# (BUG-002). The docstring always said "touching it again puts it back";
+		# now the code does.
 		s["taken"] = false
 		AudioDirector.play_sfx("pickup", -8.0)
 		_layer.queue_redraw()
@@ -187,11 +187,16 @@ func move_cursor(step: int) -> void:
 	_layer.queue_redraw()
 
 
+## One button, in this order: keep the five if there are five, otherwise take
+## or return the stone the cursor is on. This used to try the cursor first, and
+## once the cursor had ever been set it could never be unset — so on a keyboard
+## the fifth stone was the last thing the player could do (BUG-001: the brook
+## scene could not be finished without a mouse).
 func press() -> void:
-	if _cursor >= 0:
-		toggle(_cursor)
-	elif is_full():
+	if is_full():
 		confirm()
+	elif _cursor >= 0:
+		toggle(_cursor)
 
 
 func confirm() -> void:
@@ -295,8 +300,8 @@ func _draw_all() -> void:
 	var hint := I18n.t({"en": "Tap a stone to take it. Tap it again to put it back.",
 		"zh": "点一块石头就拿起来。再点一下放回去。"})
 	if is_full():
-		hint = I18n.t({"en": "Five. Keep these five?",
-			"zh": "五块了。就要这五块？"})
+		hint = I18n.t({"en": "Five. Press A to keep these five.",
+			"zh": "五块了。按 A 就要这五块。"})
 	_layer.draw_multiline_string(font, Vector2(e + 2, vs.y - 58.0), hint,
 		HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 4.0, 8, 2,
 		Color(0.86, 0.86, 0.8, 0.95))

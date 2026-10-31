@@ -208,25 +208,48 @@ func _notification(what: int) -> void:
 			save_game()
 
 
+## Where the previous good save is kept. A browser tab can be closed — or a
+## phone can run out of memory — in the middle of a write, and the file that is
+## half-written is the only copy. So a save is built in a temporary file, proven
+## to parse, and only then moved over the real one, with the old one kept beside
+## it (BUG-011).
+const SAVE_TMP := SAVE_PATH + ".tmp"
+const SAVE_BAK := SAVE_PATH + ".bak"
+
+
 func save_game() -> void:
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		push_warning("GameState: could not open %s for writing" % SAVE_PATH)
+	var text := JSON.stringify(data, "\t")
+	# Prove the bytes before they can replace a good save with a bad one.
+	if typeof(JSON.parse_string(text)) != TYPE_DICTIONARY:
+		push_error("GameState: refusing to write a save that does not parse")
 		return
-	f.store_string(JSON.stringify(data, "\t"))
+	var f := FileAccess.open(SAVE_TMP, FileAccess.WRITE)
+	if f == null:
+		push_warning("GameState: could not open %s for writing" % SAVE_TMP)
+		return
+	f.store_string(text)
 	f.close()
+	if FileAccess.file_exists(SAVE_PATH):
+		# The copy is best-effort: if it fails, the rename below still lands a
+		# complete file, which is the part that matters.
+		DirAccess.copy_absolute(SAVE_PATH, SAVE_BAK)
+	var moved := DirAccess.rename_absolute(SAVE_TMP, SAVE_PATH)
+	if moved != OK and not FileAccess.file_exists(SAVE_PATH):
+		push_warning("GameState: could not move the save into place (%d)" % moved)
+		return
 	EventBus.game_saved.emit()
 
 
+## Load the save, or the previous good one. A file that exists but does not
+## parse is the one case a backup is for: silently booting a fresh game over a
+## player's chapter is data loss, and it looks like the game forgot everything.
 func load_game() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return false
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return false
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	f.close()
-	if not (parsed is Dictionary):
+	var parsed := _read_save(SAVE_PATH)
+	if parsed.is_empty() and FileAccess.file_exists(SAVE_PATH):
+		parsed = _read_save(SAVE_BAK)
+		if not parsed.is_empty():
+			push_warning("GameState: save.json was unreadable; restored the backup")
+	if parsed.is_empty():
 		return false
 	# merge over defaults so a save from an older version still has every key
 	for k in data:
@@ -236,11 +259,25 @@ func load_game() -> bool:
 	return true
 
 
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not (parsed is Dictionary):
+		return {}
+	return parsed as Dictionary
+
+
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 
 func erase() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
+	for p in [SAVE_PATH, SAVE_BAK, SAVE_TMP]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 	new_game()

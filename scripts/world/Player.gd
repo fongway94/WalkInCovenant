@@ -79,6 +79,12 @@ func setup(m: RegionModel, char_id: String) -> void:
 func set_armour(on: bool) -> void:
 	armour = on
 	_armour_t = 0.0
+	if not on and sprite != null:
+		# The stagger is written into sprite.offset while the armour is on, and
+		# only the armour branch ever touched it — so taking the plate off could
+		# leave the figure drawn up to 1.6 px off its feet for the rest of the
+		# session (BUG-005).
+		sprite.offset = Vector2(0, -8)
 	queue_redraw()
 
 

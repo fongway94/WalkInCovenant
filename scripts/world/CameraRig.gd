@@ -51,18 +51,30 @@ func set_follow(n: Node2D) -> void:
 func pan_to(point: Vector2, secs: float) -> void:
 	_cine = true
 	_cine_pos = global_position
+	_kill_cine()
 	_cine_tw = create_tween()
 	_cine_tw.tween_property(self, "_cine_pos", _clamp(point), maxf(0.05, secs))
 
 
+## Handing the shot back. Both entrances kill whatever shot is running first: a
+## `pan_to` followed quickly by `resume_follow` (dismiss a box faster than the
+## pan takes) used to leave two tweens writing `_cine_pos`, and the camera
+## jumped between them (BUG-008).
 func resume_follow(secs: float = 0.7) -> void:
 	if follow == null:
 		_cine = false
 		return
+	_kill_cine()
 	_cine_tw = create_tween()
 	_cine_tw.tween_property(self, "_cine_pos", _clamp(follow.global_position),
 		maxf(0.05, secs))
 	_cine_tw.tween_callback(func(): _cine = false)
+
+
+func _kill_cine() -> void:
+	if _cine_tw != null and _cine_tw.is_valid():
+		_cine_tw.kill()
+	_cine_tw = null
 
 
 func shake(amount: float = 1.0) -> void:

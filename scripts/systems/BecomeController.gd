@@ -39,6 +39,9 @@ var sub: Label = null
 var _busy := false
 var _held := 0.0
 var _bar_h := 14.0
+## The live transition. Kept so a second request can CANCEL the first rather
+## than be silently dropped.
+var _tw: Tween = null
 
 ## A transition that never completed used to leave the world covered in black
 ## bars with `_busy` refusing every new call. This is the belt to that brace.
@@ -198,14 +201,30 @@ func _process(delta: float) -> void:
 		# Whatever was supposed to happen, stop covering the game.
 		_held = 0.0
 		_busy = false
+		_tw = null
 		_hide_bars()
 		push_warning("BecomeController: transition exceeded MAX_HOLD and was cancelled")
+
+
+## Making room for a new transition. The old controller returned early here,
+## which meant a second `begin()`/`end()` was DROPPED — and its caller was the
+## story itself, waiting for the callback to continue. A mission re-entered on a
+## resume, or a win beat arriving while the bars were still in, left the chapter
+## permanently unable to continue (BUG-006). A request to change the picture now
+## cancels the picture, and the newest request wins.
+func _make_room() -> void:
+	if _tw != null and _tw.is_valid():
+		_tw.kill()
+	_tw = null
+	_busy = false
+	_held = 0.0
+	_hide_bars()
 
 
 ## The forward transition. Calls on_entered once control has handed over.
 func begin(character: String, display: Dictionary, on_entered: Callable) -> void:
 	if _busy:
-		return
+		_make_room()
 	_busy = true
 	_held = 0.0
 	_apply_layout()
@@ -219,6 +238,7 @@ func begin(character: String, display: Dictionary, on_entered: Callable) -> void
 		"zh": "你不再是你了。"}))
 
 	var tw := create_tween()
+	_tw = tw
 	tw.set_parallel(true)
 	tw.tween_property(wash, "color:a", 0.30, t * 0.5)
 	tw.chain().tween_property(wash, "color:a", 0.0, t * 0.5)
@@ -238,7 +258,7 @@ func begin(character: String, display: Dictionary, on_entered: Callable) -> void
 ## The return beat. "You are yourself again."
 func end(character: String, on_returned: Callable) -> void:
 	if _busy:
-		return
+		_make_room()
 	_busy = true
 	_held = 0.0
 	_apply_layout()
@@ -249,6 +269,7 @@ func end(character: String, on_returned: Callable) -> void:
 		"zh": "书卷自己翻过一页。前面的路还在。"}))
 	sub.text = str(I18n.t({"en": "You are yourself again.", "zh": "你又回到了自己身上。"}))
 	var tw := create_tween()
+	_tw = tw
 	tw.tween_property(plate, "modulate:a", 1.0, t * 0.4)
 	tw.parallel().tween_property(sub, "modulate:a", 1.0, t * 0.4)
 	tw.tween_interval(0.8 if not rm else 0.2)

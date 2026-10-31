@@ -87,6 +87,14 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 	global_position = Vector2(int(at[0]) * TILE + 8, (int(at[1]) + 1) * TILE - 2)
 	if (d.get("patrol", []) as Array).size() > 0:
 		state = State.PATROL
+	# A conversation that has happened stays happened. `_talked` was in-memory
+	# only, so a player who closed the tab came back to a valley where every
+	# person they had met was a stranger again: Corin's first lines replayed,
+	# and his `after` lines — the ones that move the chapter — were unreachable
+	# until he had been spoken to a second time (BUG-004). Keyed by region AND
+	# id, because Bethlehem has an elder as well.
+	if bool(GameState.flag(_talked_key())):
+		_talked = true
 
 
 func npc_id() -> String:
@@ -340,6 +348,7 @@ func _on_done() -> void:
 	pause_fn.call(false)
 	if not _talked:
 		_talked = true
+		GameState.set_flag(_talked_key(), true)
 		var word: String = data.get("word", "")
 		if word != "":
 			GameState.receive_word(word, word_ref(word))
@@ -351,6 +360,13 @@ func _on_done() -> void:
 
 func has_talked() -> bool:
 	return _talked
+
+
+## The save key for "this person has had their first conversation". Region-scoped
+## so two stories can both have an elder.
+func _talked_key() -> String:
+	var rid := str(model.id) if model != null else ""
+	return "talked:%s:%s" % [rid, npc_id()]
 
 
 func start_follow() -> void:

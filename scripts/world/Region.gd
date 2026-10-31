@@ -160,6 +160,14 @@ func _spawn_goliath() -> void:
 	var s := Sprite2D.new()
 	s.texture = tex
 	s.centered = false
+	# ONE frame of the sheet, not the sheet. The character PNGs are 2 columns by
+	# 4 rows of 16x16 cells (idle: two frames per direction, four directions);
+	# a Sprite2D with the defaults draws the entire image, so the ridge used to
+	# hold eight tiny Goliaths tiled in a 2x4 block (BUG-003). Frame 0 is the
+	# down-facing idle.
+	s.hframes = 2
+	s.vframes = 4
+	s.frame = 0
 	# Two tiles tall against a one-tile player: the first thing the witness
 	# notices about him is the size, and it should be true on screen.
 	s.scale = Vector2(2.0, 2.0)

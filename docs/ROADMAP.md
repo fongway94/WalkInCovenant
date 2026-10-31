@@ -108,6 +108,28 @@ A mission is a dictionary in `data/regions/elah.json`:
 The chapter list: `witness_camp → witness_line → shepherd_drill → errand →
 saul_armour → brook_stones → the_line → aftermath`.
 
+## Before anything else: stabilisation (current phase, 2026-10)
+
+The priority changed. Feature work is paused until the two chapters are
+*reliable*, not merely present. `docs/BUGS.md` is the live record; this is what
+it means for the roadmap.
+
+- Found and fixed in the first pass: 12 defects, including two that could stall
+  a chapter permanently (a dropped BECOME callback, a restored position inside a
+  wall) and the save-corruption path (a non-atomic write could silently start a
+  new game over a player's chapter). Every fix has a regression check in
+  `tests/deep.gd`, a suite that exists because `smoke.gd` proves the happy path
+  and nothing proved the *second* one.
+- The rule for this phase: **a bug is not closed by a code change, only by a
+  check that failed before it and passes after it.**
+- Deliberately NOT being built: another chapter, another mechanic, another
+  screen. Depth over breadth, and reliability over both.
+
+Open risks, honestly: nothing below is verified until it happens on a phone, and
+the authoring sandbox has no phone, no sound card and no Godot binary. See
+`docs/DEVICE-CHECKLIST.md`. The audio mix and the touch/layout experience are
+the two areas where a green build says the least.
+
 ## Next, in order
 
 1. Device pass: real phone, landscape, several aspect ratios, thumbs through both

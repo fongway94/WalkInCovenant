@@ -144,6 +144,25 @@ func open_panel(title: String, objective: String, verse_refs: Array,
 	_open = true
 
 
+## The book must always have a way out. It pauses the world and blocks the touch
+## controls, and its only exit was a small button in the corner: a keyboard
+## player had no way back to the game at all, and the same tap-first/keys-second
+## rule that every dialogue box follows was not applied here (BUG-012). Escape
+## and the pad's B close it, exactly as they close a conversation.
+func _input(event: InputEvent) -> void:
+	if not _open:
+		return
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		close_panel()
+		return
+	if event is InputEventKey:
+		var k := event as InputEventKey
+		if k.pressed and not k.echo and k.keycode == KEY_ESCAPE:
+			get_viewport().set_input_as_handled()
+			close_panel()
+
+
 func close_panel() -> void:
 	if not _open:
 		return

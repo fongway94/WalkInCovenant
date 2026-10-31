@@ -18,6 +18,11 @@ var _busy := false
 ## MAX_BLACK seconds, the rect is transparent (docs/AUDIT.md A8).
 const MAX_BLACK := 3.0
 var _black_for := 0.0
+## The live fade. `clear()` only sets the alpha; a killed or superseded tween
+## would otherwise keep animating the same property and could drive the rect
+## back to black after the new fade had finished — a screen stuck behind a
+## curtain with the game running invisibly underneath (BUG-007).
+var _tw: Tween = null
 
 
 func _ready() -> void:
@@ -34,17 +39,20 @@ func run(out_t: float, mid: Callable, in_t: float, done: Callable = Callable()) 
 	if _busy:
 		# A second transition inside a first one used to leave two tweens
 		# fighting over the same alpha, which reads as a stutter or a stuck
-		# black frame. Finish the old one first.
-		clear()
+		# black frame. Finish the old one first — and KILL it, not just fade it,
+		# or it keeps writing to the same property.
+		_stop()
 	_busy = true
 	_black_for = 0.0
 	var tw := create_tween()
+	_tw = tw
 	tw.tween_property(_rect, "color:a", 1.0, maxf(0.01, out_t))
 	tw.tween_callback(func(): if mid.is_valid(): mid.call())
 	tw.tween_property(_rect, "color:a", 0.0, maxf(0.01, in_t))
 	tw.tween_callback(func():
 		_busy = false
 		_black_for = 0.0
+		_tw = null
 		clear()
 		if done.is_valid():
 			done.call())
@@ -56,6 +64,15 @@ func clear() -> void:
 	if _rect == null:
 		return
 	_rect.color.a = 0.0
+
+
+## Stop the fade completely: no tween left to re-blacken the screen.
+func _stop() -> void:
+	if _tw != null and _tw.is_valid():
+		_tw.kill()
+	_tw = null
+	_busy = false
+	clear()
 
 
 func is_black() -> bool:
@@ -70,6 +87,7 @@ func _process(delta: float) -> void:
 		if _black_for >= MAX_BLACK:
 			_black_for = 0.0
 			_busy = false
+			_tw = null
 			clear()
 			push_warning("ScreenFade: black frame exceeded MAX_BLACK and was cleared")
 	else:
@@ -78,6 +96,8 @@ func _process(delta: float) -> void:
 
 ## Boot: come up out of black rather than popping into a field.
 func open_up(t: float = 0.6) -> void:
+	_stop()
 	_rect.color = Color(0.03, 0.04, 0.05, 1.0)
 	var tw := create_tween()
+	_tw = tw
 	tw.tween_property(_rect, "color:a", 0.0, maxf(0.01, t))
