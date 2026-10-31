@@ -9,6 +9,7 @@ run in which its own check executed and passed:
 
 | Run | Commit | Result |
 |---|---|---|
+| `41180664635` | `6f5853c` | lint ✅ (incl. the duel's real-input check) · export ✅ · deploy ✅ |
 | `41179672932` | `bf7b05c` | lint ✅ (static gates, content lint, playthrough, regression suite) · export ✅ · deploy ✅ |
 | `41179263331` | — | green: first all-checks-hold run of the regression suite |
 | `41178877681` | `52ae810` | red: one check failed (a story trigger opening a box over an open one → BUG-013) |
@@ -32,7 +33,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 15 found, 15 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 17 found, 17 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -303,6 +304,64 @@ save-corruption class and is fixed structurally rather than worked around.
   real `InputEventKey` through `Input.parse_input_event()` and waits for the
   drill to finish. (Calling `press()` would have passed before the fix, which is
   exactly why the bug survived the smoke test.)
+
+## BUG-016 — the duel dropped most presses, in silence
+
+- **Severity:** P1 · **Status:** Fixed
+- **Reported by the player, first external report:** *"david vs goliath cant
+  click anything to fight"*.
+- **Where:** `scripts/setpiece/GoliathFight.gd` → `_input()`, `press()`
+- **Reproduce:** enter the duel and press at the wrong moment. The fight has three
+  interactive beats, but **more than half of its running time is phases that
+  cannot use a press**: the telegraph (0.8 s, 1.7 s on the first round) and the
+  resolve beat (0.55 s), against 0.8 s of strike and an open-ended aim. A press
+  in any of the dead phases returned immediately — no sound, no message, no
+  state change. A player who presses when they *see* the threat is therefore
+  pressing mostly into a void, and a game that ignores you looks broken long
+  before it is.
+- **Expected:** every press means something, and a press made a fraction early
+  still counts.
+- **Actual:** silent nothing for most presses. The one input the chapter's
+  climax asks for was the least reliable input in the game.
+- **Root cause:** two. (a) Input was routed through one engine path (`_input`)
+  only, and the state machine treated "not in a live phase" as "discard".
+  (b) There was no input buffering, so the natural human timing — press as the
+  spear is *released*, not as it *arrives* — always fell in the dead zone.
+- **Fix:** taps are handled on both engine paths (the world's `_input` and the
+  screen layer's `gui_input`), with `TapGate` arbitrating so one physical click
+  is still exactly one action; a press in telegraph/resolve is **buffered for
+  0.45 s** and spent as the dodge the instant the spear goes live; and every
+  press is answered on screen ("Not yet — he is winding up"). The drill
+  (`SlingPractice`) got the same acknowledgement.
+- **Regression test:** `tests/deep.gd` → `_check_fight_input()`, which pushes
+  **real events through `Input.parse_input_event`** (a mouse click, then the A
+  button's synthetic action) and asserts the dodge, the nerves and the throw.
+  The smoke test could never have caught this: it calls `press()` directly —
+  the same blind spot that hid BUG-015.
+- **Honest limit:** the engine-level path is now proven headless. Whether a
+  *particular phone's* taps reach it is not proven here, and cannot be.
+
+## BUG-017 — the game said "press A" while the A button was hidden
+
+- **Severity:** P2 · **Status:** Fixed
+- **Where:** `scripts/setpiece/GoliathFight.gd`, `scripts/setpiece/SlingPractice.gd`,
+  `scripts/ui/TouchControls.gd`
+- **Reproduce:** on a phone, reach the duel or the drill. The bottom of the
+  screen reads "A / tap — STEP ASIDE". The on-screen A button is **gone**.
+- **Expected:** a control the game names is a control the player can see and
+  press (playtest 7: "every control mentioned must exist and be visible on
+  phone").
+- **Actual:** `TouchControls.set_blocked(true)` — correct, so the stick cannot
+  drag the paused world — also stops `_draw_viz()` from drawing, so both
+  buttons vanish for the whole setpiece. On a phone the fight therefore had no
+  visible control at all, only prose naming one.
+- **Root cause:** one flag meant two different things: "this layer must not
+  consume input" and "this layer must not draw".
+- **Fix:** a setpiece that takes the screen draws its own A badge, in the same
+  position and style as the world's, and lights it during the live phases. The
+  world's buttons stay hidden underneath, which is the part that was correct.
+- **Regression test:** covered indirectly by `_check_fight_input()` (the badge is
+  only drawn while `phase != DONE`); the visual itself needs a device.
 
 ---
 
