@@ -30,6 +30,8 @@ var npcs: Array[Npc] = []
 var pickups: Array = []         # {id, kind, node, got}
 var triggers: Array = []        # {id, kind, data, spent, armed}
 var dialogue: DialogueBox = null
+## Kept so a cinematic can frame him, and so a test can see that he is on screen.
+var goliath_sprite: Sprite2D = null
 
 var _ys: Node2D = null
 var _mod: CanvasModulate = null
@@ -97,6 +99,7 @@ func _build() -> void:
 	add_child(_ys)
 
 	_spawn_props()
+	_spawn_goliath()
 	_spawn_player()
 	_spawn_npcs()
 	_spawn_pickups()
@@ -138,6 +141,29 @@ func _spawn_props() -> void:
 			t.autostart = true
 			t.timeout.connect(func(): s.frame = (s.frame + 1) % fr)
 			add_child(t)
+
+
+## He is not decoration and he is not an NPC: the witness cannot reach him, and
+## he has no lines to give away as verses. But he has to be VISIBLE across the
+## valley, because everything the witness is told in Act I is about a man
+## standing on that ridge. He used to exist only as a pair of coordinates in the
+## data — "somebody is shouting over there" with nobody there to shout.
+func _spawn_goliath() -> void:
+	if model.goliath == Vector2i.ZERO:
+		return
+	var tex := load("res://art/characters/goliath_idle.png")
+	if tex == null:
+		return
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.centered = false
+	# Two tiles tall against a one-tile player: the first thing the witness
+	# notices about him is the size, and it should be true on screen.
+	s.scale = Vector2(2.0, 2.0)
+	s.position = Vector2(model.goliath.x * TILE, (model.goliath.y + 1) * TILE - 32.0)
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_ys.add_child(s)
+	goliath_sprite = s
 
 
 func _spawn_player() -> void:
@@ -402,6 +428,18 @@ func _unclaimed() -> bool:
 
 ## Put the camera where the player is, with no glide. Used after a story
 ## teleport (David's errand begins in Bethlehem, not at the line).
+## A scripted shot. The camera holds a point while the box speaks, then comes
+## back to the player — used for the witness's first look at Goliath.
+func pan_to(world: Vector2, secs: float) -> void:
+	if cam != null:
+		cam.pan_to(world, secs)
+
+
+func follow_player(secs: float = 0.7) -> void:
+	if cam != null:
+		cam.resume_follow(secs)
+
+
 func snap_camera() -> void:
 	if cam != null and player != null:
 		cam.set_follow(player)

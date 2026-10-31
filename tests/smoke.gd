@@ -109,7 +109,11 @@ func _run() -> void:
 		"the valley opens with nothing to collect (got %d)" % region.pickups.size())
 	_check(int(main._stones_total) == 5,
 		"and the brook still knows it holds five stones (got %d)" % int(main._stones_total))
-	_check(region.triggers.size() == 1, "challenge trigger was built (got %d)" % region.triggers.size())
+	_check(region.triggers.size() == 2, "two story triggers were built (got %d)" % region.triggers.size())
+	# Act I is about a man standing on the far ridge. He used to exist only as a
+	# pair of coordinates; there was nobody there to shout.
+	_check(region.goliath_sprite != null and region.goliath_sprite.visible,
+		"the giant is on screen, two tiles tall, before you ever reach him")
 	_check(_tile_of(region.player) == region.model.spawn, "player stands on the authored spawn tile")
 
 	# ── 1b. the world is wired to the hands and the HUD ──────────────────
@@ -265,6 +269,18 @@ func _run() -> void:
 			"and he stays where he brought you instead of following you")
 		guide.clear_lead()
 		guide.state = Npc.State.IDLE
+
+	# ── 2g. the first look at him ────────────────────────────────────────
+	# One scripted shot in Act I: walk up the ridge, the camera takes the picture
+	# off you and holds it on Goliath while 17:10 is spoken, then hands it back.
+	await _stand(region, 16, 14, 4)
+	_check(region.dialogue._open, "walking up the ridge stops you: your first clear look at him")
+	_check(bool(GameState.flag("elah_saw_him")), "and the chapter remembers that you have seen him")
+	_check(region.cam._cine, "the camera is holding him instead of the player")
+	_drain(region.dialogue)
+	await _frames(10)
+	_check(not region.cam._cine, "and then the camera comes back to you")
+	_check(not region._paused, "the shot releases the world when it ends")
 
 	# ── 2f. the line is not yours yet ────────────────────────────────────
 	# Act I has no stones to carry any more: it has a question. Crossing the

@@ -20,6 +20,9 @@ var follow: Node2D = null
 var bounds := Rect2()
 var _look := Vector2.ZERO
 var _shake := 0.0
+var _cine := false
+var _cine_pos := Vector2.ZERO
+var _cine_tw: Tween = null
 
 
 func _ready() -> void:
@@ -41,6 +44,27 @@ func set_follow(n: Node2D) -> void:
 		global_position = _clamp(follow.global_position)
 
 
+## A scripted shot: hold the camera on a world point for `secs`, ignoring the
+## player. `resume_follow` hands it back. Nothing else in the camera changes —
+## the clamp, the deadzone and the shake all behave exactly as before once the
+## shot is over.
+func pan_to(point: Vector2, secs: float) -> void:
+	_cine = true
+	_cine_pos = global_position
+	_cine_tw = create_tween()
+	_cine_tw.tween_property(self, "_cine_pos", _clamp(point), maxf(0.05, secs))
+
+
+func resume_follow(secs: float = 0.7) -> void:
+	if follow == null:
+		_cine = false
+		return
+	_cine_tw = create_tween()
+	_cine_tw.tween_property(self, "_cine_pos", _clamp(follow.global_position),
+		maxf(0.05, secs))
+	_cine_tw.tween_callback(func(): _cine = false)
+
+
 func shake(amount: float = 1.0) -> void:
 	if GameState.data["settings"].get("reduce_motion", false):
 		return
@@ -48,6 +72,9 @@ func shake(amount: float = 1.0) -> void:
 
 
 func _process(delta: float) -> void:
+	if _cine:
+		global_position = _cine_pos
+		return
 	if follow == null:
 		return
 	var fp := follow.global_position

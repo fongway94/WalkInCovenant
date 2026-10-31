@@ -218,6 +218,11 @@ func _update_guidance() -> void:
 				line = I18n.t(obj.get(key, {})) % nxt.display_name()
 				if corin.lead_target != nxt:
 					corin.lead_to(nxt, func(): _lead_arrived())
+			elif GameState.flag("elah_saw_him") != true:
+				key = "firstsight"
+				var g: Vector2i = region.model.goliath
+				target = Vector2(float(g.x) * 16.0 + 8.0, float(g.y) * 16.0 + 18.0)
+				point = true
 			elif not bool(GameState.flag("goliath_down")):
 				key = "line_witness"
 				var row := int(region.model.trigger_data("challenge").get("row", 11))
@@ -587,6 +592,9 @@ func _stones_chosen() -> void:
 
 
 func _on_trigger(id: String) -> void:
+	if id == "firstsight":
+		_first_sight()
+		return
 	if id != "challenge" or _in_battle:
 		return
 	if act == Act.READY:
@@ -606,6 +614,27 @@ func _on_trigger(id: String) -> void:
 		_witness_at_the_line()
 	else:
 		_refuse(id)
+
+
+## The shot the chapter has been promising: the witness walks up the ridge and
+## finally sees the man everybody has been talking about. The camera holds him
+## for the duration of the beat and then hands itself back — the same "scripted
+## shot, then play" grammar every later scene uses, built once and reusable.
+func _first_sight() -> void:
+	if GameState.flag("elah_saw_him") == true:
+		return
+	if _in_battle or (region.dialogue != null and region.dialogue.is_open()):
+		return
+	GameState.set_flag("elah_saw_him", true)
+	var lines: Array = _beat_lines("firstsight", "firstsight")
+	if lines.is_empty():
+		return
+	region.set_paused(true)
+	var g: Vector2i = region.model.goliath
+	region.pan_to(Vector2(float(g.x) * 16.0 + 8.0, float(g.y) * 16.0 + 18.0), 0.9)
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.follow_player(0.7)
+		region.set_paused(false))
 
 
 ## The witness's last beat in the valley: he crosses the line, and nothing

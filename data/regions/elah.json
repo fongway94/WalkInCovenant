@@ -805,6 +805,54 @@
  ],
  "triggers": [
   {
+   "id": "firstsight",
+   "kind": "radius",
+   "at": [
+    16,
+    13
+   ],
+   "r": 2,
+   "note": "the witness's first clear look at the giant (a camera shot, not a wall)",
+   "firstsight": [
+    {
+     "who": "",
+     "text": {
+      "en": "The ridge is low here, and the far slope is suddenly not far at all. You see him properly for the first time.",
+      "zh": "这道矮脊很低，对面的坡忽然一点也不远了。你这才第一次看清他。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Bronze helmet, bronze coat, bronze on his legs, and a spear like a weaver's beam. He does not raise his voice; both valleys hear him anyway.",
+      "zh": "铜盔、铜甲、腿上也是铜，一根枪杆粗得像织布的轴。他不用提高声音，两边山谷都听得见。"
+     }
+    },
+    {
+     "who": "goliath",
+     "text": {
+      "en": "1 Samuel 17:10\n“And the Philistine said, I defy the armies of Israel this day; give me a man, that we may fight together.”",
+      "zh": "撒母耳记上 17:10\n「那非利士人又说：我今日向以色列人的军队骂阵。你们叫一个人出来，与我战斗。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Nobody moves. Not one man on this side of the valley takes a step forward.",
+      "zh": "没有人动。谷这边，没有一个人往前迈一步。"
+     }
+    },
+    {
+     "who": "corin",
+     "text": {
+      "en": "Now you have seen him. That is what the last forty days have been. We watch. We do not go up.",
+      "zh": "「现在你看见他了。这四十天，就是这件事。我们看着，不上去。」"
+     }
+    }
+   ],
+   "once": true
+  },
+  {
    "id": "challenge",
    "kind": "row",
    "row": 11,
@@ -986,6 +1034,10 @@
   "brook": {
    "en": "Go down to the brook. The water runs shallow over the stones.",
    "zh": "下到溪边去。水浅，能看见底下的石头。"
+  },
+  "firstsight": {
+   "en": "Get a look at the man shouting across the valley",
+   "zh": "看一眼那个隔着山谷叫阵的人"
   }
  },
  "ending": {

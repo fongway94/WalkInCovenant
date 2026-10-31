@@ -405,7 +405,7 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_check_verses(blk.get(str(lk), []), "%s:david_act.%s.%s" % [rid, key, lk])
 	for td in m.triggers:
 		var tdd: Dictionary = td
-		for key in ["refuse", "memory", "witness"]:
+		for key in ["refuse", "memory", "witness", "firstsight"]:
 			_check_verses(tdd.get(str(key), []), "%s:trigger.%s" % [rid, key])
 	_ok("all dialogue, verses, objectives and the ending are bilingual")
 
