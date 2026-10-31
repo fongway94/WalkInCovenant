@@ -284,6 +284,17 @@ func _update_guidance() -> void:
 # ── missions ─────────────────────────────────────────────────────────────
 ## One context per frame, built from the save and this script's counters — the
 ## only things a completion condition is allowed to look at.
+## Set a story flag AND let the missions look at it at once. Polling alone left
+## a one-frame window where the chapter had already moved on but the runner had
+## not: the ending set `elah_ended` and marked the chapter done, and the next
+## frame the runner entered "aftermath" and put the act back a beat. Missions
+## turn over inside the beat that finishes them, not on the next frame.
+func _story_flag(key: String) -> void:
+	GameState.set_flag(key, true)
+	if runner != null and not (region.dialogue != null and region.dialogue.is_open()):
+		runner.tick(_mission_ctx())
+
+
 func _mission_ctx() -> Dictionary:
 	var c := {
 		"words": int((GameState.data.get("words", []) as Array).size()),
@@ -438,7 +449,7 @@ func _brothers_beat() -> void:
 	var lines: Array = region.model.david_act.get("brothers", [])
 	region.dialogue.show_lines(lines, _speaker, func():
 		region.set_paused(false)
-		GameState.set_flag("elah_brothers_met", true))
+		_story_flag("elah_brothers_met"))
 
 
 ## 1 Samuel 17:31-39: they bring him to Saul, who is a person in a tent you have
@@ -517,7 +528,7 @@ func _armour_beat() -> void:
 		region.set_paused(false)
 		# The runner is watching for this flag: it closes the armour mission and
 		# opens the walk to the brook.
-		GameState.set_flag("elah_armour_off", true))
+		_story_flag("elah_armour_off"))
 
 
 ## A for "take it off": the escape hatch, and the fast path for a player who
@@ -852,7 +863,7 @@ func _witness_at_the_line() -> void:
 	region.dialogue.show_lines(lines, _speaker, func():
 		# The runner is watching: this closes the witness's mission and opens
 		# the one whose first beat is BECOME.
-		GameState.set_flag("elah_met_the_line", true))
+		_story_flag("elah_met_the_line"))
 
 
 func _beat_lines(id: String, key: String) -> Array:
@@ -1019,7 +1030,7 @@ func _practice_done() -> void:
 	region.set_paused(true)
 	var sh: Dictionary = region.model.david_act.get("shepherd", {})
 	region.dialogue.show_lines(sh.get("done_lines", []), _speaker, func():
-		GameState.set_flag("elah_drill_done", true))
+		_story_flag("elah_drill_done"))
 
 
 ## Jesse's errand: the provisions, the walk, the brothers who do not want him
@@ -1126,9 +1137,9 @@ func _after_return() -> void:
 	# XP, the giant-down and chapter seals, the relic and the fruit are the
 	# mission's REWARDS — declared in data, granted once by MissionRunner, and
 	# guarded by a save flag so a reload cannot pay them twice.
-	GameState.set_flag("goliath_down", true)
 	GameState.grant_seal("chapter_one")
 	GameState.complete_chapter("elah")
+	_story_flag("goliath_down")
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
 	# The chapter has an ENDING, and it is played, not implied. This used to drop
@@ -1198,7 +1209,7 @@ func _ending_pick(idx: int, _opt: Dictionary) -> void:
 
 func _end_and_free_roam() -> void:
 	act = Act.DONE
-	GameState.set_flag("elah_ended", true)
+	_story_flag("elah_ended")
 	# walk back down past the re-arm row, not just past the line: the trigger
 	# stays disarmed inside the dead band (see Region._check_triggers), and a
 	# return that lands inside it would leave the line permanently silent.

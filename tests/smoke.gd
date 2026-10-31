@@ -470,16 +470,18 @@ func _run() -> void:
 	# every frame from the thumb, which is exactly what a test should respect.)
 	Input.action_press("move_right")
 	var stagger := 0
+	var saw_verse := false
 	while stagger < 240 and not bool(GameState.flag("elah_armour_off")):
 		await get_tree().process_frame
 		stagger += 1
 		if region.dialogue._open:
+			saw_verse = true
 			_drain(region.dialogue)      # the stumble, then 17:39
 	Input.action_release("move_right")
 	await _frames(4)
 	_check(stagger < 240, "walking in the armour ends the scene (after %d frames, walk=%.2f, paused=%s)"
 		% [stagger, float(main._armour_walk), str(region._paused)])
-	_check(region.dialogue._open, "and it ends in 17:39, on screen")
+	_check(saw_verse, "and it ends in a verse on screen, not a silent speed change")
 	_drain(region.dialogue)
 	await _frames(4)
 	_check(not bool(dave.armour), "the armour comes off")
