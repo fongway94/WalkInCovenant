@@ -44,9 +44,9 @@ func _run() -> void:
 	# Get the arrival out of the way: several checks below need a world that is
 	# not paused with a box over it.
 	if main.region != null and main.region.dialogue != null:
-		_drain(main.region.dialogue)
+		await _drain(main.region.dialogue)
 		main._brief_once()
-		_drain(main.region.dialogue)
+		await _drain(main.region.dialogue)
 	await _frames(2)
 
 	await _check_save()
@@ -80,7 +80,10 @@ func _check_save() -> void:
 	if f == null:
 		_check(false, "the save file can be opened to corrupt it")
 		return
-	f.store_string("{\"version\": 1, \"xp\": ")
+	# Valid JSON of the wrong shape, not a truncated file: `_read_save` rejects
+	# both identically, and this one does not print a parse error into the log
+	# that a failure annotation would then spend its budget on.
+	f.store_string("[]")
 	f.close()
 	GameState.data["flags"].erase("deep_marker")
 	var ok: bool = GameState.load_game()
@@ -150,8 +153,12 @@ func _check_talked_survives() -> void:
 		return
 	if not npc.has_talked():
 		npc.talk()
-		_drain(main.region.dialogue)
+		await _drain(main.region.dialogue)
 	await _frames(2)
+	if not npc.has_talked():
+		print("  diag  corin talked=%s can_talk=%s talk_state=%d box=%s paused=%s"
+			% [str(npc.has_talked()), str(npc.can_talk()), int(npc.talk_state),
+				str(main.region.dialogue.is_open()), str(main.region.is_paused())])
 	_check(npc.has_talked(), "talking marks the person as met")
 	var key := "talked:%s:%s" % [str(main.region.model.id), "corin"]
 	_check(bool(GameState.flag(key)), "and the meeting is written into the save (%s)" % key)
@@ -266,7 +273,7 @@ func _check_dialogue_taps() -> void:
 	_check(dlg._i == 0, "a freshly opened box is still on its first line (i=%d)" % dlg._i)
 	_check(dlg._open, "and it is open")
 	_check(int(dlg._box_id) == id0, "opening it once opens one box")
-	_drain(dlg)
+	await _drain(dlg)
 	_check(not dlg._open, "and it closes when its lines are done")
 
 
@@ -275,6 +282,11 @@ func _check_journal_escape() -> void:
 	var j: Journal = main.journal
 	main._open_journal()
 	await _frames(2)
+	if not j.is_open():
+		print("  diag  journal open=%s dialogue=%s paused=%s in_battle=%s fight=%s"
+			% [str(j.is_open()),
+				str(main.region.dialogue.is_open()) if main.region.dialogue != null else "-",
+				str(main.region.is_paused()), str(main._in_battle), str(main.fight)])
 	_check(j.is_open(), "the book opens")
 	_check(main.region.is_paused(), "and holds the world still while it is open")
 	var ev := InputEventKey.new()
