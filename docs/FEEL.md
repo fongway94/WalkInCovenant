@@ -199,10 +199,10 @@ ask for, so the shelf cannot drift out of date.
 | Pickup, quest complete, verse received | done — the verse chime is deliberately the longest and softest sound in the game |
 | Dialogue blip, pitched per speaker | done |
 | Region music, loops | done — 24 s valley, 12 s duel, additive and periodic over the loop, so the seam is inaudible |
-| Music ducking under dialogue | done |
+| Music ducking under dialogue | done — −12 dB to −19 dB on a 40 dB/s ramp, so the change is heard as the music leaning back, not as a tick (it used to be a direct assignment to `volume_db`, i.e. a step in the waveform) |
+| Crossfade between region tracks | done — two music players and one ramp; the caller's `crossfade` (0.4 s into the duel, 1.2 s back to the valley, 1 s for a walk to Bethlehem) is now the length of the fade instead of an ignored argument |
 | Ambience layer (wind under the drone) | partial — one wind bed is mixed into the valley track; water and crowd beds are not separate |
 | Interact-prompt blip, cursor/confirm/cancel | not done — `ui.wav` exists and is unused |
-| Crossfade between region tracks | not done — the duel change is a hard cut at −12 dB, which is small enough to survive |
 
 Buses `Music` and `SFX` are declared in `default_bus_layout.tres`; before, both names were assigned
 to players that the audio server silently fell back to Master.

@@ -206,6 +206,32 @@ func _run() -> void:
 	main._brief_once()
 	_check(not region.dialogue._open, "the briefing does not repeat on a second visit")
 
+	# ── 1e. the music bed ducks, and comes back ──────────────────────────
+	# Ducking used to be an assignment to `volume_db`: a step in the waveform,
+	# audible on a phone as a tick every time anyone spoke. And there was only one
+	# music player, so `play_music`'s crossfade argument was accepted and ignored.
+	# What can be checked without ears is the level: it returns to mix when the
+	# box closes, and it *reaches* the duck level on a ramp rather than in a
+	# single frame.
+	var back_by := Time.get_ticks_msec() + 1500
+	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < back_by:
+		await _frames(1)
+	_check(AudioDirector.music_db() >= -12.6,
+		"closing the arrival box lifts the music back to its mix level (%.1f dB)"
+		% AudioDirector.music_db())
+	_check(AudioDirector.music_key() == str(region.model.music),
+		"the region's own theme is the current music (%s)" % AudioDirector.music_key())
+	AudioDirector.duck(true)
+	await get_tree().create_timer(0.4).timeout
+	_check(AudioDirector.music_db() <= -18.4,
+		"a dialogue box ducks the music (%.1f dB)" % AudioDirector.music_db())
+	AudioDirector.duck(false)
+	var lift_by := Time.get_ticks_msec() + 1500
+	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < lift_by:
+		await _frames(1)
+	_check(AudioDirector.music_db() >= -12.6,
+		"and it comes back up when the box closes (%.1f dB)" % AudioDirector.music_db())
+
 	# The caption is the one cinematic beat on the brief's list that was missing:
 	# the valley is named once, from the region's own data.
 	_check(bool(GameState.flag(str(region.region_id) + "_card")),
@@ -353,6 +379,8 @@ func _run() -> void:
 		_check(npc.pause_fn.is_valid(), "%s can pause the world" % id)
 		npc.talk()
 		_check(region.dialogue._open, "%s speaks when you press A" % id)
+		if id == "corin":
+			_check(AudioDirector.is_ducked(), "his box ducks the music bed")
 		_check(region.dialogue.portrait.texture != null or not region.dialogue.portrait.visible,
 			"%s gets a portrait without a script error" % id)
 		# BUG A, asserted at the seam where it happened: pressing A while a box is
@@ -364,6 +392,8 @@ func _run() -> void:
 		_check(int(region.dialogue._box_id) == beat_before,
 			"a second A press does not restart %s's line" % id)
 		_drain(region.dialogue)
+		if id == "corin":
+			_check(not AudioDirector.is_ducked(), "closing it hands the music back")
 		_check(region._interact_lock > 0.0,
 			"the tap that closed %s cannot also re-open %s" % [id, id])
 		_check(not region._paused, "talking to %s releases the world" % id)
