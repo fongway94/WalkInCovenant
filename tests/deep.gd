@@ -147,7 +147,13 @@ func _check_pickups() -> void:
 	GameState.data["flags"].erase(key)
 	var pv_before: int = int(main.provisions)
 
-	region.spawn_pickup("deep_prov", "provision", "jar", 5, 5)
+	# Drop it where the player already stands: this check is about the save, and
+	# walking him somewhere else would leave him out of reach of the person the
+	# next check has to talk to.
+	var home: Vector2 = region.player.global_position
+	var tx := int(home.x / TILE)
+	var ty := int(home.y / TILE)
+	region.spawn_pickup("deep_prov", "provision", "jar", tx, ty)
 	await _frames(1)
 	var found = null
 	for it in region.pickups:
@@ -158,15 +164,13 @@ func _check_pickups() -> void:
 		return
 
 	# walk onto it
-	var node: Node2D = found["node"]
-	region.player.global_position = node.global_position
 	region._check_pickups()
 	await _frames(1)
 	_check(bool(GameState.flag(key)), "taking an item is written to the save")
 	_check(bool(found["got"]), "and the item is gone from this region")
 
 	# the reload: a rebuilt world asks for the same item in the same place
-	region.spawn_pickup("deep_prov", "provision", "jar", 5, 5)
+	region.spawn_pickup("deep_prov", "provision", "jar", tx, ty)
 	await _frames(1)
 	var back := false
 	for it in region.pickups:
