@@ -12,8 +12,62 @@ browser, so:
 - **READ** = proven by reading the code; not executed.
 - **DEVICE** = needs a human on a phone. Not claimed.
 
-Latest green run: **41150559270** — lint → export → deploy all succeeded.
+Latest green run: **41158592496** — lint → export → deploy all succeeded.
 Live: <https://fongway94.github.io/WalkInCovenant/>
+
+---
+
+## Pass after playtest 10 — the two reported bugs, and the duel's framing
+
+Your message reported two things. Both had a single root cause each, and both
+are fixed in code and played by the smoke test.
+
+### 1. "The objective says follow Corin, but the NPC follows me"
+
+**Root cause.** `Npc._do_follow()` had one branch: "walk to `lead_target`; if you
+are there, nothing left to do" — and then execution fell through to the
+player-follow branch that every escort in the game uses. So Corin led you
+correctly *until he arrived*, at which point he turned round and walked behind
+you while the HUD still said follow him.
+
+**Fix.** Arrival is now an explicit state, not the absence of one:
+`is_leading()` / `is_waiting_ahead()`. A guide with a valid `lead_target` either
+walks to it or **stands there and faces you**, with a small chevron drawn over
+his head so the person who is waiting is visibly waiting. The HUD arrow points
+at him while he leads and at the next person once he waits.
+
+**Files.** `scripts/world/Npc.gd`, `scripts/main/Main.gd` (arrow target).
+**Tested.** smoke §2e drives both branches, and §3 (after the guide has actually
+spoken) asserts the game gave him a `lead_target` at all. **CI.**
+
+### 2. "David vs Goliath must be a real fight — throw stones and avoid his attacks"
+
+The word-battle is gone. `scripts/setpiece/WordBattle.gd` is deleted, `shouts`
+is gone from the data and from `RegionModel`. What replaced it is a duel loop:
+he telegraphs, sweeps a spear, you step aside, a marker sweeps his forehead and
+you let go. Three stones end it; five in the pouch; being hit costs nerve, never
+the story. 17:44–45 open it, 17:47 closes it.
+
+Since then this pass, three fairness/framing fixes, all in the same scene:
+
+- **The first spear is slow and says what it is.** Round one's telegraph is
+  0.9 s longer than every later one, and its line is the rule ("when the red tip
+  comes, step aside"), not "he is winding up". A player meeting the fight for the
+  first time cannot lose the first exchange to the clock.
+- **Entered on a cut, not a pop.** The last verse closes, the screen goes dark
+  for a heartbeat, and the light comes back on the ground the duel is fought on —
+  the same grammar the chapter already uses for the shepherd's slope and the
+  errand. (`Main._open_fight` → `ScreenFade`.)
+- **He falls, and stays on screen.** The giant used to vanish the instant the
+  third stone landed and 17:47 was spoken over an empty valley. `finished` now
+  fires after a one-second fall, the duel's layer sits *under* the dialogue box
+  (14 vs 20), and the chapter's last verses are spoken over him.
+
+**Tested.** smoke §6d/§7: the cut is entered and the fight appears; strikes and
+throws alternate at real speed; a dodge costs no nerve; the DONE phase is
+reached; the fight's layer is under the dialogue layer; and 17:47 is open while
+the duel is still on screen. **CI.** What is *not* tested: how the fall and the
+cut feel in the hand — that needs a device.
 
 ---
 
