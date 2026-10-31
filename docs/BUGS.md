@@ -9,11 +9,21 @@ run in which its own check executed and passed:
 
 | Run | Commit | Result |
 |---|---|---|
-| `41180664635` | `6f5853c` | lint ✅ (incl. the duel's real-input check) · export ✅ · deploy ✅ |
+| `41197972787` | `85d24db` | lint ✅ (incl. the phone's A→world check) · export ✅ · deploy ✅ |
+| `41195649414` | `805de7c` | lint ✅ (incl. the HUD band measurement) · export ✅ · deploy ✅ |
+| `41195229562` | `9b67f29` | lint ✅ (incl. the choice-box button check) · export ✅ · deploy ✅ |
+| `41194791034` | `8a02df0` | lint ✅ (incl. the pickup persistence check) · export ✅ · deploy ✅ |
+| `41193918961` | `6f5853c` | lint ✅ (incl. the duel's real-input check) · export ✅ · deploy ✅ |
 | `41179672932` | `bf7b05c` | lint ✅ (static gates, content lint, playthrough, regression suite) · export ✅ · deploy ✅ |
 | `41179263331` | — | green: first all-checks-hold run of the regression suite |
 | `41178877681` | `52ae810` | red: one check failed (a story trigger opening a box over an open one → BUG-013) |
 | `41178871464` | `ce69ad2` | red: static gate (a ternary wrap in the test itself) |
+| `41194441724` | `8a693e9` | red: BUG-018's new check walked the player out of Corin's reach and broke a later check — a test defect, fixed in `8a02df0` |
+| `41196074087` | `d53dde1` | red: the phone check asked `has_talked()` before the conversation it was waiting for had closed |
+| `41196452075` | `0f13cc6` | red: same, corrected — and still red, which is what turned this into six runs |
+| `41196824038` | `32961ba` | red: the previous check left the world paused inside a trigger's area, so the tap was tested against a paused world |
+| `41197178237` | `3992d4e` | red: preconditions green, tap still inert — the message split "the touch never arrived" from "nobody was in reach" |
+| `41197584293` | `9049467` | red: `interact_action_opens=true` — the world's path worked, the parsed touch did not |
 | `41178541547` | `7a5cabe` | red: seven suite failures, caused by un-awaited test coroutines — a fault in the *test*, fixed by fixing the test, not by weakening it |
 
 **Method.** The build cannot be run in the authoring sandbox (Godot's release
@@ -33,7 +43,8 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 20 found, 20 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 20 found, 20 fixed, 0 open, 0 P0** — 15 in pass 1, 5 in pass 2,
+plus the test coverage pass 2 added. Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -448,6 +459,26 @@ save-corruption class and is fixed structurally rather than worked around.
   real line height, and asserts the result fits the band and stays above the
   toast. It prints the measured numbers every run, so the margin is visible even
   when it passes.
+
+---
+
+## Coverage added in pass 2 (not bugs — gaps that let bugs hide)
+
+- **The phone's whole verb, tested as a phone.** Every check in `tests/deep.gd`
+  drove the game the way a keyboard does, and the report that opened this pass
+  came from a phone. `_check_touch_interact()` now stands the player beside an
+  unspoken villager, sends a real `InputEventScreenTouch` at the position
+  `TouchControls` draws its A at, and asserts a conversation opens and that
+  finishing it marks the person met.
+- **What that check cannot prove.** Godot's headless build does not route a
+  parsed touch event to `Node._input` — the run that discovered this reports
+  `interact_action_opens=true, parsed_opens=false`, i.e. the world's own path
+  works and the engine's touch routing is simply absent without a display. The
+  check therefore drives `TouchControls._input()` — the exact handler the engine
+  calls — with the same real touch event, which exercises the whole indirection
+  that has broken before (`touch → TouchControls → interact action → world`).
+  The engine's display-server routing is still only proven on hardware, and that
+  remains on `docs/DEVICE-CHECKLIST.md`.
 
 ---
 

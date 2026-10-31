@@ -114,16 +114,27 @@ The priority changed. Feature work is paused until the two chapters are
 *reliable*, not merely present. `docs/BUGS.md` is the live record; this is what
 it means for the roadmap.
 
-- Found and fixed in the first pass: 12 defects, including two that could stall
-  a chapter permanently (a dropped BECOME callback, a restored position inside a
-  wall) and the save-corruption path (a non-atomic write could silently start a
-  new game over a player's chapter). Every fix has a regression check in
-  `tests/deep.gd`, a suite that exists because `smoke.gd` proves the happy path
-  and nothing proved the *second* one.
+- **Pass 1 (build-only):** 15 defects, including two that could stall a chapter
+  permanently (a dropped BECOME callback, a restored position inside a wall) and
+  the save-corruption path (a non-atomic write could silently start a new game
+  over a player's chapter). Every fix has a regression check in `tests/deep.gd`,
+  a suite that exists because `smoke.gd` proves the happy path and nothing
+  proved the *second* one.
+- **Pass 2 (device feedback):** 5 more, all from one report — *"david vs goliath
+  cant click anything to fight"* — and the class behind it. The duel ignored
+  more than half of the presses made during it and had no input buffer; both
+  setpieces told the player to press an A button that the touch layer was
+  hiding; the provisions you collected came back after a reload; a choice could
+  only be answered with a mouse or a thumb; and the HUD's objective band was
+  one row tall for two-row sentences. The common thread is that each was
+  invisible to a test that drove the game by calling functions instead of by
+  pressing things — so pass 2 also added a check that sends *real* input:
+  a mouse click, the A button's action, a d-pad key, and a touch on the phone's
+  A, each through the engine's own pipeline.
 - The rule for this phase: **a bug is not closed by a code change, only by a
   check that failed before it and passes after it.**
-- Deliberately NOT being built: another chapter, another mechanic, another
-  screen. Depth over breadth, and reliability over both.
+- Deliberately NOT being built while this lasts: another chapter, another
+  mechanic, another screen. The current slice is reliability, not content.
 
 Open risks, honestly: nothing below is verified until it happens on a phone, and
 the authoring sandbox has no phone, no sound card and no Godot binary. See
