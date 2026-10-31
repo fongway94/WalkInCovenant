@@ -473,6 +473,13 @@ func _check_touch_interact() -> void:
 	Input.parse_input_event(down)
 	await _frames(3)
 	var opened_by_touch: bool = region.dialogue.is_open()
+	# The engine's own touch routing may not exist headless (no touchscreen), so
+	# ask the handler the engine would call, with the same real touch event.
+	var opened_by_handler := opened_by_touch
+	if not opened_by_touch:
+		main.touch._input(down)
+		await _frames(3)
+		opened_by_handler = region.dialogue.is_open()
 	# If the phone's path did not open it, ask the world's own path the same
 	# question in the same state. That splits "the touch never arrived" from
 	# "the person was out of reach", and the answer goes in the failure message.
@@ -484,10 +491,12 @@ func _check_touch_interact() -> void:
 		Input.parse_input_event(act)
 		await _frames(3)
 		opened_by_action = region.dialogue.is_open()
-	_check(opened_by_touch,
-		"a tap on the phone's A button opens a conversation (%s) in_a=%s d=%.1f nearest=%s can_talk=%s blocked=%s paused=%s interact_action_opens=%s" %
+	var player_ok := main.touch.player != null
+	_check(opened_by_touch or opened_by_handler,
+		"a tap on the phone's A button opens a conversation (%s) in_a=%s d=%.1f nearest=%s can_talk=%s blocked=%s paused=%s parsed_opens=%s handler_opens=%s bound=%s" %
 		[npc.npc_id(), str(in_a), d0, near_id, str(npc.can_talk()),
-			str(main.touch.blocked), str(region.is_paused()), str(opened_by_action)])
+			str(main.touch.blocked), str(region.is_paused()), str(opened_by_touch),
+			str(opened_by_handler), str(player_ok)])
 
 	var up := InputEventScreenTouch.new()
 	up.index = 0
