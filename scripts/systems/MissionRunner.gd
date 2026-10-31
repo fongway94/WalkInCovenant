@@ -89,6 +89,13 @@ func start_at(i: int) -> void:
 	if missions.is_empty():
 		finished_all.emit()
 		return
+	if i >= missions.size():
+		# Nothing left to do here. Walking back into a finished region must not
+		# replay the chapter that finished in it.
+		index = missions.size()
+		running = false
+		_closing = false
+		return
 	index = clampi(i, 0, missions.size() - 1)
 	running = true
 	_closing = false
@@ -97,6 +104,16 @@ func start_at(i: int) -> void:
 
 func start() -> void:
 	start_at(0)
+
+
+## The first mission whose condition is not met yet. This is what "arriving"
+## means: start the list at the first thing that has not happened, which is the
+## beginning for a new region and nothing at all for a finished one.
+func first_unmet(ctx: Dictionary) -> int:
+	for i in range(missions.size()):
+		if not _meets((missions[i] as Dictionary).get("complete", {}), ctx):
+			return i
+	return missions.size()
 
 
 func _enter_current() -> void:

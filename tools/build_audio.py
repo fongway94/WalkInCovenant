@@ -346,6 +346,28 @@ def music_valley(loop=24.0):
     return out
 
 
+def music_bethlehem(loop=20.0):
+    """Bethlehem. Higher, slower and warmer than the valley: a town on a hill in
+    the morning, and a house that is waiting for somebody. The drone sits a
+    fifth above the valley's so the two regions never sound like the same
+    place with a different label."""
+    n = int(loop * SR)
+    out = [0.0] * n
+    for f, g in ((110.0, 0.22), (164.81, 0.13), (220.0, 0.07)):
+        t = periodic_tone(f, loop, loop, g, harm=(1.0, 0.35, 0.10),
+                          lfo=(1.0 / loop, 0.25))
+        for i in range(n):
+            out[i] += t[i]
+    out = [v + w * 0.08 for v, w in zip(out, wind(loop))]
+    # a slow line in D major, one note every 2.5 s, tails wrapping the seam
+    notes = [587.33, 493.88, 440.0, 493.88, 587.33, 659.25, 587.33, 440.0]
+    for i, f in enumerate(notes):
+        at = (i * 2.5) % loop
+        mix(out, tone(f, 3.0, 2.4, 2.0, harm=(1.0, 0.28, 0.08)), at, 0.15, wrap=True)
+        mix(out, tone(f * 0.5, 2.6, 2.0, 2.2, harm=(1.0, 0.18)), (at + 0.8) % loop, 0.07, wrap=True)
+    return out
+
+
 def music_battle(loop=12.0):
     n = int(loop * SR)
     out = [0.0] * n
@@ -391,6 +413,7 @@ SFX = {
 MUSIC = {
     "valley": (music_valley, 0.42),
     "battle": (music_battle, 0.40),
+    "bethlehem": (music_bethlehem, 0.40),
 }
 
 

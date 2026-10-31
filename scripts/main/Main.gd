@@ -5,6 +5,13 @@ extends Node2D
 ## Story logic stays in data; Main only routes the moments between systems.
 
 var region: Region = null
+## Which region the previous one was, so the new one can put the player by the
+## road they came in on. Empty on a cold boot.
+var _from_region := ""
+## An optional campaign script. A region may name one in its data; if it does,
+## the beats of THAT story are its business and `Main` stops knowing their names.
+var chapter: Node = null
+var _travelling := false
 var hud: Hud = null
 var touch: TouchControls = null
 var become: BecomeController = null
@@ -112,14 +119,107 @@ func _ready() -> void:
 	runner = MissionRunner.new()
 	add_child(runner)
 
+	_build_region(_boot_region_id(), "")
+
+
+## Which region the save is in. A journey writes it; a cold boot reads it, so a
+## player who walked to Bethlehem and closed the tab comes back to Bethlehem.
+func _boot_region_id() -> String:
+	var saved := str(GameState.data.get("region", ""))
+	if saved != "" and FileAccess.file_exists("res://data/regions/%s.json" % saved):
+		return saved
+	return CampaignModel.current_region()
+
+
+## One door into a region, used by the cold boot and by every journey. Signal
+## wiring lives here because `Region.region_ready` fires INSIDE add_child():
+## anything connected afterwards never hears it.
+func _build_region(region_id: String, from_id: String) -> void:
 	region = Region.new()
-	# Which story this is comes from the registry, not from a line of code.
-	region.region_id = CampaignModel.current_region()
+	region.region_id = region_id
+	region.from_region = from_id
 	region.region_ready.connect(_on_region_ready)
 	region.pickup_taken.connect(_on_pickup)
 	region.trigger_fired.connect(_on_trigger)
 	region.curio_seen.connect(_on_curio)
+	region.exit_taken.connect(_travel)
 	add_child(region)
+
+
+## ── travel ─────────────────────────────────────────────────────────────
+## A region file may name other regions in `exits`. Standing on one and pressing
+## the one button hands the picture over: fade out, tear the world down, build
+## the next one from ITS data, put the player by the road they came in on, fade
+## in. Everything else — the player, the camera, the HUD, the mission list — is
+## rebuilt from that region's file, so a second place to walk is a file and an
+## exit, not a second game.
+func _travel(to_id: String) -> void:
+	if _travelling or to_id == "" or region == null or region.model == null:
+		return
+	if not _may_leave(to_id):
+		return
+	_travelling = true
+	region.set_paused(true)
+	_save_progress()
+	fade.run(0.35, _swap_region.bind(to_id), 0.45, func(): _travelling = false)
+
+
+## The exit's own conditions. `requires` names a save flag; `locked` is what to
+## say when it is not set. A road closed by the story is still a road the player
+## can walk up to and press, and silence there reads as a broken game.
+func _may_leave(to_id: String) -> bool:
+	var e := _exit_for(to_id)
+	if e.is_empty():
+		return false
+	var need := str(e.get("requires", ""))
+	if need != "" and not bool(GameState.flag(need)):
+		var locked: Dictionary = e.get("locked", {"en": "Not yet.", "zh": "现在还不行。"})
+		EventBus.toast_requested.emit(I18n.t(locked))
+		return false
+	return true
+
+
+func _exit_for(to_id: String) -> Dictionary:
+	for e in region.model.exits:
+		var ex: Dictionary = e
+		if str(ex.get("to", "")) == to_id:
+			return ex
+	return {}
+
+
+func _swap_region(to_id: String) -> void:
+	var from_id := str(region.region_id)
+	EventBus.player_left_region.emit(from_id)
+	_dismiss_fight()
+	if practice != null:
+		practice.queue_free()
+		practice = null
+	if stones_panel != null:
+		stones_panel.queue_free()
+		stones_panel = null
+	if chapter != null:
+		chapter.queue_free()
+		chapter = null
+	region.queue_free()
+	region = null
+	_build_region(to_id, from_id)
+
+
+## A campaign script, if this region names one. Everything a story does with the
+## shared machinery — dialogue, flags, camera, the HUD — is available to it; the
+## only thing it may not do is teach `Main` its own vocabulary.
+func _prepare_chapter() -> void:
+	chapter = null
+	var path := str(region.model.chapter_script)
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var scr = load(path)
+	if scr == null:
+		return
+	chapter = scr.new()
+	add_child(chapter)
+	if chapter.has_method("setup"):
+		chapter.call("setup", self, region, runner)
 
 
 func _process(delta: float) -> void:
@@ -138,6 +238,8 @@ func _process(delta: float) -> void:
 		EventBus.toast_requested.emit(I18n.t({
 			"en": "The valley lets go of you. Walk on.",
 			"zh": "山谷松开了手。继续走吧。"}))
+	if chapter != null and chapter.has_method("tick"):
+		chapter.call("tick", delta)
 	_update_guidance()
 	_update_touch_ownership()
 	_autosave()
@@ -174,6 +276,15 @@ func _update_guidance() -> void:
 		hud.set_prompt("")
 		return
 	var p: Player = region.player
+	if chapter != null and chapter.has_method("guidance"):
+		var next: Dictionary = chapter.call("guidance")
+		if not next.is_empty():
+			hud.set_objective(str(next.get("line", "")))
+			var t: Vector2 = next.get("target", p.global_position)
+			hud.point_at(t - p.global_position,
+				bool(next.get("point", false)) and t.distance_to(p.global_position) > 24.0)
+			hud.set_prompt(str(next.get("prompt", "")))
+			return
 	var obj: Dictionary = region.model.objectives
 	var target := p.global_position
 	var point := false
@@ -312,9 +423,14 @@ func _prepare_runner() -> void:
 	if runner == null or region == null:
 		return
 	runner.setup(region.model.missions, _say_brief, Callable())
-	runner.entered.connect(_on_mission_entered)
-	runner.completed.connect(_on_mission_completed)
-	runner.finished_all.connect(_on_missions_done)
+	# Connect once. `_prepare_runner` runs again every time a region is built,
+	# and a second connection is a second completion of every mission beat.
+	if not runner.entered.is_connected(_on_mission_entered):
+		runner.entered.connect(_on_mission_entered)
+	if not runner.completed.is_connected(_on_mission_completed):
+		runner.completed.connect(_on_mission_completed)
+	if not runner.finished_all.is_connected(_on_missions_done):
+		runner.finished_all.connect(_on_missions_done)
 
 
 ## The runner's voice. A mission may open with a brief; the runner does not know
@@ -340,6 +456,9 @@ func _begin_missions() -> void:
 ## A mission was entered. The runner has already decided the order; this is
 ## where a chapter hooks its own mechanics in by name.
 func _on_mission_entered(m: Dictionary) -> void:
+	if chapter != null and chapter.has_method("on_enter") \
+			and bool(chapter.call("on_enter", m)):
+		return
 	var act_name := str(m.get("act", ""))
 	var i := ACT_NAMES.find(act_name)
 	if i >= 0 and act != i:
@@ -428,6 +547,7 @@ func _autosave() -> void:
 func _save_progress() -> void:
 	var t := _tile_of(region.player.global_position)
 	GameState.data["pos"] = [t.x, t.y]
+	GameState.data["region"] = str(region.region_id)
 	GameState.data["progress"] = {
 		"act": act_id(),
 		"stones": stones,
@@ -697,9 +817,28 @@ func _on_region_ready() -> void:
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
 	_prepare_runner()
-	_resume_story()
-	_begin_missions()
-	_prologue_once()
+	_prepare_chapter()
+	if str(region.from_region) != "":
+		# Arriving is not resuming. The region decides which act its story begins
+		# in, the player is put by the road they came in on, and the mission list
+		# starts at its own beginning — the journey IS the chapter change.
+		var arrived := region.entry_tile()
+		_place_at(arrived)
+		act = maxi(ACT_NAMES.find(region.model.arrive_act), 0)
+		_resume_index = 0
+		_saved_act = ""
+		# Not "begin at the top": begin at the first thing that has not happened.
+		# Otherwise a finished region replays its whole mission list on re-entry.
+		runner.start_at(runner.first_unmet(_mission_ctx()))
+		if chapter != null and chapter.has_method("arrived"):
+			chapter.call("arrived")
+	else:
+		_resume_story()
+		if str(region.model.chapter_script) != "":
+			# A region with its own script knows where its own story stopped.
+			_resume_index = runner.first_unmet(_mission_ctx())
+		_begin_missions()
+		_prologue_once()
 
 
 ## A saved valley has to boot into the chapter it left. Reloading after the win
@@ -812,6 +951,9 @@ func _on_pickup(id: String) -> void:
 				"zh": "东西都齐了。哥哥们在营地边上。"}))
 		return
 func _on_trigger(id: String) -> void:
+	if chapter != null and chapter.has_method("on_trigger") \
+			and bool(chapter.call("on_trigger", id)):
+		return
 	if id == "firstsight":
 		_first_sight()
 		return
@@ -1179,6 +1321,9 @@ func _after_return() -> void:
 ## Corin is the one who has to hear it. When he finishes his lines the chapter
 ## closes — the same ending card either way, but now it comes after a person.
 func _on_interacted(id: String, _kind: String) -> void:
+	if chapter != null and chapter.has_method("on_interact") \
+			and bool(chapter.call("on_interact", id)):
+		return
 	if act == Act.SAUL and id == "saul":
 		_armour_on()
 		return

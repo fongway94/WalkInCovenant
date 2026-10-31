@@ -936,7 +936,21 @@
    ]
   }
  ],
- "exits": [],
+ "exits": [
+  {
+   "to": "bethlehem",
+   "at": [
+    16,
+    46
+   ],
+   "requires": "elah_ended",
+   "note": "the south road to Bethlehem, 1 Samuel 16 - open once the chapter is over",
+   "locked": {
+    "en": "The road south is the baggage train today. Not yet.",
+    "zh": "南边那条路今天走的是辎重队。还不行。"
+   }
+  }
+ ],
  "briefing": [
   {
    "who": "",
@@ -1772,5 +1786,6 @@
    },
    "note": "Corin has to hear it from you, then the chapter closes"
   }
- ]
+ ],
+ "arrive_act": "done"
 }

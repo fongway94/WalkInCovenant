@@ -33,7 +33,7 @@ func _init() -> void:
 	_check_display()
 	_check_layout()
 	_check_campaigns()
-	var regions := ["elah"]
+	var regions := ["elah", "bethlehem"]
 	for rid in regions:
 		_check_region(rid, tiles, pmeta)
 
@@ -234,6 +234,123 @@ func _check_verses(lines: Array, where: String) -> void:
 		_fail("%s: a verse opens with a quote mark and is never closed" % where)
 
 
+## The campaign contract, as a check. Any region file must pass this before it
+## counts as a place a player can stand in, let alone a story they can play:
+## walkable spawn, people and things you can reach, exits that point at regions
+## that exist, missions whose conditions the runner can evaluate and whose
+## rewards exist, a chapter script if it names one, its own music, every
+## player-facing string in both languages, and every verse quoted whole.
+##
+## This is what makes "add a Bible story without rebuilding the game" a claim
+## with evidence behind it rather than an intention in a document.
+func _check_region_any(m, rid: String) -> void:
+	if m.solid_at_tile(m.spawn.x, m.spawn.y):
+		_fail("%s: spawn %s is inside a solid tile" % [rid, m.spawn])
+	if m.npcs.is_empty():
+		_fail("%s: no people — a place with nobody in it is not a story" % rid)
+	for n in m.npcs:
+		var nd: Dictionary = n
+		var t := Vector2i(int(nd["at"][0]), int(nd["at"][1]))
+		if m.solid_at_tile(t.x, t.y):
+			_fail("%s: npc %s at %s is inside a solid tile" % [rid, nd.get("id"), t])
+		if m.path(m.spawn, t).is_empty():
+			_fail("%s: no walkable path from spawn to npc %s" % [rid, nd.get("id")])
+		_has_both(nd.get("name"), "%s:npc %s name" % [rid, nd.get("id")])
+		for line in (nd.get("lines", []) as Array) + (nd.get("after", []) as Array) \
+				+ (nd.get("after_win", []) as Array):
+			_has_both(line.get("text"), "%s:npc %s line" % [rid, nd.get("id")])
+		_check_verses(nd.get("lines", []), "%s:npc %s" % [rid, nd.get("id")])
+
+	for it in m.items:
+		var idict: Dictionary = it
+		var it_t := Vector2i(int(idict["at"][0]), int(idict["at"][1]))
+		if m.solid_at_tile(it_t.x, it_t.y):
+			_fail("%s: item %s sits inside a solid tile" % [rid, idict.get("id")])
+		if m.path(m.spawn, it_t).is_empty():
+			_fail("%s: no walkable path from spawn to item %s" % [rid, idict.get("id")])
+
+	# Exits are the only way out, so a typo here is a softlock.
+	for e in m.exits:
+		var ed: Dictionary = e
+		var to := str(ed.get("to", ""))
+		if to == "":
+			_fail("%s: an exit has no destination" % rid)
+		elif not FileAccess.file_exists("res://data/regions/%s.json" % to):
+			_fail("%s: an exit points at '%s', which has no region file" % [rid, to])
+		var at: Array = ed.get("at", [])
+		if at.size() != 2:
+			_fail("%s: exit to %s has no tile" % [rid, to])
+			continue
+		var et := Vector2i(int(at[0]), int(at[1]))
+		if m.solid_at_tile(et.x, et.y):
+			_fail("%s: the exit to %s is inside a solid tile" % [rid, to])
+		if m.path(m.spawn, et).is_empty():
+			_fail("%s: the exit to %s cannot be walked to" % [rid, to])
+	if m.exits.is_empty():
+		_fail("%s: no exits — the player can never leave" % rid)
+
+	if m.chapter_script != "" and not FileAccess.file_exists(m.chapter_script):
+		_fail("%s: names a chapter script that does not exist (%s)" % [rid, m.chapter_script])
+	if m.music != "" and not FileAccess.file_exists("res://audio/music/%s.wav" % m.music):
+		_fail("%s: asks for music '%s' and the shelf has no such track" % [rid, m.music])
+
+	for key in m.objectives:
+		_has_both(m.objectives.get(key), "%s:objective %s" % [rid, key])
+	for line in m.briefing:
+		_has_both(line.get("text"), "%s:briefing line" % rid)
+	for line in m.prologue:
+		_has_both(line.get("text"), "%s:prologue line" % rid)
+	var scenes: Dictionary = m.scenes
+	for skey in scenes:
+		var lines: Array = scenes[skey]
+		if lines.is_empty():
+			_fail("%s: scene '%s' is empty" % [rid, skey])
+		for line in lines:
+			_has_both(line.get("text"), "%s:scene %s" % [rid, skey])
+		_check_verses(lines, "%s:scene %s" % [rid, skey])
+
+	var seals := {}
+	var ad := _read_json("res://data/achievements.json")
+	for sd in ad.get("seals", []):
+		seals[str(sd.get("id", ""))] = true
+
+	if m.missions.is_empty():
+		_fail("%s: no missions — the chapter would never start" % rid)
+	var seen := {}
+	for mi in m.missions:
+		var mm: Dictionary = mi
+		var mid := str(mm.get("id", ""))
+		if mid == "":
+			_fail("%s: a mission has no id" % rid)
+		if seen.has(mid):
+			_fail("%s: mission '%s' appears twice" % [rid, mid])
+		seen[mid] = true
+		var obj_key := str(mm.get("objective", ""))
+		if not m.objectives.has(obj_key):
+			_fail("%s: mission '%s' points at objective '%s', which does not exist"
+				% [rid, mid, obj_key])
+		if str(mm.get("act", "")) == "":
+			_fail("%s: mission '%s' has no act" % [rid, mid])
+		var enter := str(mm.get("enter", ""))
+		if enter != "" and m.chapter_script == "":
+			_fail("%s: mission '%s' asks for mechanic '%s' but the region names no chapter script"
+				% [rid, mid, enter])
+		var cond: Dictionary = mm.get("complete", {})
+		var kind := str(cond.get("kind", ""))
+		if kind != "flag" and kind != "count":
+			_fail("%s: mission '%s' has completion kind '%s'" % [rid, mid, kind])
+		if str(cond.get("key", "")) == "":
+			_fail("%s: mission '%s' has no completion key" % [rid, mid])
+		var rewards: Dictionary = mm.get("rewards", {})
+		var seal := str(rewards.get("seal", ""))
+		if seal != "" and not seals.has(seal):
+			_fail("%s: mission '%s' rewards seal '%s', which achievements.json does not define"
+				% [rid, mid, seal])
+		for bl in mm.get("brief", []):
+			_has_both(bl.get("text"), "%s: mission '%s' brief line" % [rid, mid])
+	_ok("%s: walkable, reachable, bilingual, verses whole, missions and exits valid" % rid)
+
+
 func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	print("region: %s" % rid)
 	var raw := _read_json("res://data/regions/%s.json" % rid)
@@ -257,6 +374,13 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			if not legend_keys.has(row[x]):
 				_fail("%s: grid char '%s' at (%d,%d) not in legend" % [rid, row[x], x, y])
 	_ok("legend covers grid (%dx%d)" % [m.width, m.height])
+
+	# A region that is not David's chapter gets the campaign CONTRACT and stops
+	# there: nothing below this line is allowed to know what a brook or an
+	# armour is, and a second Bible story must not have to satisfy David's gate.
+	if rid != "elah":
+		_check_region_any(m, rid)
+		return
 
 	# 2. spawns / npcs / items walkable
 	if m.solid_at_tile(m.spawn.x, m.spawn.y):

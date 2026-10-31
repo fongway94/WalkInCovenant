@@ -31,7 +31,9 @@ var prologue: Array = []             # the modern-day arrival, before the briefi
 ## Optional places that say one thing when you walk over them. Exploration
 ## without a checklist: no marker, no reward, nothing to complete.
 var curios: Array = []                # {id, at:[x,y], r, lines:[...]}
-var exits: Array = []                # {to, at:[x,y]}
+var exits: Array = []                # {to, at:[x,y], requires, locked}
+var arrive_act: String = "witness"   # which act the chapter is in when you ARRIVE
+var chapter_script: String = ""      # optional campaign script this region runs
 var words: Array = []                # the verses people hand you; become your moves
 var ending: Dictionary = {}          # the chapter's closing beats + reflection
 var objectives: Dictionary = {}       # the words the HUD points at each step
@@ -41,6 +43,9 @@ var david_act: Dictionary = {}
 ## Ordered mission list. The runner owns the lifecycle; this file only carries
 ## the data, so campaign #2 defines its missions in its own region file.
 var missions: Array = []
+## Set-piece dialogue a campaign script speaks (see scripts/campaigns/*.gd):
+## keys are the script's own business, the region just carries the lines.
+var scenes: Dictionary = {}
 var goliath := Vector2i.ZERO
 var challenge_row: int = -1
 
@@ -108,12 +113,15 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	else:
 		prologue = raw_pr
 	exits = d.get("exits", [])
+	arrive_act = str(d.get("arrive_act", "witness"))
+	chapter_script = str(d.get("chapter_script", ""))
 	words = d.get("words", [])
 	ending = d.get("ending", {})
 	objectives = d.get("objectives", {})
 	david_act = d.get("david_act", {})
 	# The chapter's spine: an ordered list of missions (see MissionRunner).
 	missions = d.get("missions", [])
+	scenes = d.get("scenes", {})
 	var gl: Array = d.get("goliath", [0, 0])
 	goliath = Vector2i(int(gl[0]), int(gl[1]))
 	challenge_row = int(d.get("challenge_row", -1))

@@ -1,0 +1,686 @@
+{
+ "id": "bethlehem",
+ "name": {
+  "en": "Bethlehem of Judah",
+  "zh": "犹大的伯利恒"
+ },
+ "sub": {
+  "en": "1 Samuel 16 · where it began",
+  "zh": "撒母耳记上 16 · 这件事的开头"
+ },
+ "tile": 16,
+ "legend": {
+  ".": "grass",
+  "d": "dry",
+  ",": "path",
+  "~": "water",
+  "=": "shallow",
+  "s": "sand",
+  "r": "rocky",
+  "w": "wheat",
+  "f": "flowers",
+  "m": "mud",
+  "p": "stone_floor",
+  "g": "dark_grass",
+  "e": "reeds",
+  "n": "snow",
+  "#": "cliff"
+ },
+ "grid": [
+  "################################",
+  "#..............................#",
+  "#..............................#",
+  "#.......r......................#",
+  "#......................wwwwwww.#",
+  "#......................wwwwwww.#",
+  "#...f..................wwwwwww.#",
+  "#......................wwwwwww.#",
+  "#......................wwwwwww.#",
+  "#..............................#",
+  "#.....f....ppppppppppp.........#",
+  "#..........ppppppppppp..f......#",
+  "#..r.......ppppppppppp.........#",
+  "#..............,,,.........f...#",
+  "#..............,,,....gggggggg.#",
+  "#..............,,,....gggggggr.#",
+  "#..............,,,....gggggggg.#",
+  "#............f.,,,....gggggggg.#",
+  "#....f.........,,,....gggggggg.#",
+  "#..............,,,....gggggggg.#",
+  "#..............,,,..f.ggggggrg.#",
+  "#..............,,,....gggggggg.#",
+  "#..............,,,....gggggggg.#",
+  "#..............,,,....gggggggg.#",
+  "#.......f......,,,....gggggggg.#",
+  "#..............,,,....gggggggg.#",
+  "#..............,,,....gggggggg.#",
+  "#...........f..,,,.............#",
+  "#..............,,,...r....f....#",
+  "#........r.....,,,.............#",
+  "#..............,,,.............#",
+  "################################"
+ ],
+ "spawn": [
+  16,
+  29
+ ],
+ "arrive_act": "witness",
+ "music": "bethlehem",
+ "chapter_script": "res://scripts/campaigns/Bethlehem.gd",
+ "flags_note": "1 Samuel 16:1-13, seen by the witness after the valley. The anointing is Scripture; the townspeople are invented and say nothing Scripture contradicts.",
+ "exits": [
+  {
+   "to": "elah",
+   "at": [
+    16,
+    30
+   ],
+   "note": "the south road back down to the valley"
+  }
+ ],
+ "props": [
+  {
+   "type": "house",
+   "at": [
+    13,
+    7
+   ]
+  },
+  {
+   "type": "house",
+   "at": [
+    18,
+    7
+   ]
+  },
+  {
+   "type": "well",
+   "at": [
+    11,
+    20
+   ]
+  },
+  {
+   "type": "jar",
+   "at": [
+    15,
+    10
+   ]
+  },
+  {
+   "type": "jar",
+   "at": [
+    19,
+    10
+   ]
+  },
+  {
+   "type": "olive_tree",
+   "at": [
+    6,
+    14
+   ]
+  },
+  {
+   "type": "olive_tree",
+   "at": [
+    7,
+    22
+   ]
+  },
+  {
+   "type": "olive_tree",
+   "at": [
+    25,
+    3
+   ]
+  },
+  {
+   "type": "bush",
+   "at": [
+    24,
+    16
+   ]
+  },
+  {
+   "type": "bush",
+   "at": [
+    26,
+    20
+   ]
+  },
+  {
+   "type": "bush",
+   "at": [
+    23,
+    23
+   ]
+  },
+  {
+   "type": "rock",
+   "at": [
+    29,
+    26
+   ]
+  },
+  {
+   "type": "rock",
+   "at": [
+    4,
+    26
+   ]
+  },
+  {
+   "type": "signpost",
+   "at": [
+    17,
+    27
+   ]
+  }
+ ],
+ "npcs": [
+  {
+   "id": "elder",
+   "actor": "elder",
+   "at": [
+    16,
+    26
+   ],
+   "name": {
+    "en": "The elder of Bethlehem",
+    "zh": "伯利恒的长老"
+   },
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The old man does not ask who you are. He asks the only question that matters to him this morning.",
+      "zh": "老人没有问你是谁。他只问了这个早上对他最要紧的一件事。"
+     }
+    },
+    {
+     "who": "elder",
+     "text": {
+      "en": "“You are not from the town. Then I will tell you plainly: Samuel is here.”",
+      "zh": "「你不是镇上的人。那我直说：撒母耳来了。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "He came up the road at first light with a horn at his side, and the elders went out to meet him trembling.",
+      "zh": "天刚亮他就顺着大路上来了，身边带着一只角。长老们出去迎他的时候，腿都在抖。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "When a prophet comes to a small town, it is never for a small reason.",
+      "zh": "先知到一个小镇上来，从来不是为了小事。"
+     }
+    },
+    {
+     "who": "elder",
+     "text": {
+      "en": "“Jesse's house is up by the wall. Go and see for yourself, and when you come back down, tell me what he wanted.”",
+      "zh": "「耶西的家在城墙边上。你自己上去看。下来的时候，告诉我他要做什么。」"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "",
+     "text": {
+      "en": "I have lived here seventy years, and I have never seen the whole town stand still in the street like this.",
+      "zh": "我在这儿住了七十年，从来没见过全镇的人这样站在街上不动。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "woman",
+   "actor": "woman",
+   "at": [
+    12,
+    20
+   ],
+   "name": {
+    "en": "The woman at the well",
+    "zh": "井边的妇人"
+   },
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "A woman is drawing water she does not need, because her hands want something to do.",
+      "zh": "一个妇人在打水，其实她并不需要水，只是手里得做点什么。"
+     }
+    },
+    {
+     "who": "woman",
+     "text": {
+      "en": "“The youngest one went out with the flock before dawn. He does not even know the prophet is here.”",
+      "zh": "「最小的那个天没亮就赶羊出去了。他还不知道先知到了。」"
+     }
+    },
+    {
+     "who": "woman",
+     "text": {
+      "en": "“Seven sons Jesse has. Seven. And the one who ends up watching the sheep is always the youngest.”",
+      "zh": "「耶西有七个儿子。七个。可守着羊的，总是最小的那个。」"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "",
+     "text": {
+      "en": "When you find him, tell him the water is sweet this morning. He will laugh at that.",
+      "zh": "你找到他的时候，跟他说今早的水是甜的。他会笑。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "jesse",
+   "actor": "jesse",
+   "at": [
+    14,
+    11
+   ],
+   "name": {
+    "en": "Jesse",
+    "zh": "耶西"
+   },
+   "lines": [
+    {
+     "who": "jesse",
+     "text": {
+      "en": "“I have brought them all, as you asked. Eliab first — he is the eldest.”",
+      "zh": "「你要看，我把他们都带来了。先是以利押，他是长子。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "The father keeps one hand on the doorframe the whole time he is speaking, as if the house might move.",
+      "zh": "父亲说话的时候，一只手一直扶在门框上，好像这间屋子会挪动。"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "jesse",
+     "text": {
+      "en": "“Whatever the prophet wants, he has not said it to me. Fathers are the last to be told.”",
+      "zh": "「先知要什么，他没跟我说。做父亲的，总是最后才知道。」"
+     }
+    }
+   ]
+  },
+  {
+   "id": "eliab",
+   "actor": "eliab",
+   "at": [
+    19,
+    11
+   ],
+   "name": {
+    "en": "Eliab",
+    "zh": "以利押"
+   },
+   "lines": [
+    {
+     "who": "eliab",
+     "text": {
+      "en": "“You came up the road with the crowd. Do you know what they are saying about our father's house?”",
+      "zh": "「你是跟着人从大路上来的吧。你知道他们在说我们家什么吗？」"
+     }
+    },
+    {
+     "who": "eliab",
+     "text": {
+      "en": "“Nothing. That is what. The prophet looks at me and says nothing at all.”",
+      "zh": "「什么也没说。他就看了我一眼，什么也没说。」"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "",
+     "text": {
+      "en": "I am the eldest. Whatever is beginning in this house should have begun with me.",
+      "zh": "我是长子。这个家里要出什么事，也该先从我这儿起。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "samuel",
+   "actor": "samuel",
+   "at": [
+    17,
+    11
+   ],
+   "name": {
+    "en": "Samuel",
+    "zh": "撒母耳"
+   },
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The old prophet sits with his hands folded. He does not look at you the way the town looks at you.",
+      "zh": "老先知坐着，双手交叠。他看你的样子，和镇上看你的人不一样。"
+     }
+    },
+    {
+     "who": "samuel",
+     "text": {
+      "en": "“You came up with the crowd. Then sit and watch what the LORD does in a house you have never been in.”",
+      "zh": "「你是跟着人上来的。那就坐下，看耶和华在你不认识的家里做什么。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Jesse's sons stand in a row by the wall, the eldest first, tall as a door.",
+      "zh": "耶西的儿子们靠着墙站成一排，长子在前，高得像一扇门。"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "samuel",
+     "text": {
+      "en": "“You are still here. Good. Watch — do not help. This is not a thing a bystander can carry.”",
+      "zh": "「你还在。很好。看着，别插手。这件事，旁人替不了。」"
+     }
+    }
+   ]
+  },
+  {
+   "id": "david",
+   "actor": "david",
+   "at": [
+    25,
+    18
+   ],
+   "follow_after_talk": true,
+   "name": {
+    "en": "David",
+    "zh": "大卫"
+   },
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The flock is thin and dusty, and the boy with it is the only person in Bethlehem still working.",
+      "zh": "羊群又瘦又脏。整个伯利恒，只有看着它们的那个男孩还在干活。"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“You are a long way from the road. Did my father send you? He sends for me when there is a feast, and never before.”",
+      "zh": "「你离大路很远。是我父亲叫你来的吗？他只在摆席的时候才叫我，从来不会早一点。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“The prophet is at the house. I heard the women say it. Nobody in Bethlehem has slept well since.”",
+      "zh": "「先知在家里。我听妇人们说了。从那天起，伯利恒没有一个人睡好过。」"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "",
+     "text": {
+      "en": "I will come. But the sheep come too — they do not know the way back without me.",
+      "zh": "我去。可羊也得跟着。没有我，它们不认得回来的路。"
+     }
+    }
+   ]
+  }
+ ],
+ "objectives": {
+  "gate": {
+   "en": "Ask the elder at the gate why the town has stopped working.",
+   "zh": "问问城门边的长老：镇上为什么停了工。"
+  },
+  "house": {
+   "en": "Go up to Jesse's house. The old man from Ramah is waiting there.",
+   "zh": "到耶西家去。那位从拉玛来的老人正在那里等着。"
+  },
+  "field": {
+   "en": "Call the youngest son in from the field. He is with the sheep.",
+   "zh": "到田里去，把最小的儿子叫回来。他正在放羊。"
+  },
+  "return": {
+   "en": "Bring him back to Samuel, at Jesse's house.",
+   "zh": "把他带回去，带回到耶西家里的撒母耳面前。"
+  },
+  "done": {
+   "en": "The oil has been poured. The south road leads back down to the valley.",
+   "zh": "膏油已经倒出。南边那条路，通回山谷。"
+  },
+  "corin": {
+   "en": "Speak to the elder at the gate.",
+   "zh": "先去和城门边的长老说话。"
+  },
+  "stones": {
+   "en": "Not here.",
+   "zh": "不在这里。"
+  },
+  "line": {
+   "en": "Not here.",
+   "zh": "不在这里。"
+  },
+  "npc": {
+   "en": "Speak to the people of the town.",
+   "zh": "和镇上的人说话。"
+  }
+ },
+ "briefing": [
+  {
+   "who": "",
+   "text": {
+    "en": "Bethlehem sits high enough that the wind comes off the hills all night. Everything here is small, and everything here is watched.",
+    "zh": "伯利恒地势高，整夜都有山风。这里什么都小，什么都被人看着。"
+   }
+  }
+ ],
+ "scenes": {
+  "arrival": [
+   {
+    "who": "",
+    "text": {
+     "en": "The road climbs, and the town sits small on its hill: a well, a threshing floor, roofs of clay. Bethlehem of Judah.",
+     "zh": "路是往上走的。城很小，搁在山上：一口井，一块打谷场，几间泥屋顶。犹大的伯利恒。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "The gate is open and nobody is working. Everyone is standing very still, the way people do when they are all afraid of the same thing.",
+     "zh": "城门开着，可是没有人在干活。所有人都站着不动 —— 人怕同一件事的时候，就是这个样子。"
+    }
+   }
+  ],
+  "sons": [
+   {
+    "who": "samuel",
+    "text": {
+     "en": "1 Samuel 16:7\n“But the LORD said unto Samuel, Look not on his countenance, or on the height of his stature; because I have refused him:”",
+     "zh": "撒母耳记上 16:7\n「耶和华却对撒母耳说：不要看他的外貌和他身材高大，我不拣选他。"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "“for the LORD seeth not as man seeth; for man looketh on the outward appearance, but the LORD looketh on the heart.”",
+     "zh": "因为，耶和华不像人看人：人是看外貌；耶和华是看内心。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "Eliab steps back. Abinadab steps forward, and then Shammah, and the prophet's face does not change for either of them.",
+     "zh": "以利押退回去。亚比拿达上前，然后是沙玛。先知看他们两个人的时候，脸上都没有变。"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "1 Samuel 16:10\n“Again, Jesse made seven of his sons to pass before Samuel. And Samuel said unto Jesse, The LORD hath not chosen these.”",
+     "zh": "撒母耳记上 16:10\n「耶西叫他七个儿子都从撒母耳面前经过，撒母耳对耶西说：这都不是耶和华所拣选的。」"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "1 Samuel 16:11\n“And Samuel said unto Jesse, Are here all thy children?”",
+     "zh": "撒母耳记上 16:11\n「撒母耳对耶西说：你的儿子都在这里吗？"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "“And he said, There remaineth yet the youngest, and, behold, he keepeth the sheep.”",
+     "zh": "他回答说：还有个小的，现在放羊。」"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "“And Samuel said unto Jesse, Send and fetch him: for we will not sit down till he come hither.”",
+     "zh": "撒母耳对耶西说：你打发人去叫他来；他若不来，我们必不坐席。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "Nobody moves. Then the whole room turns and looks at you, because you are the only one in it who is not from this house.",
+     "zh": "没有人动。然后满屋子的人转过来看你 —— 因为这一屋子里，只有你不是这家的。"
+    }
+   }
+  ],
+  "anoint": [
+   {
+    "who": "samuel",
+    "text": {
+     "en": "1 Samuel 16:12\n“And he sent, and brought him in. Now he was ruddy, and withal of a beautiful countenance, and goodly to look to.”",
+     "zh": "撒母耳记上 16:12\n「耶西就打发人去叫了他来。他面色光红，双目清秀，容貌俊美。"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "“And the LORD said, Arise, anoint him: for this is he.”",
+     "zh": "耶和华说：这就是他，你起来膏他。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "The horn is heavy. The oil goes on a boy who has been in the sun all morning, in front of seven brothers who will not look at him.",
+     "zh": "角很沉。油倒在一个晒了一上午太阳的男孩头上，七位兄长站在旁边，谁也不看他。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "1 Samuel 16:13\n“Then Samuel took the horn of oil, and anointed him in the midst of his brethren:”",
+     "zh": "撒母耳记上 16:13\n「撒母耳就用角里的膏油，在他诸兄中膏了他。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "“and the Spirit of the LORD came upon David from that day forward. So Samuel rose up, and went to Ramah.”",
+     "zh": "从这日起，耶和华的灵就大大感动大卫。撒母耳起身回拉玛去了。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "You have seen the end of this story and now its beginning, and the beginning is somebody's youngest son coming in from the sheep.",
+     "zh": "你已经看过这件事的结局，现在看到它的开头 —— 而这个开头，不过是有人家最小的儿子，从羊群里回来了。"
+    }
+   },
+   {
+    "who": "samuel",
+    "text": {
+     "en": "“Go back down the road when you are ready. He will need it: the valley, the giant, all of it.”",
+     "zh": "「想走的时候，就顺着大路下去。他会需要你看见过的那些 —— 山谷、巨人，所有的一切。」"
+    }
+   }
+  ]
+ },
+ "missions": [
+  {
+   "id": "beth_gate",
+   "act": "witness",
+   "objective": "gate",
+   "complete": {
+    "kind": "flag",
+    "key": "beth_met_elder"
+   },
+   "note": "the town's fear; the witness learns why Bethlehem has stopped working"
+  },
+  {
+   "id": "beth_sons",
+   "act": "witness",
+   "objective": "house",
+   "complete": {
+    "kind": "flag",
+    "key": "beth_sons_seen"
+   },
+   "brief": [
+    {
+     "who": "",
+     "text": {
+      "en": "Seven sons, and the prophet has not moved for one of them. Something is missing from this house.",
+      "zh": "七个儿子，先知一个都没动。这家里还缺一个人。"
+     }
+    }
+   ],
+   "note": "the procession of Jesse's sons (16:7-11)"
+  },
+  {
+   "id": "beth_call",
+   "act": "witness",
+   "objective": "field",
+   "complete": {
+    "kind": "flag",
+    "key": "beth_called"
+   },
+   "brief": [
+    {
+     "who": "",
+     "text": {
+      "en": "He is out with the sheep, east of the town. Go and call him in.",
+      "zh": "他在镇东边放羊。去把他叫回来。"
+     }
+    }
+   ],
+   "note": "the youngest son is not at the feast; the player fetches him"
+  },
+  {
+   "id": "beth_anoint",
+   "act": "witness",
+   "objective": "return",
+   "complete": {
+    "kind": "flag",
+    "key": "beth_anointed"
+   },
+   "rewards": {
+    "xp": 80,
+    "seal": "anointed_shepherd"
+   },
+   "note": "16:12-13, the anointing, and the chapter's closing beat"
+  }
+ ]
+}

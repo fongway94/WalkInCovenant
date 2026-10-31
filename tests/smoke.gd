@@ -852,6 +852,124 @@ func _run() -> void:
 		OS.delay_msec(560)
 		_check(witness.can_talk(), "and the person is talkable again after the cooldown")
 
+	# ── 11. the road south, and a second region ──────────────────────────
+	# The campaign contract, exercised rather than asserted: walk onto the exit,
+	# take it, and check that a DIFFERENT region is running — its own map, its own
+	# people, its own mission list, its own chapter script, its own music — then
+	# play its story to the end and come home.
+	var south := {}
+	for e in region.model.exits:
+		if str(e.get("to", "")) == "bethlehem":
+			south = e
+	_check(not south.is_empty(), "the valley has a road south to a second region")
+	if south.is_empty():
+		_finish_run()
+		return
+	var south_at: Array = south.get("at", [16, 46])
+	await _stand(region, int(south_at[0]), int(south_at[1]), 3)
+	_press_interact(region)
+	var waited := 0
+	while main.region != null and str(main.region.region_id) == "elah" and waited < 400:
+		await _frames(1)
+		waited += 1
+	_check(main.region != null and str(main.region.region_id) == "bethlehem",
+		"the exit takes you somewhere else (region=%s)"
+		% (str(main.region.region_id) if main.region != null else "null"))
+	if main.region == null or str(main.region.region_id) != "bethlehem":
+		_finish_run()
+		return
+	var beth = main.region
+	_check(beth.npcs.size() == 6, "Bethlehem has its own people (%d)" % beth.npcs.size())
+	_check(str(beth.model.music) == "bethlehem", "and its own music cue")
+	_check(main.chapter != null, "its chapter script loaded")
+	_check(main.runner.current_id() == "beth_gate",
+		"its own mission list started at the top (mission=%s)" % main.runner.current_id())
+	var on_exit := false
+	for e in beth.model.exits:
+		var e_at: Array = e.get("at", [])
+		if e_at.size() == 2 and _tile_of(beth.player) == Vector2i(int(e_at[0]), int(e_at[1])):
+			on_exit = true
+	_check(not on_exit, "the player arrives beside the road home, not on it")
+	var marks := {}
+	await _drain_quiet(beth.dialogue, marks)
+	var step := {}
+	if main.chapter != null:
+		step = main.chapter.call("guidance")
+	_check(not step.is_empty() and str(step.get("line", "")) != "",
+		"the chapter says what to do next, in its own words")
+
+	# the elder at the gate
+	var b_elder: Npc = _find_npc(beth, "elder")
+	_check(b_elder != null, "the elder of Bethlehem is at the gate")
+	if b_elder != null:
+		b_elder.talk()
+		_check(beth.dialogue._open, "he speaks when you press A")
+		await _drain_quiet(beth.dialogue)
+		_check(bool(GameState.flag("beth_met_elder")), "asking him why the town stopped sets the flag")
+		_check(main.runner.current_id() == "beth_sons",
+			"the mission list moves to the house (mission=%s)" % main.runner.current_id())
+
+	# Samuel, and the procession of the sons (16:7-11)
+	var b_samuel: Npc = _find_npc(beth, "samuel")
+	_check(b_samuel != null, "Samuel is at Jesse's house")
+	if b_samuel != null:
+		b_samuel.talk()
+		marks = {"16:7": false, "16:10": false, "16:11": false}
+		await _drain_quiet(beth.dialogue, marks)
+		_check(bool(marks["16:7"]), "the sons scene quotes 1 Samuel 16:7")
+		_check(bool(marks["16:10"]), "and 16:10, when the seven are not chosen")
+		_check(bool(marks["16:11"]), "and 16:11, the youngest out with the sheep")
+		_check(bool(GameState.flag("beth_sons_seen")), "the house has been searched")
+		_check(main.runner.current_id() == "beth_call",
+			"and the next step is the field (mission=%s)" % main.runner.current_id())
+
+	# the youngest son, out with the flock
+	var b_david: Npc = _find_npc(beth, "david")
+	_check(b_david != null, "David is out with the flock")
+	if b_david != null:
+		b_david.talk()
+		await _drain_quiet(beth.dialogue)
+		_check(bool(GameState.flag("beth_called")), "calling him in sets the flag")
+		_check(b_david.state == Npc.State.FOLLOW, "and he comes with you")
+		_check(main.runner.current_id() == "beth_anoint",
+			"the last mission is the anointing (mission=%s)" % main.runner.current_id())
+
+	# back to Samuel, and the oil (16:12-13)
+	if b_samuel != null:
+		b_samuel.talk()
+		marks = {"16:12": false, "16:13": false}
+		await _drain_quiet(beth.dialogue, marks)
+		_check(bool(marks["16:12"]), "the anointing quotes 1 Samuel 16:12")
+		_check(bool(marks["16:13"]), "and 16:13, the Spirit on David from that day")
+		_check(bool(GameState.flag("beth_anointed")), "the oil has been poured")
+		_check(main.runner.current_id() == "",
+			"and the region's mission list is finished (mission=%s)" % main.runner.current_id())
+		_check(_has(GameState.data.get("seals", []), "anointed_shepherd"),
+			"the chapter pays its mark, once, through the runner")
+
+	# the road home
+	var back := {}
+	for e in beth.model.exits:
+		if str(e.get("to", "")) == "elah":
+			back = e
+	_check(not back.is_empty(), "Bethlehem has a road back to the valley")
+	if not back.is_empty():
+		var b_at: Array = back.get("at", [16, 30])
+		await _stand(beth, int(b_at[0]), int(b_at[1]), 3)
+		_press_interact(beth)
+		var waited2 := 0
+		while main.region != null and str(main.region.region_id) == "bethlehem" and waited2 < 400:
+			await _frames(1)
+			waited2 += 1
+		_check(main.region != null and str(main.region.region_id) == "elah",
+			"and it leads back to the valley")
+		if main.region != null and str(main.region.region_id) == "elah":
+			await _frames(4)
+			_check(main.act_id() == "done",
+				"a finished chapter comes back finished, not replaying (act=%s)" % main.act_id())
+			_check(main.runner.current_id() == "",
+				"and its mission list does not start over (mission=%s)" % main.runner.current_id())
+
 	_finish_run()
 
 
@@ -862,6 +980,37 @@ func _check(ok: bool, msg: String) -> void:
 	else:
 		fails += 1
 		printerr("  FAIL  " + msg)
+
+
+## Advance every box, including the ones a beat chains into, until the screen has
+## been quiet for a few frames. `marks` records which of its keys were ever on a
+## page, which is how the smoke test proves a verse was actually spoken rather
+## than merely present in the data.
+func _drain_quiet(dlg, marks: Dictionary = {}) -> void:
+	var guard := 0
+	var quiet := 0
+	while guard < 800 and quiet < 3:
+		if dlg._open:
+			quiet = 0
+			var txt: String = str(dlg._current_page_text())
+			for k in marks:
+				if txt.find(str(k)) >= 0:
+					marks[k] = true
+			dlg._advance()
+		else:
+			quiet += 1
+		await _frames(1)
+		guard += 1
+
+
+## The one button, exactly as the engine delivers it: an action event the world
+## can read in `_unhandled_input`. `Input.action_press()` only flips the action's
+## internal state and would test nothing here.
+func _press_interact(reg) -> void:
+	var ev := InputEventAction.new()
+	ev.action = "interact"
+	ev.pressed = true
+	reg._unhandled_input(ev)
 
 
 func _frames(n: int) -> void:

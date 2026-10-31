@@ -18,6 +18,9 @@ const EXIT_RANGE := 13.0
 const INTERACT_LOCK := 0.35
 
 @export var region_id := "elah"
+## Where the player came from, when this region was entered by travelling. Empty
+## on a cold boot. The exit that points back decides where they stand.
+var from_region := ""
 
 var model: RegionModel = null
 var terrain: TerrainLayer = null
@@ -357,6 +360,33 @@ func _trigger_hit(t: Dictionary) -> bool:
 ## An exit the player is standing on, or empty. Movement used to be polled with
 ## Input.is_action_just_pressed() inside _process — a second, parallel input path
 ## that bypassed the action events every other system listens to (AUDIT B7).
+## The tile a player arriving from `from_region` stands on: the region's own
+## exit that points back where they came from, stepped one tile inland so the
+## first thing under their feet is not the way home. Falls back to the spawn.
+func entry_tile() -> Array:
+	if from_region != "":
+		for e in model.exits:
+			if str(e.get("to", "")) != from_region:
+				continue
+			var at: Array = e.get("at", [])
+			if at.size() != 2:
+				continue
+			var t := Vector2i(int(at[0]), int(at[1]))
+			var mid := Vector2i(model.width / 2, model.height / 2)
+			var tries := [
+				t + Vector2i(signi(mid.x - t.x), 0),
+				t + Vector2i(0, signi(mid.y - t.y)),
+				t + Vector2i(-signi(mid.x - t.x), 0),
+				t + Vector2i(0, -signi(mid.y - t.y)),
+			]
+			for c in tries:
+				if c.x >= 0 and c.y >= 0 and c.x < model.width and c.y < model.height \
+						and not model.solid_at_tile(c.x, c.y):
+					return [c.x, c.y]
+			return [t.x, t.y]
+	return [model.spawn.x, model.spawn.y]
+
+
 func _near_exit() -> Dictionary:
 	if model == null or player == null:
 		return {}
