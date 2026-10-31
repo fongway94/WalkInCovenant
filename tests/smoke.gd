@@ -298,10 +298,15 @@ func _run() -> void:
 	# pushed the player back a few tiles and re-armed at once, so a held thumb
 	# walked straight back in. The trigger now re-arms only past `rearm_row`.
 	await _stand(region, 16, 12, 3)
-	_check(not bool(region.triggers[0]["armed"]),
+	var line_trig := {}
+	for t in region.triggers:
+		if str(t["id"]) == "challenge":
+			line_trig = t
+	_check(not line_trig.is_empty(), "the line has a trigger of its own")
+	_check(not bool(line_trig.get("armed", true)),
 		"standing in the dead band does not re-arm the line")
 	await _stand(region, 16, 15, 3)
-	_check(bool(region.triggers[0]["armed"]), "the line re-arms so the walk can be tried again")
+	_check(bool(line_trig.get("armed", false)), "the line re-arms so the walk can be tried again")
 
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
