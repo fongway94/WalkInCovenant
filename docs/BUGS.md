@@ -462,6 +462,23 @@ save-corruption class and is fixed structurally rather than worked around.
 
 ---
 
+## Closed by inspection: the service worker's pre-cache list
+
+The deployed `index.service.worker.js` pre-caches seven files with
+`cache.addAll()`, which **rejects the whole install if any one of them is a
+404** — a silent way to ship a PWA that cannot be installed or run offline. The
+two the engine generates rather than copies (`index.icon.png`,
+`index.apple-touch-icon.png`) were on the open list for two passes because they
+are binaries and the only tool this sandbox has for the live site returns HTTP
+500 on binary bodies.
+
+That is now settled with a control: a file that genuinely does not exist returns
+the GitHub Pages **404 HTML page** through the same tool, and both icons return
+500 — i.e. a 200 with a body the tool cannot decode. Both exist; the pre-cache
+list is satisfied. Recorded here so it is not re-investigated.
+
+---
+
 ## Coverage added in pass 2 (not bugs — gaps that let bugs hide)
 
 - **The phone's whole verb, tested as a phone.** Every check in `tests/deep.gd`
