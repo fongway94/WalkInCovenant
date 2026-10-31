@@ -69,8 +69,11 @@ func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
 		return
 	var stream := _load(MUSIC_DIR + region_or_key + ".ogg")
 	if stream == null:
+		stream = _load(MUSIC_DIR + region_or_key + ".wav")
+	if stream == null:
 		_music.stop()
 		return
+	_loop(stream)
 	_music.stream = stream
 	_music.volume_db = -12.0
 	_music.play()
@@ -79,6 +82,23 @@ func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
 func duck(on: bool) -> void:
 	# duck music while a dialogue box is open — makes the game feel produced
 	_music.volume_db = -18.0 if on else -12.0
+
+
+## The importer's default is "do not loop", and a twenty-four-second valley that
+## stops after twenty-four seconds is worse than no music at all. The WAV header
+## does not have to say it; the director does.
+func _loop(stream: AudioStream) -> void:
+	var wav := stream as AudioStreamWAV
+	if wav == null or wav.loop_mode != AudioStreamWAV.LOOP_DISABLED:
+		return
+	var channels := 2 if wav.stereo else 1
+	var bytes_per_sample := 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
+	var frames := wav.data.size() / (bytes_per_sample * channels)
+	if frames <= 0:
+		return
+	wav.loop_begin = 0
+	wav.loop_end = int(frames)
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
 
 
 func _load(path: String) -> AudioStream:

@@ -1109,6 +1109,7 @@ func _open_fight() -> void:
 
 
 func _spawn_fight() -> void:
+	AudioDirector.play_music("battle", 0.4)
 	fight = GoliathFight.new()
 	add_child(fight)
 	fight.finished.connect(_on_win)
@@ -1137,6 +1138,7 @@ func _on_win() -> void:
 
 
 func _dismiss_fight() -> void:
+	AudioDirector.play_music(region.model.music, 1.2)
 	if fight != null:
 		fight.queue_free()
 		fight = null
