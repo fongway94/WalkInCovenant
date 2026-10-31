@@ -4,6 +4,19 @@ This is the Phase 1 deliverable: what is actually in the code, what is broken,
 why, what it affects, and what changing it would risk. It was written by reading
 the source, not by looking at a screenshot.
 
+**Status after the repair pass** — sections 1–4 are fixed and covered by CI;
+section 5 is the next build. See `docs/RESET-REPORT.md` for the per-phase reports.
+
+| Section | Status |
+|---|---|
+| §1 Screen and display | **fixed** (layout authority, letterbox, resize) |
+| §2 NPC interaction | **fixed** (tap arbitration, NPC state machine) |
+| §3 Dialogue presentation | **rebuilt** (opacity, portrait, pagination) |
+| §4 Chinese | **rewritten** (voice, register; verses untouched) |
+| §5 Gameplay vs the brief | **not started** — scheduled as the next pass |
+| §6 Campaign architecture | partially ready; `Main.gd` still campaign-specific |
+| §7 Duplicate handlers | the input conflicts are gone |
+
 **How to read the confidence column**
 
 | Mark | Meaning |

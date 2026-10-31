@@ -1,0 +1,287 @@
+# Development reset — phase reports
+
+Companion to `docs/AUDIT.md` (the Phase 1 findings). This file is the report the
+brief asks for at the end of each phase: what was wrong, what changed, which
+files, what was tested, what is still open.
+
+Read the **Evidence** column honestly. This sandbox has no Godot binary and no
+browser, so:
+
+- **CI** = the real engine, headless: `tests/run_all.gd` (content + layout) and
+  `tests/smoke.gd` (a full playthrough of David & Goliath) on GitHub Actions.
+- **READ** = proven by reading the code; not executed.
+- **DEVICE** = needs a human on a phone. Not claimed.
+
+Latest green run: **41150559270** — lint → export → deploy all succeeded.
+Live: <https://fongway94.github.io/WalkInCovenant/>
+
+---
+
+## Phase 1 — Audit ✅
+
+Delivered as `docs/AUDIT.md`. Three root causes, each with the code that proves
+it:
+
+1. **No layout authority.** Six subsystems derived screen geometry from their own
+   constants; nothing reacted to a viewport change.
+2. **Tap arbitration was distributed.** Three nodes read the input stream, a
+   phone tap arrives as two events, and the A button adds a third — so one tap
+   meant up to three advances.
+3. **The chapter is a fetch chain, and the two perspectives never interleave.**
+   This is a design problem, not a bug, and it is Phase 6–7 work.
+
+---
+
+## Phase 2 — Screen and display ✅ (logic), ⚠ (pixels need a device)
+
+### What was wrong
+- `BecomeController` drew two fixed 16-unit black bars on a 180-unit canvas —
+  **18% of the picture** — to open the BECOME transition, with no framing, no
+  resize handling, and no guarantee of retracting. On a phone this reads exactly
+  as "the game shrank and black borders appeared".
+- Every layout constant was right at 320×180 only. `tools/check_text_fit.py`
+  modelled the dialogue as 265 px wide; the real column is 264 px at the design
+  size and different at any other size.
+- The toast started at y=18 — **on top of the objective line**, which lives at
+  y=15–35. Every toast printed over the current task.
+- No node listened to `size_changed`, so rotation, browser chrome, and fullscreen
+  left stale geometry.
+
+### What changed
+| File | Change |
+|---|---|
+| `scripts/systems/ScreenFit.gd` | **new** — one source of truth: safe area, thumb strip, camera half/clamp, dialogue band + text column + height cap, letterbox height. Pure maths, testable without a window. |
+| `scripts/story/DialogueBox.gd` | lays itself out from `ScreenFit`; re-lays out on `size_changed` and re-paginates. |
+| `scripts/ui/Hud.gd` | every offset computed in `_apply_layout()`; toast moved to its own band under the objective; `size_changed` connected. |
+| `scripts/world/CameraRig.gd` | clamp via `ScreenFit.clamp_camera`; re-centres on resize. |
+| `scripts/systems/BecomeController.gd` | bars are **7.5% of the screen**, each with a gold hairline; retraction on every exit path, a `MAX_HOLD` watchdog, and re-layout on resize. |
+| `scripts/ui/ScreenFade.gd` | refuses to stack two transitions; clears itself if it is ever black for more than 3 s. |
+| `scripts/ui/PlaceCard.gd` | re-lays out on resize, sits clear of the thumb strip. |
+| `tools/check_export.py` | new `SCREEN` rule: stretch mode/aspect/scale-mode, viewport size, landscape lock, canvas resize policy and PWA orientation must agree — each is legal alone, which is how they drift. |
+| `tools/check_text_fit.py` | width now matches the real text column (258 px with slack), not a guess. |
+| `tests/run_all.gd` | `_check_layout()`: 14 screen shapes from 320×180 to 2400×1080, asserting the dialogue stays on screen and under half the height, the text column stays readable, the letterbox stays under 11%, and the camera clamp never shows outside the region. |
+
+**Deliberately not changed:** `project.godot`'s stretch chain
+(`canvas_items` + `expand` + `fractional`). It is already the correct combination
+for "no bars, no distortion, any landscape aspect", and swapping it is what
+caused playtest 8's shrink bug. It is now *enforced* by `check_export.py`
+instead of trusted.
+
+### Tested
+CI: layout matrix, export-config rules, full playthrough. READ: nothing here
+needs a device to be *correct*, but whether it *looks* right does.
+
+### Still open
+- **Pixels need your eyes.** I cannot render a frame in this sandbox. The layout
+  maths is asserted; the final look is not.
+- `CameraRig` still snaps its position to whole world pixels while the canvas is
+  fractionally scaled. With NEAREST filtering that is the lesser evil (the
+  alternative shimmers), and it is left as-is by decision, not by oversight.
+
+---
+
+## Phase 3 — NPC interaction ✅
+
+### What was wrong
+- One physical tap reached `TouchControls`, `DialogueBox` and `Region` as
+  separate events (touch + emulated mouse + synthetic action), and each acted on
+  its own copy. That is the "same dialogue three times" report.
+- `DialogueBox` advanced on **any** key, movement keys included.
+- `Npc.talk()` had no per-NPC state, so two events in one frame both passed the
+  guard, and the second open replayed the first-time lines (because `_talked` is
+  only set when the box closes).
+- The A button was drawn *under* the dialogue panel — invisible but still live.
+- `Region._check_exits` polled `Input.is_action_just_pressed()` inside `_process`:
+  a second input path.
+- The touch layer consumed the whole left half of the screen, including the HUD's
+  own Buttons.
+
+### What changed
+| File | Change |
+|---|---|
+| `scripts/systems/TapGate.gd` | **new** — one gesture, one `true`. Every consumer asks; exactly one is granted, and the touch/emulated-mouse twin is dropped by the same 180 ms window. |
+| `scripts/story/DialogueBox.gd` | presses go through `TapGate`; only interact/accept/space/enter advance; Escape skips; number keys pick a choice; taps that land on the skip or an answer button are left to the button; a press over a control no longer advances underneath it. |
+| `scripts/world/Npc.gd` | `Talk { READY, SPEAKING, COOLDOWN }` with `can_talk()` (pure, callable every frame) and a **wall-clock** cooldown — the first version ticked in `_physics_process`, which is switched off exactly when a conversation ends. |
+| `scripts/ui/TouchControls.gd` | `blocked` while anything owns the screen (releases the stick, stops synthesising); circular hit areas matching the drawn buttons; claims only the stick half **below the HUD band**; consumes what it claims. |
+| `scripts/world/Region.gd` | one input path: an `interact` press means "leave, if standing on an exit, else talk to the nearest available person"; exits no longer polled. |
+| `scripts/main/Main.gd` | `_update_touch_ownership()` — one derived truth per frame, so a code path that forgets to restore control cannot leave the stick dead. |
+
+### Tested
+CI, smoke §10: talking opens **exactly one** box; a second call in the same
+breath opens none; the NPC is `SPEAKING`; one gesture (touch **and** its
+emulated mouse click) moves **exactly one step**; the next gesture moves exactly
+one more; the controls stand down and come back; the NPC enters COOLDOWN and
+returns to READY. Plus §2b: a tap on ≡ belongs to the HUD, a tap in the stick
+half belongs to the stick.
+
+### Still open
+- No automated multi-touch test (two thumbs at once). `blocked` makes it
+  structurally hard to hit, but it is not asserted.
+- iOS Safari cannot be tested here at all.
+
+---
+
+## Phase 4 — Dialogue presentation ✅ (built), ⚠ (needs a phone eye)
+
+### What was wrong
+A full-width, 93%-opaque sheet with no height cap that grew upward over the
+game; a 16×16 sprite stretched into a 30×38 slot; a bare `▼` only after the
+typewriter finished; a `»»` button in the same corner; choices in the engine's
+default theme; and overflow handled by a *lint* rather than by the box.
+
+### What changed (all in `scripts/story/DialogueBox.gd`)
+- **80% opacity, inset from the edges, capped at 44% of the height.** The scene
+  stays readable behind a conversation — the point of a conversation here is that
+  you are looking at the world while it happens.
+- **Framed portrait** (border + dark backing) at 30×30 with aspect kept.
+- **Gold hairline under the speaker's name**, so the speaker and the speech are
+  not one paragraph.
+- **Page counter** (`2/3`) when a line needs more than one page.
+- **Continue cue that breathes** (a slow alpha bob), not a static triangle.
+- **Styled choices** — dark, gold-edge, 24 px tall, matching the panel.
+- **Pagination**: the box measures every character with the real font and splits
+  the line into pages that fit. Overflow is now structurally impossible; the
+  lint remains only as an authoring guide.
+- **Skip is smaller and out of the cue's corner.**
+
+### Tested
+CI: the whole game is played through the paginated advance path; `check_text_fit`
+is clean at 4 rows. The paginator is exercised on every line of a full
+playthrough.
+
+### Still open
+- **Visual polish has to be judged by eye.** The geometry and behaviour are
+  asserted; the taste is not.
+- No per-mood portraits (each speaker has one face), no backlog/history screen.
+
+---
+
+## Phase 5 — Chinese ✅
+
+### What was wrong
+The data was clean — no Chinese in English fields, every glyph in the font,
+every line inside the box. The problem was **register**: all four NPCs spoke in
+the same staccato rhythm, several lines were written Chinese rather than spoken
+Chinese, and modern written connectives leaked into 1020 BC speech. Your example
+— 「几块石头垒成一座坛，上面没有火。没人有这个心气。」 — describes an object
+from a narrator's distance instead of being what a person standing there would
+say.
+
+### What changed
+Every spoken and narrative line in `data/regions/elah.json` was rewritten with a
+voice for each speaker:
+
+| Speaker | Voice |
+|---|---|
+| Corin (scribe) | measured, chooses each word, kind; `我们是见证人，不是主角` |
+| The boy | plain, concrete, frightened; `我娘`, `比我胳膊还粗` |
+| The woman | hands busy, no time for pretty sentences; `只求他别把命丢在上头` |
+| The elder | dry, slow, has been appraised all his life; `都是这样被人上上下下看的` |
+| Narration | short declaratives, no commentary |
+| Curios | places, not a tour guide: the altar is **cold**, and nobody has offered there in a long while |
+
+Also rewritten: the prologue, the briefing, the three days in Bethlehem, the
+shepherd slope, Jesse's errand, Eliab's beat, Saul's tent, the ending and its
+three answers, and every objective line.
+
+**Two real content bugs surfaced while rewriting** — both now fixed:
+- the boy's Deuteronomy 20:3 quotation was **duplicated across three boxes**,
+  with a stray closing bracket;
+- Saul's **1 Samuel 17:39** verse had gone missing in an earlier edit.
+
+### Scripture
+Untouched. Every quotation is 和合本 + KJV at the same scope, and the verse lines
+were carried over byte-identical (verified by diffing the four `words[]` cards
+and every `17:x` reference against the previous commit).
+
+### Tested
+CI: font rebuilt (702 glyphs, 116 KB) and `check_font` clean (703 codepoints);
+`check_text_fit` clean at 4 rows; `run_all` bilingual checks on every new line.
+
+### Still open
+- The valley has ~70 spoken lines. Voice differentiation is only as visible as
+  how much each person says — that improves when Phase 6 gives people more to do.
+
+---
+
+## Phase 6–7 — Gameplay and mission design ❌ not started (by instruction)
+
+The brief is explicit: *"Do not add new campaigns or major features during this
+repair phase. First make the existing game stable, polished and consistent."*
+Phases 2–5 are that repair. This is the next build, and it is a **design** job,
+not a patch — doing it in the same pass as the pipeline stabilisation is how a
+game ends up as ten half-missions.
+
+What is wrong, in one line each:
+- Witness mode is talk → collect → cross. Four good conversations holding up a
+  fetch chain.
+- BECOME fires **once**, near the end. The two perspectives never interleave.
+- The David act is talk-and-collect: no choosing of stones, no armour as an
+  input, no weight you can feel.
+- No mission has a briefing, a completion condition separate from a trigger, or
+  a reward distinct from a toast.
+
+The plan for the next pass (not built):
+1. A `missions` block in campaign data: `{id, mode, brief, objective, mechanic,
+   complete, reward, transition}` — so a mission is content, not code.
+2. One authored mission per chapter, each with a mechanic that *is* the story:
+   - Ch. 3 camp: carry Jesse's load and be turned back at the line (an escort
+     that says no).
+   - Ch. 4 Saul: the armour as a playable refusal — walk in it, and the walk is
+     slow and clumsy until you take it off.
+   - Ch. 5 stones: choose five from the brook by hand, with the text of 17:40
+     attached to the choice.
+3. A **return** to Witness mode mid-chapter (after the win, before the ending),
+   so BECOME is a loop rather than a one-way door.
+
+---
+
+## Phase 8 — Campaign architecture ⚠ partially ready
+
+Ready: `data/campaigns.json` + `CampaignModel` (region is a data choice), voice
+and UI systems are generic, `Region.spawn_npc` / `spawn_pickup` let a campaign
+add people and items at runtime, `Npc` state and dialogue come from data.
+
+Not ready: **`Main.gd` is still 700 lines of *this* chapter's story.** Adding
+Moses would mean editing it. The refactor — a `MissionRunner` driven by a
+`missions` list, with `Main` reduced to boot/wiring — is deliberately scheduled
+*after* Phases 2–5, because it must be done against stable, tested systems and
+not during the repair.
+
+---
+
+## Phase 9 — Acceptance matrix
+
+| Area | Check | Evidence |
+|---|---|---|
+| Display | Landscape, consistent scaling, no stretch | `check_export.py` SCREEN rule — **CI** |
+| Display | Dialogue/HUD stay on screen at 14 shapes | `run_all._check_layout` — **CI** |
+| Display | Letterbox never more than 11% of the picture | `run_all._check_layout` — **CI** |
+| Display | Camera never shows outside the region | `run_all._check_layout` — **CI** |
+| Display | No stuck black frame | `ScreenFade` watchdog — **READ** + full playthrough **CI** |
+| Display | Actually looks right on a phone | **DEVICE — not claimed** |
+| Interaction | One NPC interaction = one dialogue | smoke §10 — **CI** |
+| Interaction | Dialogue does not duplicate | smoke §10 — **CI** |
+| Interaction | Advances once per input | smoke §10 — **CI** |
+| Interaction | Control returns after dialogue | smoke §10 — **CI** |
+| Interaction | Quest progression single-fired | smoke §6/§7 — **CI** |
+| Gameplay | Objectives always stated | smoke §2b — **CI** |
+| Gameplay | Quest items visible and collectable | smoke §4 — **CI** |
+| Gameplay | Witness → David switch loads correct state | smoke §6/§7 — **CI** |
+| Gameplay | Two *interleaved* perspectives, mission design | **NOT BUILT — Phase 6/7** |
+| Language | Reads naturally, no machine translation | rewritten by hand; **your judgement needed** |
+| Language | Verses unchanged | diffed — **CI** (content) |
+| Mobile | Touch controls work, buttons positioned | smoke `_owns` + layout — **CI** |
+| Mobile | No accidental double taps | smoke §10 — **CI** |
+| Mobile | Real device behaviour | **DEVICE — not claimed** |
+
+---
+
+## What I would fix first if you report a problem
+
+1. **Anything about the conversation box on your phone** — that is the one thing
+   above I can only prove geometrically.
+2. **The letterbox during BECOME** — if it still reads as a bug rather than as a
+   film frame, the answer is to cut it, not to widen it.
+3. Then Phase 6, because that is the answer to "this feels like a top-down RPG
+   with collection tasks", and no amount of layout work will answer it.
