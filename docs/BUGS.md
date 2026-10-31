@@ -9,6 +9,7 @@ run in which its own check executed and passed:
 
 | Run | Commit | Result |
 |---|---|---|
+| `41211227100` | `90f3900` | pass 3 closed: lint ✅ (static gates, content lint + reachability, playthrough, regression suite — **`MIN_CHECKS` floor held**, so the count could not have been faked by deleting checks) · export ✅ · deploy skipped (branch) |
 | `41210725885` | `f01f81b` | pass 3: lint ✅ (static gates, content lint + reachability, playthrough, regression suite with the ten new checks) · export ✅ · deploy rejected by the Pages environment rule (only `main` may deploy) — the workflow now skips deploy on a working branch |
 | `41203462329` | `e7e7c40` | merge of pass 1–2 to `main`: lint ✅ · export ✅ · deploy ✅ |
 | `41197972787` | `85d24db` | lint ✅ (incl. the phone's A→world check) · export ✅ · deploy ✅ |
