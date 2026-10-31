@@ -529,6 +529,10 @@ func _run() -> void:
 	_check(corin != null, "Corin is still in the valley at the end")
 	if witness != null:
 		TapGate.reset()
+		# Headless runs uncapped: dozens of frames pass in a few milliseconds, so
+		# a 0.5 s wall-clock cooldown from the last conversation is still running
+		# here even though "many frames" have gone by. Wait real time.
+		OS.delay_msec(600)
 		await _frames(2)
 		_check(witness.can_talk(),
 			"a person can be talked to when nothing is open (box=%s talk=%d paused=%s)"
@@ -594,9 +598,7 @@ func _run() -> void:
 		_check(not region.dialogue._open, "the conversation closes on its own")
 		_check(not region._paused, "closing a box hands the world back")
 		_check(not main.touch.blocked, "the touch controls come back with it")
-		# The cooldown is real time (a wall clock, not frame deltas: this run is
-		# at Engine.time_scale 24 and the world is paused half of it), so wait
-		# real time for it rather than guessing a number of frames.
+		# same wall-clock wait, for the cooldown this conversation just started
 		OS.delay_msec(560)
 		_check(witness.can_talk(), "and the person is talkable again after the cooldown")
 
