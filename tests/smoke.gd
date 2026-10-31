@@ -936,6 +936,9 @@ func _run() -> void:
 
 	# back to Samuel, and the oil (16:12-13)
 	if b_samuel != null:
+		# He has just spoken to you, and a person has a cooldown: without the
+		# wall-clock wait this is the test talking over a cooldown, not the game.
+		OS.delay_msec(600)
 		b_samuel.talk()
 		marks = {"16:12": false, "16:13": false}
 		await _drain_quiet(beth.dialogue, marks)

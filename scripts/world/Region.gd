@@ -373,12 +373,23 @@ func entry_tile() -> Array:
 				continue
 			var t := Vector2i(int(at[0]), int(at[1]))
 			var mid := Vector2i(model.width / 2, model.height / 2)
-			var tries := [
-				t + Vector2i(signi(mid.x - t.x), 0),
-				t + Vector2i(0, signi(mid.y - t.y)),
-				t + Vector2i(-signi(mid.x - t.x), 0),
-				t + Vector2i(0, -signi(mid.y - t.y)),
-			]
+			# One tile inland, toward the middle of the map. The first candidate
+			# used to be `t + (0,0)` when the exit sat on the map's centre column,
+			# which put the player straight back onto the way they came in.
+			var dx := signi(mid.x - t.x)
+			var dy := signi(mid.y - t.y)
+			var tries: Array = []
+			if dx != 0:
+				tries.append(t + Vector2i(dx, 0))
+			if dy != 0:
+				tries.append(t + Vector2i(0, dy))
+			if dx != 0:
+				tries.append(t + Vector2i(-dx, 0))
+			if dy != 0:
+				tries.append(t + Vector2i(0, -dy))
+			# A dead-centre exit (both deltas zero) steps north first, then south.
+			if tries.is_empty():
+				tries = [t + Vector2i(0, -1), t + Vector2i(0, 1), t + Vector2i(1, 0), t + Vector2i(-1, 0)]
 			for c in tries:
 				if c.x >= 0 and c.y >= 0 and c.x < model.width and c.y < model.height \
 						and not model.solid_at_tile(c.x, c.y):

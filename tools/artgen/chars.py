@@ -288,6 +288,11 @@ CHARS = {
                     trim="wool", staff=True, headcloth=True),
     "king":    dict(robe="robe_king", skin="skin", hair="hair_grey",
                     trim="gold", beard=True, crown=True),
+    # NOTE: Bethlehem's household — jesse, eliab, samuel — is NOT drawn here.
+    # Those three are variations of the rigs above, made by tools/char_variants.py,
+    # so one body and one palette stay in use across the whole cast. Adding them
+    # here as well would give the same three people two different builds in the
+    # same scene once anyone re-ran this script.
 }
 
 
