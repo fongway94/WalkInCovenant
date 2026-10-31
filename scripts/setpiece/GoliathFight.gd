@@ -63,10 +63,18 @@ var _gol_base := Vector2.ZERO
 var _david_base := Vector2.ZERO
 ## Where he ends this round, so RESOLVE knows what comes next.
 var _after_resolve := "aim"
+## He does not disappear the instant the third stone lands. The win plays out on
+## the same screen for a beat, and only then does the chapter move on.
+const FALL_TIME := 1.0
+var _fall := 0.0
+var _emitted := false
 
 
 func _ready() -> void:
-	layer = 22
+	# Below the dialogue box (20) but above the world and the stick (12): the
+	# lines that close the chapter are spoken over the fallen giant, not over a
+	# valley the duel has already vanished from.
+	layer = 14
 	_build()
 	_apply_layout()
 	var vp := get_viewport()
@@ -135,10 +143,19 @@ func start() -> void:
 	round_no = 0
 	_msg = ""
 	_msg_t = 0.0
+	_fall = 0.0
+	_emitted = false
 	_begin_round()
 
 
 # ── the loop ─────────────────────────────────────────────────────────────
+## The first spear is the one that teaches the rule: it comes slower than every
+## spear after it, and it says so on screen. A player who has never seen the
+## fight must not lose the first exchange to the clock.
+func _telegraph_time() -> float:
+	return TELEGRAPH_TIME + (0.9 if round_no <= 1 else 0.0)
+
+
 func _begin_round() -> void:
 	phase = Phase.TELEGRAPH
 	_t = 0.0
@@ -166,7 +183,7 @@ func _process(delta: float) -> void:
 	match phase:
 		Phase.TELEGRAPH:
 			_t += delta
-			if _t >= TELEGRAPH_TIME:
+			if _t >= _telegraph_time():
 				phase = Phase.STRIKE
 				_t = 0.0
 				_strike = 0.0
@@ -189,6 +206,12 @@ func _process(delta: float) -> void:
 			_t += delta
 			if _t >= RESOLVE_TIME:
 				_after_resolve_step()
+		Phase.DONE:
+			if not _emitted:
+				_fall = minf(1.0, _fall + delta / FALL_TIME)
+				if _fall >= 1.0:
+					_emitted = true
+					finished.emit()
 	# The fight animates itself: without this the layer is drawn once and the
 	# spear never travels, the marker never sweeps, and the whole thing looks
 	# like a still picture with a working state machine behind it.
@@ -319,10 +342,15 @@ func _resupply() -> void:
 	_begin_round()
 
 
+## The giant goes down, and stays down on screen while the chapter's last lines
+## are spoken. `finished` fires when the fall has played, not when the stone
+## lands, so nothing cuts away mid-beat.
 func _finish() -> void:
 	phase = Phase.DONE
+	_t = 0.0
+	_fall = 0.0
+	_emitted = false
 	_layer.queue_redraw()
-	finished.emit()
 
 
 func _say(text: String, secs: float) -> void:
@@ -357,6 +385,16 @@ func _redraw() -> void:
 		jitter = Vector2(sin(_shake * 42.0) * 2.5 * _shake, 0.0)
 	_gol.position = _gol_base + jitter
 	_david.position = _david_base - jitter
+	if _fall > 0.0:
+		var drop := ease(_fall, 0.45)
+		_gol.position += Vector2(-7.0 * drop, 11.0 * drop)
+		_gol.modulate = Color(1.0, 1.0 - 0.28 * drop, 1.0 - 0.34 * drop, 1.0 - 0.12 * drop)
+		for i in range(5):
+			var dx := -18.0 + float(i) * 9.0
+			_layer.draw_circle(
+				Vector2(_gol_base.x + _gol.size.x * 0.5 + dx,
+					_gol_base.y + _gol.size.y + 2.0),
+				3.0 + 4.0 * drop, Color(0.55, 0.50, 0.40, 0.22 * drop))
 
 	# your nerve, his forehead
 	for i in range(NERVE):
@@ -397,7 +435,12 @@ func _redraw() -> void:
 	var hint_col := Color(0.86, 0.86, 0.8, 0.95)
 	match phase:
 		Phase.TELEGRAPH:
-			hint = I18n.t({"en": "He is winding up…", "zh": "他举起枪，在蓄力……"})
+			if round_no <= 1:
+				hint = I18n.t({
+					"en": "He lifts the spear. When the red tip comes, step aside — A, or a tap.",
+					"zh": "他举起枪。枪尖过来时让开 —— 按 A，或点屏幕。"})
+			else:
+				hint = I18n.t({"en": "He is winding up…", "zh": "他举起枪，在蓄力……"})
 			hint_col = Color(0.95, 0.72, 0.60, 0.95)
 		Phase.STRIKE:
 			hint = I18n.t({"en": "A / tap / any direction — STEP ASIDE",

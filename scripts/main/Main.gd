@@ -672,6 +672,14 @@ func _start_battle() -> void:
 func _open_fight() -> void:
 	GameState.grant_seal("the_argument")
 	GameState.record_way("stand")
+	# A cut, not a pop. The words end, the valley goes dark for a heartbeat, and
+	# the light comes back on the ground where the duel is fought — the same
+	# grammar as every other scene change in the chapter (docs/RESET-REPORT.md
+	# Phase 6: no abrupt swaps).
+	fade.run(0.28, _spawn_fight, 0.30)
+
+
+func _spawn_fight() -> void:
 	fight = GoliathFight.new()
 	add_child(fight)
 	fight.finished.connect(_on_win)
@@ -682,18 +690,27 @@ func _open_fight() -> void:
 ## chapter closes on, and it is spoken here, over the dust, while you are still
 ## David.
 func _on_win() -> void:
-	if fight != null:
-		fight.queue_free()
-		fight = null
+	# The duel stays on screen. `finished` fires after the giant has actually
+	# fallen, and the fight's layer sits under the dialogue box, so 1 Samuel
+	# 17:47 is spoken over him instead of over a valley the duel has already
+	# vanished from.
 	region.set_paused(true)
 	var da: Dictionary = region.model.david_act
 	var victory: Array = da.get("victory", [])
 	if victory.is_empty():
+		_dismiss_fight()
 		become.end("david", _after_return)
 		return
 	AudioDirector.play_sfx("hit", -2.0)
 	region.dialogue.show_lines(victory, _errand_speaker, func():
+		_dismiss_fight()
 		become.end("david", _after_return))
+
+
+func _dismiss_fight() -> void:
+	if fight != null:
+		fight.queue_free()
+		fight = null
 
 
 func _after_return() -> void:

@@ -469,6 +469,8 @@ func _run() -> void:
 		var f = main.fight
 		if f == null:
 			break
+		if int(f.phase) == int(GoliathFight.Phase.DONE):
+			break
 		if int(f.phase) == int(GoliathFight.Phase.STRIKE):
 			saw_strike = true
 			strikes += 1
@@ -484,8 +486,18 @@ func _run() -> void:
 	_check(saw_strike, "Goliath attacks, and the strike is dodgeable")
 	_check(saw_aim, "and you get a throw after every exchange")
 	_check(strikes >= 3 and aims >= 3, "the fight alternated %d strikes / %d throws" % [strikes, aims])
-	_check(main.fight == null, "three stones end the fight")
+	_check(int(duel.phase) == int(GoliathFight.Phase.DONE), "three stones end the fight")
 	_check(nerve_start == 3, "a dodged strike costs no nerve (nerve was %d)" % nerve_start)
+	# He falls on screen and stays there while the chapter's last lines are
+	# spoken: the duel does not blink out the instant the third stone lands.
+	_check(duel.layer < int(region.dialogue.layer),
+		"the duel is drawn under the dialogue box, not over it")
+	var fell := 0
+	while not region.dialogue._open and fell < FRAME_GUARD:
+		await get_tree().process_frame
+		fell += 1
+	_check(region.dialogue._open and main.fight != null,
+		"the verses are spoken over the fallen giant, which is still on screen")
 
 	# the victory lines, then RETURN, which hands the story back before controls
 	var cleared := 0
