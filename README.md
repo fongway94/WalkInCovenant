@@ -60,7 +60,7 @@ hand-rolled engine and DOM UI are replaced by things Godot gives free.
 | Journey Mirror — 10 profiles, 4 ways, deliberately label-free | The vector character rig (`world/rig.js`) |
 | Virtues / XP / relics / fruits / seals / callings | The generated tile grid (`world/elah.js` `buildGrid()`) |
 | The red-letter rule + the lint that enforces it | The DOM screens and `styles.css` |
-| 4 NPCs, 4 verses, 4 shouts, 5 stones — the whole valley | Procedural audio score (partly kept) |
+| 4 NPCs, 4 verses, 5 stones, one real fight — the whole valley | Procedural audio score (partly kept) |
 | 13 cinematic painted scenes + 7 portraits, **reused directly** | — |
 | The 22 lines the author rewrote by hand — **frozen byte-identical** | — |
 | 12 lint scripts — same assertions, new runner | — |

@@ -27,7 +27,7 @@ props, never touching GDScript.
 
 | Region | Passage anchor | Terrain identity | Set piece |
 |---|---|---|---|
-| **Valley of Elah** | 1 Sam 17 | dry valley, brook, camp | word-battle *(built)* |
+| **Valley of Elah** | 1 Sam 17 | dry valley, brook, camp | the fight with Goliath *(built)* |
 | **Bethlehem & the fields** | Ruth 1–4 | wheat, threshing floor, well | gleaning |
 | **The wilderness of Judea** | Ps 23, 1 Sam 24 | rocky, caves, springs | hiding from Saul |
 | **Jerusalem** | 2 Sam 6–7, Neh 3 | stone paving, gates, temple court | rebuilding the wall |
@@ -161,10 +161,10 @@ hardcoded in `Main.gd`.
 | Shared, never per-campaign | Per-campaign, in data |
 |---|---|
 | Movement, camera, tile collision, day light | `grid`, `legend`, `props`, `spawn` |
-| Dialogue box, portraits, choices, skip | `briefing`, `npcs[].lines/after`, `words`, `shouts` |
+| Dialogue box, portraits, choices, skip | `briefing`, `npcs[].lines/after`, `words` |
 | HUD objective, waypoint arrow, role plate | `objectives`, `ending`, `triggers` |
 | Escort/lead (`Npc.lead_to`) | who walks with you, `follow_after_talk` |
-| Word battle + BECOME transition | the verses you answer with, the hero's name |
+| Stone-and-sling fight + BECOME transition | the hero's name, his lines |
 | Save/load, XP, relics, completion | — |
 
 **Reloading mid-chapter.** `Main._resume_story()` reads the save before the
