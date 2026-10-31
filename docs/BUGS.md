@@ -21,7 +21,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 13 found, 13 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 15 found, 15 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -255,6 +255,43 @@ save-corruption class and is fixed structurally rather than worked around.
   are not marked until they are actually spoken.
 - **Regression test:** `tests/deep.gd` → `_check_dialogue_taps()` ("a story
   trigger cannot open a second box over an open one").
+
+## BUG-014 — a region could place a quest item nobody could count
+
+- **Severity:** P2 (latent) · **Status:** Fixed (gated, not enabled)
+- **Where:** `scripts/main/Main.gd` → `_on_pickup()`, `tests/run_all.gd`
+- **What:** the platform's pickup handler understands one kind of item — the
+  provisions of 1 Samuel 17:17, whose ids begin `prov`. A region file may author
+  `items` of any kind, so a future chapter could place a quest item, let the
+  player walk over it, watch it disappear, and count nothing. A quest item that
+  vanishes is worse than one that is absent.
+- **Root cause:** a data-driven feature whose only consumer knows one key.
+- **Fix:** this pass does not teach `Main` a second item kind (that would be a
+  feature, and features are paused). It makes the failure impossible to ship:
+  `tests/run_all.gd` now fails the build if any region places an item whose id
+  the platform cannot count, with a message that says what to do about it.
+- **Regression test:** `tests/run_all.gd` → `_check_region_any()`.
+
+## BUG-015 — the drill could not be played on a keyboard
+
+- **Severity:** P1 · **Status:** Fixed
+- **Where:** `scripts/setpiece/SlingPractice.gd`
+- **Reproduce:** play Act II on a desktop with the keyboard. The first mission
+  after BECOME is the shepherd's drill (three jars, one button). Nothing happens.
+- **Expected:** Space / Enter / A takes the shot, exactly as it does in the duel.
+- **Actual:** `SlingPractice` connected only `gui_input`. The panel covers the
+  screen and takes the mouse, `Main` blocks the touch controls while a setpiece
+  is up, and no key was ever read — so the **chapter could not proceed past its
+  first Act II mission** without a mouse. `GoliathFight` had the correct handler
+  all along; the drill, written later, did not.
+- **Root cause:** input handling duplicated per setpiece instead of following one
+  pattern, so the second one was written with half of it.
+- **Fix:** `_input` in `SlingPractice` handling the same keys and the same
+  `TapGate` arbitration as the duel.
+- **Regression test:** `tests/deep.gd` → `_check_drill_keys()`, which pushes a
+  real `InputEventKey` through `Input.parse_input_event()` and waits for the
+  drill to finish. (Calling `press()` would have passed before the fix, which is
+  exactly why the bug survived the smoke test.)
 
 ---
 
