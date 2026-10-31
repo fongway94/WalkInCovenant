@@ -19,6 +19,9 @@ var stones_panel: StoneChoice = null
 ## Seconds spent trying to walk while wearing the armour.
 var _armour_walk := 0.0
 var _armour_busy := false
+## The take-it-off beat runs once. Without this the tick re-fired the moment the
+## box closed and the player was handed 17:39 in a loop.
+var _armour_spent := false
 var _brook_open := false
 ## A resumed save starts the mission list at this index instead of 0.
 var _resume_index := -1
@@ -348,7 +351,7 @@ func _on_missions_done() -> void:
 ## Saul's armour is measured in steps, not in seconds: the scene ends when the
 ## player has actually tried to walk in it, which is the whole point of 17:39.
 func _tick_armour(delta: float) -> void:
-	if act != Act.ARMOUR or _armour_busy or region.player == null:
+	if act != Act.ARMOUR or _armour_busy or _armour_spent or region.player == null:
 		return
 	if region.dialogue.is_open():
 		return
@@ -482,6 +485,7 @@ func _armour_on() -> void:
 	act = Act.ARMOUR
 	_armour_walk = 0.0
 	_armour_busy = false
+	_armour_spent = false
 	var a: Dictionary = region.model.david_act.get("armour", {})
 	region.set_paused(true)
 	region.player.set_armour(true)
@@ -496,9 +500,10 @@ func _armour_on() -> void:
 
 ## He has tried to walk. The weight wins, and the verse explains it.
 func _armour_beat() -> void:
-	if _armour_busy or act != Act.ARMOUR:
+	if _armour_busy or _armour_spent or act != Act.ARMOUR:
 		return
 	_armour_busy = true
+	_armour_spent = true
 	region.set_paused(true)
 	region.player.external_intent = Vector2.ZERO
 	region.player.velocity = Vector2.ZERO
