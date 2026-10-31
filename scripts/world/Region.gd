@@ -279,6 +279,15 @@ func _process(delta: float) -> void:
 		_interact_lock = maxf(0.0, _interact_lock - delta)
 	if _paused or model == null or player == null:
 		return
+	# A conversation owns the world. Nothing in here may fire under an open box:
+	# a trigger used to open its scene ON TOP of whatever was already speaking
+	# (replacing the box under the player's finger — the reported "the dialogue
+	# appears three times"), and a curio used to set its "seen" flag and then be
+	# dropped by Main because a box was open, so that place never spoke again
+	# (BUG-013). Returning here leaves every trigger ARMED, so the beat plays the
+	# moment the box closes instead of being eaten.
+	if dialogue != null and dialogue.is_open():
+		return
 	if _unclaimed():
 		queue_redraw()
 	_check_curios(delta)

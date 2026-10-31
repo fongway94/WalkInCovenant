@@ -260,6 +260,10 @@ func _check_place_at_solid() -> void:
 # ── the one-tap-one-line contract, from a second direction ───────────────
 func _check_dialogue_taps() -> void:
 	var dlg = main.region.dialogue
+	# Away from every trigger and curio, so the check is about the box and not
+	# about the map underneath it.
+	main._place_at([main.region.model.spawn.x, main.region.model.spawn.y])
+	await _frames(2)
 	var lines: Array = [
 		{"who": "", "text": {"en": "One.", "zh": "一。"}},
 		{"who": "", "text": {"en": "Two.", "zh": "二。"}},
@@ -275,6 +279,22 @@ func _check_dialogue_taps() -> void:
 	_check(int(dlg._box_id) == id0, "opening it once opens one box")
 	await _drain(dlg)
 	_check(not dlg._open, "and it closes when its lines are done")
+
+	# BUG-013: standing in a trigger's area with a box open must not replace the
+	# box. The trigger fires when the conversation ends, not through it.
+	var row := 0
+	for t in main.region.triggers:
+		if str(t.get("id", "")) == "challenge":
+			row = int((t.get("data", {}) as Dictionary).get("row", 11))
+	main._place_at([main.region.model.spawn.x, maxi(1, row - 1)])
+	await _frames(2)
+	dlg.show_lines([{"who": "", "text": {"en": "Hold.", "zh": "等等。"}}],
+		func(_w): return {}, func(): pass)
+	var keep := int(dlg._box_id)
+	await _frames(6)
+	_check(int(dlg._box_id) == keep,
+		"a story trigger cannot open a second box over an open one")
+	await _drain(dlg)
 
 
 # ── BUG-012: the book always has a way out ────────────────────────────────

@@ -21,7 +21,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 12 found, 12 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 13 found, 13 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -231,6 +231,30 @@ save-corruption class and is fixed structurally rather than worked around.
 - **Fix:** `_input` closes the panel on `ui_cancel`/Escape.
 - **Regression test:** `tests/deep.gd` → `_check_journal_escape()` (opens, pauses,
   Escape closes, world resumes).
+
+## BUG-013 — a story trigger could open a scene on top of a conversation
+
+- **Severity:** P1 · **Status:** Fixed
+- **Where:** `scripts/world/Region.gd` → `_process()`
+- **Reproduce:** be mid-conversation within reach of a story trigger (the
+  challenge line, a curio, a first-sight radius). It was found by a test that
+  put the player next to the line and then opened a box: the trigger fired, and
+  `DialogueBox.show_lines()` replaced the box under the player's hand.
+- **Expected:** a conversation owns the screen; the world's beats queue behind it.
+  Every dialogue box in the game is supposed to be one beat at a time (AUDIT B1).
+- **Actual:** two things followed from the same missing rule. (a) A trigger's
+  scene replaced a box that was already open — the "the dialogue appears three
+  times" report, from the world side. (b) A curio within range during a box was
+  marked *seen* and then dropped by `Main._on_curio` (which does check), so that
+  place never spoke again for the rest of that save.
+- **Root cause:** the check lived at each consumer ("is a box open? then do
+  nothing") rather than at the producer. `Region` fired its events and let the
+  receivers sort it out, and one of them could not.
+- **Fix:** `Region._process()` returns while a box is open. Nothing is consumed:
+  triggers stay **armed** and fire the moment the conversation ends, and curios
+  are not marked until they are actually spoken.
+- **Regression test:** `tests/deep.gd` → `_check_dialogue_taps()` ("a story
+  trigger cannot open a second box over an open one").
 
 ---
 
