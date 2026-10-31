@@ -724,7 +724,12 @@ func _run() -> void:
 	await _frames(2)
 	GameState.data["flags"]["goliath_down"] = had_down
 	main.act = act_int
-	await _frames(2)
+	# ...and put the runner back where the finished chapter had it. Simulating a
+	# reload by restarting the list would otherwise leave the live run on the
+	# line mission, and the next frame would walk the chapter backwards.
+	main.runner.index = maxi(main.runner.index_of("aftermath"), 0)
+	main.runner.running = true
+	await _frames(3)
 
 	# ── 10. one tap is one thing ─────────────────────────────────────────
 	# Playtest 9: "clicking an NPC caused the same dialogue to appear three
