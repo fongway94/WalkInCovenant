@@ -474,7 +474,8 @@ func _run() -> void:
 		await get_tree().process_frame
 		stagger += 1
 	Input.action_release("move_right")
-	_check(stagger < 240, "walking in the armour ends the scene (after %d frames)" % stagger)
+	_check(stagger < 240, "walking in the armour ends the scene (after %d frames, paused=%s, mode=%d)"
+		% [stagger, str(region._paused), int(dave.mode)])
 	_check(region.dialogue._open, "and it ends in 17:39, on screen")
 	_drain(region.dialogue)
 	await _frames(4)

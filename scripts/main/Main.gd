@@ -16,6 +16,7 @@ var runner: MissionRunner = null
 var stones_panel: StoneChoice = null
 ## Saul's armour: how far the player has staggered in it, and whether the
 ## take-it-off beat has already begun.
+## Seconds spent trying to walk while wearing the armour.
 var _armour_walk := 0.0
 var _armour_busy := false
 var _brook_open := false
@@ -351,8 +352,12 @@ func _tick_armour(delta: float) -> void:
 		return
 	if region.dialogue.is_open() or region.is_paused():
 		return
-	_armour_walk += region.player.velocity.length() * delta
-	if _armour_walk >= 26.0:
+	# Measured in "time spent trying to walk", not in distance covered: a player
+	# pushing into a tent pole is still finding out that they cannot walk, and
+	# the scene must not depend on there being open floor in front of them.
+	if region.player.mode == Player.Mode.MOVING:
+		_armour_walk += delta
+	if _armour_walk >= 0.9:
 		_armour_beat()
 
 
