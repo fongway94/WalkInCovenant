@@ -447,10 +447,12 @@ func _check_touch_interact() -> void:
 	_check(not region.is_paused(), "the world is running before the tap")
 	_check(not bool(main.touch.blocked), "and the touch layer is live")
 	var near: Npc = region.nearest_interactable()
+	var near_id := "-"
+	if near != null:
+		near_id = near.npc_id()
 	print("  diag  touch: npc=%s at %s player at %s d=%.1f nearest=%s can_talk=%s paused=%s blocked=%s" %
 		[npc.npc_id(), str(npc.global_position), str(region.player.global_position),
-			npc.global_position.distance_to(region.player.global_position),
-			str(near.npc_id()) if near != null else "-",
+			npc.global_position.distance_to(region.player.global_position), near_id,
 			str(npc.can_talk()), str(region.is_paused()), str(main.touch.blocked)])
 	# The same centre TouchControls draws its A at.
 	var vs: Vector2 = main.touch.get_viewport().get_visible_rect().size
