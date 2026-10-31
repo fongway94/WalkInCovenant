@@ -166,39 +166,61 @@ Small, high-value, and all in the spirit of the existing design:
 
 ---
 
-## 5b. Adding campaign 02 (or 03) — the checklist
+## 5b. Adding a chapter — the checklist, as proved by Bethlehem
 
 The platform is one game with many stories. Everything a story needs lives in
-data; only a story that needs a *mechanic* nothing else has writes a scene
-(`GoliathFight.gd` is the worked example — the witness chapter never learns its
-name).
+data; only a story that needs a *mechanic* nothing else has writes code, and
+then it writes a **chapter script** (`scripts/campaigns/Bethlehem.gd` is the
+worked example) that talks to the engine through four doors — the box, the
+camera/brake, its own region data, and `GameState` flags.
+
+Bethlehem (1 Samuel 16) was built chapter-two-first, exactly this way. It cost
+one region file, one chapter script, one music cue, one registry line, three
+cast variants and a test section. `Main.gd` gained the seam, not the story:
 
 1. **`data/regions/<id>.json`** — the whole place: `grid`, `legend`, `props`,
-   `npcs`, `words`, `shouts`, `triggers`, `briefing`, `ending`, `objectives`.
-   Copy `elah.json` and change the words; the schema does not care whose story
-   it is.
+   `npcs`, `words`, `briefing`, `objectives`, `missions`, and (if the story has
+   one) `scenes`, `chapter_script`, `music`. Copy `bethlehem.json` and change the
+   words; the schema does not care whose story it is.
 2. **`data/tiles.json` / `data/props.json` keys** — reuse the existing ones.
    `pack_art.py --check` fails on a key that does not resolve.
-3. **`data/campaigns.json`** — register it: `id`, `order`, `region`, `book`,
-   `title`, `subtitle`, `witness`, `hero`, `hero_name`, `available: true`.
-   `tests/run_all.gd` fails if an available campaign points at a missing
-   region, if an id is duplicated, or if any text is not `{en, zh}`.
-4. **Art** — `art/characters/<actor>_{walk,idle}.png` for a new cast member
-   (`tools/artgen`), then `tools/pack_art.py`. Facesets come from row 0 of the
+3. **`data/campaigns.json`** — add the region to the campaign's `chapters` list,
+   in play order (the first entry is where a new game boots). `tests/run_all.gd`
+   fails if a chapter names a region file that does not exist, if a region file
+   belongs to no campaign, if an id is duplicated, or if any text is not
+   `{en, zh}`.
+4. **Art** — `art/characters/<actor>_{walk,idle}.png` for a new cast member.
+   A *new* person is either drawn by `tools/artgen` or, when they are one of the
+   existing rigs in different cloth, made by `tools/char_variants.py` (Jesse,
+   Eliab and Samuel are variants of the elder, boy and priest rigs, so the cast
+   keeps one body and one palette). `tools/check_chars.py` is the gate: a
+   variant whose sheet is a byte-for-byte copy of its rig fails, because that
+   would put two identical people in one scene. Facesets come from row 0 of the
    idle sheet, so there is nothing extra to draw.
-5. **Chinese** — written, not translated (see 6.1), then
+5. **`chapter_script`** — `scripts/campaigns/<Name>.gd`, extending `Node`, with
+   `setup(main, region, runner)` and any of `arrived()`, `on_interact(id)`,
+   `guidance()`. Quote Scripture out of the region's `scenes`, speak through
+   `region.dialogue`, and never touch the HUD, the save or the language toggle.
+   `docs/ARCHITECTURE.md` §5b is the contract.
+6. **Chinese** — written, not translated (see 6.1), then
    `tools/build_font.py && tools/check_font.py`, and
-   `tools/check_text_fit.py --max-rows 4` (four rows is still a box that fits a 320x180 screen; a quoted verse needs the fourth).
-6. **Hero mechanics** — if the story needs one (Moses and water, Daniel and a
+   `tools/check_text_fit.py --max-rows 4` (four rows is still a box that fits a
+   320x180 screen; a quoted verse needs the fourth).
+7. **Hero mechanics** — if the story needs one (Moses and water, Daniel and a
    night in the den), add `scripts/setpiece/<Thing>.gd` with the same contract
    `GoliathFight` keeps: a `start()`, a public `press()` a thumb can drive, a
    `signal finished`, and a test seam so `tests/smoke.gd` can play it headless.
-7. **Marks** — add any campaign-specific ones to `data/achievements.json`
-   (`id`, `title`, `desc`, both languages) and call
-   `GameState.grant_seal("id")` where the player earns it. The journal lists
-   them without knowing which campaign they came from.
-8. **Save** — nothing to do. Progress is keyed by region id and campaign id in
-   `GameState.data`, so the next story starts clean without touching the last.
+8. **Marks** — add any campaign-specific ones to `data/achievements.json`
+   (`id`, `title`, `desc`, both languages) and award them from the mission's
+   `seal` field where possible; the runner pays once, behind a save flag. The
+   journal lists them without knowing which campaign they came from.
+9. **Test** — `tests/run_all.gd` picks the region up from the shelf on its own
+   and gives it the contract check. `tests/smoke.gd` needs a section that walks
+   in, plays the story and walks out; the Bethlehem one also proves the verse
+   was *spoken* (each page's text is matched against the reference) rather than
+   merely present in the data.
+10. **Save** — nothing to do. Progress is keyed by region id and campaign id in
+    `GameState.data`, so the next story starts clean without touching the last.
 
 What is deliberately *not* per-campaign: the witness, movement, camera, the
 dialogue box, the HUD and its waypoint, the escort/lead behaviour, the word

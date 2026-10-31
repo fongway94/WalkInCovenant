@@ -936,9 +936,12 @@ func _run() -> void:
 
 	# back to Samuel, and the oil (16:12-13)
 	if b_samuel != null:
-		# He has just spoken to you, and a person has a cooldown: without the
-		# wall-clock wait this is the test talking over a cooldown, not the game.
-		OS.delay_msec(600)
+		await _until_talkable(b_samuel)
+		# Say WHY if he will not answer, instead of failing four assertions
+		# further down with no cause attached.
+		_check(b_samuel.can_talk(),
+			"Samuel will speak again once his last word is done (box=%s talk=%d)"
+			% [str(beth.dialogue.is_open()), int(b_samuel.talk_state)])
 		b_samuel.talk()
 		marks = {"16:12": false, "16:13": false}
 		await _drain_quiet(beth.dialogue, marks)
@@ -1014,6 +1017,19 @@ func _press_interact(reg) -> void:
 	ev.action = "interact"
 	ev.pressed = true
 	reg._unhandled_input(ev)
+
+
+## A person is unlatched briefly after every conversation — the guard that makes
+## one press one box. The test drives frames, not seconds, so it can arrive at a
+## door that a player would reach a heartbeat later; wait on the clock instead of
+## on frame counts, or the cooldown reads as a broken chapter.
+func _until_talkable(n) -> void:
+	if n == null:
+		return
+	var deadline := Time.get_ticks_msec() + 3000
+	while not n.can_talk() and Time.get_ticks_msec() < deadline:
+		await _frames(1)
+		await get_tree().create_timer(0.02).timeout
 
 
 func _frames(n: int) -> void:

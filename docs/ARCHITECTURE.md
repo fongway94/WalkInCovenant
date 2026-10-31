@@ -327,6 +327,47 @@ Direct port of Covenant's chapter template (`docs/GAME_DESIGN.md` §6), so the c
 
 ---
 
+## 5b. The chapter seam — how Bethlehem hangs off the same engine
+
+The second chapter (1 Samuel 16, `data/regions/bethlehem.json` +
+`scripts/campaigns/Bethlehem.gd`) was built to answer one question: **can the
+platform host another story without the shared layer learning its name?** It
+can, and this is the whole of the seam.
+
+A region file may name a `chapter_script`:
+
+```json
+"chapter_script": "res://scripts/campaigns/Bethlehem.gd",
+"scenes": { "arrival": [...], "sons": [...], "anoint": [...] }
+```
+
+`Main` instantiates it when the region loads, hands it `setup(main, region,
+runner)`, and afterwards lets it volunteer at three points:
+
+| Door | Called | The chapter may |
+|---|---|---|
+| `arrived()` | the player walks in from another region | speak its own arrival, show the place card |
+| `on_interact(id)` | an NPC's own box has just closed | take the beat entirely (return `true`) or leave it to the shared handler |
+| `guidance()` | every frame, before `Main`'s own | name the next step in its own words and point at its own target |
+
+Everything else it needs is a door it already has: `region.dialogue` (the box),
+`region.set_paused` / `pan_to` `/` `follow_player` (the camera and the brake),
+`region.model` (its own data), and `GameState` flags (which the shared
+`MissionRunner` watches). It knows nothing about the HUD, the save, the
+language toggle or the day/night clock, and none of them know it exists.
+
+Grep is the test: `Main.gd` contains no `beth_`, `samuel`, `anoint` or
+`Bethlehem`. Delete `Bethlehem.gd` and the region still loads, still walks, and
+still has six people in it — it simply has no story. `tests/run_all.gd` also
+gives any region that is not `elah` the *contract* check (`_check_region_any`)
+instead of David's chapter gate, so a second story is never asked to know what a
+brook or a piece of armour is.
+
+The registry in `data/campaigns.json` closes the loop: a campaign lists its
+`chapters` in play order, `tests/run_all.gd` fails if a chapter has no region
+file, and it fails if a region file belongs to no campaign — a place the
+platform cannot reach is a place that will rot.
+
 ## 6. Player controller — the grid-movement contract
 
 Detailed tuning lives in [`FEEL.md`](FEEL.md). The structural decision here:

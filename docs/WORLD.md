@@ -28,7 +28,7 @@ props, never touching GDScript.
 | Region | Passage anchor | Terrain identity | Set piece |
 |---|---|---|---|
 | **Valley of Elah** | 1 Sam 17 | dry valley, brook, camp | the fight with Goliath *(built)* |
-| **Bethlehem & the fields** | Ruth 1–4 | wheat, threshing floor, well | gleaning |
+| **Bethlehem** | 1 Sam 16 | hill town, gate, Jesse's house, the field | the anointing *(built)* |
 | **The wilderness of Judea** | Ps 23, 1 Sam 24 | rocky, caves, springs | hiding from Saul |
 | **Jerusalem** | 2 Sam 6–7, Neh 3 | stone paving, gates, temple court | rebuilding the wall |
 | **The Jordan & Jericho** | Josh 3–6 | river, ford, walls | the march |
@@ -118,7 +118,9 @@ a roaming world**, not a standalone chapter:
 2. ⏳ Anchors + Journal-Places + fast travel — small, and it is what makes the
    world *revisitable*. **Build this before adding region two.** A second region
    without revisit is just more one-pass content.
-3. ⏳ Region two (Bethlehem/fields) to prove regions are cheap to add.
+3. ✅ Region two — Bethlehem (1 Sam 16) — built as a full chapter, walked into
+   from the valley and walked out of again. That is the proof that a region is a
+   file, a chapter is a script, and neither needs the engine to know its name.
 4. ⏳ Discovery %, bystander barks, prayer-anywhere.
 5. ⏳ Eras, in v2.
 

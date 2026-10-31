@@ -33,8 +33,10 @@ func _init() -> void:
 	_check_display()
 	_check_layout()
 	_check_campaigns()
-	var regions := ["elah", "bethlehem"]
-	for rid in regions:
+	# Region ids come from the shelf, not from this file. They used to be a
+	# hand-written pair here, so a third chapter would have shipped unvalidated
+	# while the gate still said "clean".
+	for rid in _region_ids():
 		_check_region(rid, tiles, pmeta)
 
 	if failures == 0:
@@ -143,10 +145,27 @@ func _check_layout() -> void:
 		_ok("layout holds at %d screen shapes (dialogue, HUD, letterbox, camera clamp)" % sizes.size())
 
 
+## Every region file in data/regions, by id. Listing the shelf rather than naming
+## regions by hand is what makes "adding a chapter is a data change" true of the
+## gate as well as of the game.
+func _region_ids() -> Array:
+	var ids := []
+	for f in DirAccess.get_files_at("res://data/regions"):
+		if f.ends_with(".json"):
+			ids.append(f.get_basename())
+	ids.sort()
+	return ids
+
+
 ## The platform registry. Adding a campaign is supposed to be a data change, so
 ## the gate is about the data agreeing with itself: an available campaign must
 ## point at a region file that exists, and every campaign must be readable in
 ## both languages.
+##
+## `chapters` is the campaign's regions in play order — the first one is where a
+## new game boots. Every region file on the shelf must be claimed by exactly one
+## campaign, or it is a place the platform cannot reach and nobody will notice
+## when it rots.
 func _check_campaigns() -> void:
 	var reg := _read_json("res://data/campaigns.json")
 	var list: Array = reg.get("campaigns", [])
@@ -154,6 +173,7 @@ func _check_campaigns() -> void:
 		_fail("data/campaigns.json registers no campaigns")
 		return
 	var seen := {}
+	var claimed := {}
 	for c in list:
 		var id := str(c.get("id", ""))
 		if id == "":
@@ -169,7 +189,27 @@ func _check_campaigns() -> void:
 			var path := "res://data/regions/%s.json" % str(c.get("region", ""))
 			if not FileAccess.file_exists(path):
 				_fail("campaign %s is marked available but %s does not exist" % [id, path])
-	_ok("campaign registry is consistent (%d registered)" % list.size())
+		var chapters: Array = c.get("chapters", [])
+		if chapters.is_empty():
+			if bool(c.get("available", false)):
+				_fail("campaign %s is playable but lists no chapters" % id)
+			continue
+		if str(chapters[0]) != str(c.get("region", "")):
+			_fail("campaign %s boots into '%s' but its first chapter is '%s'"
+				% [id, str(c.get("region", "")), str(chapters[0])])
+		for ch in chapters:
+			var cp := "res://data/regions/%s.json" % str(ch)
+			if not FileAccess.file_exists(cp):
+				_fail("campaign %s lists chapter '%s', which has no region file" % [id, str(ch)])
+				continue
+			if claimed.has(str(ch)):
+				_fail("'%s' is a chapter of both %s and %s" % [str(ch), claimed[str(ch)], id])
+			claimed[str(ch)] = id
+	_ok("campaign registry is consistent (%d registered, %d chapter(s))"
+		% [list.size(), claimed.size()])
+	for rid in _region_ids():
+		if not claimed.has(str(rid)):
+			_fail("data/regions/%s.json belongs to no campaign — a place nobody can reach" % str(rid))
 
 	# Marks and UI labels are player-facing prose too, and they live outside the
 	# region files, so the bilingual rule has to reach them here.

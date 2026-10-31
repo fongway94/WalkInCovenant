@@ -110,10 +110,13 @@ saul_armour → brook_stones → the_line → aftermath`.
 
 ## Next, in order
 
-1. Device pass: real phone, landscape, several aspect ratios, thumbs through the
-   whole chapter. Nothing here replaces that.
-2. A second region stub (Bethlehem, Ruth 1–4) with its own `missions` list, purely
-   to prove the registry and the data contract, then stop.
-3. The armour and the brook are the template for "unique mechanics with a shared
-   spine": the next chapter's mechanics should be a campaign script that talks to
-   `MissionRunner`, never a branch inside `Main.gd`.
+1. Device pass: real phone, landscape, several aspect ratios, thumbs through both
+   chapters. Nothing here replaces that.
+2. ~~Second chapter~~ **done** — Bethlehem (1 Samuel 16) is a full chapter, not a
+   stub: its own region file, its own chapter script, its own mission list, its
+   own music, its own cast, reached by walking south out of the valley once the
+   giant is down, and it hands the player back to the valley finished. What it
+   proved is written up in `docs/ARCHITECTURE.md` §5b and `docs/CONTENT.md` §5b.
+3. From here the work is depth, not more chapters: the device pass, the audio
+   mix, and the presentation of what already exists. A third chapter is only
+   worth adding when two feel finished.
