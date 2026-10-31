@@ -37,6 +37,11 @@ var _provision_total := 3
 ## in a frozen world with no key that did anything (playtest 5).
 var _dead_pause := 0.0
 const DEAD_PAUSE_SECS := 6.0
+## Autosave. Wall-clock, not delta: the tests run at 24x and a delta-based
+## timer would write the save file eight times a second.
+var _save_due := 0
+var _saved_act := ""
+const SAVE_EVERY_MS := 3000
 
 ## The act as a word, for the smoke test and for anything that needs to print
 ## where the chapter is. An enum's integer value is an implementation detail;
@@ -116,6 +121,7 @@ func _process(delta: float) -> void:
 			"zh": "山谷松开了手。继续走吧。"}))
 	_update_guidance()
 	_update_touch_ownership()
+	_autosave()
 
 
 ## Who owns the screen right now. One derived truth, recomputed every frame,
@@ -237,6 +243,44 @@ func _update_guidance() -> void:
 		hud.set_prompt("")
 
 
+## Save the chapter where it stands. Written whenever the act changes (that is
+## a story beat, and a story beat is the worst thing to lose) and every few
+## seconds while the player is free to walk, so a tab closed mid-valley comes
+## back to the same valley.
+func _autosave() -> void:
+	if region == null or region.player == null or region.model == null:
+		return
+	if region.dialogue != null and region.dialogue.is_open():
+		return
+	if fight != null or practice != null or _in_battle:
+		return
+	if journal != null and journal.is_open():
+		return
+	var now := Time.get_ticks_msec()
+	if act_id() == _saved_act and now < _save_due:
+		return
+	_save_due = now + SAVE_EVERY_MS
+	_saved_act = act_id()
+	_save_progress()
+
+
+func _save_progress() -> void:
+	var t := _tile_of(region.player.global_position)
+	GameState.data["pos"] = [t.x, t.y]
+	GameState.data["progress"] = {
+		"act": act_id(),
+		"stones": stones,
+		"provisions": provisions,
+		"brothers": _brothers_met,
+		"pos": [t.x, t.y],
+	}
+	GameState.save_game()
+
+
+func _tile_of(pos: Vector2) -> Vector2i:
+	return Vector2i(int(floorf(pos.x / 16.0)), int(floorf(pos.y / 16.0)))
+
+
 ## Names for the people who only exist inside the errand. They come from the
 ## same data as their words, so a translator never has to open a script.
 func _speaker(who: String) -> Dictionary:
@@ -267,6 +311,15 @@ func _summon_saul() -> void:
 	region.set_paused(false)
 	if _npc("saul") != null:
 		return
+	_spawn_saul()
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "The king's tent is east of the brothers' post.",
+		"zh": "王的帐棚在哥哥们那边往东。"}))
+
+
+## The king is not standing in the camp when the chapter opens: he is summoned
+## by 17:31, and a resumed save has to put him back on the map.
+func _spawn_saul() -> void:
 	var sd: Dictionary = region.model.david_act.get("saul", {})
 	var sp: Dictionary = region.model.david_act.get("speakers", {})
 	var king: Dictionary = sp.get("saul", {})
@@ -282,9 +335,6 @@ func _summon_saul() -> void:
 			"actor": str(dave.get("actor", "david"))}},
 	}
 	region.spawn_npc(d)
-	EventBus.toast_requested.emit(I18n.t({
-		"en": "The king's tent is east of the brothers' post.",
-		"zh": "王的帐棚在哥哥们那边往东。"}))
 
 
 ## 1 Samuel 17:39-40. He takes the king's armour off, and the next thing he
@@ -402,10 +452,57 @@ func _on_region_ready() -> void:
 ## triggering `_memory_beat()` and Corin's ending unreachable — the one way a
 ## player could lose a finished chapter by refreshing the page.
 func _resume_story() -> void:
-	if not bool(GameState.flag("goliath_down")):
-		return
+	var pr: Dictionary = GameState.data.get("progress", {})
 	# The giant is down. If the ending never played, Corin still owes it to you.
-	act = Act.DONE if bool(GameState.flag("elah_ended")) else Act.AFTERMATH
+	if bool(GameState.flag("goliath_down")):
+		act = Act.DONE if bool(GameState.flag("elah_ended")) else Act.AFTERMATH
+		if act == Act.AFTERMATH:
+			_restore_pos(pr)
+		return
+	var was := str(pr.get("act", "witness"))
+	if was == "" or was == "witness" or was == "done":
+		# Act I replays from the valley's own flags: the prologue, the briefing
+		# and the card each fire once and are remembered by the save.
+		return
+	# A resumed save is honest about what it can restore: the chapter, not the
+	# frame. The act's opening beat plays again — the drill, the errand, the
+	# brook — rather than dropping the player into the middle of a scene whose
+	# first half never happened on this screen.
+	stones = int(pr.get("stones", 0))
+	provisions = int(pr.get("provisions", 0))
+	_brothers_met = bool(pr.get("brothers", false))
+	_restore_pos(pr)
+	match was:
+		"shepherd":
+			_start_david_act()
+		"errand":
+			_start_errand()
+		"saul", "stones", "ready":
+			_resume_david_late(was)
+		"fight", "aftermath":
+			_resume_david_late("ready")
+
+
+func _restore_pos(pr: Dictionary) -> void:
+	var pos: Array = pr.get("pos", [])
+	if pos.size() == 2:
+		_place_at(pos)
+
+
+## The second half of David's act, put back together: the king's tent, the
+## brook, and however many stones of the five the save had already gathered.
+func _resume_david_late(was: String) -> void:
+	act = Act.SAUL
+	if _npc("saul") == null:
+		_spawn_saul()
+	if hud != null:
+		hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
+	if was == "ready" or (stones > 0 and stones >= _stones_total):
+		_ready_for_the_line()
+		return
+	# `saul` and `stones` both continue at the brook's opening: 17:40 is the
+	# verse that puts the stones on the map, and it is cheap to hear again.
+	_brook_beat()
 
 
 ## Chapter 1. The witness is not from here, and saying so once, at the top, in

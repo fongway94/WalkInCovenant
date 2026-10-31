@@ -45,6 +45,11 @@ func new_game() -> void:
 		"region": "elah",
 		"campaign": "elah",     # which entry in data/campaigns.json this save plays
 		"pos": [0, 0],
+		# Where the chapter had got to when the tab was closed: the act, the
+		# things it had counted, and the tile the player stood on. Saving was
+		# implemented and never called, so a phone that switched apps lost the
+		# whole chapter — this is the record it now writes.
+		"progress": {},
 		"day": 1,
 		"time_of_day": "morning",
 		"settings": {"clean_mode": true, "sound": true, "music": true, "reduce_motion": false},
@@ -192,6 +197,17 @@ func quest_meet(id: String, objective: String) -> void:
 
 
 # ── persistence ──────────────────────────────────────────────────────────
+## The browser is not a console: there is no "quit" to intercept, and a phone
+## switching apps can take the page away without warning. These are the moments
+## Godot can still tell us about, and each one writes the save before the page
+## can go.
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, \
+		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_WM_GO_BACK_REQUEST:
+			save_game()
+
+
 func save_game() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:

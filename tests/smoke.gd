@@ -39,6 +39,13 @@ func _run() -> void:
 	# BECOME and RETURN are tween-driven, so headless frames would otherwise
 	# spend real seconds on each beat. 24x keeps the whole run to a few seconds.
 	Engine.time_scale = 24.0
+	# A fresh chapter, every time. The game now autosaves (which is the point),
+	# and a save left behind by an earlier run would boot this one into Act II
+	# and fail every Act I assertion with a reason that has nothing to do with
+	# the code under test.
+	if FileAccess.file_exists(GameState.SAVE_PATH):
+		DirAccess.remove_absolute(GameState.SAVE_PATH)
+	GameState.new_game()
 	GameState.data["settings"]["reduce_motion"] = true
 
 	# load(), not preload(): a script that fails to compile turns a preload into
@@ -598,6 +605,41 @@ func _run() -> void:
 	_drain(region.dialogue)
 	_check(not region._paused, "the memory releases the world")
 	_check(int(GameState.data["xp"]) == xp_before, "the memory is not a way to farm xp")
+
+	# ── 9b. the chapter survives the tab closing ─────────────────────────
+	# Saving was implemented and never called: a phone that switched apps came
+	# back to a fresh valley. It is now written on every act change, every few
+	# seconds of walking, and on the browser's pause/close notifications.
+	main._save_progress()
+	_check(FileAccess.file_exists(GameState.SAVE_PATH), "the chapter writes a save file")
+	var saved := {}
+	if FileAccess.file_exists(GameState.SAVE_PATH):
+		var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.READ)
+		if f != null:
+			var parsed: Variant = JSON.parse_string(f.get_as_text())
+			if parsed is Dictionary:
+				saved = parsed
+	_check(str((saved.get("progress", {}) as Dictionary).get("act", "")) != "",
+		"the save records which act the chapter had reached")
+	# And the mapping back: a save that says "ready" must boot into "ready"
+	# rather than at the top of the valley. The finished-chapter flag is stashed
+	# for the length of this check, then put back — the ending is not undone.
+	var act_int: int = int(main.act)
+	var had_down := bool(GameState.data["flags"].get("goliath_down", false))
+	GameState.data["flags"]["goliath_down"] = false
+	GameState.data["progress"] = {"act": "ready", "stones": 5, "provisions": 3,
+		"brothers": true, "pos": [16, 15]}
+	main.act = 0
+	main._resume_story()
+	await _frames(3)
+	_check(main.act_id() == "ready",
+		"a save in David's act resumes there, not at the top of the valley (act=%s)"
+		% main.act_id())
+	_drain(region.dialogue)
+	await _frames(2)
+	GameState.data["flags"]["goliath_down"] = had_down
+	main.act = act_int
+	await _frames(2)
 
 	# ── 10. one tap is one thing ─────────────────────────────────────────
 	# Playtest 9: "clicking an NPC caused the same dialogue to appear three
