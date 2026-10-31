@@ -1689,7 +1689,16 @@
     "kind": "flag",
     "key": "elah_met_the_line"
    },
-   "note": "crossing the line with the camp's words in hand; the story changes hands"
+   "note": "crossing the line with the camp's words in hand; the story changes hands",
+   "brief": [
+    {
+     "who": "",
+     "text": {
+      "en": "Four people have told you what the last forty days have been. Go up and look at him yourself.",
+      "zh": "四个人把过去四十天讲给了你听。走上去，自己看一眼那个人。"
+     }
+    }
+   ]
   },
   {
    "id": "shepherd_drill",

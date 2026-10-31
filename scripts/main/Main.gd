@@ -311,10 +311,24 @@ func _mission_ctx() -> Dictionary:
 func _prepare_runner() -> void:
 	if runner == null or region == null:
 		return
-	runner.setup(region.model.missions, Callable(), Callable())
+	runner.setup(region.model.missions, _say_brief, Callable())
 	runner.entered.connect(_on_mission_entered)
 	runner.completed.connect(_on_mission_completed)
 	runner.finished_all.connect(_on_missions_done)
+
+
+## The runner's voice. A mission may open with a brief; the runner does not know
+## what a dialogue box is, so it hands the lines here and waits for the beat to
+## be over. That is what keeps "new objective" from arriving as an HUD change
+## nobody reads.
+func _say_brief(lines: Array, on_done: Callable) -> void:
+	if region == null or lines.is_empty():
+		on_done.call()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.set_paused(false)
+		on_done.call())
 
 
 func _begin_missions() -> void:

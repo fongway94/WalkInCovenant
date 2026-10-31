@@ -452,6 +452,8 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		var kind := str(cond.get("kind", ""))
 		if kind != "flag" and kind != "count":
 			_fail("%s: mission '%s' has completion kind '%s'" % [rid, mid, kind])
+		for bl in mm.get("brief", []):
+			_has_both(bl.get("text"), "%s: mission '%s' brief line" % [rid, mid])
 		if str(cond.get("key", "")) == "":
 			_fail("%s: mission '%s' has no completion key" % [rid, mid])
 	if not seen.has("the_line"):

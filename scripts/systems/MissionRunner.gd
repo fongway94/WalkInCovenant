@@ -103,6 +103,13 @@ func _enter_current() -> void:
 	var m := current()
 	if m.is_empty():
 		return
+	# A mission may open with a brief. The runner does not know what a dialogue
+	# box is — it hands the lines to whatever the owner injected, and waits for
+	# that owner to say the beat is over.
+	var brief: Array = m.get("brief", [])
+	if not brief.is_empty() and _say.is_valid():
+		_say.call(brief, func(): entered.emit(m))
+		return
 	entered.emit(m)
 
 
