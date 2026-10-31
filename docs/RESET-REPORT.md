@@ -12,7 +12,7 @@ browser, so:
 - **READ** = proven by reading the code; not executed.
 - **DEVICE** = needs a human on a phone. Not claimed.
 
-Latest green run: **41168702816** — lint → export → deploy all succeeded.
+Latest green run: **41171655834** — lint → export → deploy all succeeded.
 Live: <https://fongway94.github.io/WalkInCovenant/>
 
 ---
@@ -420,6 +420,52 @@ not during the repair.
 
 ---
 
+## Sound, and the control that stops it
+
+The repository had **no audio files at all**. `AudioDirector` was a complete,
+well-commented façade over two empty folders: every footstep, every hit, every
+region track resolved to `null` and returned. Nothing failed, so nothing told
+anyone — the game was silent and green.
+
+`tools/build_audio.py` now synthesises the whole shelf in pure Python (no
+samples, no licences, deterministic bytes):
+
+* **Footsteps, five surfaces** — dirt, grass, sand, stone, water. The sound a
+  player hears most often is the one that has to carry the most information, so
+  each is a different filtering of a noise burst, not the same click at five
+  pitches.
+* **The duel's four verbs** — hit, miss, sling, dodge.
+* **Two moments** — a two-note `quest` for an objective met, and `verse`: a
+  rising chime with a long tail, deliberately the softest and longest sound in
+  the game. A verse is not a reward for doing well; it is something given.
+* **Two loops** — a 24-second valley and a 12-second duel, additive and
+  *periodic*: every oscillator completes a whole number of cycles across the
+  loop and every note tail wraps to the start, so the seam is inaudible. Looping
+  is applied at load in `AudioDirector._loop()`, because the importer's default
+  is "play once" and a valley that stops after 24 seconds is worse than silence.
+* **Buses** — `Music` and `SFX` now exist (`default_bus_layout.tres`). Before,
+  both names were assigned to players and silently fell back to Master.
+
+`tools/check_audio.py` reads *the game* — every `play_sfx("…")`, every terrain
+sound in `data/tiles.json`, every `music` key in a region file — and fails if the
+shelf cannot answer. A complete but stale shelf is the exact failure this repo
+shipped with for months.
+
+**The mix has one control.** The HUD carries a two-glyph button: 音 on, 静 off.
+It flips both beds through the bus, writes itself into the save file, and the
+music ducks under dialogue (already implemented) and goes silent when the tab
+loses focus, which on a phone is the difference between a game you keep and a
+game that plays in your pocket on the bus.
+
+**Honest limits.** Browser builds cannot make a sound until the page has had a
+user gesture; Godot resumes the audio context on the first tap, so the title is
+silent and the valley is not. The ambience is one wind bed mixed into the valley
+track, not a separate water/crowd layer. Crossfades are hard cuts. And none of
+this has been *listened to* on a real phone — it has been checked for format,
+level, duration and coverage, which is not the same thing.
+
+---
+
 ## Phase 9 — Acceptance matrix
 
 | Area | Check | Evidence |
@@ -444,6 +490,11 @@ not during the repair.
 | Mobile | Touch controls work, buttons positioned | smoke `_owns` + layout — **CI** |
 | Mobile | No accidental double taps | smoke §10 — **CI** |
 | Mobile | Real device behaviour | **DEVICE — not claimed** |
+| Sound | Every effect and track the game asks for exists | `check_audio.py` — **CI** |
+| Sound | Mono 22.05 kHz, not silent, not clipping | `check_audio.py` — **CI** |
+| Sound | The mix can be silenced, and stays silenced | smoke §1d — **CI** |
+| Sound | Music loops rather than stopping | `AudioDirector._loop()` — **READ** |
+| Sound | Sounds good on a phone speaker | **DEVICE — not claimed** |
 
 ---
 

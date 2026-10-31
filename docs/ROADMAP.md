@@ -64,6 +64,8 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 | Five stones chosen by hand at the brook | done | CI smoke §6c3 |
 | Sound: 14 synthesised effects and two looping tracks | done | `tools/build_audio.py --check` in CI static gates |
 | Buses and music looping declared in the project, not left to defaults | done | `default_bus_layout.tres`, `AudioDirector._loop()` |
+| One control that silences the whole mix, remembered across reloads | done | smoke §1d |
+| `gd_lint` refuses a duplicate class-scope `var` | done | `DUP-MEMBER` rule |
 
 ## Known gaps (honest)
 

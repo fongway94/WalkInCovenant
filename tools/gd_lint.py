@@ -120,6 +120,21 @@ def scan(path):
             add(rel, i, "DUP-FUNC", "func %s defined twice" % f)
         seen.add(f)
 
+    # A duplicate `var` at class scope is a parse error, and it is the one the
+    # editor shows you only if you had the file open. It cost a CI cycle here:
+    # two `var sound_btn` lines, a build that compiled every OTHER script, and a
+    # failure that pointed at Hud.gd from Main.gd.
+    members = {}
+    for i, line in enumerate(lines, 1):
+        m = re.match(r"^(var|const|signal)\s+(\w+)", line)
+        if not m:
+            continue
+        name = m.group(2)
+        if name in members and members[name][1] == m.group(1):
+            add(rel, i, "DUP-MEMBER",
+                "%s %s already declared at line %d" % (m.group(1), name, members[name][0]))
+        members.setdefault(name, (i, m.group(1)))
+
     depth = 0
     for i, line in enumerate(lines, 1):
         probe = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line).split("#", 1)[0]
