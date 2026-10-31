@@ -63,11 +63,16 @@ func _run() -> void:
 	await _check_dialogue_taps()
 	await _check_touch_interact()
 	await _check_journal_escape()
+	await _check_journal_verse_text()
 	await _check_drill_keys()
 	await _check_fight_input()
 	await _check_duel_resupply()
 	await _check_hud_yields()
 	await _check_choice_keys()
+	await _check_audio_unmute()
+	await _check_choice_ducks()
+	await _check_language_switch()
+	await _check_save_shape()
 	_finish()
 
 
@@ -689,6 +694,43 @@ func _check_hud_yields() -> void:
 	_check(main.hud.visible, "and the HUD comes back when the duel is over")
 
 
+# ── BUG-028: the book shows the verse, not just its address ───────────────
+## Collecting verses is the game's whole reward loop — the HUD counts them, a
+## toast announces them — and the journal listed only "★ 1 Samuel 16:7". The
+## words themselves had no home in the game you could open.
+func _check_journal_verse_text() -> void:
+	var words: Array = main.region.model.words
+	if words.is_empty():
+		_check(false, "the region hands out verses")
+		return
+	var w: Dictionary = words[0]
+	GameState.receive_word(str(w["id"]), str(w["ref"]))
+	var want := I18n.t(w.get("text", {})).strip_edges()
+	main._open_journal()
+	await _frames(3)
+	_check(_journal_has(want), "the book shows the words of a verse, not only its reference")
+	main._close_journal()
+	await _frames(2)
+	main._open_journal()
+	await _frames(2)
+	var n := 0
+	for c in main.journal._body.get_children():
+		var l := c as Label
+		if l != null and str(l.text).strip_edges() == want:
+			n += 1
+	_check(n == 1, "and opening it twice does not duplicate the verse (found %d)" % n)
+	main._close_journal()
+	await _frames(2)
+
+
+func _journal_has(text: String) -> bool:
+	for c in main.journal._body.get_children():
+		var l := c as Label
+		if l != null and str(l.text).strip_edges() == text:
+			return true
+	return false
+
+
 # ── BUG-019: a question can be answered with the one button ───────────────
 ## Answers were Buttons and nothing else: the game's single button, the pad and
 ## the phone's A reached the choice box and stopped there, so the ending's
@@ -750,6 +792,132 @@ func _click() -> void:
 	up.pressed = false
 	up.position = Vector2(200, 100)
 	Input.parse_input_event(up)
+
+
+# ── BUG-025: unmuting gives the music back ────────────────────────────────
+## Muting is done at the bus, so a playing track simply goes quiet and comes
+## back. But a track REQUESTED while muted is never loaded, and the director
+## records its key anyway — so it is never asked for again until the player
+## changes region. Mute, walk into Bethlehem, unmute: silence for the chapter.
+func _check_audio_unmute() -> void:
+	var st: Dictionary = GameState.data["settings"]
+	var was_sound := bool(st.get("sound", true))
+	var was_music := bool(st.get("music", true))
+	AudioDirector._current_music = ""
+	st["sound"] = false
+	st["music"] = false
+	AudioDirector.apply_settings()
+	AudioDirector.play_music("valley", 0.0)
+	_check(AudioDirector._music.stream == null, "a track asked for while muted stays unloaded")
+	st["sound"] = true
+	st["music"] = true
+	AudioDirector.apply_settings()
+	_check(AudioDirector._music.stream != null,
+		"and unmuting loads it, without waiting for a region change")
+	st["sound"] = was_sound
+	st["music"] = was_music
+	AudioDirector.apply_settings()
+	await _frames(1)
+
+
+# ── BUG-026: a question lowers the music under it ─────────────────────────
+func _check_choice_ducks() -> void:
+	var box := DialogueBox.new()
+	add_child(box)
+	await _frames(2)
+	AudioDirector.duck(false)
+	await _frames(1)
+	box.show_choices_standalone(
+		[{"t": {"en": "Go on.", "zh": "去吧。"}}, {"t": {"en": "Stay.", "zh": "留下。"}}],
+		func(_i, _o): pass)
+	await _frames(2)
+	_check(AudioDirector.is_ducked(), "a standalone question ducks the music under it")
+	box.hide_box()
+	await _frames(1)
+	_check(not AudioDirector.is_ducked(), "and taking it down brings the music back")
+	box.queue_free()
+	await _frames(1)
+
+
+# ── BUG-027: the box speaks the language you are looking at ───────────────
+## The language switch is on the HUD, so it can be pressed with a box open. The
+## line under the player's thumb used to stay in the language they had just
+## left, and an open set of answers stayed in it for as long as the question
+## was on screen.
+func _check_language_switch() -> void:
+	var before := I18n.lang
+	I18n.set_lang("zh")
+	var box := DialogueBox.new()
+	add_child(box)
+	await _frames(2)
+	box.show_lines([{"who": "", "text": {"en": "The stone is in the brook.",
+		"zh": "石子在溪里。"}}], func(_w): return {}, func(): pass)
+	await _frames(2)
+	_check(str(box._current_page_text()) == "石子在溪里。", "the box speaks the current language")
+	I18n.toggle()
+	await _frames(2)
+	_check(str(box._current_page_text()) == "The stone is in the brook.",
+		"and re-renders when the switch is pressed while it is open (got '%s')"
+			% str(box._current_page_text()))
+	# the answers too
+	box.hide_box()
+	await _frames(1)
+	box.show_choices_standalone(
+		[{"t": {"en": "Go on.", "zh": "去吧。"}}, {"t": {"en": "Stay.", "zh": "留下。"}}],
+		func(_i, _o): pass)
+	await _frames(2)
+	I18n.toggle()
+	await _frames(2)
+	var first: Button = box.choice_box.get_child(0) as Button
+	_check(first != null and str(first.text) == "去吧。",
+		"and an open answer is re-lettered with it (got '%s')" % (str(first.text) if first else "-"))
+	box.hide_box()
+	box.queue_free()
+	I18n.set_lang(before)
+	await _frames(1)
+
+
+# ── BUG-024: a save of the wrong shape boots instead of throwing ──────────
+## The save is a file: it can be older than this build, hand-edited, or written
+## by a browser that was killed mid-save. `flags` holding a list instead of an
+## object is enough to make every reader in the game error on boot.
+func _check_save_shape() -> void:
+	GameState.save_game()
+	var good: Dictionary = GameState.data.duplicate(true)
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		_check(false, "the save can be written to test a bad shape")
+		return
+	f.store_string(JSON.stringify({
+		"version": 0,
+		"flags": [],
+		"words": "one verse",
+		"settings": {"sound": "yes"},
+		"pos": [3],
+		"level": "three",
+		"region": 12,
+		"seals": null,
+	}))
+	f.close()
+	_check(GameState.load_game(), "a save with the wrong field types still loads")
+	_check(GameState.data["flags"] is Dictionary, "its flags come back as an object")
+	_check(GameState.data["words"] is Array, "its verses as a list")
+	_check(GameState.data["seals"] is Array, "its seals as a list")
+	_check(GameState.data["settings"] is Dictionary
+		and (GameState.data["settings"] as Dictionary).get("sound") is bool,
+		"its switches as booleans")
+	_check((GameState.data["pos"] as Array).size() == 2, "its position as a pair of numbers")
+	_check(typeof(GameState.data["level"]) == TYPE_INT, "its level as a number")
+	_check(typeof(GameState.data["region"]) == TYPE_STRING, "its region as a name")
+	GameState.set_flag("deep_after_coerce", true)
+	_check(bool(GameState.flag("deep_after_coerce")), "and the repaired save still works")
+	GameState.data["flags"].erase("deep_after_coerce")
+	# put the good save back for anything that runs after this
+	var w := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	w.store_string(JSON.stringify(good))
+	w.close()
+	GameState.load_game()
+	await _frames(1)
 
 
 # ── harness ───────────────────────────────────────────────────────────────

@@ -126,7 +126,18 @@ func open_panel(title: String, objective: String, verse_refs: Array,
 		_row(_t("empty"), 9, Color(0.6, 0.62, 0.62), 1)
 	else:
 		for r in verse_refs:
-			_row("★  " + str(r), 9, Color(0.97, 0.87, 0.65))
+			# An entry is {ref, text} now. It used to be the citation alone, so
+			# the one reward the whole game is built on — a verse someone gave
+			# you — was a string you could not read (BUG-028). A plain string is
+			# still accepted, so an old caller (or a test) cannot break this.
+			if r is Dictionary:
+				var e: Dictionary = r
+				_row("★  " + str(e.get("ref", "")), 9, Color(0.97, 0.87, 0.65))
+				var body := str(e.get("text", ""))
+				if body != "":
+					_row(body, 8, Color(0.85, 0.88, 0.86), 1)
+			else:
+				_row("★  " + str(r), 9, Color(0.97, 0.87, 0.65))
 
 	_heading(_t("stones"))
 	_row("%d / %d" % [stones, stones_total], 10, Color(0.80, 0.92, 0.96), 1)

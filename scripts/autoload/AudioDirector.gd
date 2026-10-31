@@ -73,6 +73,17 @@ func apply_settings() -> void:
 	var on := bool(st.get("sound", true)) and bool(st.get("music", true))
 	_mute_bus("Music", not on)
 	_mute_bus("SFX", not bool(st.get("sound", true)))
+	# Coming back from mute. Muting is done at the bus, so a track that was
+	# already playing simply becomes audible again — but a track REQUESTED while
+	# muted was never loaded (`play_music` stops instead of loading), and it
+	# records its key anyway, which means nothing asks for it again until the
+	# player changes region. Mute the game, walk into Bethlehem, unmute: silence
+	# for the rest of the chapter, with the 音 switch apparently working
+	# (BUG-025).
+	if on and _music.stream == null and _current_music != "":
+		var key := _current_music
+		_current_music = ""
+		play_music(key, 0.0)
 
 
 func _mute_bus(bus_name: String, muted: bool) -> void:

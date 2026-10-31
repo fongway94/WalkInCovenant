@@ -249,6 +249,7 @@ func _label(col: Color) -> Label:
 ## One button, both beds — a player who wants quiet wants quiet, not a course in
 ## mixing. The setting is saved with the rest of the save file.
 func _toggle_sound() -> void:
+	AudioDirector.play_sfx("ui", -12.0)
 	var st: Dictionary = GameState.data["settings"]
 	var on := not bool(st.get("sound", true))
 	st["sound"] = on
@@ -262,6 +263,7 @@ func _toggle_sound() -> void:
 
 
 func _toggle_language() -> void:
+	AudioDirector.play_sfx("ui", -12.0)
 	I18n.toggle()
 	lang_btn.text = "EN" if I18n.is_zh() else "中"
 	if region != null:

@@ -71,6 +71,12 @@ func _ready() -> void:
 	var vp := get_viewport()
 	if vp != null:
 		vp.size_changed.connect(_apply_layout)
+	# The switch is on the HUD, so it can be pressed with a box open. Without
+	# this the line under the player's thumb stayed in the language they had
+	# just left until the next line arrived — and the answers to a choice stayed
+	# in it for as long as the choice was on screen (BUG-027).
+	if not I18n.language_changed.is_connected(_on_language_changed):
+		I18n.language_changed.connect(_on_language_changed)
 
 
 func is_open() -> bool:
@@ -635,6 +641,28 @@ func _open_choices(options: Array) -> void:
 		adv.visible = false
 
 
+## The language changed under an open box: re-render, do not wait.
+##
+## `_render_line()` is the right entry point and not just a string swap: Chinese
+## and English paginate differently, so the box has to re-measure the line or a
+## page can be cut in the middle of a sentence.
+func _on_language_changed(_lang: String) -> void:
+	if not _open:
+		return
+	_render_line()
+	if _in_choices:
+		# The answers are buttons with their own text, and the question behind
+		# them is shown in full (it is not being typed out).
+		for i in range(mini(choice_box.get_child_count(), _choices.size())):
+			var b: Button = choice_box.get_child(i) as Button
+			if b != null:
+				b.text = I18n.t((_choices[i] as Dictionary).get("t", {}))
+		_shown = float(_current_page_text().length())
+		text_lbl.text = _current_page_text()
+		adv.visible = false
+		_focus_choice()
+
+
 ## Put the ring on an answer, so a keyboard or pad player can see what A will do.
 func _focus_choice() -> void:
 	if choice_box == null or not _in_choices:
@@ -708,6 +736,11 @@ func show_choices_standalone(options: Array, on_pick: Callable) -> void:
 	# into an empty screen.
 	panel.visible = text_lbl != null and text_lbl.text != ""
 	_on_pick = on_pick
+	# The box is open and the world is under it, so the music goes under the
+	# words here too. Every other box ducks via `show_lines`; this entry point
+	# was added for the ending's question and skipped it, leaving the score at
+	# full level under the one question the chapter is built towards (BUG-026).
+	AudioDirector.duck(true)
 	_open_choices(options)
 	opened.emit()
 

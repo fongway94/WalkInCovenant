@@ -1149,7 +1149,8 @@ func _open_journal() -> void:
 	for id in (GameState.data.get("words", []) as Array):
 		for w in region.model.words:
 			if str(w.get("id", "")) == str(id):
-				refs.append(str(w.get("ref", "")))
+				refs.append({"ref": str(w.get("ref", "")),
+					"text": I18n.t(w.get("text", {}))})
 				break
 	var titles := {}
 	var seals: Array = GameState.data.get("seals", [])
@@ -1157,6 +1158,9 @@ func _open_journal() -> void:
 		titles[str(sid)] = GameState.seal_title(str(sid))
 	var c: Dictionary = CampaignModel.current()
 	region.set_paused(true)
+	# `ui.wav` was the one sound in the shelf nothing ever asked for; the book
+	# and the two switches are the interactions that had no answer at all.
+	AudioDirector.play_sfx("ui", -12.0)
 	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
 		stones, _stones_total, seals, titles)
 
