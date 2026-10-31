@@ -13,6 +13,7 @@ var _music: AudioStreamPlayer = null
 var _amb: AudioStreamPlayer = null
 var _current_music: String = ""
 var _round_robin := 0
+var _muted_by_focus := false
 
 const SFX_POOL := 8
 const SFX_DIR := "res://audio/sfx/"
@@ -31,6 +32,36 @@ func _ready() -> void:
 	_amb = AudioStreamPlayer.new()
 	_amb.bus = "Music"
 	add_child(_amb)
+	apply_settings()
+	EventBus.settings_changed.connect(func(_key, _value): apply_settings())
+
+
+## One switch for both beds, applied at the bus so nothing can slip past it —
+## including sounds added later by someone who never read this file.
+func apply_settings() -> void:
+	var st: Dictionary = GameState.data["settings"]
+	var on := bool(st.get("sound", true)) and bool(st.get("music", true))
+	_mute_bus("Music", not on)
+	_mute_bus("SFX", not bool(st.get("sound", true)))
+
+
+func _mute_bus(bus_name: String, muted: bool) -> void:
+	var i := AudioServer.get_bus_index(bus_name)
+	if i < 0:
+		return
+	AudioServer.set_bus_mute(i, muted)
+
+
+## A phone in a pocket, or a browser tab behind a spreadsheet, must go quiet.
+## Coming back must not be silent for the rest of the session.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_muted_by_focus = true
+		_mute_bus("Music", true)
+		_mute_bus("SFX", true)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN and _muted_by_focus:
+		_muted_by_focus = false
+		apply_settings()
 
 
 func play_sfx(name: String, db: float = -6.0, pitch_jitter: float = 0.04) -> void:

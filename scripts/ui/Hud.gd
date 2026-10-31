@@ -33,6 +33,8 @@ var prompt_lbl: Label = null
 var arrow: WaypointArrow = null
 var journal_btn: Button = null
 var lang_btn: Button = null
+var sound_btn: Button = null
+var sound_btn: Button = null
 var region: Region = null
 
 var _stones_n := 0
@@ -85,6 +87,17 @@ func _build() -> void:
 	lang_btn.add_theme_font_size_override("font_size", 8)
 	lang_btn.pressed.connect(_toggle_language)
 	bar.add_child(lang_btn)
+
+	# Sound. A phone game with footsteps and music and no way to silence either
+	# is a phone game you close on the bus. Two glyphs, no menu: 音 is on, 静 is
+	# off, and a toast says which just happened.
+	sound_btn = Button.new()
+	sound_btn.text = "音" if bool(GameState.data["settings"].get("sound", true)) else "静"
+	sound_btn.flat = true
+	sound_btn.focus_mode = Control.FOCUS_NONE
+	sound_btn.add_theme_font_size_override("font_size", 8)
+	sound_btn.pressed.connect(_toggle_sound)
+	bar.add_child(sound_btn)
 
 	# ── objective line ────────────────────────────────────────────────────
 	# Always on screen, always one sentence, always the CURRENT task. Playtest 6
@@ -208,6 +221,21 @@ func _label(col: Color) -> Label:
 	l.add_theme_font_size_override("font_size", 8)
 	l.add_theme_color_override("font_color", col)
 	return l
+
+
+## One button, both beds — a player who wants quiet wants quiet, not a course in
+## mixing. The setting is saved with the rest of the save file.
+func _toggle_sound() -> void:
+	var st: Dictionary = GameState.data["settings"]
+	var on := not bool(st.get("sound", true))
+	st["sound"] = on
+	st["music"] = on
+	AudioDirector.apply_settings()
+	sound_btn.text = "音" if on else "静"
+	var note_en := "Sound on · 音" if on else "Sound off · 静"
+	var note_zh := "声音开着" if on else "已静音"
+	EventBus.toast_requested.emit(I18n.t({"en": note_en, "zh": note_zh}))
+	GameState.save_game()
 
 
 func _toggle_language() -> void:

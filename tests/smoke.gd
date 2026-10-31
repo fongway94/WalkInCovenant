@@ -128,6 +128,35 @@ func _run() -> void:
 	if main.hud != null:
 		_check(main.hud.region == region, "the hud is bound to the region")
 
+	# ── 1d. the game can be silenced, and stays silenced ─────────────────
+	# A phone game with footsteps and a music bed needs exactly one control that
+	# stops both. It must be reachable with a thumb, it must say which state it is
+	# in, and it must be in the save file — a mute that resets on reload is not a
+	# mute, it is a nuisance.
+	if main.hud != null and main.hud.sound_btn != null:
+		var was_on := bool(GameState.data["settings"].get("sound", true))
+		main.hud.sound_btn.pressed.emit()
+		var now_on := bool(GameState.data["settings"].get("sound", true))
+		_check(now_on != was_on, "the sound button changes the setting")
+		_check(bool(GameState.data["settings"].get("music", true)) == now_on,
+			"and takes the music with it, so one press is quiet")
+		var want_glyph := "音" if now_on else "静"
+		_check(main.hud.sound_btn.text == want_glyph,
+			"the button says which state the game is in")
+		var wrote := ""
+		if FileAccess.file_exists(GameState.SAVE_PATH):
+			var sf := FileAccess.open(GameState.SAVE_PATH, FileAccess.READ)
+			if sf != null:
+				wrote = sf.get_as_text()
+		var want := "true" if now_on else "false"
+		_check(wrote.find("\"sound\": " + want) >= 0,
+			"the setting is written into the save file, not just the widget")
+		main.hud.sound_btn.pressed.emit()
+		_check(bool(GameState.data["settings"].get("sound", true)) == was_on,
+			"pressing it again restores the previous state")
+	else:
+		_check(false, "the hud offers a sound control")
+
 	# ── 1c. the bundled face reaches the text pipeline ───────────────────
 	# Tofu shipped once because the build had no font at all, and then shipped
 	# AGAIN in effect because a byte-identical service worker kept serving the
