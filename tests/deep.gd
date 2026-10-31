@@ -52,6 +52,7 @@ func _run() -> void:
 	await _check_save()
 	await _check_stones()
 	await _check_pickups()
+	await _check_hud_fit()
 	_check_goliath()
 	await _check_talked_survives()
 	await _check_armour_offset()
@@ -187,6 +188,62 @@ func _check_pickups() -> void:
 	GameState.data["flags"].erase(key)
 	main.provisions = pv_before
 	await _frames(1)
+
+
+# ── BUG-020: the objective band is big enough for the objectives ──────────
+## The band was 20 px for an 8 px font whose two wrapped rows need more than
+## that, and several English objectives are full sentences ("You have not
+## understood yet what you are watching. Talk to the people in the camp."). The
+## second row was drawn over the toast band and into the world. This measures
+## with the engine's own font metrics against the label's real width — the same
+## numbers the renderer will use, not a character-count model.
+func _check_hud_fit() -> void:
+	var hud = main.hud
+	if hud == null:
+		_check(false, "the HUD exists to lay out")
+		return
+	var lbl: Label = hud.objective_lbl
+	var font: Font = lbl.get_theme_font("font")
+	var fs: int = lbl.get_theme_font_size("font_size")
+	var avail := maxf(1.0, float(lbl.size.x))
+	var lh := float(font.get_height(fs))
+	var need := 0.0
+	var worst := ""
+	for pair in _objective_strings():
+		for key in ["zh", "en"]:
+			var text := str(pair.get(key, ""))
+			if text == "":
+				continue
+			var wpx := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var rows := maxf(1.0, ceilf(wpx / avail))
+			if rows * lh > need:
+				need = rows * lh
+				worst = text
+	print("  diag  hud objective band %.1f px, worst line needs %.1f px (%d chars)" %
+		[float(lbl.size.y), need, worst.length()])
+	_check(need <= float(lbl.size.y) + 1.0,
+		"the longest objective fits the HUD band (%.1f px of %.1f)" %
+		[need, float(lbl.size.y)])
+	_check(float(lbl.position.y) + float(lbl.size.y) <= float(hud.toast_lbl.position.y) + 0.5,
+		"and the objective band does not run into the toast")
+
+
+## Every objective string in every region, both languages.
+func _objective_strings() -> Array:
+	var out: Array = []
+	for path in ["res://data/regions/elah.json", "res://data/regions/bethlehem.json"]:
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		var parsed: Variant = JSON.parse_string(f.get_as_text())
+		if typeof(parsed) != TYPE_DICTIONARY:
+			continue
+		var obj: Dictionary = (parsed as Dictionary).get("objectives", {})
+		for k in obj.keys():
+			var v: Variant = obj[k]
+			if typeof(v) == TYPE_DICTIONARY:
+				out.append(v)
+	return out
 
 
 # ── BUG-003: the giant is one frame, two tiles tall ───────────────────────

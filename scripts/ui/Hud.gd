@@ -17,8 +17,13 @@ signal journal_requested
 ## the viewport is always in design units (see ScreenFit).
 const BAR_H := 13.0
 const ROW2_Y := 15.0
-const OBJECTIVE_H := 20.0
-const TOAST_Y := 37.0
+## Two rows of the objective font (8 px), not one-and-a-bit. Several objectives
+## are a full sentence in English — the longest is 74 characters — and the band
+## was sized for a single line, so the wrapped second line rendered over the
+## toast band and into the world (BUG-020). Sized from the font, and asserted
+## against the real font metrics in tests/deep.gd.
+const OBJECTIVE_H := 26.0
+const TOAST_Y := 43.0
 const PROMPT_H := 12.0
 
 var bar: HBoxContainer = null

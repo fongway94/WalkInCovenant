@@ -33,7 +33,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 19 found, 19 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 20 found, 20 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -422,6 +422,32 @@ save-corruption class and is fixed structurally rather than worked around.
 - **Regression test:** `tests/deep.gd` → `_check_choice_keys()`, which opens a
   two-answer box, pushes a real `KEY_DOWN` and a real `interact` action through
   `Input.parse_input_event`, and asserts the second answer is the one chosen.
+
+## BUG-020 — the objective band was sized for one line, and objectives are two
+
+- **Severity:** P2 · **Status:** Fixed
+- **Where:** `scripts/ui/Hud.gd` → `OBJECTIVE_H`, `TOAST_Y`
+- **Reproduce:** switch the game to English and walk into any of the long
+  objectives — "You have not understood yet what you are watching. Talk to the
+  people in the camp." is 74 characters. At the design width the line is wider
+  than the band, the label wraps to a second row, and that row is drawn over the
+  toast band and out into the world.
+- **Expected:** the band the HUD reserves is the band the text needs (the same
+  rule the dialogue box already follows since "no dialogue box may overflow").
+- **Actual:** `OBJECTIVE_H` was 20 px, fitted to one row of an 8 px font by eye,
+  with `TOAST_Y` 1 px below the band's bottom. Any wrapped objective — and
+  English wraps on a dozen of them — overlapped the toast.
+- **Root cause:** a layout constant chosen against one example string, with no
+  gate that would notice the day a longer string was authored. The same class of
+  mistake as the fixed 312x78 dialogue box that `check_text_fit` exists for.
+- **Fix:** the band is now sized for two rows of the objective font (26 px) and
+  the toast moved down to 43, so the two bands cannot touch.
+- **Regression test:** `tests/deep.gd` → `_check_hud_fit()`, which takes every
+  objective string in both regions and both languages, measures it with
+  **`Font.get_string_size()` against the label's real width**, multiplies by the
+  real line height, and asserts the result fits the band and stays above the
+  toast. It prints the measured numbers every run, so the margin is visible even
+  when it passes.
 
 ---
 
