@@ -12,8 +12,68 @@ browser, so:
 - **READ** = proven by reading the code; not executed.
 - **DEVICE** = needs a human on a phone. Not claimed.
 
-Latest green run: **41158592496** — lint → export → deploy all succeeded.
+Latest green run: **41163459324** — lint → export → deploy all succeeded.
 Live: <https://fongway94.github.io/WalkInCovenant/>
+
+---
+
+## Master directive pass — structure, story order, save, and one shot
+
+Four changes, each with a reason you would notice as a player, all proven by the
+same headless playthrough that already covers the chapter.
+
+### 1. The stones are David's again
+
+1 Samuel 17 is not a list of tasks in any order. It is: the camp is afraid for
+forty days (v.11), David arrives with bread (17-20), his brother is scornful
+(28), Saul dresses him in armour he cannot walk in (38-39), he goes down to the
+brook and picks five stones (40), and only then does he stand at the line.
+
+The old build had the **witness** collect the five stones in Act I and cross the
+line carrying them, which meant the verse the whole chapter turns on happened to
+somebody who was not yet David. Now:
+
+- Act I ends at the line, and crossing it does nothing to the witness but show
+  him 17:11 and Corin telling him the story is changing hands.
+- The brook lays out the five stones **when 17:40 is spoken**, after Saul.
+- The pouch counter does not exist before that, and the valley opens with
+  nothing to collect at all.
+
+### 2. Goliath is on the ridge
+
+He was a pair of coordinates and a name in other people's dialogue. Nobody drew
+him, so forty days of a man shouting across a valley had nobody in them. He is
+now a sprite two tiles tall on the north slope, and walking up the ridge plays
+the chapter's one scripted camera shot: pan to him, 17:10, pan back. The pan is
+`CameraRig.pan_to` / `resume_follow`, so any later campaign can frame a scene.
+
+### 3. The chapter survives the tab closing
+
+`GameState.save_game()` existed and **nothing ever called it**: a phone that
+switched apps, or a browser tab that closed, lost the whole chapter. It is now
+written on every act change, every three seconds of free walking, and on the
+browser's pause/close notifications — and boot reads it back: the act, the
+counters, the tile. A save that says "ready" boots into "ready".
+
+### 4. Fairness on the first spear
+
+Round one's telegraph is 0.9 s longer than every later one and states the rule
+("when the red tip comes, step aside") instead of "he is winding up". The duel
+is entered on a cut rather than a pop, and the giant stays on screen while 17:47
+is spoken over him.
+
+**Files.** `data/regions/elah.json` (act order, brook block, firstsight trigger,
+objectives), `scripts/main/Main.gd` (Act.STONES, `_witness_at_the_line`,
+`_brook_beat`, `_first_sight`, autosave/resume), `scripts/world/Region.gd`
+(Goliath sprite, pan helpers), `scripts/world/CameraRig.gd` (scripted shots),
+`scripts/autoload/GameState.gd` (save on pause/close), `tests/run_all.gd`,
+`tests/smoke.gd`.
+
+**Tested.** CI: the whole chapter, start to finish, in one run — including the
+first-look shot (camera holds him, then hands back), the witness refusal, the
+handover beat, the brook spawning five stones and the fifth one sending you to
+the line, and a save that resumes into David's act. **Not tested:** how any of
+it feels, or reads on a phone.
 
 ---
 
