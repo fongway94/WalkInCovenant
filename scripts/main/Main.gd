@@ -18,7 +18,11 @@ var _in_battle := false
 ## father's errand before it lets you fight. Playtest 7 asked for exactly this:
 ## "being told by father to send provision, collect provision, then walk walk
 ## then go to the place then properly then talk.. then fight goliath".
-enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, READY, FIGHT, AFTERMATH, DONE }
+## Act I is the witness's: the valley, the forty days, the people who live
+## beside the line. Act II is David's, and it runs in the order 1 Samuel 17
+## gives it — the sheep, the father's errand, the brothers, the king, and only
+## then five stones out of the brook (v.40) and the line.
+enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, STONES, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
 var practice: SlingPractice = null
@@ -37,8 +41,8 @@ const DEAD_PAUSE_SECS := 6.0
 ## The act as a word, for the smoke test and for anything that needs to print
 ## where the chapter is. An enum's integer value is an implementation detail;
 ## "shepherd" is not.
-const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "ready", "fight",
-	"aftermath", "done"]
+const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "stones", "ready",
+	"fight", "aftermath", "done"]
 
 
 func act_id() -> String:
@@ -154,6 +158,11 @@ func _update_guidance() -> void:
 			if king != null:
 				target = king.global_position
 				point = true
+		Act.STONES:
+			key = "stones"
+			target = _nearest_pickup("stone", p.global_position)
+			point = stones < _stones_total
+			line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), stones, _stones_total]
 		Act.READY:
 			key = "ready"
 			var rrow := int(region.model.trigger_data("challenge").get("row", 11))
@@ -203,13 +212,8 @@ func _update_guidance() -> void:
 				line = I18n.t(obj.get(key, {})) % nxt.display_name()
 				if corin.lead_target != nxt:
 					corin.lead_to(nxt, func(): _lead_arrived())
-			elif stones < _stones_total:
-				key = "stones"
-				target = _nearest_pickup("stone", p.global_position)
-				point = stones < _stones_total
-				line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), stones, _stones_total]
 			elif not bool(GameState.flag("goliath_down")):
-				key = "line"
+				key = "line_witness"
 				var row := int(region.model.trigger_data("challenge").get("row", 11))
 				target = Vector2(p.global_position.x, float(row * 16))
 				point = true
@@ -235,7 +239,7 @@ func _update_guidance() -> void:
 
 ## Names for the people who only exist inside the errand. They come from the
 ## same data as their words, so a translator never has to open a script.
-func _errand_speaker(who: String) -> Dictionary:
+func _speaker(who: String) -> Dictionary:
 	if who == "":
 		return {}
 	var table: Dictionary = region.model.david_act.get("speakers", {})
@@ -253,7 +257,7 @@ func _brothers_beat() -> void:
 	_brothers_met = true
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
-	region.dialogue.show_lines(lines, _errand_speaker, _summon_saul)
+	region.dialogue.show_lines(lines, _speaker, _summon_saul)
 
 
 ## 1 Samuel 17:31-39: they bring him to Saul, who is a person in a tent you have
@@ -281,6 +285,43 @@ func _summon_saul() -> void:
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "The king's tent is east of the brothers' post.",
 		"zh": "王的帐棚在哥哥们那边往东。"}))
+
+
+## 1 Samuel 17:39-40. He takes the king's armour off, and the next thing he
+## picks up is not a sword: it is five stones out of the brook. That verse is
+## the whole point of the chapter, so it is played here — as the reason the
+## stones appear on the map — instead of being handed to the witness before he
+## ever became David.
+func _brook_beat() -> void:
+	if act == Act.STONES or act == Act.READY:
+		return
+	act = Act.STONES
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	var lines: Array = br.get("lines", [])
+	if lines.is_empty():
+		_start_brook()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, _start_brook)
+
+
+## Put the five stones in the shallow water, where the player can see them.
+func _start_brook() -> void:
+	act = Act.STONES
+	region.set_paused(false)
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	var items: Array = br.get("items", [])
+	_stones_total = items.size()
+	stones = 0
+	for it in items:
+		var at: Array = it.get("at", [0, 0])
+		region.spawn_pickup(str(it.get("id", "stone")), "stone",
+			str(it.get("sprite", "rock")), int(at[0]), int(at[1]), it)
+	if hud != null:
+		hud.set_stones(0, _stones_total)
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "The brook is north-west, below the tents.",
+		"zh": "溪水在西北边，帐棚下面。"}))
 
 
 func _ready_for_the_line() -> void:
@@ -344,11 +385,12 @@ func _npc(id: String) -> Npc:
 func _on_region_ready() -> void:
 	touch.bind(region.player)
 	hud.bind(region)
-	_stones_total = 0
-	for it in region.model.items:
-		if str(it.get("kind", "")) == "stone":
-			_stones_total += 1
-	hud.set_stones(stones, _stones_total)
+	# The five stones are laid out in the brook when David walks down to it
+	# (1 Samuel 17:40), not at load: the HUD's pouch counter must not be on
+	# screen while the witness is still watching the valley.
+	var brook: Dictionary = region.model.david_act.get("brook", {})
+	_stones_total = int((brook.get("items", []) as Array).size())
+	hud.set_stones(0, 0)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
 	_resume_story()
@@ -425,8 +467,6 @@ func _on_pickup(id: String) -> void:
 		return
 	if id.begins_with("stone"):
 		stones += 1
-		if stones >= _stones_total and _stones_total > 0:
-			GameState.grant_seal("five_stones")
 		if hud != null:
 			hud.set_stones(stones, _stones_total)
 		GameState.record_way("notice")
@@ -434,6 +474,19 @@ func _on_pickup(id: String) -> void:
 			"en": "A smooth stone · %d/5" % stones,
 			"zh": "一块光滑的石子 · %d／5" % stones}))
 		AudioDirector.play_sfx("pickup", -4.0)
+		if stones >= _stones_total and _stones_total > 0:
+			GameState.grant_seal("five_stones")
+			_stones_chosen()
+
+
+## The fifth stone closes the brook scene and puts the objective back on the
+## line. This is the one place the chapter turns around: from here David walks
+## up, and nothing else in the valley is asked of him.
+func _stones_chosen() -> void:
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	var lines: Array = br.get("done_lines", [])
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, _ready_for_the_line)
 
 
 func _on_trigger(id: String) -> void:
@@ -446,14 +499,31 @@ func _on_trigger(id: String) -> void:
 		return
 	if act != Act.WITNESS and act != Act.DONE:
 		return
-	if stones >= 5:
-		var down := bool(GameState.flag("goliath_down"))
-		if down:
-			_memory_beat()
-		else:
-			_begin_become()
+	if bool(GameState.flag("goliath_down")):
+		_memory_beat()
+		return
+	# Act I ends at this line. The witness is not turned back because he is
+	# carrying the wrong number of stones — he is turned back because he does
+	# not yet know what he is watching. Four people in the camp can tell him.
+	if int(GameState.data["words"].size()) >= 4:
+		_witness_at_the_line()
 	else:
 		_refuse(id)
+
+
+## The witness's last beat in the valley: he crosses the line, and nothing
+## happens to him — the fight is not his. The story then hands him over to the
+## boy who is actually walking down the ridge with bread in his hands.
+func _witness_at_the_line() -> void:
+	if _in_battle:
+		return
+	_in_battle = true
+	region.set_paused(true)
+	var lines: Array = _beat_lines("challenge", "witness")
+	if lines.is_empty():
+		_begin_become()
+		return
+	region.dialogue.show_lines(lines, _speaker, _begin_become)
 
 
 func _beat_lines(id: String, key: String) -> Array:
@@ -463,27 +533,25 @@ func _beat_lines(id: String, key: String) -> Array:
 	return lines
 
 
+## Act I has no fail state, only a line you are not ready for. The witness is
+## stepped back south of the trigger so the walk can be tried again, and the
+## objective stays on whoever has not spoken to him yet.
+##
+## The pushback is anchored to the challenge row rather than to whatever pixel
+## the player was standing on: hold up, get pushed back, walk straight back in,
+## forever was a playtest-4 defect.
 func _refuse(id: String) -> void:
-	# No fail state: he simply will not let you past without them. Step the
-	# player back south so the trigger re-arms and the walk can be tried again.
-	#
-	# Two things were missing and both cost a playtester the game (playtest 4):
-	# the refusal never said HOW MANY stones you were carrying, so there was no
-	# way to know you were three short of anything; and the pushback fought the
-	# thumb — hold up, get pushed back, walk straight back in, forever. Now the
-	# count is spoken first, the stick is dropped, and the pushback is anchored
-	# to the challenge row rather than to whatever pixel you were standing on.
 	_refusals += 1
 	region.set_paused(true)
 	var lines: Array = [{
 		"who": "",
 		"text": {
-			"en": "You reach the line with %d of five in your pouch." % stones,
-			"zh": "你走到界线前，袋子里只有 %d 块。" % stones
+			"en": "You reach the line. Behind you, an army is standing very still, and you still do not know why.",
+			"zh": "你走到界线前。身后一支军队站着一动不动，而你仍然不知道是为了什么。"
 		}
 	}]
 	lines.append_array(_beat_lines(id, "refuse"))
-	region.dialogue.show_lines(lines, func(_w): return {}, func():
+	region.dialogue.show_lines(lines, _speaker, func():
 		region.set_paused(false)
 		region.player.external_intent = Vector2.ZERO
 		region.player.velocity = Vector2.ZERO
@@ -491,9 +559,15 @@ func _refuse(id: String) -> void:
 		region.player.global_position = Vector2(
 			region.player.global_position.x, float((row + 3) * 16))
 		if _refusals >= 2:
-			EventBus.toast_requested.emit(I18n.t({
-				"en": "The stones are at the brook, south past the tents.",
-				"zh": "石子在下游溪边，过了帐篷就是。"})))
+			var nxt: Npc = _next_unspoken()
+			if nxt != null:
+				EventBus.toast_requested.emit(I18n.t({
+					"en": "%s has not spoken to you yet." % nxt.display_name(),
+					"zh": "%s还没和你说过话。" % nxt.display_name()}))
+			else:
+				EventBus.toast_requested.emit(I18n.t({
+					"en": "Go back to the camp. Look at the tents, the bread, the men.",
+					"zh": "回营地去。看看那些帐棚、那些饼、那些人。"})))
 
 
 func _memory_beat() -> void:
@@ -541,7 +615,7 @@ func _start_david_act() -> void:
 	region.set_paused(true)
 	# A cut, not a jump: black, the slope, then the words.
 	fade.run(0.45, func(): _place_at(st), 0.35, func():
-		region.dialogue.show_lines(sh.get("lines", []), _errand_speaker, _start_practice))
+		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_practice))
 
 
 ## Put the player on a tile and take the camera with them, with no glide.
@@ -615,7 +689,7 @@ func _practice_done() -> void:
 	GameState.grant_seal("the_drill")
 	region.set_paused(true)
 	var sh: Dictionary = region.model.david_act.get("shepherd", {})
-	region.dialogue.show_lines(sh.get("done_lines", []), _errand_speaker, _start_errand)
+	region.dialogue.show_lines(sh.get("done_lines", []), _speaker, _start_errand)
 
 
 ## Jesse's errand: the provisions, the walk, the brothers who do not want him
@@ -640,7 +714,7 @@ func _start_errand() -> void:
 			region.spawn_pickup(str(it.get("id", "prov")), "provision",
 				str(it.get("sprite", "jar")), int(at[0]), int(at[1]))
 		, 0.35, func():
-			region.dialogue.show_lines(da.get("lines", []), _errand_speaker, func():
+			region.dialogue.show_lines(da.get("lines", []), _speaker, func():
 				region.set_paused(false)))
 
 
@@ -666,7 +740,7 @@ func _start_battle() -> void:
 		_open_fight()
 		return
 	# 1 Samuel 17:44-45 spoken at the line, verbatim, then the sling comes out.
-	region.dialogue.show_lines(intro, _errand_speaker, _open_fight)
+	region.dialogue.show_lines(intro, _speaker, _open_fight)
 
 
 func _open_fight() -> void:
@@ -702,7 +776,7 @@ func _on_win() -> void:
 		become.end("david", _after_return)
 		return
 	AudioDirector.play_sfx("hit", -2.0)
-	region.dialogue.show_lines(victory, _errand_speaker, func():
+	region.dialogue.show_lines(victory, _speaker, func():
 		_dismiss_fight()
 		become.end("david", _after_return))
 
@@ -748,7 +822,7 @@ func _after_return() -> void:
 ## closes — the same ending card either way, but now it comes after a person.
 func _on_interacted(id: String, _kind: String) -> void:
 	if act == Act.SAUL and id == "saul":
-		_ready_for_the_line()
+		_brook_beat()
 		return
 	if act != Act.AFTERMATH or id != "corin":
 		return

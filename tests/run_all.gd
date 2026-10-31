@@ -217,6 +217,23 @@ func _has_both(d: Variant, what: String) -> void:
 		_fail("%s: missing en or zh" % what)
 
 
+## Scripture in this game is spoken in 「」 (and “ ” in English) and split
+## across boxes when it is long. A BEAT therefore has to carry both halves: an
+## opening mark with nothing closing it anywhere in the beat is a truncated
+## quotation — words put in Scripture's mouth that Scripture does not say.
+func _check_verses(lines: Array, where: String) -> void:
+	var zh := ""
+	var en := ""
+	for line in lines:
+		var t: Dictionary = line.get("text", {})
+		zh += str(t.get("zh", ""))
+		en += str(t.get("en", ""))
+	if zh.find("「") >= 0 and zh.find("」") < 0:
+		_fail("%s: a verse opens with 「 and is never closed" % where)
+	if en.find("\u201c") >= 0 and en.find("\u201d") < 0:
+		_fail("%s: a verse opens with a quote mark and is never closed" % where)
+
+
 func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	print("region: %s" % rid)
 	var raw := _read_json("res://data/regions/%s.json" % rid)
@@ -261,6 +278,19 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_fail("%s: provision %s at %s is inside a solid tile or prop" % [rid, it.get("id"), t])
 		if m.path(m.spawn, t).is_empty():
 			_fail("%s: no walkable path from spawn to provision %s" % [rid, it.get("id")])
+	# The five stones of 1 Samuel 17:40 are laid out in the brook when David
+	# walks down to it, so nothing at load time can notice one of them sitting
+	# inside a rock. Same gate as the provisions: walkable, and reachable.
+	var brook: Dictionary = m.david_act.get("brook", {})
+	var brook_items: Array = brook.get("items", [])
+	if brook_items.size() != 5:
+		_fail("%s: the brook must hold five stones, it holds %d" % [rid, brook_items.size()])
+	for it in brook_items:
+		var t := Vector2i(int(it["at"][0]), int(it["at"][1]))
+		if m.solid_at_tile(t.x, t.y):
+			_fail("%s: stone %s at %s is inside a solid tile or prop" % [rid, it.get("id"), t])
+		if m.path(m.spawn, t).is_empty():
+			_fail("%s: no walkable path from spawn to stone %s" % [rid, it.get("id")])
 	var ba: Array = m.david_act.get("brothers_at", [])
 	if ba.size() == 2:
 		var bt := Vector2i(int(ba[0]), int(ba[1]))
@@ -307,7 +337,7 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	# first-run briefing are player-facing prose too
 	for t in m.triggers:
 		var td: Dictionary = t
-		for key in ["refuse", "memory"]:
+		for key in ["refuse", "memory", "witness"]:
 			for line in (td.get(str(key), []) as Array):
 				_has_both(line.get("text"), "%s:trigger %s %s" % [rid, td.get("id"), key])
 	for line in m.briefing:
@@ -333,6 +363,14 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
 	for line in ((m.david_act.get("shepherd", {}) as Dictionary).get("done_lines", []) as Array):
 		_has_both(line.get("text"), "%s:david_act shepherd done" % rid)
+	for key in ["lines", "done_lines"]:
+		for line in (brook.get(str(key), []) as Array):
+			_has_both(line.get("text"), "%s:brook %s" % [rid, key])
+	# Corin speaks in the witness's last beat and in David's act, so his name has
+	# to be in the speakers table or the box would open nameless.
+	for sid in ["corin", "david", "saul", "jesse", "eliab"]:
+		if not (m.david_act.get("speakers", {}) as Dictionary).has(sid):
+			_fail("%s: david_act.speakers has no '%s'" % [rid, sid])
 	for n in m.npcs:
 		for line in (n.get("after_win", []) as Array):
 			_has_both(line.get("text"), "%s:npc %s after_win" % [rid, n.get("id")])
@@ -344,7 +382,7 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	# single string no dialogue ever repeats.
 	for key in m.objectives:
 		_has_both(m.objectives.get(key), "%s:objective %s" % [rid, key])
-	for key in ["corin", "stones", "line", "done"]:
+	for key in ["corin", "stones", "line", "line_witness", "brook", "done"]:
 		if not m.objectives.has(key):
 			_fail("%s: objectives is missing '%s' — the HUD would point at nothing" % [rid, key])
 	for line in (m.ending.get("lines", []) as Array):
@@ -355,6 +393,20 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		_has_both(o.get("insight"), "%s:ending insight" % rid)
 	if (m.ending.get("lines", []) as Array).is_empty():
 		_fail("%s: no ending — the chapter would stop the moment the giant falls" % rid)
+	# Scripture in a dialogue line is written "book chapter:verse" on its own
+	# line, then the verse in 「」. A line that opens a verse but never closes it
+	# is a truncated quotation, which is the one thing this game may not do.
+	var src: Dictionary = m.david_act
+	for key in ["lines", "brothers", "battle_intro", "victory"]:
+		_check_verses(src.get(str(key), []), "%s:david_act.%s" % [rid, key])
+	for key in ["shepherd", "saul", "brook"]:
+		var blk: Dictionary = src.get(str(key), {})
+		for lk in ["lines", "done_lines"]:
+			_check_verses(blk.get(str(lk), []), "%s:david_act.%s.%s" % [rid, key, lk])
+	for td in m.triggers:
+		var tdd: Dictionary = td
+		for key in ["refuse", "memory", "witness"]:
+			_check_verses(tdd.get(str(key), []), "%s:trigger.%s" % [rid, key])
 	_ok("all dialogue, verses, objectives and the ending are bilingual")
 
 	# 5. the fight is a fight, and it can be finished.

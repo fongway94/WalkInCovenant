@@ -253,6 +253,27 @@ func _run() -> void:
 		guide.clear_lead()
 		guide.state = Npc.State.IDLE
 
+	# ── 2f. the line is not yours yet ────────────────────────────────────
+	# Act I has no stones to carry any more: it has a question. Crossing the
+	# line before the camp has explained the forty days turns the witness back,
+	# steps him south of the trigger, and leaves the objective on the next
+	# person who has not spoken.
+	await _stand(region, 16, 10, 4)
+	_check(region.dialogue._open, "crossing the line opens a beat")
+	_check(not main._in_battle, "crossing before you understand does not start a fight")
+	_check(main.act_id() == "witness", "and it does not hand the story over (act=%s)" % main.act_id())
+	_drain(region.dialogue)
+	_check(not region._paused, "the refusal releases the world")
+	_check(_tile_of(region.player).y > 11, "the refusal steps you back south")
+	# Playtest 4 reported "it keeps prompting dialogue and looping": the beat
+	# pushed the player back a few tiles and re-armed at once, so a held thumb
+	# walked straight back in. The trigger now re-arms only past `rearm_row`.
+	await _stand(region, 16, 12, 3)
+	_check(not bool(region.triggers[0]["armed"]),
+		"standing in the dead band does not re-arm the line")
+	await _stand(region, 16, 15, 3)
+	_check(bool(region.triggers[0]["armed"]), "the line re-arms so the walk can be tried again")
+
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
 	for c in cast:
@@ -294,46 +315,18 @@ func _run() -> void:
 	var carried: Array = GameState.data["words"]
 	_check(carried.size() == 4, "four verses were handed over (got %d)" % carried.size())
 
-	# ── 4. crossing early must refuse you, and must let you try again ────
-	await _stand(region, 16, 10, 4)
-	_check(region.dialogue._open, "crossing the line opens a beat")
-	_check(not main._in_battle, "crossing without stones does not start a fight")
-	_drain(region.dialogue)
-	_check(not region._paused, "the refusal releases the world")
-	_check(_tile_of(region.player).y > 11, "the refusal steps you back south")
-	# Playtest 4 reported "it keeps prompting dialogue and looping": the beat
-	# pushed the player back a few tiles and re-armed at once, so a held thumb
-	# walked straight back in. The trigger now re-arms only past `rearm_row`.
-	await _stand(region, 16, 12, 3)
-	_check(not bool(region.triggers[0]["armed"]),
-		"standing in the dead band does not re-arm the line")
-	await _stand(region, 16, 15, 3)
-	_check(bool(region.triggers[0]["armed"]), "the line re-arms so the walk can be tried again")
-
-	await _stand(region, 16, 10, 4)
-	_check(region.dialogue._open, "crossing again with an empty pouch is heard again")
-	_drain(region.dialogue)
-	await _frames(3)
-
-	# ── 5. the brook ─────────────────────────────────────────────────────
-	for p in region.pickups:
-		var d: Dictionary = p["data"]
-		var at: Array = d["at"]
-		await _stand(region, int(at[0]), int(at[1]), 3)
-		# the brook has a curio in it; a box on screen pauses the collection
-		_drain(region.dialogue)
-		await _frames(3)
-	_check(int(main.stones) == 5, "five stones gathered (got %d)" % int(main.stones))
-
-	var level_before := int(GameState.data["level"])
-
 	# ── 6. BECOME, and then David's whole story ─────────────────────────
 	# Chapter 2 first: three days earlier, the sheep slope, and the drill that
 	# teaches the one input the fight asks for. Then Jesse's errand. Then the
 	# king. Only then is there a fight.
 	await _stand(region, 16, 10, 4)
-	_check(bool(main._in_battle), "crossing with five stones begins BECOME")
+	_check(bool(main._in_battle), "crossing with the camp's words in hand begins BECOME")
 	_check(region._paused, "the world holds still while you become David")
+	# 1 Samuel 17:11 is spoken at the line, Corin says the story is changing
+	# hands, and only then does the perspective move. No abrupt swap.
+	_check(region.dialogue._open, "the crossing says what it is: 17:11, and handover")
+	_drain(region.dialogue)
+	await _frames(3)
 	var waited := 0
 	while main.act_id() != "shepherd" and waited < FRAME_GUARD:
 		await get_tree().process_frame
@@ -425,9 +418,27 @@ func _run() -> void:
 		_check(region.dialogue._open, "Saul speaks when you walk up to him")
 		_drain(region.dialogue)
 	await _frames(3)
-	_check(main.act_id() == "ready", "after the armour comes off you are sent down (act=%s)" % main.act_id())
+	_check(main.act_id() == "stones", "after the armour comes off you are sent to the brook (act=%s)" % main.act_id())
 	_check(main.fight == null, "the king does not start the fight")
-	_check(not region._paused, "the walk to the line is yours to make")
+	_check(int(main._stones_total) == 5, "the brook holds five stones (got %d)" % int(main._stones_total))
+	_check(region.pickups.size() >= 5, "and they are laid out in the water where you can see them")
+
+	# ── 6c2. the brook: 1 Samuel 17:40 in David's own act ────────────────
+	# The stones used to be scattered on the map back in Act I, which meant the
+	# witness gathered the five stones before he was ever David — the verse the
+	# whole chapter turns on (17:40) happened to somebody else. They are spawned
+	# here, by the verse, and the pouch counter only exists from here.
+	for pk in region.pickups:
+		if str(pk.get("kind", "")) != "stone":
+			continue
+		var pat: Array = pk["data"].get("at", [16, 27])
+		await _stand(region, int(pat[0]), int(pat[1]), 3)
+		_drain(region.dialogue)
+		await _frames(2)
+	_check(int(main.stones) == 5, "five stones gathered at the brook (got %d)" % int(main.stones))
+	_drain(region.dialogue)
+	await _frames(3)
+	_check(main.act_id() == "ready", "the fifth stone sends you up to the line (act=%s)" % main.act_id())
 
 	# ── 6d. walk to the line, as David ───────────────────────────────────
 	await _stand(region, 16, 15, 3)
