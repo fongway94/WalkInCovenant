@@ -38,6 +38,9 @@ var objectives: Dictionary = {}       # the words the HUD points at each step
 ## 1 Samuel 17:17-39, as data: the errand that put David in the valley. Absent
 ## in a region that has no such act, so it is an empty dictionary, never null.
 var david_act: Dictionary = {}
+## Ordered mission list. The runner owns the lifecycle; this file only carries
+## the data, so campaign #2 defines its missions in its own region file.
+var missions: Array = []
 var goliath := Vector2i.ZERO
 var challenge_row: int = -1
 
@@ -109,6 +112,8 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	ending = d.get("ending", {})
 	objectives = d.get("objectives", {})
 	david_act = d.get("david_act", {})
+	# The chapter's spine: an ordered list of missions (see MissionRunner).
+	missions = d.get("missions", [])
 	var gl: Array = d.get("goliath", [0, 0])
 	goliath = Vector2i(int(gl[0]), int(gl[1]))
 	challenge_row = int(d.get("challenge_row", -1))

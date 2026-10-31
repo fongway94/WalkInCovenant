@@ -1032,12 +1032,16 @@
    "zh": "你还没看明白，这四十天里到底是什么事。去和营地的人说话。"
   },
   "brook": {
-   "en": "Go down to the brook. The water runs shallow over the stones.",
-   "zh": "下到溪边去。水浅，能看见底下的石头。"
+   "en": "Go down to the brook. Five smooth stones, and you choose them.",
+   "zh": "下到溪边去。五块光滑的石子，由你自己挑。"
   },
   "firstsight": {
    "en": "Get a look at the man shouting across the valley",
    "zh": "看一眼那个隔着山谷叫阵的人"
+  },
+  "armour": {
+   "en": "Walk in the king's armour. You will find out why it has to come off.",
+   "zh": "穿着王的盔甲走走吧。你会知道它为什么非脱下来不可。"
   }
  },
  "ending": {
@@ -1356,34 +1360,6 @@
       "en": "1 Samuel 17:38 — “And Saul armed David with his armour, and he put an helmet of brass upon his head; also he armed him with a coat of mail.”",
       "zh": "撒母耳记上 17:38\n「扫罗就把自己的战衣给大卫穿上，将铜盔给他戴上，又给他穿上铠甲。」"
      }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "It is far too heavy. Two steps and you nearly fall.",
-      "zh": "太重了。你走两步，险些摔倒。"
-     }
-    },
-    {
-     "who": "david",
-     "text": {
-      "en": "1 Samuel 17:39 — “I cannot go with these; for I have not proved them.”",
-      "zh": "撒母耳记上 17:39\n「我穿戴这些不能走，因为素来没有穿惯。」"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "You take it off. It was never yours.",
-      "zh": "你把它脱下来。那本来就不是你的。"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "Then you walk down the slope, and the whole army watches you go.",
-      "zh": "然后你往山下走。全军都在看着你。"
-     }
     }
    ]
   },
@@ -1466,14 +1442,48 @@
     16,
     27
    ],
-   "lines": [
+   "done_lines": [
     {
      "who": "",
      "text": {
-      "en": "The armour comes off. The tent is behind you; the whole camp is behind you. The brook is downhill and shallow.",
-      "zh": "盔甲卸了下来。帐棚在你身后，整座营地都在你身后。溪水在坡下，浅得能看见底。"
+      "en": "Five stones in the bag, and the bag is light. Your sling is in your other hand.",
+      "zh": "五块石子在袋里，袋子轻得几乎没有分量。另一只手里，是你从少年时就带着的机弦。"
      }
     },
+    {
+     "who": "david",
+     "text": {
+      "en": "Not armour. Not a sword. This.",
+      "zh": "「不是盔甲。不是刀。是这个。」"
+     }
+    }
+   ],
+   "need": 5,
+   "pool": 9,
+   "arrive_lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The armour is behind you on the tent floor. The brook runs shallow and cold between the stones.",
+      "zh": "盔甲留在身后的帐棚里。溪水从石头缝里流过，又浅又凉。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "You crouch and turn the wet stones over with your fingers. Most of them are wrong — too sharp, too big, no weight to them.",
+      "zh": "你蹲下去，用手指把湿石头一块一块翻过来。大多都不合适：太尖、太大，或者拿在手里一点分量也没有。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "Pick five. Not a handful — five.",
+      "zh": "挑五块。不是抓一把——是五块。"
+     }
+    }
+   ],
+   "verse_lines": [
     {
      "who": "david",
      "text": {
@@ -1494,75 +1504,59 @@
       "en": "and his sling was in his hand: and he drew near to the Philistine.”",
       "zh": "手中拿着甩石的机弦，就去迎那非利士人。」"
      }
+    }
+   ]
+  },
+  "armour": {
+   "at": [
+    21,
+    41
+   ],
+   "wear_lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The coat of mail settles on your shoulders and the helmet comes down over your eyes. Everything you are wearing belongs to a man twice your size.",
+      "zh": "锁子甲压在肩上，铜盔扣下来，遮住了眉毛。你身上穿的，每一件都属于一个比你大一倍的人。"
+     }
     },
     {
      "who": "",
      "text": {
-      "en": "You crouch and turn the wet stones over with your fingers. Most of them are wrong. Pick five.",
-      "zh": "你蹲下去，用手指把湿石头一块一块翻过来。大多都不合用。挑五块。"
+      "en": "Walk. He is watching, and so is everyone outside the tent.",
+      "zh": "走两步。他看着你，帐外的人也都看着。"
      }
     }
    ],
-   "items": [
-    {
-     "id": "stone1",
-     "kind": "stone",
-     "at": [
-      13,
-      28
-     ],
-     "sprite": "rock"
-    },
-    {
-     "id": "stone2",
-     "kind": "stone",
-     "at": [
-      17,
-      27
-     ],
-     "sprite": "rock"
-    },
-    {
-     "id": "stone3",
-     "kind": "stone",
-     "at": [
-      14,
-      25
-     ],
-     "sprite": "rock"
-    },
-    {
-     "id": "stone4",
-     "kind": "stone",
-     "at": [
-      12,
-      24
-     ],
-     "sprite": "rock"
-    },
-    {
-     "id": "stone5",
-     "kind": "stone",
-     "at": [
-      16,
-      29
-     ],
-     "sprite": "rock"
-    }
-   ],
-   "done_lines": [
+   "stumble_lines": [
     {
      "who": "",
      "text": {
-      "en": "Five. The pouch sits light against your hip. The sling you have carried since you were a boy is in your other hand.",
-      "zh": "五块。袋子贴在腰上，轻得几乎没有分量。另一只手里，是你从少年时就带着的那条甩石绳。"
+      "en": "Two steps and the weight takes your knees. You catch yourself on the tent pole.",
+      "zh": "才两步，那分量就把你的腿压弯了。你扶住帐棚的杆子才没摔倒。"
      }
-    },
+    }
+   ],
+   "take_off_lines": [
     {
      "who": "david",
      "text": {
-      "en": "Not armour. Not a sword. This.",
-      "zh": "「不是盔甲。不是刀。是这个。」"
+      "en": "1 Samuel 17:39 — “I cannot go with these; for I have not proved them.”",
+      "zh": "撒母耳记上 17:39\n「我穿戴这些不能走，因为素来没有穿惯。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "The bronze comes off piece by piece. The camp is quieter than it was when you put it on.",
+      "zh": "铜甲一件一件卸下来。你穿上它的时候，营里比现在吵。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "What is left is a sling, a staff, and the clothes you came up the hill in.",
+      "zh": "剩下的是一条机弦、一根手杖，和你上山时穿的那身衣服。"
      }
     }
    ]
@@ -1673,6 +1667,101 @@
      }
     }
    ]
+  }
+ ],
+ "missions": [
+  {
+   "id": "witness_camp",
+   "act": "witness",
+   "objective": "corin",
+   "complete": {
+    "kind": "count",
+    "key": "words",
+    "at_least": 4
+   },
+   "note": "the witness talks to Corin, then is walked to the three people who live beside the line"
+  },
+  {
+   "id": "witness_line",
+   "act": "witness",
+   "objective": "line_witness",
+   "complete": {
+    "kind": "flag",
+    "key": "elah_met_the_line"
+   },
+   "note": "crossing the line with the camp's words in hand; the story changes hands"
+  },
+  {
+   "id": "shepherd_drill",
+   "act": "shepherd",
+   "objective": "shepherd",
+   "enter": "become_david",
+   "complete": {
+    "kind": "flag",
+    "key": "elah_drill_done"
+   },
+   "note": "BECOME, three days earlier, then the sling drill on the slope"
+  },
+  {
+   "id": "errand",
+   "act": "errand",
+   "objective": "provision",
+   "enter": "errand",
+   "complete": {
+    "kind": "flag",
+    "key": "elah_brothers_met"
+   },
+   "note": "Jesse's provisions, the walk, and Eliab at the edge of the camp (17:17-28)"
+  },
+  {
+   "id": "saul_armour",
+   "act": "saul",
+   "objective": "saul",
+   "enter": "saul",
+   "complete": {
+    "kind": "flag",
+    "key": "elah_armour_off"
+   },
+   "note": "the king's armour — worn, walked in, and taken off (17:38-39)"
+  },
+  {
+   "id": "brook_stones",
+   "act": "stones",
+   "objective": "brook",
+   "enter": "brook",
+   "complete": {
+    "kind": "count",
+    "key": "stones",
+    "at_least": 5
+   },
+   "note": "five smooth stones chosen by hand at the brook (17:40)"
+  },
+  {
+   "id": "the_line",
+   "act": "ready",
+   "objective": "ready",
+   "enter": "ready",
+   "complete": {
+    "kind": "flag",
+    "key": "goliath_down"
+   },
+   "rewards": {
+    "xp": 120,
+    "seal": "giant_down",
+    "relic": "stones",
+    "fruit": "faithfulness"
+   },
+   "note": "the duel with Goliath and the verses that frame it (17:44-47)"
+  },
+  {
+   "id": "aftermath",
+   "act": "aftermath",
+   "objective": "aftermath",
+   "complete": {
+    "kind": "flag",
+    "key": "elah_ended"
+   },
+   "note": "Corin has to hear it from you, then the chapter closes"
   }
  ]
 }

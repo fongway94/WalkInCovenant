@@ -281,16 +281,23 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	# The five stones of 1 Samuel 17:40 are laid out in the brook when David
 	# walks down to it, so nothing at load time can notice one of them sitting
 	# inside a rock. Same gate as the provisions: walkable, and reachable.
+	# 1 Samuel 17:40 is now a hand-picking scene (script/setpiece/StoneChoice.gd),
+	# so the data only has to promise that the water is reachable and that the
+	# numbers can make five: a pool of at least five, and exactly five wanted.
 	var brook: Dictionary = m.david_act.get("brook", {})
-	var brook_items: Array = brook.get("items", [])
-	if brook_items.size() != 5:
-		_fail("%s: the brook must hold five stones, it holds %d" % [rid, brook_items.size()])
-	for it in brook_items:
-		var t := Vector2i(int(it["at"][0]), int(it["at"][1]))
-		if m.solid_at_tile(t.x, t.y):
-			_fail("%s: stone %s at %s is inside a solid tile or prop" % [rid, it.get("id"), t])
-		if m.path(m.spawn, t).is_empty():
-			_fail("%s: no walkable path from spawn to stone %s" % [rid, it.get("id")])
+	var need := int(brook.get("need", 0))
+	var pool := int(brook.get("pool", 0))
+	if need != 5:
+		_fail("%s: the brook asks for %d stones, Scripture says five" % [rid, need])
+	if pool < need:
+		_fail("%s: the brook holds %d stones but wants %d — unwinnable" % [rid, pool, need])
+	var bat: Array = brook.get("at", [0, 0])
+	if bat.size() == 2:
+		var bt := Vector2i(int(bat[0]), int(bat[1]))
+		if m.solid_at_tile(bt.x, bt.y):
+			_fail("%s: the brook itself at %s is solid" % [rid, bt])
+		if m.path(m.spawn, bt).is_empty():
+			_fail("%s: the brook cannot be walked to from spawn" % rid)
 	var ba: Array = m.david_act.get("brothers_at", [])
 	if ba.size() == 2:
 		var bt := Vector2i(int(ba[0]), int(ba[1]))
@@ -363,9 +370,15 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_has_both(line.get("text"), "%s:david_act %s" % [rid, key])
 	for line in ((m.david_act.get("shepherd", {}) as Dictionary).get("done_lines", []) as Array):
 		_has_both(line.get("text"), "%s:david_act shepherd done" % rid)
-	for key in ["lines", "done_lines"]:
+	for key in ["arrive_lines", "verse_lines", "done_lines"]:
 		for line in (brook.get(str(key), []) as Array):
 			_has_both(line.get("text"), "%s:brook %s" % [rid, key])
+	var arm: Dictionary = m.david_act.get("armour", {})
+	for key in ["wear_lines", "stumble_lines", "take_off_lines"]:
+		if (arm.get(str(key), []) as Array).is_empty():
+			_fail("%s: david_act.armour.%s is empty" % [rid, key])
+		for line in (arm.get(str(key), []) as Array):
+			_has_both(line.get("text"), "%s:armour %s" % [rid, key])
 	# Corin speaks in the witness's last beat and in David's act, so his name has
 	# to be in the speakers table or the box would open nameless.
 	for sid in ["corin", "david", "saul", "jesse", "eliab"]:
@@ -382,7 +395,7 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	# single string no dialogue ever repeats.
 	for key in m.objectives:
 		_has_both(m.objectives.get(key), "%s:objective %s" % [rid, key])
-	for key in ["corin", "stones", "line", "line_witness", "brook", "done"]:
+	for key in ["corin", "stones", "line", "line_witness", "brook", "armour", "done"]:
 		if not m.objectives.has(key):
 			_fail("%s: objectives is missing '%s' — the HUD would point at nothing" % [rid, key])
 	for line in (m.ending.get("lines", []) as Array):
@@ -408,6 +421,42 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		for key in ["refuse", "memory", "witness", "firstsight"]:
 			_check_verses(tdd.get(str(key), []), "%s:trigger.%s" % [rid, key])
 	_ok("all dialogue, verses, objectives and the ending are bilingual")
+
+	# 4b. the mission list — the chapter's spine is data, so it gets the same
+	# gate as every other piece of data: ids unique, each mission's objective
+	# exists, each completion condition is one the runner can actually evaluate,
+	# and each `enter` names a mechanic this chapter implements.
+	if m.missions.is_empty():
+		_fail("%s: no missions — the chapter would never start" % rid)
+	var seen := {}
+	var enters := ["", "become_david", "errand", "saul", "brook", "ready"]
+	for mi in m.missions:
+		var mm: Dictionary = mi
+		var mid := str(mm.get("id", ""))
+		if mid == "":
+			_fail("%s: a mission has no id" % rid)
+		if seen.has(mid):
+			_fail("%s: mission '%s' appears twice" % [rid, mid])
+		seen[mid] = true
+		var obj_key := str(mm.get("objective", ""))
+		if not m.objectives.has(obj_key):
+			_fail("%s: mission '%s' points at objective '%s', which does not exist"
+				% [rid, mid, obj_key])
+		var act_name := str(mm.get("act", ""))
+		if act_name == "":
+			_fail("%s: mission '%s' has no act" % [rid, mid])
+		if not enters.has(str(mm.get("enter", ""))):
+			_fail("%s: mission '%s' asks for mechanic '%s', which Main does not implement"
+				% [rid, mid, mm.get("enter")])
+		var cond: Dictionary = mm.get("complete", {})
+		var kind := str(cond.get("kind", ""))
+		if kind != "flag" and kind != "count":
+			_fail("%s: mission '%s' has completion kind '%s'" % [rid, mid, kind])
+		if str(cond.get("key", "")) == "":
+			_fail("%s: mission '%s' has no completion key" % [rid, mid])
+	if not seen.has("the_line"):
+		_fail("%s: the chapter has no mission for the line" % rid)
+	_ok("the mission list is complete and every condition is evaluable")
 
 	# 5. the fight is a fight, and it can be finished.
 	# It used to be a verse quiz followed by a duel; the duel is now the whole

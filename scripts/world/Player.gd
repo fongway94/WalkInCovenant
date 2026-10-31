@@ -47,6 +47,13 @@ var _anim_t := 0.0
 var _foot_t := 0.0
 var _foot_side := 0
 
+## Saul's armour (1 Samuel 17:38-39). The game does not tell the player that
+## David cannot walk in it — it hands them the thumb and lets them find out.
+## Speed drops to a shade under half, the walk gains a stagger, and the sprite
+## wears bronze that is not his.
+var armour := false
+var _armour_t := 0.0
+
 # journey-mirror "step" way: recorded per distance travelled, not per choice
 var _step_acc := 0.0
 
@@ -67,6 +74,18 @@ func setup(m: RegionModel, char_id: String) -> void:
 	sprite.hframes = 2
 	sprite.vframes = 4
 	sprite.frame = 0
+
+
+func set_armour(on: bool) -> void:
+	armour = on
+	_armour_t = 0.0
+	queue_redraw()
+
+
+## The armour is weight, not a wall: the player must still be able to cross the
+## camp and walk to the brook, just not the way they walked before.
+func speed_scale() -> float:
+	return 0.42 if armour else 1.0
 
 
 func _ready() -> void:
@@ -127,7 +146,7 @@ func _physics_process(delta: float) -> void:
 	mode = Mode.MOVING
 	var push: float = external_intent.length()
 	var running := Input.is_action_pressed("run") or push >= run_push
-	var base := run_speed if running else walk_speed
+	var base := (run_speed if running else walk_speed) * speed_scale()
 	if external_intent != Vector2.ZERO and not running:
 		# Analog tilt walks slower the gentler it is, but never crawls: the
 		# floor keeps the first millimetres of stick travel at walking pace.
@@ -155,6 +174,12 @@ func _physics_process(delta: float) -> void:
 			AudioDirector.play_sfx(s, -6.0 + (2.0 if _foot_side == 0 else 0.0))
 
 	_update_anim(velocity.length(), delta)
+	if armour:
+		_armour_t += delta
+		if sprite != null:
+			# A stumble, not a wobble: the plate is trying to pull him sideways.
+			sprite.offset = Vector2(sin(_armour_t * 11.0) * 1.6, -8.0)
+		queue_redraw()
 
 
 func _decelerate(delta: float) -> void:
@@ -256,6 +281,14 @@ func _draw() -> void:
 	# contact shadow — grounds the figure. Drawn, not baked, so it is always
 	# under the feet regardless of frame.
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
+	# Saul's armour, in the sprite's own 16px space: a bronze helmet and a coat
+	# of mail over the figure, legs left alone so the walk still reads. It is
+	# drawn, not baked, because the outfit changes during the chapter.
+	if armour:
+		draw_rect(Rect2(-5, -17, 10, 3), Color(0.50, 0.36, 0.14, 0.92))
+		draw_rect(Rect2(-6, -14, 12, 7), Color(0.72, 0.55, 0.24, 0.92))
+		draw_rect(Rect2(-6, -9, 12, 2), Color(0.50, 0.36, 0.14, 0.92))
+		draw_rect(Rect2(5, -8, 1.5, 7), Color(0.78, 0.78, 0.80, 0.9))
 
 
 func face_toward(target: Vector2) -> void:

@@ -453,27 +453,76 @@ func _run() -> void:
 		_check(region.dialogue._open, "Saul speaks when you walk up to him")
 		_drain(region.dialogue)
 	await _frames(3)
-	_check(main.act_id() == "stones", "after the armour comes off you are sent to the brook (act=%s)" % main.act_id())
+	# ── 6c2. Saul's armour, walked in (1 Samuel 17:38-39) ────────────────
+	# Not a message saying "you cannot move": the world is handed back with the
+	# player wearing it, at 42% speed, and the scene ends when they have really
+	# tried to walk.
+	_check(main.act_id() == "armour",
+		"Saul's armour goes on after he speaks (act=%s)" % main.act_id())
+	var dave = region.player
+	_check(bool(dave.armour), "David is wearing the armour")
+	_check(absf(dave.speed_scale() - 0.42) < 0.001,
+		"and he moves at %.0f%% of his own speed" % (dave.speed_scale() * 100.0))
+	_check(main.hud.prompt_lbl.visible, "the way out of the armour is on screen")
 	_check(main.fight == null, "the king does not start the fight")
-	_check(int(main._stones_total) == 5, "the brook holds five stones (got %d)" % int(main._stones_total))
-	_check(region.pickups.size() >= 5, "and they are laid out in the water where you can see them")
-
-	# ── 6c2. the brook: 1 Samuel 17:40 in David's own act ────────────────
-	# The stones used to be scattered on the map back in Act I, which meant the
-	# witness gathered the five stones before he was ever David — the verse the
-	# whole chapter turns on (17:40) happened to somebody else. They are spawned
-	# here, by the verse, and the pouch counter only exists from here.
-	for pk in region.pickups:
-		if str(pk.get("kind", "")) != "stone":
-			continue
-		var pat: Array = pk["data"].get("at", [16, 27])
-		await _stand(region, int(pat[0]), int(pat[1]), 3)
-		_drain(region.dialogue)
-		await _frames(2)
-	_check(int(main.stones) == 5, "five stones gathered at the brook (got %d)" % int(main.stones))
+	# Walk in it. The intent is the same vector a thumb would push.
+	dave.external_intent = Vector2(1, 0)
+	var stagger := 0
+	while main.act_id() == "armour" and stagger < 240:
+		await get_tree().process_frame
+		stagger += 1
+	dave.external_intent = Vector2.ZERO
+	_check(stagger < 240, "walking in the armour ends the scene (after %d frames)" % stagger)
+	_check(region.dialogue._open, "and it ends in 17:39, on screen")
 	_drain(region.dialogue)
-	await _frames(3)
-	_check(main.act_id() == "ready", "the fifth stone sends you up to the line (act=%s)" % main.act_id())
+	await _frames(4)
+	_check(not bool(dave.armour), "the armour comes off")
+	_check(absf(dave.speed_scale() - 1.0) < 0.001, "and David walks like himself again")
+	_check(bool(GameState.flag("elah_armour_off")), "the chapter records that it came off")
+	_check(main.act_id() == "stones",
+		"the mission moves on to the brook (act=%s)" % main.act_id())
+	_check(int(main._stones_total) == 5, "the brook asks for five stones (got %d)" % int(main._stones_total))
+	_check(main.stones_panel == null, "and the picking has not started yet")
+
+	# ── 6c3. five stones, chosen by hand (1 Samuel 17:40) ────────────────
+	# The player walks down to the water; nothing is picked up by accident.
+	var brk: Dictionary = dact.get("brook", {})
+	var bat2: Array = brk.get("at", [16, 27])
+	await _stand(region, int(bat2[0]), int(bat2[1]), 5)
+	_check(region.dialogue._open, "standing in the brook says what this place is")
+	_drain(region.dialogue)
+	await _frames(4)
+	_check(main.stones_panel != null, "and the stones come up to be chosen")
+	if main.stones_panel == null:
+		_finish_run()
+		return
+	var panel = main.stones_panel
+	_check(panel.stones.size() >= 5, "there are stones in the water (got %d)" % panel.stones.size())
+	_check(panel.chosen_count() == 0, "and none of them are chosen yet")
+	panel.toggle(0)
+	panel.toggle(0)
+	_check(panel.chosen_count() == 0, "tapping a stone twice puts it back")
+	panel.toggle(0)
+	panel.toggle(1)
+	panel.toggle(2)
+	_check(panel.chosen_count() == 3, "three chosen (got %d)" % panel.chosen_count())
+	_check(not panel.is_full(), "and three is not five")
+	panel.toggle(3)
+	panel.toggle(4)
+	_check(panel.is_full(), "five chosen, and the scene knows it")
+	var before_six := panel.chosen_count()
+	panel.toggle(5)
+	_check(panel.chosen_count() == before_six, "a sixth stone cannot be taken")
+	_check(int(main.stones) != 5, "the pouch is still empty while the choice is open")
+	panel.confirm()
+	await _frames(4)
+	_check(main.stones_panel == null, "confirming closes the picking")
+	_check(int(main.stones) == 5, "exactly five stones are in the pouch (got %d)" % int(main.stones))
+	_check(region.dialogue._open, "and 17:40 is spoken over them")
+	_drain(region.dialogue)
+	await _frames(4)
+	_check(main.act_id() == "ready",
+		"the fifth stone sends you up to the line (act=%s)" % main.act_id())
 
 	# ── 6d. walk to the line, as David ───────────────────────────────────
 	await _stand(region, 16, 15, 3)
@@ -652,6 +701,9 @@ func _run() -> void:
 		"brothers": true, "pos": [16, 15]}
 	main.act = 0
 	main._resume_story()
+	# Resuming is "start the mission list at this index", so it is the runner
+	# entering the mission that puts the chapter back in the right act.
+	main._begin_missions()
 	await _frames(3)
 	_check(main.act_id() == "ready",
 		"a save in David's act resumes there, not at the top of the valley (act=%s)"

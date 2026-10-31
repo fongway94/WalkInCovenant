@@ -9,6 +9,18 @@ var hud: Hud = null
 var touch: TouchControls = null
 var become: BecomeController = null
 var fight: GoliathFight = null
+## The chapter's spine. Missions are data (region JSON); the runner owns the
+## lifecycle; this script owns only the mechanics a story needs and the HUD.
+var runner: MissionRunner = null
+## The brook's stone-picking scene (1 Samuel 17:40) while it is on screen.
+var stones_panel: StoneChoice = null
+## Saul's armour: how far the player has staggered in it, and whether the
+## take-it-off beat has already begun.
+var _armour_walk := 0.0
+var _armour_busy := false
+var _brook_open := false
+## A resumed save starts the mission list at this index instead of 0.
+var _resume_index := -1
 
 var stones := 0
 var _stones_total := 0
@@ -22,7 +34,7 @@ var _in_battle := false
 ## beside the line. Act II is David's, and it runs in the order 1 Samuel 17
 ## gives it — the sheep, the father's errand, the brothers, the king, and only
 ## then five stones out of the brook (v.40) and the line.
-enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, STONES, READY, FIGHT, AFTERMATH, DONE }
+enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, ARMOUR, STONES, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
 var practice: SlingPractice = null
@@ -46,8 +58,8 @@ const SAVE_EVERY_MS := 3000
 ## The act as a word, for the smoke test and for anything that needs to print
 ## where the chapter is. An enum's integer value is an implementation detail;
 ## "shepherd" is not.
-const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "stones", "ready",
-	"fight", "aftermath", "done"]
+const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "armour", "stones",
+	"ready", "fight", "aftermath", "done"]
 
 
 func act_id() -> String:
@@ -93,6 +105,9 @@ func _ready() -> void:
 	EventBus.verse_received.connect(_on_verse)
 	EventBus.player_interacted_with.connect(_on_interacted)
 
+	runner = MissionRunner.new()
+	add_child(runner)
+
 	region = Region.new()
 	# Which story this is comes from the registry, not from a line of code.
 	region.region_id = CampaignModel.current_region()
@@ -122,6 +137,12 @@ func _process(delta: float) -> void:
 	_update_guidance()
 	_update_touch_ownership()
 	_autosave()
+	_tick_armour(delta)
+	_tick_brook()
+	# A mission never completes while a beat is on screen: the box owns the
+	# moment, and the next mission is allowed to start when it closes.
+	if runner != null and not region.dialogue.is_open():
+		runner.tick(_mission_ctx())
 
 
 ## Who owns the screen right now. One derived truth, recomputed every frame,
@@ -131,7 +152,7 @@ func _update_touch_ownership() -> void:
 	if touch == null or region == null:
 		return
 	var owned := region.is_paused() or fight != null or practice != null \
-		or (journal != null and journal.is_open())
+		or stones_panel != null or (journal != null and journal.is_open())
 	touch.set_blocked(owned)
 
 
@@ -164,11 +185,14 @@ func _update_guidance() -> void:
 			if king != null:
 				target = king.global_position
 				point = true
+		Act.ARMOUR:
+			key = "armour"
 		Act.STONES:
-			key = "stones"
-			target = _nearest_pickup("stone", p.global_position)
-			point = stones < _stones_total
-			line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), stones, _stones_total]
+			key = "brook"
+			var br: Dictionary = region.model.david_act.get("brook", {})
+			var bat: Array = br.get("at", [16, 27])
+			target = Vector2(float(bat[0]) * 16.0 + 8.0, float(bat[1]) * 16.0 + 8.0)
+			point = true
 		Act.READY:
 			key = "ready"
 			var rrow := int(region.model.trigger_data("challenge").get("row", 11))
@@ -241,11 +265,109 @@ func _update_guidance() -> void:
 	# Teach the one button that matters, at the moment it matters: standing next
 	# to a person. This is the on-screen equivalent of the Z key the old
 	# briefing told a phone player to press (playtest 6).
+	if act == Act.ARMOUR:
+		# The way out of the armour is always on screen: a player who will not
+		# walk in it still has to be able to take it off.
+		hud.set_prompt(I18n.t({"en": "A  ·  take it off", "zh": "A  ·  脱下来"}))
+		return
 	var near := region.nearest_interactable()
 	if near != null and near.can_talk():
 		hud.set_prompt(I18n.t({"en": "A  ·  talk", "zh": "A  ·  交谈"}))
 	else:
 		hud.set_prompt("")
+
+
+# ── missions ─────────────────────────────────────────────────────────────
+## One context per frame, built from the save and this script's counters — the
+## only things a completion condition is allowed to look at.
+func _mission_ctx() -> Dictionary:
+	var c := {
+		"words": int((GameState.data.get("words", []) as Array).size()),
+		"stones": stones,
+		"provisions": provisions,
+	}
+	for k in (GameState.data.get("flags", {}) as Dictionary):
+		c[str(k)] = GameState.data["flags"][k]
+	return c
+
+
+## Wire the runner BEFORE `_resume_story()`, because resuming is expressed as
+## "start the mission list at this index" and that index is looked up by id.
+func _prepare_runner() -> void:
+	if runner == null or region == null:
+		return
+	runner.setup(region.model.missions, Callable(), Callable())
+	runner.entered.connect(_on_mission_entered)
+	runner.completed.connect(_on_mission_completed)
+	runner.finished_all.connect(_on_missions_done)
+
+
+func _begin_missions() -> void:
+	if runner == null or region == null:
+		return
+	runner.start_at(maxi(_resume_index, 0))
+
+
+## A mission was entered. The runner has already decided the order; this is
+## where a chapter hooks its own mechanics in by name.
+func _on_mission_entered(m: Dictionary) -> void:
+	var act_name := str(m.get("act", ""))
+	var i := ACT_NAMES.find(act_name)
+	if i >= 0 and act != i:
+		act = i
+		_saved_act = ""          # force an immediate autosave on the beat
+	match str(m.get("enter", "")):
+		"become_david":
+			_begin_become()
+		"errand":
+			_start_errand()
+		"saul":
+			_summon_saul()
+		"brook":
+			_brook_started()
+		"ready":
+			_ready_for_the_line()
+
+
+## A mission's condition is met. Rewards have already been granted, once. This
+## chapter has no mission that needs its own outro beat: every one of them hands
+## over from inside the scene that completed it.
+func _on_mission_completed(_m: Dictionary) -> void:
+	if runner != null:
+		runner.advance()
+
+
+func _on_missions_done() -> void:
+	# The chapter is over and the valley is free to walk. There is nothing to
+	# unlock at the end of a chapter that has already given the player its
+	# ending, so this is deliberately quiet.
+	pass
+
+
+## Saul's armour is measured in steps, not in seconds: the scene ends when the
+## player has actually tried to walk in it, which is the whole point of 17:39.
+func _tick_armour(delta: float) -> void:
+	if act != Act.ARMOUR or _armour_busy or region.player == null:
+		return
+	if region.dialogue.is_open() or region.is_paused():
+		return
+	_armour_walk += region.player.velocity.length() * delta
+	if _armour_walk >= 26.0:
+		_armour_beat()
+
+
+## The brook scene opens when David actually reaches the water, not when the
+## king stops talking: the walk is his, and the stones are where he finds them.
+func _tick_brook() -> void:
+	if act != Act.STONES or stones_panel != null or region.player == null:
+		return
+	if region.dialogue.is_open() or region.is_paused():
+		return
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	var at: Array = br.get("at", [16, 27])
+	var c := Vector2(float(at[0]) * 16.0 + 8.0, float(at[1]) * 16.0 + 8.0)
+	if region.player.global_position.distance_to(c) < 24.0:
+		_brook_beat()
 
 
 ## Save the chapter where it stands. Written whenever the act changes (that is
@@ -257,7 +379,7 @@ func _autosave() -> void:
 		return
 	if region.dialogue != null and region.dialogue.is_open():
 		return
-	if fight != null or practice != null or _in_battle:
+	if fight != null or practice != null or stones_panel != null or _in_battle:
 		return
 	if journal != null and journal.is_open():
 		return
@@ -306,7 +428,9 @@ func _brothers_beat() -> void:
 	_brothers_met = true
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
-	region.dialogue.show_lines(lines, _speaker, _summon_saul)
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.set_paused(false)
+		GameState.set_flag("elah_brothers_met", true))
 
 
 ## 1 Samuel 17:31-39: they bring him to Saul, who is a person in a tent you have
@@ -342,41 +466,129 @@ func _spawn_saul() -> void:
 	region.spawn_npc(d)
 
 
-## 1 Samuel 17:39-40. He takes the king's armour off, and the next thing he
-## picks up is not a sword: it is five stones out of the brook. That verse is
-## the whole point of the chapter, so it is played here — as the reason the
-## stones appear on the map — instead of being handed to the witness before he
-## ever became David.
-func _brook_beat() -> void:
-	if act == Act.STONES or act == Act.READY:
+## 1 Samuel 17:38-39, played rather than narrated. The king's armour goes on,
+## the world is handed back with the player wearing it, and the difference is
+## in the thumb: speed at 42%, a stagger in the walk, bronze drawn over the
+## sprite. The scene ends when the player has actually walked in it, or by
+## pressing A — which is also the way out if they refuse to move.
+func _armour_on() -> void:
+	if act == Act.ARMOUR:
 		return
-	act = Act.STONES
-	var br: Dictionary = region.model.david_act.get("brook", {})
-	var lines: Array = br.get("lines", [])
-	if lines.is_empty():
-		_start_brook()
-		return
+	act = Act.ARMOUR
+	_armour_walk = 0.0
+	_armour_busy = false
+	var a: Dictionary = region.model.david_act.get("armour", {})
 	region.set_paused(true)
-	region.dialogue.show_lines(lines, _speaker, _start_brook)
+	region.player.set_armour(true)
+	hud.set_objective(I18n.t(region.model.objectives.get("armour", {})))
+	AudioDirector.play_sfx("hit", -8.0)
+	var lines: Array = a.get("wear_lines", [])
+	if lines.is_empty():
+		region.set_paused(false)
+		return
+	region.dialogue.show_lines(lines, _speaker, func(): region.set_paused(false))
 
 
-## Put the five stones in the shallow water, where the player can see them.
-func _start_brook() -> void:
+## He has tried to walk. The weight wins, and the verse explains it.
+func _armour_beat() -> void:
+	if _armour_busy or act != Act.ARMOUR:
+		return
+	_armour_busy = true
+	region.set_paused(true)
+	region.player.external_intent = Vector2.ZERO
+	region.player.velocity = Vector2.ZERO
+	var a: Dictionary = region.model.david_act.get("armour", {})
+	var lines: Array = []
+	lines.append_array(a.get("stumble_lines", []))
+	lines.append_array(a.get("take_off_lines", []))
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.player.set_armour(false)
+		_armour_busy = false
+		region.set_paused(false)
+		# The runner is watching for this flag: it closes the armour mission and
+		# opens the walk to the brook.
+		GameState.set_flag("elah_armour_off", true))
+
+
+## A for "take it off": the escape hatch, and the fast path for a player who
+## does not want to stagger the length of the camp.
+func _input(event: InputEvent) -> void:
+	# `_input`, not `_unhandled_input`: the world also listens for `interact`,
+	# and standing next to Saul while wearing his armour must take the armour
+	# off, not start a second conversation with him.
+	if act != Act.ARMOUR or _armour_busy:
+		return
+	if not event.is_action_pressed("interact"):
+		return
+	if region == null or region.dialogue == null or region.dialogue.is_open():
+		return
+	if not TapGate.take():
+		return
+	get_viewport().set_input_as_handled()
+	_armour_beat()
+
+
+## The walk to the water. The mission starts here; the scene itself opens when
+## David reaches it (see _tick_brook).
+func _brook_started() -> void:
 	act = Act.STONES
 	region.set_paused(false)
 	var br: Dictionary = region.model.david_act.get("brook", {})
-	var items: Array = br.get("items", [])
-	_stones_total = items.size()
+	_stones_total = int(br.get("need", 5))
 	stones = 0
-	for it in items:
-		var at: Array = it.get("at", [0, 0])
-		region.spawn_pickup(str(it.get("id", "stone")), "stone",
-			str(it.get("sprite", "rock")), int(at[0]), int(at[1]), it)
+	_brook_open = false
 	if hud != null:
 		hud.set_stones(0, _stones_total)
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "The brook is north-west, below the tents.",
 		"zh": "溪水在西北边，帐棚下面。"}))
+
+
+## Reaching the water: the two beats of narration, then the stones themselves.
+func _brook_beat() -> void:
+	if act != Act.STONES or stones_panel != null or _brook_open:
+		return
+	_brook_open = true
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	var lines: Array = br.get("arrive_lines", [])
+	if lines.is_empty():
+		_open_stone_choice()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, _open_stone_choice)
+
+
+## The picking is its own screen because it is its own act: nine stones in the
+## water, five wanted, and the player's hand decides which five. 17:40 is spoken
+## after the choice, because the verse reports what he did.
+func _open_stone_choice() -> void:
+	if stones_panel != null:
+		return
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	stones_panel = StoneChoice.new()
+	add_child(stones_panel)
+	stones_panel.finished.connect(_on_stones_picked)
+	stones_panel.start(int(br.get("need", 5)), int(br.get("pool", 9)))
+
+
+func _on_stones_picked(chosen: int) -> void:
+	if stones_panel != null:
+		stones_panel.queue_free()
+		stones_panel = null
+	stones = chosen
+	_stones_total = maxi(_stones_total, chosen)
+	if hud != null:
+		hud.set_stones(stones, _stones_total)
+	GameState.grant_seal("five_stones")
+	GameState.record_way("notice")
+	AudioDirector.play_sfx("pickup", -3.0)
+	var br: Dictionary = region.model.david_act.get("brook", {})
+	region.set_paused(true)
+	# The verse, then the one line that closes the scene. The mission's count
+	# condition is met once this box closes, and the runner moves the chapter on.
+	region.dialogue.show_lines(br.get("verse_lines", []), _speaker,
+		func(): region.dialogue.show_lines(br.get("done_lines", []), _speaker, func():
+			region.set_paused(false)))
 
 
 func _ready_for_the_line() -> void:
@@ -444,11 +656,13 @@ func _on_region_ready() -> void:
 	# (1 Samuel 17:40), not at load: the HUD's pouch counter must not be on
 	# screen while the witness is still watching the valley.
 	var brook: Dictionary = region.model.david_act.get("brook", {})
-	_stones_total = int((brook.get("items", []) as Array).size())
+	_stones_total = int(brook.get("need", 5))
 	hud.set_stones(0, 0)
 	AudioDirector.play_music(region.model.music)
 	EventBus.player_entered_region.emit(region.region_id)
+	_prepare_runner()
 	_resume_story()
+	_begin_missions()
 	_prologue_once()
 
 
@@ -456,58 +670,51 @@ func _on_region_ready() -> void:
 ## used to drop you back into Act.WITNESS with the giant already dead, the line
 ## triggering `_memory_beat()` and Corin's ending unreachable — the one way a
 ## player could lose a finished chapter by refreshing the page.
+##
+## Since the chapter became a mission list, resuming is one decision: WHICH
+## mission to start the list at. The runner then plays that mission's opening
+## beat exactly as it would on a first run, which is what makes a resume
+## behaviourally identical to getting there by walking.
+const RESUME_MISSION := {
+	"shepherd": "shepherd_drill",
+	"errand": "errand",
+	"saul": "saul_armour",
+	"armour": "saul_armour",
+	"stones": "brook_stones",
+	"ready": "the_line",
+	"fight": "the_line",
+	"aftermath": "aftermath",
+}
+
+
 func _resume_story() -> void:
 	var pr: Dictionary = GameState.data.get("progress", {})
-	# The giant is down. If the ending never played, Corin still owes it to you.
-	if bool(GameState.flag("goliath_down")):
-		act = Act.DONE if bool(GameState.flag("elah_ended")) else Act.AFTERMATH
-		if act == Act.AFTERMATH:
-			_restore_pos(pr)
-		return
 	var was := str(pr.get("act", "witness"))
-	if was == "" or was == "witness" or was == "done":
-		# Act I replays from the valley's own flags: the prologue, the briefing
-		# and the card each fire once and are remembered by the save.
-		return
-	# A resumed save is honest about what it can restore: the chapter, not the
-	# frame. The act's opening beat plays again — the drill, the errand, the
-	# brook — rather than dropping the player into the middle of a scene whose
-	# first half never happened on this screen.
 	stones = int(pr.get("stones", 0))
 	provisions = int(pr.get("provisions", 0))
 	_brothers_met = bool(pr.get("brothers", false))
 	_restore_pos(pr)
-	match was:
-		"shepherd":
-			_start_david_act()
-		"errand":
-			_start_errand()
-		"saul", "stones", "ready":
-			_resume_david_late(was)
-		"fight", "aftermath":
-			_resume_david_late("ready")
+	# The giant is down. If the ending never played, Corin still owes it to you.
+	if bool(GameState.flag("goliath_down")):
+		_resume_index = runner.index_of("aftermath")
+		return
+	if was == "witness" or was == "" or was == "done":
+		# Act I replays from the valley's own flags: the prologue, the briefing
+		# and the card each fire once and are remembered by the save.
+		_resume_index = 0
+		return
+	# A resumed save is honest about what it can restore: the chapter, not the
+	# frame. The mission's opening beat plays again — the drill, the errand, the
+	# armour, the walk to the brook — rather than dropping the player into the
+	# middle of a scene whose first half never happened on this screen.
+	var id := str(RESUME_MISSION.get(was, ""))
+	_resume_index = maxi(runner.index_of(id), 0) if id != "" else 0
 
 
 func _restore_pos(pr: Dictionary) -> void:
 	var pos: Array = pr.get("pos", [])
 	if pos.size() == 2:
 		_place_at(pos)
-
-
-## The second half of David's act, put back together: the king's tent, the
-## brook, and however many stones of the five the save had already gathered.
-func _resume_david_late(was: String) -> void:
-	act = Act.SAUL
-	if _npc("saul") == null:
-		_spawn_saul()
-	if hud != null:
-		hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
-	if was == "ready" or (stones > 0 and stones >= _stones_total):
-		_ready_for_the_line()
-		return
-	# `saul` and `stones` both continue at the brook's opening: 17:40 is the
-	# verse that puts the stones on the map, and it is cheap to hear again.
-	_brook_beat()
 
 
 ## Chapter 1. The witness is not from here, and saying so once, at the top, in
@@ -567,30 +774,6 @@ func _on_pickup(id: String) -> void:
 				"en": "That is everything. Your brothers are at the edge of the camp.",
 				"zh": "东西都齐了。哥哥们在营地边上。"}))
 		return
-	if id.begins_with("stone"):
-		stones += 1
-		if hud != null:
-			hud.set_stones(stones, _stones_total)
-		GameState.record_way("notice")
-		EventBus.toast_requested.emit(I18n.t({
-			"en": "A smooth stone · %d/5" % stones,
-			"zh": "一块光滑的石子 · %d／5" % stones}))
-		AudioDirector.play_sfx("pickup", -4.0)
-		if stones >= _stones_total and _stones_total > 0:
-			GameState.grant_seal("five_stones")
-			_stones_chosen()
-
-
-## The fifth stone closes the brook scene and puts the objective back on the
-## line. This is the one place the chapter turns around: from here David walks
-## up, and nothing else in the valley is asked of him.
-func _stones_chosen() -> void:
-	var br: Dictionary = region.model.david_act.get("brook", {})
-	var lines: Array = br.get("done_lines", [])
-	region.set_paused(true)
-	region.dialogue.show_lines(lines, _speaker, _ready_for_the_line)
-
-
 func _on_trigger(id: String) -> void:
 	if id == "firstsight":
 		_first_sight()
@@ -656,7 +839,10 @@ func _witness_at_the_line() -> void:
 	if lines.is_empty():
 		_begin_become()
 		return
-	region.dialogue.show_lines(lines, _speaker, _begin_become)
+	region.dialogue.show_lines(lines, _speaker, func():
+		# The runner is watching: this closes the witness's mission and opens
+		# the one whose first beat is BECOME.
+		GameState.set_flag("elah_met_the_line", true))
 
 
 func _beat_lines(id: String, key: String) -> Array:
@@ -822,7 +1008,8 @@ func _practice_done() -> void:
 	GameState.grant_seal("the_drill")
 	region.set_paused(true)
 	var sh: Dictionary = region.model.david_act.get("shepherd", {})
-	region.dialogue.show_lines(sh.get("done_lines", []), _speaker, _start_errand)
+	region.dialogue.show_lines(sh.get("done_lines", []), _speaker, func():
+		GameState.set_flag("elah_drill_done", true))
 
 
 ## Jesse's errand: the provisions, the walk, the brothers who do not want him
@@ -926,13 +1113,12 @@ func _after_return() -> void:
 		fight = null
 	_in_battle = false
 	# the valley is quiet: he will not shout again
+	# XP, the giant-down and chapter seals, the relic and the fruit are the
+	# mission's REWARDS — declared in data, granted once by MissionRunner, and
+	# guarded by a save flag so a reload cannot pay them twice.
 	GameState.set_flag("goliath_down", true)
-	GameState.grant_seal("giant_down")
 	GameState.grant_seal("chapter_one")
-	GameState.grant_relic("stones")
 	GameState.complete_chapter("elah")
-	GameState.add_xp(120)
-	GameState.gather_fruit("faithfulness")
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
 	# The chapter has an ENDING, and it is played, not implied. This used to drop
@@ -955,7 +1141,7 @@ func _after_return() -> void:
 ## closes — the same ending card either way, but now it comes after a person.
 func _on_interacted(id: String, _kind: String) -> void:
 	if act == Act.SAUL and id == "saul":
-		_brook_beat()
+		_armour_on()
 		return
 	if act != Act.AFTERMATH or id != "corin":
 		return
