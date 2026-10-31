@@ -43,6 +43,23 @@ Bethlehem (1 Samuel 16).
       KEEP THEM and the tap that presses it does not also advance a line.
 - [ ] During the fight: throw and dodge both land with a thumb, and the giant's
       attack is readable *before* it lands.
+- [ ] During the fight, the game draws **its own A circle** at the bottom right
+      (the world's buttons are hidden while a setpiece owns the screen). It
+      should be bright during the dodge and the aim, and dim while he winds up.
+- [ ] Pressing **early** — while the giant is winding up — must answer on screen
+      ("Not yet — he is winding up") rather than doing nothing, and that press
+      should still count as the dodge when the spear arrives. This is the
+      single most important thing to confirm: it is the fix for "cant click
+      anything to fight", and CI can only prove it headless.
+- [ ] Tapping anywhere on the screen during the fight also works, not just on
+      the circle.
+- [ ] In the drill before the fight: the same A circle is drawn, and a press
+      made between shots says "Wait for the next jar" rather than nothing.
+- [ ] A question with answers (the ending's question is the one that matters):
+      the d-pad moves a visible highlight between the answers and the A button
+      picks the highlighted one. Tapping an answer still works. Try it with the
+      on-screen A specifically — the check behind it drives the button's action,
+      not a finger.
 - [ ] The journal opens, scrolls if needed, and closes with the close button.
 
 ## 3. Audio (P2)
