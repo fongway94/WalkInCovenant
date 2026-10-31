@@ -458,13 +458,13 @@ func _check_touch_interact() -> void:
 	var near_id := "-"
 	if near != null:
 		near_id = near.npc_id()
-	print("  diag  touch: npc=%s at %s player at %s d=%.1f nearest=%s can_talk=%s paused=%s blocked=%s" %
-		[npc.npc_id(), str(npc.global_position), str(region.player.global_position),
-			npc.global_position.distance_to(region.player.global_position), near_id,
-			str(npc.can_talk()), str(region.is_paused()), str(main.touch.blocked)])
+	var d0: float = npc.global_position.distance_to(region.player.global_position)
+
 	# The same centre TouchControls draws its A at.
 	var vs: Vector2 = main.touch.get_viewport().get_visible_rect().size
 	var a_pos := Vector2(vs.x - 30.0, vs.y - 26.0)
+	var in_a: bool = main.touch._zone_a(a_pos, vs)
+	_check(in_a, "the tap lands inside the drawn A button")
 	TapGate.reset()
 	var down := InputEventScreenTouch.new()
 	down.index = 0
@@ -472,16 +472,29 @@ func _check_touch_interact() -> void:
 	down.position = a_pos
 	Input.parse_input_event(down)
 	await _frames(3)
+	var opened_by_touch: bool = region.dialogue.is_open()
+	# If the phone's path did not open it, ask the world's own path the same
+	# question in the same state. That splits "the touch never arrived" from
+	# "the person was out of reach", and the answer goes in the failure message.
+	var opened_by_action := opened_by_touch
+	if not opened_by_touch:
+		var act := InputEventAction.new()
+		act.action = "interact"
+		act.pressed = true
+		Input.parse_input_event(act)
+		await _frames(3)
+		opened_by_action = region.dialogue.is_open()
+	_check(opened_by_touch,
+		"a tap on the phone's A button opens a conversation (%s) in_a=%s d=%.1f nearest=%s can_talk=%s blocked=%s paused=%s interact_action_opens=%s" %
+		[npc.npc_id(), str(in_a), d0, near_id, str(npc.can_talk()),
+			str(main.touch.blocked), str(region.is_paused()), str(opened_by_action)])
+
 	var up := InputEventScreenTouch.new()
 	up.index = 0
 	up.pressed = false
 	up.position = a_pos
 	Input.parse_input_event(up)
 	await _frames(2)
-	# `has_talked()` is written when the conversation CLOSES, so the tap's
-	# immediate proof is the open box; the lasting proof is the flag after it.
-	_check(region.dialogue.is_open(),
-		"a tap on the phone's A button opens a conversation (%s)" % npc.npc_id())
 	await _drain(region.dialogue)
 	await _frames(2)
 	_check(npc.has_talked(), "and finishing it marks the person met")
