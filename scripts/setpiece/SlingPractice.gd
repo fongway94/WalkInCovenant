@@ -242,12 +242,26 @@ func _draw_all() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 9, 2, Color(0.97, 0.87, 0.65, 0.95))
 	if phase == Phase.AIM:
 		# The button the line above names, on the screen that names it: the
-		# touch controls hide theirs while a setpiece owns the picture.
+		# touch controls hide theirs while a setpiece owns the picture. It is
+		# also the timing cue — gold exactly while the marker is inside the band
+		# — because the player's thumb is here and the jar is on the far side of
+		# a phone. The drill is where the gesture is learned; if it teaches the
+		# timing nowhere else, it teaches it nowhere at all (BUG-022).
 		var a_c := Vector2(vs.x - 30.0, vs.y - 26.0)
-		_layer.draw_circle(a_c, 15.0, Color(0.97, 0.87, 0.65, 0.36))
-		_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, Color(0.97, 0.87, 0.65, 0.8), 1.0)
-		_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.8))
-		_layer.draw_multiline_string(font, Vector2(22, vs.y - 16),
-			I18n.t({"en": "A / tap — release the stone", "zh": "按 A 或点屏幕 —— 放手"}),
-			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 8, 2, Color(0.85, 0.85, 0.8, 0.85))
+		var now_ok: bool = absf(_marker - 0.5) <= _band
+		if now_ok:
+			_layer.draw_circle(a_c, 15.0, Color(1.0, 0.86, 0.42, 0.78))
+			_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, Color(1.0, 0.95, 0.80, 1.0), 1.0)
+			_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.13, 0.10, 0.06, 1.0))
+		else:
+			_layer.draw_circle(a_c, 15.0, Color(0.97, 0.87, 0.65, 0.36))
+			_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, Color(0.97, 0.87, 0.65, 0.8), 1.0)
+			_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.8))
+		var line := I18n.t({"en": "A / tap — release the stone", "zh": "按 A 或点屏幕 —— 放手"})
+		if now_ok:
+			line = I18n.t({"en": "NOW — let go!", "zh": "现在 —— 放手！"})
+		_layer.draw_multiline_string(font, Vector2(22, vs.y - 16), line,
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 8, 2,
+			Color(1.0, 0.93, 0.62, 1.0) if now_ok else Color(0.85, 0.85, 0.8, 0.85))

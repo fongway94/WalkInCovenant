@@ -41,6 +41,7 @@ var lang_btn: Button = null
 var sound_btn: Button = null
 var region: Region = null
 
+var _covered := false
 var _stones_n := 0
 var _stones_total := 0
 var _objective := ""
@@ -54,6 +55,24 @@ func _ready() -> void:
 	var vp := get_viewport()
 	if vp != null:
 		vp.size_changed.connect(_apply_layout)
+
+
+## A setpiece owns the whole picture: the fight, the drill, the five stones.
+## While one is up the world's HUD goes away, because it was printing the region's
+## objective and the top bar into exactly the corner the setpiece draws its own
+## words in — three strings in one place, which is what the player photographed
+## and called "top left instructions is overlap" (BUG-021). Derived every frame
+## from Main's single ownership rule, so a path that forgets to restore it cannot
+## leave the player without a HUD.
+func set_covered(v: bool) -> void:
+	if v == _covered:
+		return
+	_covered = v
+	visible = not v
+
+
+func is_covered() -> bool:
+	return _covered
 
 
 func bind(r: Region) -> void:

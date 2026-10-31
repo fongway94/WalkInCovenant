@@ -65,6 +65,8 @@ func _run() -> void:
 	await _check_journal_escape()
 	await _check_drill_keys()
 	await _check_fight_input()
+	await _check_duel_resupply()
+	await _check_hud_yields()
 	await _check_choice_keys()
 	_finish()
 
@@ -632,6 +634,59 @@ func _check_fight_input() -> void:
 	Engine.time_scale = 24.0
 	f.queue_free()
 	await _frames(2)
+
+
+# ── BUG-022: an empty pouch refills, and the fight can still be won ───────
+## Reported from a phone, as a screenshot: "石子 0 块" while the giant was still
+## winding up. `_throw()` ends a round with `_after_resolve = "round"`, so the
+## "round" branch of `_after_resolve_step()` always won and the empty-pouch
+## branch below it was unreachable — five missed throws and the pouch was empty
+## for the rest of the fight, with the counter free to go negative.
+func _check_duel_resupply() -> void:
+	var f = GoliathFight.new()
+	add_child(f)
+	await _frames(1)
+	f.start()
+	f.stones = 0
+	f._after_resolve = "round"
+	f._after_resolve_step()
+	await _frames(1)
+	_check(int(f.stones) >= int(GoliathFight.HITS_TO_WIN),
+		"an empty pouch refills to enough stones to finish (stones=%d)" % int(f.stones))
+	_check(int(f.phase) == int(GoliathFight.Phase.TELEGRAPH),
+		"and the fight carries on instead of sitting there with nothing to throw")
+	# a throw with no stone must never be possible
+	f.stones = 0
+	f.phase = GoliathFight.Phase.AIM
+	f._thrown = false
+	f._throw()
+	await _frames(1)
+	_check(int(f.stones) >= 0, "a stone that is not there is never spent (stones=%d)" % int(f.stones))
+	f.queue_free()
+	await _frames(1)
+
+
+# ── BUG-021: the setpiece owns the screen, the HUD included ───────────────
+## The player's photograph showed three strings stacked in the top-left corner:
+## the world's top bar, the world's objective, and the duel's own message, all
+## drawn into the same band. The duel is a full-screen scene; the world's HUD has
+## no business printing on it.
+func _check_hud_yields() -> void:
+	await _drain(main.region.dialogue)
+	await _frames(2)
+	_check(main.hud.visible, "the HUD is on screen in the world")
+	main._spawn_fight()
+	# Frozen: this check is about who owns the screen, not about the duel's clock.
+	if main.fight != null:
+		main.fight.set_process(false)
+	await _frames(2)
+	_check(main.fight != null, "the duel is up")
+	_check(not main.hud.visible, "and the world's HUD gets out of its way")
+	_check(main.fight != null and str(main.fight.objective_text) != "",
+		"because the duel says the objective itself")
+	main._dismiss_fight()
+	await _frames(3)
+	_check(main.hud.visible, "and the HUD comes back when the duel is over")
 
 
 # ── BUG-019: a question can be answered with the one button ───────────────

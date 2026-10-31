@@ -43,7 +43,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 20 found, 20 fixed, 0 open, 0 P0** — 15 in pass 1, 5 in pass 2,
+**Summary: 22 found, 22 fixed, 0 open, 0 P0** — 15 in pass 1, 7 in pass 2,
 plus the test coverage pass 2 added. Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
@@ -459,6 +459,78 @@ save-corruption class and is fixed structurally rather than worked around.
   real line height, and asserts the result fits the band and stays above the
   toast. It prints the measured numbers every run, so the margin is visible even
   when it passes.
+
+## BUG-021 — three strings in one corner: the HUD printed over the duel
+
+- **Severity:** P1 · **Status:** Fixed
+- **Reported from a phone, with a screenshot:** *"how to play? press A no
+  response. top left instructions is overlap. don't know what to do."* The
+  screenshot shows the world's top bar, the world's objective line and the
+  duel's own message stacked in the same top-left band, illegible.
+- **Where:** `scripts/ui/Hud.gd`, `scripts/main/Main.gd`,
+  `scripts/setpiece/GoliathFight.gd`
+- **Reproduce:** enter the duel and press anything. The duel answers — "Not
+  yet — he is winding up", "Wide. The stone is gone into the dust", "The stone
+  finds his forehead" — but every one of those sentences is drawn at
+  `(edge + 4, edge + 16)`, which is exactly where the HUD's bar sits and where
+  the HUD's objective line begins. Three texts in one place is not a message.
+- **Expected:** the screen that takes the whole picture draws the only words on
+  it.
+- **Actual:** the duel's feedback was invisible, so the fight felt dead — this,
+  and not the input path, is what "press A no response" actually was. It is also
+  why the timing was never learned: every miss explanation was printed under the
+  objective line.
+- **Root cause:** the HUD was never told that a setpiece had taken the screen.
+  `TouchControls` was, because its buttons had already caused the same class of
+  problem (BUG-017) — but the HUD has no equivalent flag, so it kept printing
+  its objective over a scene that had its own.
+- **Fix:** `Hud.set_covered()` hides the whole HUD while the fight, the drill or
+  the stone-picking screen is up, driven from the *same* per-frame ownership
+  expression `Main` already uses for the touch layer (one derived truth, so a
+  path that forgets to restore it cannot leave the player without a HUD). The
+  duel now carries the chapter's objective text itself, from the region file,
+  and lays its own words out in three bands: what you are doing (dim), what to
+  do *now* (bright), what just happened (gold).
+- **Regression test:** `tests/deep.gd` → `_check_hud_yields()`: the HUD is
+  visible in the world, hidden while a duel is up, the duel has a non-empty
+  objective of its own, and the HUD comes back afterwards.
+
+## BUG-022 — the pouch emptied and never refilled
+
+- **Severity:** P1 · **Status:** Fixed
+- **Same screenshot:** *"石子 0 块"* — zero stones — while the giant was still
+  winding up for the next round.
+- **Where:** `scripts/setpiece/GoliathFight.gd` → `_after_resolve_step()`,
+  `_throw()`, `_resupply()`
+- **Reproduce:** throw all five stones without landing one. Every throw ends a
+  round with `_after_resolve = "round"`, so `_after_resolve_step()` takes the
+  `"round"` branch and returns; the `stones <= 0` branch *below* it could never
+  be reached. `_resupply()` was dead code. The counter then went negative on
+  further throws, and the only visible result — "Wide. The stone is gone into
+  the dust" — was printed under the HUD's objective line (BUG-021), so the
+  player saw nothing at all.
+- **Expected:** an empty pouch refills, and the screen says so.
+- **Actual:** a fight that a player could keep pressing through with a stone
+  count of −3 and no explanation.
+- **Root cause:** branch order in a state machine, plus a resupply that gave back
+  **two** stones when the fight requires **three** hits: even if it had been
+  reachable, it could not have been enough.
+- **Fix:** the pouch is checked before the round branch; `_throw()` refuses to
+  spend a stone that is not there; the refill is `HITS_TO_WIN` (three) and says
+  so. Two more changes came out of the same screenshot, because the aim is the
+  one timing in the game and the player never got to learn it:
+  - the sweep is slower (`MARKER_SPEED` 1.9 → 1.55, a 0.27 s → 0.33 s window)
+    and the sweet band is wider at the start (0.26 → 0.30, narrowing per hit);
+  - the **A button itself is the timing cue**: it turns solid gold, and the line
+    under it changes to "NOW — let go!", exactly while the white line is inside
+    the band. The player's thumb is on that button; the forehead is on the far
+    side of a phone. The drill teaches the same cue, since the drill is where
+    the gesture is supposed to be learned.
+  - every accepted press now visibly punches the A badge, so a press that is
+    *heard* never looks like a press that was ignored.
+- **Regression test:** `tests/deep.gd` → `_check_duel_resupply()`: with an empty
+  pouch and a round ending, the fight refills to enough stones to finish, the
+  phase moves on, and a throw with no stone never spends one.
 
 ---
 

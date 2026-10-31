@@ -33,10 +33,17 @@ const TELEGRAPH_TIME := 0.80
 const STRIKE_TIME := 0.80
 const RESOLVE_TIME := 0.55
 const DODGE_WINDOW := 0.86      # press before the spear is this far across
-const MARKER_SPEED := 1.9
+## The sweep the player has to catch. 1.9 was a 0.27 s window per pass — fast
+## enough on a desktop, and the report from a phone was five stones thrown for
+## nothing. Slower and wider: this is the one timing in the game.
+const MARKER_SPEED := 1.55
 
 enum Phase { TELEGRAPH, STRIKE, AIM, RESOLVE, DONE }
 
+## The chapter's own objective line for the fight, set by Main from the region
+## file. The HUD is hidden while a setpiece owns the screen (BUG-021), so the
+## screen has to say what the player is trying to do.
+var objective_text := ""
 var phase: Phase = Phase.TELEGRAPH
 var hits := 0
 var stones := STONES
@@ -53,6 +60,7 @@ var _thrown := false
 var _msg := ""
 var _msg_t := 0.0
 var _flash := 0.0
+var _a_punch := 0.0      # the A button visibly reacts to every accepted press
 var _shake := 0.0
 var _layer: Control = null
 var _david: TextureRect = null
@@ -183,7 +191,7 @@ func _begin_aim() -> void:
 	_marker_dir = 1.0
 	_thrown = false
 	# his forehead is a smaller target once you have already hit it
-	_band = maxf(0.14, 0.26 - float(hits) * 0.04)
+	_band = maxf(0.18, 0.30 - float(hits) * 0.04)
 
 
 func _process(delta: float) -> void:
@@ -191,6 +199,7 @@ func _process(delta: float) -> void:
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	_msg_t = maxf(0.0, _msg_t - delta)
 	_buffer = maxf(0.0, _buffer - delta)
+	_a_punch = maxf(0.0, _a_punch - delta * 4.0)
 	match phase:
 		Phase.TELEGRAPH:
 			_t += delta
@@ -240,11 +249,17 @@ func _after_resolve_step() -> void:
 	if hits >= HITS_TO_WIN:
 		_finish()
 		return
-	if _after_resolve == "round":
-		_begin_round()
-		return
+	# The pouch check comes FIRST. `_throw()` ends a round with
+	# `_after_resolve = "round"`, so the "round" branch below always won and the
+	# empty-pouch branch after it was dead code: throw all five stones without
+	# landing one and the counter sat at 0 for the rest of the fight, then went
+	# negative. That is the screenshot the player sent — "石子 0 块" while he was
+	# still winding up (BUG-022).
 	if stones <= 0:
 		_resupply()
+		return
+	if _after_resolve == "round":
+		_begin_round()
 		return
 	_begin_aim()
 
@@ -302,6 +317,7 @@ func _try_press(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	get_viewport().set_input_as_handled()
+	_a_punch = 1.0
 	_press_at()
 
 
@@ -369,6 +385,10 @@ func _take_hit() -> void:
 
 
 func _throw() -> void:
+	if stones <= 0:
+		# Belt and braces: never spend a stone that is not there.
+		_resupply()
+		return
 	_thrown = true
 	stones -= 1
 	var landed := absf(_marker) <= _band
@@ -389,10 +409,12 @@ func _throw() -> void:
 	_t = 0.0
 
 
+## Three, not two: the fight needs three stones to win, and handing back fewer
+## than that while three hits are still required is a fight that cannot end.
 func _resupply() -> void:
-	stones = 2
-	_say(I18n.t({"en": "Your pouch is empty. You take two more from the brook.",
-		"zh": "袋子空了。你从溪里又摸了两块。"}), 1.6)
+	stones = HITS_TO_WIN
+	_say(I18n.t({"en": "Your pouch is empty. Three more come up from the brook.",
+		"zh": "袋子空了。你又从溪里摸了三块。"}), 1.6)
 	_begin_round()
 
 
@@ -484,7 +506,16 @@ func _redraw() -> void:
 	if _flash > 0.0:
 		_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 0.95, 0.85, 0.28 * _flash))
 
-	# ── the line that tells you which half of the fight you are in ──────
+	# ── the words, in their own bands ───────────────────────────────────
+	# The HUD used to still be on screen here, printing the world's objective
+	# and its top bar into this same corner, and this scene drew its own message
+	# on top of both. Three strings in one place is not a message (BUG-021).
+	# The setpiece now hides the HUD and lays its own text out: what you are
+	# doing (dim), what to do right now (bright), and what just happened (gold).
+	if objective_text != "":
+		_layer.draw_string(font, Vector2(e + 4, e + 15), objective_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.72, 0.76, 0.74, 0.9))
+
 	var hint := ""
 	var hint_col := Color(0.86, 0.86, 0.8, 0.95)
 	match phase:
@@ -501,35 +532,51 @@ func _redraw() -> void:
 				"zh": "按 A、点屏幕、或往两边推 —— 让开"})
 			hint_col = Color(1.0, 0.55, 0.45, 1.0)
 		Phase.AIM:
-			hint = I18n.t({"en": "A / tap — RELEASE the stone",
-				"zh": "按 A 或点屏幕 —— 放手"})
-			hint_col = Color(0.98, 0.88, 0.62, 1.0)
+			if absf(_marker) <= _band:
+				hint = I18n.t({"en": "NOW — let go!", "zh": "现在 —— 放手！"})
+				hint_col = Color(1.0, 0.93, 0.62, 1.0)
+			else:
+				hint = I18n.t({"en": "Wait for the gold band, then press", "zh": "等白线进到框里，再按"})
+				hint_col = Color(0.98, 0.88, 0.62, 1.0)
 	if hint != "":
-		_layer.draw_multiline_string(font, Vector2(e + 4, vs.y - 22), hint,
-			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 8, 2, hint_col)
-	_layer.draw_string(font, Vector2(e + 4, vs.y - 8),
-		I18n.t({"en": "stones %d" % stones, "zh": "石子 %d 块" % stones}),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.80, 0.82, 0.80, 0.9))
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 32), hint,
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2, hint_col)
 	if _msg != "" and _msg_t > 0.0:
-		_layer.draw_multiline_string(font, Vector2(e + 4, e + 16), _msg,
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 58), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2,
 			Color(0.97, 0.87, 0.65, 0.95))
+
+	# what is left in the pouch
+	_layer.draw_string(font, Vector2(e + 4, vs.y - 8),
+		I18n.t({"en": "stones %d" % stones, "zh": "石子 %d 块" % stones}),
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.80, 0.82, 0.80, 0.95))
 
 	# ── the button, on the screen that asks for it ─────────────────────
 	# TouchControls hides the A button while a setpiece owns the screen, so the
 	# hint "A / tap" was telling a phone player to press something that was not
-	# there (BUG-017). Every scene that takes the screen draws its own.
+	# there (BUG-017). Every scene that takes the screen draws its own — and it
+	# has to be the timing cue as well, because the player's thumb is here and
+	# the forehead is on the other side of a phone (BUG-022).
 	if phase != Phase.DONE:
 		var a_c := Vector2(vs.x - 30.0, vs.y - 26.0)
 		var live: bool = phase == Phase.STRIKE or phase == Phase.AIM
+		var now_ok: bool = phase == Phase.AIM and absf(_marker) <= _band
+		var rad := 15.0 + 4.0 * _a_punch
 		var tint := Color(0.97, 0.87, 0.65, 0.40 if live else 0.16)
 		var edge := Color(0.97, 0.87, 0.65, 0.85 if live else 0.35)
+		var ink := Color(1, 1, 1, 0.85 if live else 0.45)
 		if _buffer > 0.0:
 			tint = Color(0.97, 0.87, 0.65, 0.55)
-		_layer.draw_circle(a_c, 15.0, tint)
-		_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, edge, 1.0)
+		if now_ok:
+			tint = Color(1.0, 0.86, 0.42, 0.78)
+			edge = Color(1.0, 0.95, 0.80, 1.0)
+			ink = Color(0.13, 0.10, 0.06, 1.0)
+		if _a_punch > 0.0:
+			tint.a = minf(1.0, tint.a + 0.35 * _a_punch)
+		_layer.draw_circle(a_c, rad, tint)
+		_layer.draw_arc(a_c, rad, 0.0, TAU, 28, edge, 1.0)
 		_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.85 if live else 0.45))
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ink)
 
 
 func _head() -> Vector2:
@@ -545,5 +592,10 @@ func _band_marker(head: Vector2) -> void:
 		Color(0.97, 0.87, 0.65, 0.18))
 	_layer.draw_rect(Rect2(Vector2(head.x - band, cy - 8), Vector2(band * 2.0, 16)),
 		Color(0.97, 0.87, 0.65, 0.42))
-	_layer.draw_rect(Rect2(Vector2(head.x + _marker * half - 1.0, cy - 12), Vector2(2, 24)),
+	# Three pixels wide, not two: on a phone this line is the whole game, and a
+	# 2 px white hairline on a 32 px sprite is not something a thumb can time.
+	_layer.draw_rect(Rect2(Vector2(head.x + _marker * half - 1.5, cy - 13), Vector2(3, 26)),
 		Color(1, 0.97, 0.9, 1.0))
+	# and a faint second line so the sweep is visible against a light forehead
+	_layer.draw_rect(Rect2(Vector2(head.x + _marker * half - 0.5, cy - 13), Vector2(1, 26)),
+		Color(0.35, 0.25, 0.15, 0.85))

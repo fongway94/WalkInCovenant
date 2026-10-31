@@ -260,6 +260,12 @@ func _update_touch_ownership() -> void:
 	var owned := region.is_paused() or fight != null or practice != null \
 		or stones_panel != null or (journal != null and journal.is_open())
 	touch.set_blocked(owned)
+	# A setpiece draws the whole screen, including its own words: the HUD steps
+	# aside while one is up, so its objective line and top bar cannot print over
+	# the setpiece's (BUG-021). The journal is not a setpiece — it is a page over
+	# a world that is still there, and it keeps the HUD's frame around it.
+	if hud != null:
+		hud.set_covered(fight != null or practice != null or stones_panel != null)
 
 
 ## The objective line and the arrow. One sentence, one direction, always.
@@ -1277,6 +1283,9 @@ func _open_fight() -> void:
 func _spawn_fight() -> void:
 	AudioDirector.play_music("battle", 0.4)
 	fight = GoliathFight.new()
+	# The fight owns the screen, so it carries the chapter's objective line
+	# itself: the HUD that used to say it is hidden while it is up.
+	fight.objective_text = I18n.t(region.model.objectives.get("fight", {}))
 	add_child(fight)
 	fight.finished.connect(_on_win)
 	fight.start()
