@@ -362,6 +362,7 @@ func _on_mission_entered(m: Dictionary) -> void:
 ## chapter has no mission that needs its own outro beat: every one of them hands
 ## over from inside the scene that completed it.
 func _on_mission_completed(_m: Dictionary) -> void:
+	AudioDirector.play_sfx("quest", -6.0)
 	if runner != null:
 		runner.advance()
 
@@ -793,6 +794,7 @@ func _card_once() -> void:
 
 func _on_verse(_id: String, ref: String) -> void:
 	GameState.grant_seal("first_verse")
+	AudioDirector.play_sfx("verse", -7.0)
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "A verse to carry · %s", "zh": "记住了一句经文 · %s"}) % ref)
 

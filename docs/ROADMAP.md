@@ -62,6 +62,8 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 | `MissionRunner`: missions as data, lifecycle in one place | done | CI smoke whole run + run_all mission gate |
 | Saul's armour is a playable scene (weight, look, 17:39) | done | CI smoke §6c2 |
 | Five stones chosen by hand at the brook | done | CI smoke §6c3 |
+| Sound: 14 synthesised effects and two looping tracks | done | `tools/build_audio.py --check` in CI static gates |
+| Buses and music looping declared in the project, not left to defaults | done | `default_bus_layout.tres`, `AudioDirector._loop()` |
 
 ## Known gaps (honest)
 

@@ -264,6 +264,26 @@ def sfx_blip():
     return fade_edges(sig)
 
 
+def sfx_verse():
+    # The chapter's theological sound event: a rising chime, then a shimmer that
+    # outlasts the dialogue box that triggered it. It must not sound like a
+    # reward for doing well. It is an *ending* — something has been given.
+    sig = buf(1.8)
+    for i, f in enumerate((587.33, 880.0, 1174.66)):
+        mix(sig, tone(f, 1.3, 1.05, 1.9, harm=(1.0, 0.35, 0.15, 0.06)), i * 0.12, 0.7)
+    mix(sig, tone(1760.0, 1.5, 1.25, 2.6, harm=(1.0, 0.2)), 0.32, 0.22)
+    mix(sig, tone(293.66, 1.6, 1.4, 1.8, harm=(1.0, 0.3)), 0.0, 0.18)
+    return fade_edges(sig, 6.0)
+
+
+def sfx_quest():
+    # Two notes up: an objective has been met, not a battle won.
+    sig = buf(0.55)
+    mix(sig, tone(523.25, 0.38, 0.30, 2.4, harm=(1.0, 0.22, 0.07)), 0.0, 0.7)
+    mix(sig, tone(783.99, 0.44, 0.36, 2.4, harm=(1.0, 0.22, 0.07)), 0.10, 0.6)
+    return fade_edges(sig)
+
+
 def sfx_ui():
     # a soft wooden tap: used by panels, kept under everything else
     sig = tone(660.0, 0.09, 0.06, 3.0, harm=(1.0, 0.2))
@@ -363,6 +383,8 @@ SFX = {
     "dodge": (sfx_dodge, 0.50),
     "pickup": (sfx_pickup, 0.60),
     "blip": (sfx_blip, 0.30),
+    "verse": (sfx_verse, 0.62),
+    "quest": (sfx_quest, 0.55),
     "ui": (sfx_ui, 0.45),
 }
 
@@ -413,6 +435,33 @@ def read_wav(path):
     return channels, rate, bits, samples
 
 
+def requested():
+    """Every sound name the game can ask for, read from the game itself:
+    terrain from data/tiles.json, the two literals in code, and the music keys
+    each region names. A shelf that is complete but out of date is still a game
+    with no sound."""
+    import json
+    import re
+
+    wanted = {"sfx": set(), "music": set()}
+    tiles = json.loads((ROOT / "data" / "tiles.json").read_text(encoding="utf-8"))
+    # `tiles` is a list of {"key","variant","sfx",...} rows — one per atlas cell.
+    for row in tiles.get("tiles", []):
+        if isinstance(row, dict) and isinstance(row.get("sfx"), str) and row["sfx"]:
+            wanted["sfx"].add(row["sfx"])
+    for path in sorted((ROOT / "data" / "regions").glob("*.json")):
+        d = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(d.get("music"), str) and d["music"]:
+            wanted["music"].add(d["music"])
+    for path in sorted((ROOT / "scripts").rglob("*.gd")):
+        text = path.read_text(encoding="utf-8")
+        for name in re.findall(r'play_sfx\(\s*"([a-z0-9_]+)"', text):
+            wanted["sfx"].add(name)
+        for name in re.findall(r'play_music\(\s*"([a-z0-9_]+)"', text):
+            wanted["music"].add(name)
+    return wanted
+
+
 def check():
     problems = []
     total = 0
@@ -439,6 +488,11 @@ def check():
     for key in sorted(asked):
         if not (SFX_DIR / (key + ".wav")).exists():
             problems.append("game asks for sfx '%s' and finds nothing" % key)
+    for group, names in requested().items():
+        folder = SFX_DIR if group == "sfx" else MUSIC_DIR
+        for name in sorted(names):
+            if not (folder / (name + ".wav")).exists():
+                problems.append("the game asks for %s '%s' and the shelf is empty" % (group, name))
     if problems:
         for p in problems:
             print("  " + p)
