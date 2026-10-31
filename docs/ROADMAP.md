@@ -131,6 +131,26 @@ it means for the roadmap.
   pressing things — so pass 2 also added a check that sends *real* input:
   a mouse click, the A button's action, a d-pad key, and a touch on the phone's
   A, each through the engine's own pipeline.
+- **Pass 3 (audit against itself):** 10 more, found by reading the running
+  game's own data against its code rather than by a report. Two shapes account
+  for most of them: *the data says one thing and the code does another* (props
+  declared walk-through still collided, so the level author's only way to place
+  decoration was to make a wall), and *a state that is written but never read
+  back* (a wrong-typed save field crashed the boot, a track requested while
+  muted never loaded, the restored stone count never reached the HUD). The rest
+  were "a thing that works until the player changes something mid-use": the
+  language switch reached neither the conversation, the book nor the place card,
+  because `I18n.language_changed` had no subscribers at all. The one mobile-only
+  defect of the pass — lifting the walking thumb released A, because a release
+  was matched to a control by kind instead of by finger — is the shape a
+  keyboard-driven suite can never see, and it now has a two-thumb check.
+- **One suspected P1 was cleared, not fixed:** the valley's `arrive_act = "done"`
+  does not break the return leg from Bethlehem; the reasoning is written down in
+  `docs/BUGS.md` so it is not re-investigated.
+- **The suite can now prove it ran.** It counts its checks, refuses to pass
+  below a floor (`MIN_CHECKS`), and prints the number. The workflow also had to
+  be repaired first: it built exactly one working branch by name, so this pass's
+  first push ran no build at all.
 - The rule for this phase: **a bug is not closed by a code change, only by a
   check that failed before it and passes after it.**
 - Deliberately NOT being built while this lasts: another chapter, another

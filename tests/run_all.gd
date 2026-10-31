@@ -283,6 +283,19 @@ func _check_verses(lines: Array, where: String) -> void:
 ##
 ## This is what makes "add a Bible story without rebuilding the game" a claim
 ## with evidence behind it rather than an intention in a document.
+## A point the story names must be standable and reachable from the spawn.
+func _reachable(m, rid: String, what: String, at: Array) -> void:
+	if at.size() != 2:
+		_fail("%s: %s has no position" % [rid, what])
+		return
+	var t := Vector2i(int(at[0]), int(at[1]))
+	if m.solid_at_tile(t.x, t.y):
+		_fail("%s: %s at %s is inside a solid tile" % [rid, what, t])
+		return
+	if m.path(m.spawn, t).is_empty():
+		_fail("%s: %s at %s cannot be walked to from the spawn %s" % [rid, what, t, m.spawn])
+
+
 func _check_region_any(m, rid: String) -> void:
 	if m.solid_at_tile(m.spawn.x, m.spawn.y):
 		_fail("%s: spawn %s is inside a solid tile" % [rid, m.spawn])
@@ -301,11 +314,67 @@ func _check_region_any(m, rid: String) -> void:
 			_has_both(line.get("text"), "%s:npc %s line" % [rid, nd.get("id")])
 		_check_verses(nd.get("lines", []), "%s:npc %s" % [rid, nd.get("id")])
 
+	# ── everything the story needs must be WALKABLE TO, not merely drawn ────
+	# `solid_at_tile` said a bush in Bethlehem and the camp fire in the valley
+	# blocked their tile even though the prop data says `solid: false`: the model
+	# marked every prop tile solid and never read the flag (BUG-023). The NPC
+	# reachability sweep below existed and would have caught a wall between the
+	# player and a person; it said nothing about a wall between the player and a
+	# door, an item or a trigger, which is the same defect class one step away
+	# from a chapter that cannot be finished. So: every point a mission names.
+	for pr in m.props:
+		var pd: Dictionary = pr
+		var meta: Dictionary = pd.get("_meta", {})
+		if bool(meta.get("solid", true)):
+			continue
+		var fp: Array = [int(meta.get("w_tiles", 1)), int(meta.get("h_tiles", 1))]
+		if int(fp[0]) <= 0 or int(fp[1]) <= 0:
+			continue
+		var pat: Array = pd.get("at", [0, 0])
+		for oy in range(int(fp[1])):
+			for ox in range(int(fp[0])):
+				var tx: int = int(pat[0]) + ox
+				var ty: int = int(pat[1]) - int(fp[1]) + 1 + oy
+				if m.solid_at_tile(tx, ty):
+					_fail("%s: prop '%s' is declared solid: false at (%d,%d) but the model walls it off"
+						% [rid, pd.get("type"), tx, ty])
+	_ok("%s: non-solid props do not collide" % rid)
+
+	for e in m.exits:
+		_reachable(m, rid, "exit to %s" % e.get("to"), e.get("at", []))
+	for cu in m.curios:
+		_reachable(m, rid, "curio %s" % cu.get("id"), cu.get("at", []))
+	for td in m.triggers:
+		var d: Dictionary = td
+		if d.has("at"):
+			_reachable(m, rid, "trigger %s" % d.get("id"), d["at"])
+		elif d.has("row"):
+			# A row trigger is a line across the map: one walkable tile on that
+			# row is all the story needs, but there has to be one.
+			var row := int(d["row"])
+			var found := false
+			for x in range(m.width):
+				if row < 0 or row >= m.height:
+					break
+				if m.solid_at_tile(x, row):
+					continue
+				if not x < m.width:
+					continue
+				if not m.path(m.spawn, Vector2i(x, row)).is_empty():
+					found = true
+					break
+			if not found:
+				_fail("%s: trigger '%s' is the line at row %d and no tile on it can be reached"
+					% [rid, d.get("id"), row])
+	if m.goliath != Vector2i.ZERO:
+		_reachable(m, rid, "the giant", [m.goliath.x, m.goliath.y])
+
 	for it in m.items:
 		var idict: Dictionary = it
 		var it_t := Vector2i(int(idict["at"][0]), int(idict["at"][1]))
 		if m.solid_at_tile(it_t.x, it_t.y):
 			_fail("%s: item %s sits inside a solid tile" % [rid, idict.get("id")])
+		_reachable(m, rid, "item %s" % idict.get("id"), idict["at"])
 		# The platform's pickup handler only knows one kind of item (the
 		# provisions of 1 Samuel 17:17). A region that lays anything else down
 		# would put it on the map, let the player walk over it, and count

@@ -17,6 +17,13 @@ extends Node
 const TILE := 16.0
 
 var fails := 0
+var passes := 0
+## A floor, not a target. Deleting or skipping checks is the cheapest way to make
+## a red suite green, and nothing else in this project can see the difference
+## between "the suite passes" and "the suite stopped asking". The number is
+## deliberately below the count at the time of writing (116 call sites), so it
+## fails only on real loss of coverage.
+const MIN_CHECKS := 100
 var main = null
 
 
@@ -62,12 +69,21 @@ func _run() -> void:
 	_check_place_at_solid()
 	await _check_dialogue_taps()
 	await _check_touch_interact()
+	await _check_two_thumbs()
 	await _check_journal_escape()
+	await _check_journal_verse_text()
+	await _check_journal_language()
+	await _check_pouch_restore()
+	await _check_place_card_language()
 	await _check_drill_keys()
 	await _check_fight_input()
 	await _check_duel_resupply()
 	await _check_hud_yields()
 	await _check_choice_keys()
+	await _check_audio_unmute()
+	await _check_choice_ducks()
+	await _check_language_switch()
+	await _check_save_shape()
 	_finish()
 
 
@@ -421,6 +437,46 @@ func _check_dialogue_taps() -> void:
 ## action. That indirection has broken before ("cant talk with npc"), and a test
 ## that calls `npc.talk()` would never have seen it. This sends a real
 ## InputEventScreenTouch at the A button's drawn position and uses nothing else.
+# ── BUG-032: two thumbs, and the A button one of them is holding ──────────
+## A phone is used with two fingers at once: one walks, the other answers. The
+## release path matched a release to a control by *kind* rather than by finger,
+## so lifting the walking thumb sent the A release as well — a thumb still
+## resting on A was silently cancelled.
+func _check_two_thumbs() -> void:
+	var touch: TouchControls = main.touch
+	if touch == null:
+		_check(false, "the touch layer exists")
+		return
+	touch.release_all()
+	# The A press is delivered as a real action, exactly as it is on a phone. With
+	# the world live, that could open a conversation wherever the suite happens to
+	# be standing, so the world is held still for the length of the check — the
+	# touch layer itself does not consult `paused`.
+	var was_paused: bool = main.region.is_paused()
+	main.region.set_paused(true)
+	var vs: Vector2 = touch.get_viewport().get_visible_rect().size
+	var stick := Vector2(vs.x * 0.25, vs.y * 0.62)
+	var a_btn := Vector2(vs.x - 30.0, vs.y - 26.0)
+	# Finger 0 walks.
+	touch._press(true, stick, 0, vs)
+	touch._drag(stick + Vector2(24, 0))
+	_check(touch._stick_id == 0, "the walking thumb owns the stick")
+	_check(main.region.player.external_intent != Vector2.ZERO,
+		"and dragging it is actually pushing the player")
+	# Finger 1 answers.
+	touch._press(true, a_btn, 1, vs)
+	_check(touch._a_held, "the second thumb presses A while the first is walking")
+	# Finger 0 lifts. Finger 1 has not.
+	touch._press(false, stick, 0, vs)
+	_check(touch._a_held,
+		"and lifting the walking thumb does not release the answer button")
+	_check(touch._stick_id == -1, "the stick is still put down")
+	touch._press(false, a_btn, 1, vs)
+	_check(not touch._a_held, "while lifting the answering thumb does release it")
+	touch.release_all()
+	main.region.set_paused(was_paused)
+
+
 func _check_touch_interact() -> void:
 	var region = main.region
 	if region == null or main.touch == null:
@@ -689,6 +745,131 @@ func _check_hud_yields() -> void:
 	_check(main.hud.visible, "and the HUD comes back when the duel is over")
 
 
+# ── BUG-028: the book shows the verse, not just its address ───────────────
+## Collecting verses is the game's whole reward loop — the HUD counts them, a
+## toast announces them — and the journal listed only "★ 1 Samuel 16:7". The
+## words themselves had no home in the game you could open.
+func _check_journal_verse_text() -> void:
+	var words: Array = main.region.model.words
+	if words.is_empty():
+		_check(false, "the region hands out verses")
+		return
+	var w: Dictionary = words[0]
+	# The checks after this one count the verses in the save (the witness will not
+	# turn back until four people have spoken to him), so the word is put back
+	# afterwards: a test may not move the world it is standing in.
+	var bag: Array = (GameState.data["words"] as Array).duplicate()
+	GameState.receive_word(str(w["id"]), str(w["ref"]))
+	var want := I18n.t(w.get("text", {})).strip_edges()
+	main._open_journal()
+	await _frames(3)
+	_check(_journal_has(want), "the book shows the words of a verse, not only its reference")
+	main._close_journal()
+	await _frames(2)
+	main._open_journal()
+	await _frames(2)
+	var n := 0
+	for c in main.journal._body.get_children():
+		var l := c as Label
+		if l != null and str(l.text).strip_edges() == want:
+			n += 1
+	_check(n == 1, "and opening it twice does not duplicate the verse (found %d)" % n)
+	main._close_journal()
+	await _frames(2)
+	GameState.data["words"] = bag
+
+
+# ── BUG-029: the book follows the switch too ──────────────────────────────
+## The HUD's language button is on screen around an open book. The book was built
+## once, in the language it was opened in, and stayed that way — title, headings,
+## verses, marks and its own close button.
+func _check_journal_language() -> void:
+	var before := I18n.lang
+	I18n.set_lang("zh")
+	main.region.set_paused(false)
+	main._open_journal()
+	await _frames(3)
+	var close_before := str(main.journal._close_btn.text)
+	var title_before := str(main.journal._title.text)
+	I18n.set_lang("en")
+	await _frames(3)
+	_check(str(main.journal._title.text) == I18n.t(CampaignModel.current().get("title", {})),
+		"the book's title follows the language switch")
+	_check(str(main.journal._close_btn.text) == I18n.t(main.journal._labels.get("close", {})),
+		"and so does its close button (was '%s', now '%s')"
+			% [close_before, str(main.journal._close_btn.text)])
+	# The objective at the top is recomputed, not translated in place: it is the
+	# HUD's own sentence, and it must agree with what the HUD now says.
+	_check(str(main.journal._body.get_child(1).text).strip_edges()
+			== str(main.hud.objective_lbl.text).strip_edges(),
+		"and the objective line is the one the HUD is showing")
+	main._close_journal()
+	await _frames(2)
+	_check(str(main.journal._title.text).length() > 0 and title_before != "",
+		"the page was actually printed before the switch")
+	I18n.set_lang(before)
+
+
+# ── BUG-030: a save restores the pouch on screen, not only in memory ──────
+## _on_region_ready() blanks the counter (it must not be up while the witness is
+## still watching the valley); the resume then read `stones` back into the script
+## and never told the HUD, so a reload after the brook showed an empty pouch.
+func _check_pouch_restore() -> void:
+	var old_stones: int = main.stones
+	var old_total: int = main.hud._stones_total
+	var old_prov: int = main.provisions
+	var old_brothers: bool = main._brothers_met
+	var old_index: int = main._resume_index
+	var saved_progress: Dictionary = GameState.data.get("progress", {})
+	main.hud.set_stones(0, 0)
+	# No "pos" key: _restore_pos() leaves the player where they are, so this
+	# check cannot move the world out from under the tests after it.
+	GameState.data["progress"] = {"act": "ready", "stones": 5}
+	main._resume_story()
+	_check(main.stones == 5 and main.hud._stones_n == 5,
+		"a save mid-chapter brings the pouch back with the stones in it (hud said %d)"
+			% main.hud._stones_n)
+	_check(main.hud._stones_total >= 5 and main.hud.stones_lbl.visible,
+		"and the counter is on screen, not hidden at 0/0")
+	main.stones = old_stones
+	main.provisions = old_prov
+	main._brothers_met = old_brothers
+	main._resume_index = old_index
+	main.hud.set_stones(old_stones, old_total)
+	GameState.data["progress"] = saved_progress
+
+
+# ── BUG-031: the place card is on screen during the switch too ────────────
+func _check_place_card_language() -> void:
+	var before := I18n.lang
+	I18n.set_lang("en")
+	main.card._busy = false
+	main.card.show_card({"en": "Bethlehem", "zh": "伯利恒"},
+		{"en": "the house of bread", "zh": "粮食之家"})
+	await _frames(2)
+	_check(str(main.card.title_lbl.text) == "Bethlehem", "the place card names the place")
+	I18n.set_lang("zh")
+	await _frames(2)
+	_check(str(main.card.title_lbl.text) == "伯利恒"
+			and str(main.card.sub_lbl.text) == "粮食之家",
+		"and names it in the language the player is now reading (got '%s')"
+			% str(main.card.title_lbl.text))
+	# The card is a tween with a 2.4s hold: put it away rather than letting it
+	# hold the screen for the rest of the suite.
+	main.card.title_lbl.modulate.a = 0.0
+	main.card.sub_lbl.modulate.a = 0.0
+	main.card._busy = false
+	I18n.set_lang(before)
+
+
+func _journal_has(text: String) -> bool:
+	for c in main.journal._body.get_children():
+		var l := c as Label
+		if l != null and str(l.text).strip_edges() == text:
+			return true
+	return false
+
+
 # ── BUG-019: a question can be answered with the one button ───────────────
 ## Answers were Buttons and nothing else: the game's single button, the pad and
 ## the phone's A reached the choice box and stopped there, so the ending's
@@ -752,9 +933,136 @@ func _click() -> void:
 	Input.parse_input_event(up)
 
 
+# ── BUG-025: unmuting gives the music back ────────────────────────────────
+## Muting is done at the bus, so a playing track simply goes quiet and comes
+## back. But a track REQUESTED while muted is never loaded, and the director
+## records its key anyway — so it is never asked for again until the player
+## changes region. Mute, walk into Bethlehem, unmute: silence for the chapter.
+func _check_audio_unmute() -> void:
+	var st: Dictionary = GameState.data["settings"]
+	var was_sound := bool(st.get("sound", true))
+	var was_music := bool(st.get("music", true))
+	AudioDirector._current_music = ""
+	st["sound"] = false
+	st["music"] = false
+	AudioDirector.apply_settings()
+	AudioDirector.play_music("valley", 0.0)
+	_check(AudioDirector._music.stream == null, "a track asked for while muted stays unloaded")
+	st["sound"] = true
+	st["music"] = true
+	AudioDirector.apply_settings()
+	_check(AudioDirector._music.stream != null,
+		"and unmuting loads it, without waiting for a region change")
+	st["sound"] = was_sound
+	st["music"] = was_music
+	AudioDirector.apply_settings()
+	await _frames(1)
+
+
+# ── BUG-026: a question lowers the music under it ─────────────────────────
+func _check_choice_ducks() -> void:
+	var box := DialogueBox.new()
+	add_child(box)
+	await _frames(2)
+	AudioDirector.duck(false)
+	await _frames(1)
+	box.show_choices_standalone(
+		[{"t": {"en": "Go on.", "zh": "去吧。"}}, {"t": {"en": "Stay.", "zh": "留下。"}}],
+		func(_i, _o): pass)
+	await _frames(2)
+	_check(AudioDirector.is_ducked(), "a standalone question ducks the music under it")
+	box.hide_box()
+	await _frames(1)
+	_check(not AudioDirector.is_ducked(), "and taking it down brings the music back")
+	box.queue_free()
+	await _frames(1)
+
+
+# ── BUG-027: the box speaks the language you are looking at ───────────────
+## The language switch is on the HUD, so it can be pressed with a box open. The
+## line under the player's thumb used to stay in the language they had just
+## left, and an open set of answers stayed in it for as long as the question
+## was on screen.
+func _check_language_switch() -> void:
+	var before := I18n.lang
+	I18n.set_lang("zh")
+	var box := DialogueBox.new()
+	add_child(box)
+	await _frames(2)
+	box.show_lines([{"who": "", "text": {"en": "The stone is in the brook.",
+		"zh": "石子在溪里。"}}], func(_w): return {}, func(): pass)
+	await _frames(2)
+	_check(str(box._current_page_text()) == "石子在溪里。", "the box speaks the current language")
+	I18n.toggle()
+	await _frames(2)
+	_check(str(box._current_page_text()) == "The stone is in the brook.",
+		"and re-renders when the switch is pressed while it is open (got '%s')"
+			% str(box._current_page_text()))
+	# the answers too
+	box.hide_box()
+	await _frames(1)
+	box.show_choices_standalone(
+		[{"t": {"en": "Go on.", "zh": "去吧。"}}, {"t": {"en": "Stay.", "zh": "留下。"}}],
+		func(_i, _o): pass)
+	await _frames(2)
+	I18n.toggle()
+	await _frames(2)
+	var first: Button = box.choice_box.get_child(0) as Button
+	_check(first != null and str(first.text) == "去吧。",
+		"and an open answer is re-lettered with it (got '%s')" % (str(first.text) if first else "-"))
+	box.hide_box()
+	box.queue_free()
+	I18n.set_lang(before)
+	await _frames(1)
+
+
+# ── BUG-024: a save of the wrong shape boots instead of throwing ──────────
+## The save is a file: it can be older than this build, hand-edited, or written
+## by a browser that was killed mid-save. `flags` holding a list instead of an
+## object is enough to make every reader in the game error on boot.
+func _check_save_shape() -> void:
+	GameState.save_game()
+	var good: Dictionary = GameState.data.duplicate(true)
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		_check(false, "the save can be written to test a bad shape")
+		return
+	f.store_string(JSON.stringify({
+		"version": 0,
+		"flags": [],
+		"words": "one verse",
+		"settings": {"sound": "yes"},
+		"pos": [3],
+		"level": "three",
+		"region": 12,
+		"seals": null,
+	}))
+	f.close()
+	_check(GameState.load_game(), "a save with the wrong field types still loads")
+	_check(GameState.data["flags"] is Dictionary, "its flags come back as an object")
+	_check(GameState.data["words"] is Array, "its verses as a list")
+	_check(GameState.data["seals"] is Array, "its seals as a list")
+	_check(GameState.data["settings"] is Dictionary
+		and (GameState.data["settings"] as Dictionary).get("sound") is bool,
+		"its switches as booleans")
+	_check((GameState.data["pos"] as Array).size() == 2, "its position as a pair of numbers")
+	_check(typeof(GameState.data["level"]) == TYPE_INT, "its level as a number")
+	_check(typeof(GameState.data["region"]) == TYPE_STRING, "its region as a name")
+	GameState.set_flag("deep_after_coerce", true)
+	_check(bool(GameState.flag("deep_after_coerce")), "and the repaired save still works")
+	GameState.data["flags"].erase("deep_after_coerce")
+	# put the good save back for anything that runs after this
+	var w := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	w.store_string(JSON.stringify(good))
+	w.close()
+	GameState.load_game()
+	await _frames(1)
+
+
 # ── harness ───────────────────────────────────────────────────────────────
 func _check(ok: bool, msg: String) -> void:
 	if ok:
+		passes += 1
 		print("  ok    " + msg)
 	else:
 		fails += 1
@@ -790,8 +1098,12 @@ func _find(region, id: String) -> Npc:
 
 
 func _finish() -> void:
+	if passes < MIN_CHECKS:
+		fails += 1
+		printerr("  FAIL  the suite ran %d checks; it must run at least %d"
+			% [passes, MIN_CHECKS])
 	if fails == 0:
-		print("deep: PASS — every regression check holds")
+		print("deep: PASS — %d checks hold" % passes)
 		get_tree().quit(0)
 	else:
 		printerr("deep: %d FAILURE(S)" % fails)

@@ -9,6 +9,9 @@ run in which its own check executed and passed:
 
 | Run | Commit | Result |
 |---|---|---|
+| `41211227100` | `90f3900` | pass 3 closed: lint ✅ (static gates, content lint + reachability, playthrough, regression suite — **`MIN_CHECKS` floor held**, so the count could not have been faked by deleting checks) · export ✅ · deploy skipped (branch) |
+| `41210725885` | `f01f81b` | pass 3: lint ✅ (static gates, content lint + reachability, playthrough, regression suite with the ten new checks) · export ✅ · deploy rejected by the Pages environment rule (only `main` may deploy) — the workflow now skips deploy on a working branch |
+| `41203462329` | `e7e7c40` | merge of pass 1–2 to `main`: lint ✅ · export ✅ · deploy ✅ |
 | `41197972787` | `85d24db` | lint ✅ (incl. the phone's A→world check) · export ✅ · deploy ✅ |
 | `41195649414` | `805de7c` | lint ✅ (incl. the HUD band measurement) · export ✅ · deploy ✅ |
 | `41195229562` | `9b67f29` | lint ✅ (incl. the choice-box button check) · export ✅ · deploy ✅ |
@@ -25,6 +28,14 @@ run in which its own check executed and passed:
 | `41197178237` | `3992d4e` | red: preconditions green, tap still inert — the message split "the touch never arrived" from "nobody was in reach" |
 | `41197584293` | `9049467` | red: `interact_action_opens=true` — the world's path worked, the parsed touch did not |
 | `41178541547` | `7a5cabe` | red: seven suite failures, caused by un-awaited test coroutines — a fault in the *test*, fixed by fixing the test, not by weakening it |
+
+**What proves a check actually ran.** A green job is not proof that a check
+still exists: the regression suite now counts the checks it passes and fails if
+the count falls below a floor (`MIN_CHECKS`), and prints the count in its PASS
+line. The suite also had to be reachable at all — the workflow listed one
+working branch by name, so the first push of this pass ran **no** build and the
+entries below would have been reported from a commit CI never compiled. That is
+fixed too; it is recorded here because "green" and "ran" are not the same claim.
 
 **Method.** The build cannot be run in the authoring sandbox (Godot's release
 binaries are on a host outside its network), so the loop is: inspect the source
@@ -43,8 +54,9 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 22 found, 22 fixed, 0 open, 0 P0** — 15 in pass 1, 7 in pass 2,
-plus the test coverage pass 2 added. Two of them (BUG-006, BUG-010)
+**Summary: 32 found, 32 addressed, 0 open, 0 P0** — 15 in pass 1, 7 in pass 2,
+10 in pass 3 plus one investigation that cleared its suspect, plus the test
+coverage each pass added. Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -531,6 +543,251 @@ save-corruption class and is fixed structurally rather than worked around.
 - **Regression test:** `tests/deep.gd` → `_check_duel_resupply()`: with an empty
   pouch and a round ending, the fight refills to enough stones to finish, the
   phase moves on, and a throw with no stone never spends one.
+
+
+---
+
+# Pass 3 — the whole game read against itself
+
+Passes 1 and 2 fixed what players reported and what the code visibly got wrong.
+This pass went looking for the defects nobody had hit yet, in the three shapes
+they take in a game of this size:
+
+* **the data says one thing and the code does another** (BUG-023) — the most
+  expensive kind, because the level is authored by hand and looks correct;
+* **a state that is written but never read back** (BUG-024, BUG-025, BUG-030) —
+  the save, the mixer and the HUD all keep their own copy of the truth;
+* **a thing that works until the player changes something mid-use** (BUG-026,
+  BUG-027, BUG-028, BUG-029) — every one of these is "switch the language" or
+  "the music is still playing", i.e. exactly what a player does in their first
+  minute.
+
+Each fix is guarded by a check that would have failed before it.
+
+## BUG-023 — props declared walk-through still stopped the player
+
+**Severity:** P2 · **Status:** Fixed · **Area:** world / collision
+**Regression test:** `tests/run_all.gd` → non-solid-prop assertion; `_reachable()`
+sweep over exits, curios, triggers, items and the giant.
+
+- **Reproduce:** walk into the bushes in Bethlehem (`data/props.json` says
+  `"solid": false`), or into the camp fire in the valley.
+- **Expected:** the bush is scenery you can walk through; the game's own data
+  says so.
+- **Actual:** every prop tile was solid. `RegionModel._init_from()` set
+  `_solid = 1` over each prop footprint and never read `_meta.solid`, so
+  `solid: false` was a comment. Four props were authored as non-solid
+  (`bush`, `wheat_sheaf`, `jar`, `signpost`) and all four were invisible walls;
+  worse, the level author had no way to place decoration in a corridor.
+- **Root cause:** the model consumed the prop's *footprint* and ignored the rest
+  of its metadata — a data contract with only one side implemented.
+- **Fix:** `RegionModel` now skips footprints whose meta says `solid: false`;
+  `fire` is flipped to `solid: true` in the data, because a fire is a fire.
+- **Why it is not cosmetic:** the same sweep that found it also found that a
+  prop's footprint can be placed over an NPC's tile or an exit. The new content
+  rule walks to every NPC, exit, curio, trigger, item and the giant from the
+  spawn, and refuses the build if a non-solid prop still collides — the class of
+  defect that would make a chapter unfinishable is now a red build, not a
+  playtest.
+
+## BUG-024 — a save with the wrong shape threw on boot
+
+**Severity:** P1 · **Status:** Fixed · **Area:** save / load
+**Regression test:** `tests/deep.gd` → `_check_save_shape()`.
+
+- **Reproduce:** write a save whose `flags` is a list instead of an object (or
+  `level` as a string), then start the game.
+- **Expected:** the game boots into a sensible state, keeping what it can.
+- **Actual:** `load_game()` merged the file over the defaults **per top-level
+  key only** and then every reader indexed the result directly —
+  `data["flags"].get(...)`, `int(data["level"])`, `data["words"].size()`. A
+  list-shaped `flags` throws on the first frame; an `int(data["level"])` with a
+  string is a silent `0`. JSON.parse proves the file is *JSON*, not that it is
+  *our save*.
+- **How a player gets here:** an older build (the schema has already changed
+  once), a hand-edited or exported save, a browser killed mid-write (the `.bak`
+  fallback covers truncation but not a wrong-but-valid file), or a
+  phone-sync/extension that rewrote the file.
+- **Root cause:** the loader trusted its own input, and the save is the one file
+  in the game that is allowed to be wrong.
+- **Fix:** `_coerce(defaults)` after the merge — every known dictionary, array,
+  int, string and switch is coerced to the type the rest of the code assumes,
+  each repair is announced with `push_warning`, and unrecognised keys are kept
+  rather than dropped. Position is only accepted as a two-element array.
+- **Coverage:** the check writes a deliberately wrong-typed save to the real
+  path, loads it, asserts every field comes back in shape **and that the game
+  still works afterwards** (`set_flag` round-trips), then restores the good save.
+
+## BUG-025 — unmuting left the chapter silent
+
+**Severity:** P2 · **Status:** Fixed · **Area:** audio
+**Regression test:** `tests/deep.gd` → `_check_audio_unmute()`.
+
+- **Reproduce:** mute, change region, unmute.
+- **Expected:** the region's music comes back.
+- **Actual:** silence for the rest of the region. A track requested while muted
+  recorded its key in `_current_music` but never loaded a stream (there was
+  nothing to play it through), and unmuting only unmuted the bus — so there was
+  no stream to be heard, and no later event that would ask for one from the
+  region's existing player.
+- **Root cause:** muting was implemented on the bus, but loading was gated on
+  not-muted. Two different notions of "muted" in one small class.
+- **Fix:** `apply_settings()` replays `_current_music` at a zero-length fade when
+  the sound is turned on and the music player is empty.
+
+## BUG-026 — the ending's question played over the music
+
+**Severity:** P3 · **Status:** Fixed · **Area:** audio / UI
+**Regression test:** `tests/deep.gd` → `_check_choice_ducks()`.
+
+- **Reproduce:** finish the chapter, read the ending's two-answer question.
+- **Expected:** the music sits under the words, as it does in every other box.
+- **Actual:** `show_lines()` and `show_choices()` both duck; the ending goes
+  through `show_choices_standalone()`, which was added later and did not. The
+  loudest, most important question in the game was the one you had to read over
+  the soundtrack.
+- **Root cause:** three entry points to the same box, and the newest one copied
+  the layout instead of the audio contract. `hide_box()` unducks, so the bug was
+  invisible on close.
+- **Fix:** `show_choices_standalone()` ducks like its siblings. The check asserts
+  the bus is actually quieter while the box is up and restored after it closes.
+
+## BUG-027 — an open conversation ignored the language switch
+
+**Severity:** P3 · **Status:** Fixed · **Area:** i18n / dialogue
+**Regression test:** `tests/deep.gd` → `_check_language_switch()`.
+
+- **Reproduce:** open any conversation, press the 中/EN button on the HUD.
+- **Expected:** the line, and any answers on screen, are in the new language.
+- **Actual:** the box kept the language it was opened in until it was closed and
+  reopened. `I18n.language_changed` had existed since the first pass and **no
+  node had ever connected to it**; the HUD only looked correct because
+  `_update_guidance()` re-pushes its strings every frame. The box, which renders
+  on open and on tap, never re-ran.
+- **Root cause:** a "dead signal" — an event published by the language
+  singleton that the UI never subscribed to, hidden by the one consumer that
+  happened to poll.
+- **Fix:** `DialogueBox` re-renders on the signal: the current line is
+  re-paginated (Chinese and English wrap at different points, so the page break
+  itself has to be recomputed) and an open set of answers is re-lettered A/B/C
+  from the content, with the ring and the full-text reveal restored.
+
+## BUG-028 — the book listed the verses and not the words
+
+**Severity:** P2 · **Status:** Fixed · **Area:** journal / progression
+**Regression test:** `tests/deep.gd` → `_check_journal_verse_text()`.
+
+- **Reproduce:** earn a verse from anyone in the valley, open the book (the ☆
+  panel). Read the "verses" section.
+- **Expected:** the verse.
+- **Actual:** `★ 1 Samuel 16:7`. The reward the entire game is built on — a
+  person gives you a sentence of Scripture and the HUD's ☆ ticks up — could not
+  be read anywhere in the game. The book is the only place it could live.
+- **Root cause:** the journal was given `verse_refs` (strings) because the
+  caller only had references to hand; the text was in the region data beside the
+  reference the whole time, and the panel's contract was never revisited when
+  verses became the main progression.
+- **Fix:** the caller now passes `{ref, text}` resolved through `I18n`, and the
+  panel prints the citation, then the words. A plain string is still accepted so
+  no caller can break the panel. The check opens the book twice and asserts the
+  verse appears exactly once — a reprint must not duplicate the page.
+
+## BUG-029 — the book stayed in the language you just left
+
+**Severity:** P3 · **Status:** Fixed · **Area:** journal / i18n
+**Regression test:** `tests/deep.gd` → `_check_journal_language()`.
+
+- **Reproduce:** open the book, press 中/EN.
+- **Expected:** the page, its headings and its close button are in the new
+  language.
+- **Actual:** the whole panel kept its opening language. The book is precisely
+  the screen a bilingual player lingers on, and it is the one screen the switch
+  could not reach (BUG-027 was its sibling in the dialogue box).
+- **Root cause:** the panel built its labels once, in `_build()` and
+  `open_panel()`, and had no notion of being printed again.
+- **Fix:** the panel keeps what it was opened with and reprints itself on
+  `language_changed`; `Main` recomputes the objective line first, because that
+  sentence comes from the HUD and would otherwise be a snapshot in the old
+  language. Rows are detached before being freed, so the page does not print
+  itself twice for one frame while the layout catches up.
+
+## BUG-030 — a reload brought the pouch back empty-handed
+
+**Severity:** P2 · **Status:** Fixed · **Area:** HUD / save state
+**Regression test:** `tests/deep.gd` → `_check_pouch_restore()`.
+
+- **Reproduce:** pick the five stones at the brook, then reload before the duel.
+- **Expected:** you are carrying what you picked up, and the counter says so.
+- **Actual:** `_resume_story()` restored `stones` into the script and the HUD
+  showed nothing. `_on_region_ready()` blanks the counter on purpose (it must not
+  be on screen while the witness is still arriving in the valley), and nothing
+  put it back on a resume.
+- **Root cause:** the same "written but never read back" shape as BUG-024 and
+  BUG-025 — three copies of one number, one of them on screen.
+- **Fix:** the resume hands the restored count to the HUD when it is non-zero.
+  The check drives `_resume_story()` with a save that has stones and no `pos`
+  (so the test cannot move the world), asserts the counter is visible and
+  correct, then restores the live state.
+
+## BUG-031 — the place card kept the old language
+
+**Severity:** P3 · **Status:** Fixed · **Area:** UI / i18n
+**Regression test:** `tests/deep.gd` → `_check_place_card_language()`.
+
+- **Reproduce:** walk into a region (the card holds for 2.4 s) and press 中/EN
+  while it is up.
+- **Expected:** the caption is in the language the player is reading.
+- **Actual:** the card printed its two lines once, at `show_card()`, and the
+  signal it should have listened to did not exist in it. The third member of the
+  same family as BUG-027 and BUG-029.
+- **Root cause:** the card was written as a one-shot animation, and its text was
+  an argument rather than state.
+- **Fix:** it keeps the two dictionaries and reprints them on
+  `language_changed` while it is busy; the fade is untouched, because the player
+  is looking at a picture, not a menu.
+
+## BUG-032 — lifting the walking thumb released the A button
+
+**Severity:** P1 · **Status:** Fixed · **Area:** mobile input
+**Regression test:** `tests/deep.gd` → `_check_two_thumbs()`.
+
+- **Reproduce (phone):** hold the stick with the left thumb, press A with the
+  right, then lift the left thumb first.
+- **Expected:** A is still held until the thumb on it lifts.
+- **Actual:** the release was matched to a control by *kind*, not by finger:
+  every release ran all three "is this mine" branches, so the stick's release
+  also emitted `interact` released. Any interaction that has to outlive the
+  walking thumb — holding A, a charged input, a press-and-hold — was cancelled
+  by the other hand. On a phone both thumbs are down almost all the time, and
+  nothing in the keyboard-driven suite could see it.
+- **Root cause:** one shared release path for three controls that each need a
+  distinct owner. The stick had an id; the buttons never did.
+- **Fix:** each control records the finger that pressed it and only that finger
+  releases it; `_owns()` claims a release for the ids it knows. A second thumb on
+  the stick half now takes the stick over instead of being ignored. The check
+  drives the real `_press()`/`_drag()` path with two touch indices and asserts
+  the four states in order.
+
+---
+
+## Investigated and cleared: `elah.arrive_act = "done"` (no bug)
+
+Returning to the valley from Bethlehem sets the act straight to `DONE` (index 9
+of `ACT_NAMES`), which has no `match` arm in `_update_guidance()` and falls to
+the `_:` default. That default looked like the city path, and the report that
+prompted this pass feared the return leg would point at Corin for a chapter that
+is over.
+
+It does not. The default resolves in order — Corin spoken to?, anyone unspoken?,
+`elah_saw_him`?, `goliath_down`? — and by the time a player can walk to
+Bethlehem and back, every one of those is answered, so the guidance lands on
+`objectives.done` ("Chapter complete · the valley is quiet now"), which is
+exactly what a finished valley should say. `first_unmet()` returning
+`missions.size()` also stops the runner from replaying the chapter on re-entry.
+
+Recorded rather than "fixed": there is nothing to change, and changing working
+content on a suspicion is how a stabilisation pass breaks a game. The reasoning
+is written down so the next pass does not re-investigate it.
 
 ---
 

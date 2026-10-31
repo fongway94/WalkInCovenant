@@ -251,12 +251,55 @@ func load_game() -> bool:
 			push_warning("GameState: save.json was unreadable; restored the backup")
 	if parsed.is_empty():
 		return false
+	# The shape a fresh game has, kept so a malformed field can be put back
+	# instead of trusted.
+	var defaults: Dictionary = data.duplicate(true)
 	# merge over defaults so a save from an older version still has every key
 	for k in data:
 		if parsed.has(k):
 			data[k] = parsed[k]
+	_coerce(defaults)
 	EventBus.game_loaded.emit()
 	return true
+
+
+## A save is a file on disk: it can be older than this build, hand-edited, or
+## half-written by a browser that was closed mid-save. Parsing proves it is
+## JSON, not that `flags` is a dictionary — and every reader in the game indexes
+## these directly (`data["flags"].get(...)`), so one wrong type is a chapter's
+## worth of runtime errors on boot, and a game that looks broken before the
+## player has touched anything (BUG-024). Coerce the known fields to the shape
+## the rest of the code assumes, keeping whatever is still salvageable, and put
+## the default back when nothing is.
+func _coerce(defaults: Dictionary) -> void:
+	var dicts := ["flags", "progress", "quests", "settings", "stats", "ways"]
+	for k in dicts:
+		if not (data.get(k) is Dictionary):
+			push_warning("GameState: save field '%s' was not an object; using the default" % k)
+			var dflt: Variant = defaults.get(k, {})
+			data[k] = (dflt as Dictionary).duplicate(true) if dflt is Dictionary else {}
+	for k in ["words", "seals", "relics", "fruits", "completed"]:
+		if not (data.get(k) is Array):
+			push_warning("GameState: save field '%s' was not a list; using an empty one" % k)
+			data[k] = []
+	for k in ["level", "xp", "hints_used", "guidance", "day"]:
+		var v: Variant = data.get(k)
+		if not (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT):
+			data[k] = int(defaults.get(k, 0))
+	for k in ["name", "calling", "region", "campaign", "time_of_day"]:
+		if not (data.get(k) is String):
+			data[k] = str(defaults.get(k, ""))
+	var pos: Variant = data.get("pos")
+	var pos_ok: bool = pos is Array and (pos as Array).size() == 2
+	if not pos_ok:
+		data["pos"] = [0, 0]
+	# The two switches are read with `bool(st.get(...))` and flipped by the HUD,
+	# so they must be booleans and not strings.
+	var st: Dictionary = data["settings"]
+	var st_defaults: Dictionary = defaults.get("settings", {}) as Dictionary
+	for sk in ["clean_mode", "sound", "music", "reduce_motion"]:
+		if not (st.get(sk) is bool):
+			st[sk] = bool(st_defaults.get(sk, true))
 
 
 func _read_save(path: String) -> Dictionary:

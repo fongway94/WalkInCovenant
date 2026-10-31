@@ -155,6 +155,14 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 	# props add solidity
 	for p in props:
 		var fp: Dictionary = _prop_footprint(p)
+		# `solid: false` in data means "you can walk through this", and it used to
+		# be ignored: every prop with a footprint walled off its tile, so a bush
+		# in Bethlehem and the camp fire in the valley were invisible walls
+		# (BUG-023). The data decides; the engine only obeys. A zero footprint
+		# (`[0,0]`, how jars and sheaves are declared) occupies nothing either
+		# way.
+		if not bool(fp.get("solid", true)):
+			continue
 		for y in range(fp["y0"], fp["y1"] + 1):
 			for x in range(fp["x0"], fp["x1"] + 1):
 				if _in(x, y):

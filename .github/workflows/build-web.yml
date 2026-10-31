@@ -19,7 +19,13 @@ name: build-web
 
 on:
   push:
-    branches: [arena/b60cd21d-walkincovenant, main]
+    # `main` is the published game. `arena/**` is a working branch off it — the
+    # automatic tooling gives each session a fresh branch name, so listing one
+    # name meant the audit's own pushes ran no build at all and every gate in
+    # docs/BUGS.md would have been reported from a commit CI never saw. The
+    # deploy job publishes whatever it built, branch included, exactly as the
+    # previous session branches did: the live URL is how the game is playtested.
+    branches: [main, 'arena/**']
   workflow_dispatch:
 
 permissions:
@@ -480,6 +486,11 @@ jobs:
   # the game is playable locally in the meantime.
   deploy:
     needs: export-web
+    # Pages has an environment protection rule that lets only `main` deploy, so
+    # every working-branch push used to end in a red deploy job after a fully
+    # green lint and export — a build that had nothing wrong with it reported as
+    # a failure. A branch is checked, not published: its artifact is the build.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

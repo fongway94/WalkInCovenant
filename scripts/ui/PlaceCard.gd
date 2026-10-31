@@ -18,6 +18,10 @@ var _box: VBoxContainer = null
 var title_lbl: Label = null
 var sub_lbl: Label = null
 var _busy := false
+## Kept, not just printed: the card is on screen for three seconds, and the
+## language switch is on the HUD the whole time (BUG-031).
+var _name: Dictionary = {}
+var _sub: Dictionary = {}
 
 signal finished
 
@@ -31,6 +35,8 @@ func _ready() -> void:
 	var vp := get_viewport()
 	if vp != null:
 		vp.size_changed.connect(_apply_layout)
+	if not I18n.language_changed.is_connected(_on_language_changed):
+		I18n.language_changed.connect(_on_language_changed)
 
 
 ## The caption sits in the lower-middle of the picture, clear of the top HUD and
@@ -98,6 +104,8 @@ func show_card(display_name: Dictionary, sub: Dictionary) -> void:
 	if t == "":
 		return
 	_busy = true
+	_name = display_name
+	_sub = sub
 	title_lbl.text = t
 	sub_lbl.text = s
 	var tw := create_tween()
@@ -111,6 +119,16 @@ func show_card(display_name: Dictionary, sub: Dictionary) -> void:
 	tw.tween_property(sub_lbl, "modulate:a", 0.0, OUT_T)
 	tw.set_parallel(false)
 	tw.tween_callback(_done)
+
+
+## The caption is over the world for three seconds, and the 中/EN button is not
+## covered while it is up. Reprinting the two lines is the whole fix; the fade
+## keeps running, because the player is looking at a picture, not a menu.
+func _on_language_changed(_lang: String) -> void:
+	if not _busy:
+		return
+	title_lbl.text = str(I18n.t(_name))
+	sub_lbl.text = str(I18n.t(_sub))
 
 
 func _done() -> void:

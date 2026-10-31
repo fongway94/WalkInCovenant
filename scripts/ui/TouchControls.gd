@@ -32,6 +32,12 @@ var viz: Control = null
 var blocked := false
 
 var _stick_id := -1
+## Which finger owns each button. Without this a release was matched by *kind*
+## rather than by finger: lifting the stick sent the A release too, so a thumb
+## still resting on A was silently cancelled (BUG-032). On a phone both thumbs
+## are down almost all the time.
+var _a_id := -1
+var _run_id := -1
 var _origin := Vector2.ZERO
 var _vec := Vector2.ZERO
 var _run_held := false
@@ -81,9 +87,11 @@ func release_all() -> void:
 			player.external_intent = Vector2.ZERO
 	if _a_held:
 		_a_held = false
+		_a_id = -1
 		_emit_action("interact", false)
 	if _run_held:
 		_run_held = false
+		_run_id = -1
 		_emit_action("run", false)
 	if viz != null:
 		viz.queue_redraw()
@@ -151,24 +159,34 @@ func _press(pressed: bool, pos: Vector2, idx: int, vs: Vector2) -> void:
 	if pressed:
 		if _zone_a(pos, vs):
 			_a_held = true
+			_a_id = idx
 			_emit_action("interact", true)
 		elif _zone_run(pos, vs):
 			_run_held = true
+			_run_id = idx
 			_emit_action("run", true)
 		elif pos.x < vs.x * 0.5:
+			# A second thumb on the stick half takes the stick over rather than
+			# doing nothing: it is the finger the player is actually pushing with.
 			_stick_id = idx
 			_origin = pos
 			_vec = Vector2.ZERO
+			if player != null:
+				player.external_intent = Vector2.ZERO
 	else:
+		# Each release is matched to the finger that started it. Anything else
+		# hands a stick-up to the button another thumb is still holding down.
 		if idx == _stick_id:
 			_stick_id = -1
 			_vec = Vector2.ZERO
 			player.external_intent = Vector2.ZERO
-		if _a_held:
+		if _a_held and idx == _a_id:
 			_a_held = false
+			_a_id = -1
 			_emit_action("interact", false)
-		if _run_held:
+		if _run_held and idx == _run_id:
 			_run_held = false
+			_run_id = -1
 			_emit_action("run", false)
 	viz.queue_redraw()
 
@@ -189,7 +207,7 @@ func _owns(pos: Vector2, pressed: bool, idx: int, vs: Vector2) -> bool:
 		if _zone_a(pos, vs) or _zone_run(pos, vs):
 			return true
 		return pos.y > vs.y * HUD_BAND and pos.x < vs.x * 0.5
-	if idx == _stick_id:
+	if idx == _stick_id or idx == _a_id or idx == _run_id:
 		return true
 	return _a_held or _run_held
 
