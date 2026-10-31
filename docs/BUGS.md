@@ -4,6 +4,17 @@
 and/or playing the build, not by a report, and every `Fixed` entry has a
 regression check that failed before the fix and passes after it.
 
+**Verification record.** Every entry below is `Fixed` **and** verified by a green
+run in which its own check executed and passed:
+
+| Run | Commit | Result |
+|---|---|---|
+| `41179672932` | `bf7b05c` | lint ✅ (static gates, content lint, playthrough, regression suite) · export ✅ · deploy ✅ |
+| `41179263331` | — | green: first all-checks-hold run of the regression suite |
+| `41178877681` | `52ae810` | red: one check failed (a story trigger opening a box over an open one → BUG-013) |
+| `41178871464` | `ce69ad2` | red: static gate (a ternary wrap in the test itself) |
+| `41178541547` | `7a5cabe` | red: seven suite failures, caused by un-awaited test coroutines — a fault in the *test*, fixed by fixing the test, not by weakening it |
+
 **Method.** The build cannot be run in the authoring sandbox (Godot's release
 binaries are on a host outside its network), so the loop is: inspect the source
 → write a check that expresses the expected player experience → fix the cause →
