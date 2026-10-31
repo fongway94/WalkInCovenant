@@ -530,7 +530,9 @@ func _run() -> void:
 	if witness != null:
 		TapGate.reset()
 		await _frames(2)
-		_check(witness.can_talk(), "a person can be talked to when nothing is open")
+		_check(witness.can_talk(),
+			"a person can be talked to when nothing is open (box=%s talk=%d paused=%s)"
+			% [str(region.dialogue.is_open()), int(witness.talk_state), str(region.is_paused())])
 		var id_before := int(region.dialogue._box_id)
 		witness.talk()
 		await _frames(2)
