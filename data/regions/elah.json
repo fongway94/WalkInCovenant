@@ -337,49 +337,49 @@
      "who": "",
      "text": {
       "en": "A man stops beside you. Dust on his clothes, a scribe's long robe. His name is Corin.",
-      "zh": "一个人在你身边站住。他满身是土，穿着文士的长袍。他叫柯林。"
+      "zh": "一个人在你身边停下。满身是土，穿文士的长袍。他叫柯林。"
      }
     },
     {
      "who": "corin",
      "text": {
       "en": "“This is the Valley of Elah. About 1020 years before Christ.”",
-      "zh": "「这里是以拉谷。大约是公元前一〇二〇年。」"
+      "zh": "「这里是以拉谷。算起来，是公元前一〇二〇年前后。」"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“Remember one thing. We are only witnesses.”",
-      "zh": "「记住一件事：我们只是见证人。」"
+      "en": "“One thing to remember first: we are witnesses, not the ones this is about.”",
+      "zh": "「有一件事，你先记下：我们是见证人，不是主角。」"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“The ending is God's, not ours. We cannot change it. What we can decide is what kind of people we become.”",
-      "zh": "「结局是神定的，我们改不了。我们能决定的，是自己要成为什么样的人。」"
+      "en": "“The ending is God's; it is not ours to change. What is ours to decide is what kind of people we become.”",
+      "zh": "「结局是神定的，轮不到我们改。我们能定的，是自己要做什么样的人。」"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "Across the valley, the Philistines have been shouting for forty days.",
+      "en": "Across the valley the Philistines shout their challenge every day. Forty days now.",
       "zh": "山谷对面，非利士人天天叫阵。已经四十天了。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "Not one man in the Israelite camp has gone out.",
-      "zh": "以色列这边，没有一个人出去。"
+      "en": "Not one man here has gone out.",
+      "zh": "这边没有一个人出去。"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“So. Where will you stand?”",
-      "zh": "「所以，你要站在哪里？」"
+      "en": "“So. Which side do you stand on?”",
+      "zh": "「那么，你站在哪一边？」"
      }
     }
    ],
@@ -387,8 +387,8 @@
     {
      "who": "corin",
      "text": {
-      "en": "“Walk slowly. When you need me, I will be here.”",
-      "zh": "「慢慢走。需要我的时候，我就在这里。」"
+      "en": "“Walk slowly. When you need me, I am here.”",
+      "zh": "「慢慢走。要用我的时候，我就在这儿。」"
      }
     }
    ],
@@ -408,15 +408,15 @@
     {
      "who": "corin",
      "text": {
-      "en": "“We all saw it. The boy went down there without armour on.”",
-      "zh": "「我们都看见了。那孩子没穿铠甲就下去了。」"
+      "en": "“We all saw it. The boy went down without armour on.”",
+      "zh": "「我们都看见了。那孩子连甲都没穿，就下去了。」"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“That thing he said, at the end — did you keep it?”",
-      "zh": "「他最后说的那句话，你记住了没有？」"
+      "en": "“That last thing he said — did you keep it?”",
+      "zh": "「他最后说的那句话，你记住了吗？」"
      }
     },
     {
@@ -444,50 +444,50 @@
     {
      "who": "",
      "text": {
-      "en": "He is holding his spear with both hands, head down.",
-      "zh": "他两手抱着矛，低着头。"
+      "en": "He holds his spear with both hands, head down.",
+      "zh": "他两手抱着矛，头低着。"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“They say he is three metres tall. All of him is bronze.”",
-      "zh": "「他们说他有三米高。全身都是铜甲。」"
+      "en": "“They say the fellow is three metres tall. Bronze from head to foot.”",
+      "zh": "「他们说那家伙有三米高，从头到脚都是铜。」"
      }
     },
     {
      "who": "boy",
      "text": {
       "en": "“His spear shaft is thicker than my arm.”",
-      "zh": "「他的枪杆，比我的手臂还粗。」"
+      "zh": "「他的枪杆，比我胳膊还粗。」"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“I have never been close enough to see him.”",
-      "zh": "「我从来没走近过，看不清他。」"
+      "en": "“I have never dared go close. I cannot see his face.”",
+      "zh": "「我没敢走近过。看不清他的脸。」"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“The day I left home, my mother said: do not be afraid.”",
-      "zh": "「我出门那天，我妈说：不要怕。」"
+      "en": "“The day I left, my mother said: do not be afraid.”",
+      "zh": "「我出门那天，我娘说：不要怕。」"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“Then she cried. She was afraid too. She said it anyway.”",
-      "zh": "「说完她就哭了。她自己也怕，可她还是说了。」"
+      "en": "“Then she cried before I did. She was afraid too, and she said it anyway.”",
+      "zh": "「说完她自己先哭了。她也怕，可她还是说了。」"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“There is a line in the Law. The officers say it to us.”",
-      "zh": "「律法上有一句话。官长常常对我们说。」"
+      "en": "“There is a line in the Law. The officers shout it at us every morning.”",
+      "zh": "「律法上有一句，官长天天冲我们喊。」"
      }
     },
     {
@@ -507,29 +507,22 @@
     {
      "who": "boy",
      "text": {
-      "en": "“let not your hearts faint, fear not, and do not tremble, neither be ye terrified because of them.”",
-      "zh": "不要胆怯，不要惧怕战兢，也不要因他们惊恐。」"
-     }
-    },
-    {
-     "who": "boy",
-     "text": {
-      "en": "“That is Deuteronomy, chapter twenty, verse three. I cannot say it all. I only know these words.”",
-      "zh": "「这是《申命记》二十章三节。我记不全，只记得这几句。」"
+      "en": "“That is Deuteronomy, chapter twenty, verse three. I cannot say the whole of it. Only these lines.”",
+      "zh": "「这是《申命记》二十章三节。我记不全，就记得这几句。」"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "He puts the words into your hand.",
-      "zh": "他把这句话交给你。"
+      "en": "He pushes the words into your hand.",
+      "zh": "他把这句话塞进你手里。"
      }
     },
     {
      "who": "boy",
      "text": {
-      "en": "“They are not mine to keep.”",
-      "zh": "「这句话不是我的，你拿着。」"
+      "en": "“They are not mine. Take them.”",
+      "zh": "「不是我的。你拿着。」"
      }
     }
    ],
@@ -538,7 +531,7 @@
      "who": "boy",
      "text": {
       "en": "“Go up if you have to. I will hold this spot.”",
-      "zh": "「你要上去就上去吧。这里我守着。」"
+      "zh": "「你要上去就上去吧。这儿我守着。」"
      }
     }
    ],
@@ -546,15 +539,15 @@
     {
      "who": "",
      "text": {
-      "en": "I went up on the ridge to look. Their tents are still standing. There is nobody in them.",
-      "zh": "我爬上山脊去看。他们的帐棚还立在那里，里面一个人也没有。"
+      "en": "I climbed the ridge to look. Their tents are still standing. There is nobody inside them.",
+      "zh": "我爬上山脊去看。他们的帐棚还立着，里头一个人也没有。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "You were aiming for his forehead. I saw the stone leave your hand, just the once.",
-      "zh": "你是照着他的额头打的。我看见石头飞过去，就那么一下。"
+      "en": "You were aiming at his forehead. I saw the stone leave your hand. Just the once.",
+      "zh": "你是照着他的额头打的。我看见石头飞出去，就那么一下。"
      }
     }
    ]
@@ -576,14 +569,14 @@
      "who": "",
      "text": {
       "en": "She is breaking bread. She does not look up.",
-      "zh": "她在分饼，没有抬头。"
+      "zh": "她在分饼，头也没抬。"
      }
     },
     {
      "who": "woman",
      "text": {
-      "en": "“You are going up too, then. My husband went up. He has not come back down.”",
-      "zh": "「你也要上去啊。我男人上去了，还没下来。」"
+      "en": "“You are going up too? My husband went up. He has not come down yet.”",
+      "zh": "「你也要上去？我男人上去了，到现在没下来。」"
      }
     },
     {
@@ -596,8 +589,8 @@
     {
      "who": "woman",
      "text": {
-      "en": "“I pray he does not lose himself up there.”",
-      "zh": "「我只求他别把自己丢在上面。」"
+      "en": "“Only that he does not leave his life up there.”",
+      "zh": "「只求他别把命丢在上头。」"
      }
     },
     {
@@ -610,8 +603,8 @@
     {
      "who": "woman",
      "text": {
-      "en": "“Bread does not last the day. The word will last longer.”",
-      "zh": "「饼放不到明天。这句话可以陪你走得远一点。」"
+      "en": "“Bread will not keep until tomorrow. The word will carry you further.”",
+      "zh": "「饼搁不到明天。这句话，能陪你走得远些。」"
      }
     }
    ],
@@ -619,8 +612,8 @@
     {
      "who": "woman",
      "text": {
-      "en": "“Eat before you climb. Nobody fights well hungry.”",
-      "zh": "「上去之前先吃点东西。饿着肚子打不好仗。」"
+      "en": "“Eat something before you climb. Nobody fights well empty.”",
+      "zh": "「上去以前先吃口东西。空着肚子，仗打不好。」"
      }
     }
    ],
@@ -628,15 +621,15 @@
     {
      "who": "",
      "text": {
-      "en": "I had the water boiling for the wounded. The men who came back have no wounds and cannot stand up.",
-      "zh": "我把水烧上了，等着伤兵回来。回来的人个个没伤，却站不住。"
+      "en": "I had the water boiling for the wounded. They came back with no wounds at all, and none of them could stand.",
+      "zh": "我把水烧上了，等伤兵回来。回来的人一个伤也没有，却站都站不住。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "Someone carried the giant's armour into one of the tents. Nobody will sleep in that tent tonight.",
-      "zh": "有人把那个巨人的盔甲抬进了一顶帐棚。今晚谁也不肯睡那一顶。"
+      "en": "Someone carried the giant's armour into one of the tents. Nobody will sleep in that one tonight.",
+      "zh": "有人把那巨人的甲抬进了一顶帐棚。今晚没人肯睡那一顶。"
      }
     }
    ]
@@ -683,49 +676,49 @@
      "who": "elder",
      "text": {
       "en": "“They will not let you through.”",
-      "zh": "「他们不会让你过去的。」"
+      "zh": "「他们不会放你过去的。」"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“Even the king says it. You are too young. He has been a fighting man since he was a boy.”",
-      "zh": "「连王也这么说：你年纪太轻，他从小就打仗。」"
+      "en": "“The king says it too: you are too young, and the man has soldiered since he was a boy.”",
+      "zh": "「王也是这个话：你年纪太轻，人家自小就当兵。」"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“He is right that you are young.”",
-      "zh": "「他说你年轻，这没说错。」"
+      "en": "“He says you are young. He is not wrong about that.”",
+      "zh": "「他说你年轻——这话没说错。」"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“He is wrong to think young means useless.”",
-      "zh": "「他错在以为年轻就没有用。」"
+      "en": "“His mistake is thinking that young means worth nothing.”",
+      "zh": "「他错在以为，年轻就什么都不是。」"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“All my life, people have looked at me and decided what I was worth.”",
-      "zh": "「我这辈子，都在被人打量。」"
+      "en": "“All my life, people have looked me up and down and settled on a price.”",
+      "zh": "「我这一辈子，都是这样被人上上下下看的。」"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "He pulls the strap tight.",
-      "zh": "他把皮带拉紧。"
+      "en": "He pulls the strap one hole tighter.",
+      "zh": "他把皮带又勒紧一格。"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“Carry one sentence that answers him.”",
-      "zh": "「带一句能回他的话去。」"
+      "en": "“Carry one sentence back with you. Let him speak, and have your answer ready.”",
+      "zh": "「带一句话回去。他开口，你答得上。」"
      }
     }
    ],
@@ -734,7 +727,7 @@
      "who": "elder",
      "text": {
       "en": "“The stones are at the brook, downstream past the tents. He took five. Not six.”",
-      "zh": "「石子在下游的溪边，过了帐篷就是。他当时拿了五块。不是六块。」"
+      "zh": "「石子在下游溪边，过了帐篷就是。他拿了五块，不是六块。」"
      }
     }
    ],
@@ -742,15 +735,15 @@
     {
      "who": "",
      "text": {
-      "en": "Forty days he stood there and shouted at us. I counted every one of them, the way a man counts his own grave.",
-      "zh": "四十天，他天天站在那里骂我们。我一天一天数，像在数自己的坟。"
+      "en": "Forty days he stood there and cursed us. I counted every one of them, the way a man counts his own grave.",
+      "zh": "四十天，他天天站在那儿骂我们。我一天天数，像数着自己的坟。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "They are running them down the road to Gath and Ekron. I am too old to run with them, so I wait here for news.",
-      "zh": "他们往迦特和以革伦一路追下去了。我老了，跑不动，只能在这儿等消息。"
+      "en": "They ran them all the way to Gath and Ekron. I am too old to keep up, so I wait here for news.",
+      "zh": "他们一路追到迦特和以革伦去了。我老了，跟不动，就在这儿等消息。"
      }
     }
    ]
@@ -949,36 +942,36 @@
   {
    "who": "",
    "text": {
-    "en": "You are a pilgrim. You came into the Valley of Elah with the army of Israel.",
-    "zh": "你是朝圣者。你跟着以色列的军队，来到以拉谷。"
+    "en": "You are a pilgrim. You came into the Valley of Elah behind the army of Israel.",
+    "zh": "你是个朝圣者。你跟着以色列的军队，走进了以拉谷。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "This battle is not yours. What you can do is walk this valley and listen to its people.",
-    "zh": "这场仗不是你的。你能做的，是走完这段路，听这里的人说话。"
+    "en": "The battle is not yours. All you can do is walk this valley and listen to its people.",
+    "zh": "这一仗不是你的。你能做的，只是走完这段路，听这里的人说话。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Keep what they give you. On the day, you will not only watch David. You will be him.",
-    "zh": "他们交给你的话，你要带上。到了那一天，你不会只是看着大卫。你会成为他。"
+    "en": "Keep whatever they give you. On the day, you will not only watch David. You will be him.",
+    "zh": "他们交给你的话，你要带上。到了那一天，你不会只是看着大卫——你会成为他。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Left thumb on the left half: walk. Push further out: run. A, bottom right: talk.",
-    "zh": "左手拇指按住画面左边：走路。推远一点：跑。右下角的 A：和身边的人说话。"
+    "en": "Left thumb on the left half of the screen: walk. Push further out: run. A, bottom right: talk.",
+    "zh": "左手拇指按住画面左半边：走。推远一点：跑。右下角的 A：跟人说话。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Tap the screen to turn a page. Lost? Follow the arrow at the top right.",
-    "zh": "点画面翻页。找不到路，就看右上角的箭头。"
+    "en": "Tap the screen to go on. If you lose the way, follow the arrow at the top right.",
+    "zh": "点一下画面，往下翻。找不到路，就看右上角的箭头。"
    }
   }
  ],
@@ -989,7 +982,7 @@
   },
   "stones": {
    "en": "Gather five smooth stones at the brook",
-   "zh": "到下游溪边，替大卫捡五块石子"
+   "zh": "到下游溪边，捡五块光滑的石子"
   },
   "line": {
    "en": "Carry the stones north, to the line in the dust",
@@ -1001,15 +994,15 @@
   },
   "provision": {
    "en": "Pick up the three things your father gave you",
-   "zh": "把父亲给的三样东西捡起来"
+   "zh": "把父亲给的三样东西拿上"
   },
   "brothers": {
    "en": "Walk to the edge of the camp. Your brothers are there",
-   "zh": "走到营地边上。哥哥们在那里"
+   "zh": "走到营地边上。哥哥们在那边"
   },
   "fight": {
    "en": "Answer him with what you carry. Then throw.",
-   "zh": "用你带着的经文回答他。然后，放手。"
+   "zh": "用你带着的话回答他。然后放手。"
   },
   "npc": {
    "en": "Walk with Corin. He will bring you to %s.",
@@ -1017,10 +1010,10 @@
   },
   "shepherd": {
    "en": "A stone in the pouch. Practise on the jars.",
-   "zh": "皮兜里放一块石子。对着陶罐练手。"
+   "zh": "皮兜里放一块石子，对着陶罐练手。"
   },
   "saul": {
-   "en": "Listen to the king. Then go.",
+   "en": "Hear the king out. Then go.",
    "zh": "听完王的话，再下去。"
   },
   "ready": {
@@ -1029,7 +1022,7 @@
   },
   "aftermath": {
    "en": "Corin is waiting to hear it from you.",
-   "zh": "柯林在等你说给他听。"
+   "zh": "柯林在等你，把话讲给他听。"
   }
  },
  "ending": {
@@ -1044,35 +1037,35 @@
    {
     "who": "",
     "text": {
-     "en": "The stone was not thrown by your hand. What you learned was this: do not stare at the giant.",
+     "en": "The stone was not thrown by your hand. But you learned one thing: do not stare at the giant in front of you.",
      "zh": "石子不是你扔的。可你学会了一件事：不要只盯着眼前的巨人。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Look at the God who is bigger than he is.",
+     "en": "Look at the God who is greater than he is.",
      "zh": "要看那位比巨人更大的神。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Courage for the giant in front of you comes from looking back at the road God has already walked you through.",
-     "zh": "回头看神怎么带你走过来，你才有勇气面对眼前的巨人。"
+     "en": "Remember the road God has already walked you down. That is where courage for this one comes from.",
+     "zh": "回头看看，神是怎么一路带你走过来的。你才有勇气，面对眼前这一个。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Faith is not sudden. It grows each time you remember.",
-     "zh": "信心不是突然有的。是一次一次回头看，慢慢坚定的。"
+     "en": "Faith does not arrive all at once. It grows each time you look back.",
+     "zh": "信心不是突然长出来的。是一次一次回头看，慢慢长出来的。"
     }
    }
   ],
   "ask": {
    "en": "What giant is standing in front of you now? What would your first step of faith be?",
-   "zh": "你生命里，现在有一个什么样的巨人？信心的第一步，你想怎么走？"
+   "zh": "你生命里，现在站着什么样的巨人？信心的第一步，你想怎么走？"
   },
   "options": [
    {
@@ -1081,18 +1074,18 @@
      "zh": "先回想神带我走过的路"
     },
     "insight": {
-     "en": "That is where David started. Not with the giant, but with the lion and the bear behind him. (1 Samuel 17:37)",
-     "zh": "大卫就是这样开始的。不是从巨人开始，而是从身后的狮子和熊开始。（撒母耳记上 17:37）"
+     "en": "That is how David began — not with the giant, but with the lion and the bear behind him. (1 Samuel 17:37)",
+     "zh": "大卫就是从这儿开始的。不是从巨人开始，是从身后的狮子和熊开始。（撒母耳记上 17:37）"
     }
    },
    {
     "t": {
      "en": "Say it out loud to someone",
-     "zh": "找一个人说出口"
+     "zh": "找一个人，说出来"
     },
     "insight": {
-     "en": "That is wisdom. Before David went out, he spoke to the men in the ranks. (1 Samuel 17:26)",
-     "zh": "这是智慧。大卫出阵以前，也先跟阵上的人说过话。（撒母耳记上 17:26）"
+     "en": "That is wisdom. Before David went down to the giant, he was already talking to the men in the line. (1 Samuel 17:26)",
+     "zh": "这是聪明人的走法。下阵以前，大卫也先跟阵上的人说过话。（撒母耳记上 17:26）"
     }
    },
    {
@@ -1101,8 +1094,8 @@
      "zh": "脱掉不合身的盔甲"
     },
     "insight": {
-     "en": "Saul's armour was good. It was just not David's. Discernment is knowing which help fits you. (1 Samuel 17:39)",
-     "zh": "扫罗的盔甲很好，只是不合大卫。分辨力，就是分得清哪些帮助真的适合你。（撒母耳记上 17:39）"
+     "en": "Saul's armour was good. It was only not David's. Discernment is knowing which help is actually yours. (1 Samuel 17:39)",
+     "zh": "扫罗那副盔甲是好的，只是它不是大卫的。分辨，就是分得清哪一份帮助真是给你的。（撒母耳记上 17:39）"
     }
    }
   ]
@@ -1112,7 +1105,7 @@
    {
     "who": "",
     "text": {
-     "en": "You look down. The hands in front of you are not your hands.",
+     "en": "You look down. These hands are not yours.",
      "zh": "你低下头。眼前这双手，不是你的。"
     }
    },
@@ -1126,29 +1119,29 @@
    {
     "who": "",
     "text": {
-     "en": "Your father is at the door with a sack in his hands.",
-     "zh": "父亲站在门口，手里提着一个袋子。"
+     "en": "Your father stands in the doorway with a cloth bag in his hand.",
+     "zh": "父亲站在门口，手里提着一只布袋。"
     }
    },
    {
     "who": "jesse",
     "text": {
-     "en": "“Take these to your brothers. Bread, cheese, and parched grain.”",
-     "zh": "「把这些东西带去给你哥哥们。饼、奶酪，还有炒好的麦子。」"
+     "en": "“Take this to your brothers: bread, cheese, and parched grain.”",
+     "zh": "「把这个给你哥哥们带去：饼、奶酪，还有炒好的麦子。」"
     }
    },
    {
     "who": "jesse",
     "text": {
-     "en": "“They are with Saul's army, in the Valley of Elah. Ask if they are well.”",
+     "en": "“They are with Saul's army, in the Valley of Elah. Go and see whether they are well.”",
      "zh": "「他们跟着扫罗的军队，在以拉谷。去看看他们好不好。」"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Pick up what he gives you. Three things.",
-     "zh": "把父亲给的东西带上。一共三样。"
+     "en": "Pick up what your father has given you. Three things.",
+     "zh": "把父亲给的东西拿上。一共三样。"
     }
    }
   ],
@@ -1186,7 +1179,7 @@
    {
     "who": "",
     "text": {
-     "en": "Your eldest brother sees you come up the road.",
+     "en": "Your eldest brother sees you coming up the road.",
      "zh": "长兄看见你走上坡来。"
     }
    },
@@ -1214,8 +1207,8 @@
    {
     "who": "",
     "text": {
-     "en": "You say nothing. Someone takes you to the king's tent.",
-     "zh": "你什么也没说。有人把你带到王的帐棚里。"
+     "en": "You say nothing. Someone leads you into the king's tent.",
+     "zh": "你什么也没说。有人领你进了王的帐棚。"
     }
    }
   ],
@@ -1267,21 +1260,21 @@
      "who": "",
      "text": {
       "en": "The sheep graze behind you. The sling in your hand is worn shiny by your palm.",
-      "zh": "羊在你背后吃草。机弦在你手里，被手心磨得发亮。"
+      "zh": "羊在背后吃草。机弦握在手里，被手心磨得发亮。"
      }
     },
     {
      "who": "",
      "text": {
       "en": "A row of clay jars stands on the slope. You throw at them every day until your arm aches.",
-      "zh": "坡上立着一排陶罐。你每天对着它们扔石头，扔到手臂发酸。"
+      "zh": "坡上立着一排陶罐。你天天对着它们扔石头，扔到胳膊发酸。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "This is not war. This is practice.",
-      "zh": "这不是打仗，是练手。"
+      "en": "This is not battle. This is practice.",
+      "zh": "这不是打仗。是练手。"
      }
     }
    ],
@@ -1298,7 +1291,7 @@
      "who": "",
      "text": {
       "en": "Your father wants you at the camp. Your brothers are there.",
-      "zh": "父亲要你去一趟军营。哥哥们在那边。"
+      "zh": "父亲叫你去一趟军营。哥哥们在那边。"
      }
     }
    ]
@@ -1312,7 +1305,7 @@
     {
      "who": "",
      "text": {
-      "en": "Saul is a head taller than every man in the tent.",
+      "en": "Saul stands a head taller than every man in the tent.",
       "zh": "扫罗比帐棚里所有人都高出一头。"
      }
     },
@@ -1347,8 +1340,8 @@
     {
      "who": "",
      "text": {
-      "en": "It is too heavy. You take two steps and nearly fall.",
-      "zh": "太重了。你走两步，差点摔倒。"
+      "en": "It is far too heavy. Two steps and you nearly fall.",
+      "zh": "太重了。你走两步，险些摔倒。"
      }
     },
     {
@@ -1361,15 +1354,15 @@
     {
      "who": "",
      "text": {
-      "en": "You put it off. It was never yours.",
-      "zh": "你把它脱下来。那从来不是你的。"
+      "en": "You take it off. It was never yours.",
+      "zh": "你把它脱下来。那本来就不是你的。"
      }
     },
     {
      "who": "",
      "text": {
       "en": "Then you walk down the slope, and the whole army watches you go.",
-      "zh": "然后你往山下走。全军都在看你。"
+      "zh": "然后你往山下走。全军都在看着你。"
      }
     }
    ]
@@ -1386,29 +1379,29 @@
   {
    "who": "",
    "text": {
-    "en": "You wake with the sun straight overhead, and your mouth full of dust.",
-    "zh": "醒来的时候，太阳正悬在头顶，嘴里全是土。"
+    "en": "You open your eyes. The sun is straight overhead and your mouth is full of dust.",
+    "zh": "再睁眼，日头正当头，嘴里满是土。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Your clothes are not your clothes: coarse wool, a leather cord at the waist.",
-    "zh": "这身衣服不是你的：粗羊毛，腰上系着一条皮绳。"
+    "en": "The clothes are not yours: coarse wool, scratching at your neck, a leather cord at the waist.",
+    "zh": "身上的衣服不是你的：粗羊毛，磨得脖子发痒，腰间一条皮绳。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Two armies are standing on the hills either side of the valley. Nobody is moving.",
-    "zh": "山谷两边的山上都站着军队。没有一个人在动。"
+    "en": "There are armies on both ridges. Nobody moves. Nobody makes a sound.",
+    "zh": "两边的山脊上都站着军队。没有人动，也没有人出声。"
    }
   },
   {
    "who": "",
    "text": {
-    "en": "Someone behind you is crying quietly. You understand every word.",
-    "zh": "身后有人压着嗓子在哭。他说的每一个字，你都听得懂。"
+    "en": "Behind you, someone is crying quietly. You understand every word he says.",
+    "zh": "身后有人在低声哭。他说的每一个字，你都听得懂。"
    }
   }
  ],
@@ -1422,9 +1415,10 @@
    "r": 2,
    "lines": [
     {
+     "who": "",
      "text": {
-      "en": "The water is shallow and cold. The stones in it are worn round by it.",
-      "zh": "溪水又浅又凉。底下的石子被水磨得圆了。"
+      "en": "The brook is shallow and cold. The stones have been worn smooth.",
+      "zh": "溪水又浅又凉。石子被水磨得没有棱角。"
      }
     }
    ]
@@ -1438,9 +1432,10 @@
    "r": 2,
    "lines": [
     {
+     "who": "",
      "text": {
-      "en": "Stones stacked into an altar, and no fire on it. Nobody has had the heart.",
-      "zh": "几块石头垒成一座坛，上面没有火。没人有这个心气。"
+      "en": "A few stones stacked into an altar. The altar is cold; nobody has offered anything here in a long while.",
+      "zh": "几块石头垒成一座坛。坛是冷的——好些日子没人献过祭了。"
      }
     }
    ]
@@ -1454,9 +1449,10 @@
    "r": 2,
    "lines": [
     {
+     "who": "",
      "text": {
-      "en": "There are axe marks in the trunk. Someone cut wood here, and hid here.",
-      "zh": "树干上有刀痕。有人在这儿砍过柴，也在这儿躲过。"
+      "en": "The trunk is scored with knife marks. Men come here for firewood, and men come here to hide.",
+      "zh": "树干上有一道道刀痕。有人来砍柴，也有人来躲。"
      }
     }
    ]
@@ -1470,9 +1466,10 @@
    "r": 2,
    "lines": [
     {
+     "who": "",
      "text": {
-      "en": "A man in a tent is stitching leather. Before a war can be fought, someone has to mend things.",
-      "zh": "帐棚里有人在缝皮子。仗要打得起来，总得有人先把破的地方补上。"
+      "en": "Inside the tent someone is bent over, stitching hide. If there is to be a battle, somebody has to mend what is torn.",
+      "zh": "帐棚里有人低头缝皮子。要打仗，也总得有人先把破的地方补上。"
      }
     }
    ]
