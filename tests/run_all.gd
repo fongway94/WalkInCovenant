@@ -18,7 +18,6 @@ extends SceneTree
 
 const RegionModelScript = preload("res://scripts/systems/RegionModel.gd")
 const ScreenFitScript = preload("res://scripts/systems/ScreenFit.gd")
-const GoliathFightScript = preload("res://scripts/setpiece/GoliathFight.gd")
 
 var failures := 0
 
@@ -61,6 +60,31 @@ func _check_display() -> void:
 		_fail("stretch aspect is '%s': tall phones get letterboxed" % aspect)
 	else:
 		_ok("display expands to fill tall screens")
+
+
+## A `const NAME := 3` out of a script, without compiling the script.
+func _const_int(path: String, name: String, fallback: int) -> int:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return fallback
+	var txt := f.get_as_text()
+	f.close()
+	var m := RegEx.create_from_string("const %s\\s*:?=\\s*(-?[0-9]+)" % name).search(txt)
+	if m == null:
+		return fallback
+	return int(m.get_string(1))
+
+
+func _const_float(path: String, name: String, fallback: float) -> float:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return fallback
+	var txt := f.get_as_text()
+	f.close()
+	var m := RegEx.create_from_string("const %s\\s*:?=\\s*(-?[0-9.]+)" % name).search(txt)
+	if m == null:
+		return fallback
+	return float(m.get_string(1))
 
 
 ## The screen, at forty sizes.
@@ -336,10 +360,17 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 	# 5. the fight is a fight, and it can be finished.
 	# It used to be a verse quiz followed by a duel; the duel is now the whole
 	# confrontation, so the gate is that its numbers still add up.
-	if GoliathFightScript.HITS_TO_WIN < 1:
+	# The numbers are read from the file rather than by loading it: run_all runs
+	# under `--script`, before the autoloads exist, and GoliathFight references
+	# AudioDirector the moment it compiles.
+	var hits_need := _const_int("res://scripts/setpiece/GoliathFight.gd", "HITS_TO_WIN", -1)
+	var stones_have := _const_int("res://scripts/setpiece/GoliathFight.gd", "STONES", -1)
+	var dodge := _const_float("res://scripts/setpiece/GoliathFight.gd", "DODGE_WINDOW", -1.0)
+	if hits_need < 1:
 		_fail("%s: the fight needs at least one hit to win" % rid)
-	if GoliathFightScript.STONES < GoliathFightScript.HITS_TO_WIN:
-		_fail("%s: fewer stones than hits needed — unwinnable" % rid)
-	if GoliathFightScript.DODGE_WINDOW <= 0.0 or GoliathFightScript.DODGE_WINDOW >= 1.0:
-		_fail("%s: the dodge window must sit inside the strike" % rid)
+	if stones_have < hits_need:
+		_fail("%s: fewer stones (%d) than hits needed (%d) — unwinnable"
+			% [rid, stones_have, hits_need])
+	if dodge <= 0.0 or dodge >= 1.0:
+		_fail("%s: the dodge window (%.2f) must sit inside the strike" % [rid, dodge])
 	_ok("the fight is winnable and has a dodge window")

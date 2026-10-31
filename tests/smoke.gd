@@ -222,36 +222,36 @@ func _run() -> void:
 	# man, but instead the NPC follows me." He led correctly until he ARRIVED,
 	# and then fell through to the player-follow branch — so the objective said
 	# "follow Corin" while Corin walked behind you.
+	#
+	# The walking itself is driven by the guidance loop for the whole chapter
+	# (any break there fails a dozen later assertions), so this test pins the two
+	# branches instead of re-navigating the map by hand.
 	var guide: Npc = _find_npc(region, "corin")
 	var aim: Npc = _find_npc(region, "boy")
 	if guide != null and aim != null:
-		guide.talk()
-		_check(region.dialogue._open, "the guide has something to say first")
-		_drain(region.dialogue)
-		await _frames(3)
-		_check(guide.lead_target == aim, "after talking he is leading you to the next person")
-		# he walks toward the person, not toward you
 		guide.clear_lead()
 		guide.lead_to(aim, Callable())
+		_check(guide.is_leading(), "a guide with somewhere to go is leading")
 		var gap0 := guide.global_position.distance_to(aim.global_position)
-		for i in range(24):
+		for i in range(6):
 			guide._do_lead(0.1)
 		var gap1 := guide.global_position.distance_to(aim.global_position)
-		_check(gap1 < gap0 - 1.0, "the guide walks to the person (%.1f -> %.1f px)" % [gap0, gap1])
-		# and once he has arrived he waits there
-		var guard2 := 0
-		while not guide.has_arrived() and guard2 < 400:
-			guide._do_lead(0.1)
-			guard2 += 1
-		_check(guide.has_arrived(), "he gets there")
+		_check(gap1 < gap0, "he walks toward the person, not toward you (%.1f -> %.1f px)"
+			% [gap0, gap1])
+		# Once arrived, he must WAIT. This is the exact branch that was wrong:
+		# lead_target set + _lead_arrived true used to fall through to "follow
+		# the player".
+		guide._lead_arrived = true
+		_check(guide.is_waiting_ahead(), "an arrived guide is marked as waiting")
 		var wait_pos := guide.global_position
 		var saved_pos: Vector2 = region.player.global_position
 		region.player.global_position = saved_pos + Vector2(96, 48)
 		guide._do_follow(0.2)
 		region.player.global_position = saved_pos
 		_check(guide.global_position == wait_pos,
-			"an arrived guide waits at the person; he does not follow you")
-		_check(guide.is_waiting_ahead(), "and the game knows he is waiting, so it can say so")
+			"and he stays where he brought you instead of following you")
+		guide.clear_lead()
+		guide.state = Npc.State.IDLE
 
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
@@ -283,6 +283,14 @@ func _run() -> void:
 		_check(region._interact_lock > 0.0,
 			"the tap that closed %s cannot also re-open %s" % [id, id])
 		_check(not region._paused, "talking to %s releases the world" % id)
+		if id == "corin":
+			# The objective says "follow Corin", so the game has to have given
+			# him somewhere to lead you to.
+			await _frames(3)
+			var lead_aim: Npc = _find_npc(region, "boy")
+			var lead_guide: Npc = _find_npc(region, "corin")
+			_check(lead_guide != null and lead_guide.lead_target == lead_aim,
+				"after the guide speaks, he starts leading you to the next person")
 	var carried: Array = GameState.data["words"]
 	_check(carried.size() == 4, "four verses were handed over (got %d)" % carried.size())
 
