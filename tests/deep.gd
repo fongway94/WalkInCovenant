@@ -61,6 +61,7 @@ func _run() -> void:
 	await _check_camera_shots()
 	_check_place_at_solid()
 	await _check_dialogue_taps()
+	await _check_touch_interact()
 	await _check_journal_escape()
 	await _check_drill_keys()
 	await _check_fight_input()
@@ -409,6 +410,60 @@ func _check_dialogue_taps() -> void:
 	_check(int(dlg._box_id) == keep,
 		"a story trigger cannot open a second box over an open one")
 	await _drain(dlg)
+
+
+# ── the phone's whole verb: a tap on A reaches the world ──────────────────
+## Everything else in this file drives the game the way a keyboard does. The
+## reported failure was on a phone, where A is not a key but a circle drawn on
+## the screen: TouchControls claims the touch and re-emits it as an `interact`
+## action. That indirection has broken before ("cant talk with npc"), and a test
+## that calls `npc.talk()` would never have seen it. This sends a real
+## InputEventScreenTouch at the A button's drawn position and uses nothing else.
+func _check_touch_interact() -> void:
+	var region = main.region
+	if region == null or main.touch == null:
+		_check(false, "the world and its touch layer exist")
+		return
+	await _drain(region.dialogue)
+	# Someone who has not been spoken to yet, so the tap is the first one.
+	var npc: Npc = null
+	for cand in ["boy", "woman", "elder"]:
+		var n: Npc = _find(region, cand)
+		if n != null and not n.has_talked():
+			npc = n
+			break
+	if npc == null:
+		_check(false, "someone is left in the camp to talk to")
+		return
+	var t := Vector2i(int(npc.global_position.x / TILE), int(npc.global_position.y / TILE))
+	main._place_at([t.x, t.y + 1])
+	# A conversation just closed; its lock is a game-time countdown.
+	var guard := 0
+	while float(region._interact_lock) > 0.0 and guard < 200:
+		await _frames(1)
+		guard += 1
+	await _frames(2)
+
+	# The same centre TouchControls draws its A at.
+	var vs: Vector2 = main.touch.get_viewport().get_visible_rect().size
+	var a_pos := Vector2(vs.x - 30.0, vs.y - 26.0)
+	TapGate.reset()
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = a_pos
+	Input.parse_input_event(down)
+	await _frames(3)
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = a_pos
+	Input.parse_input_event(up)
+	await _frames(2)
+	_check(npc.has_talked(),
+		"a tap on the phone's A button talks to the person beside you (%s)" % npc.npc_id())
+	await _drain(region.dialogue)
+	await _frames(2)
 
 
 # ── BUG-012: the book always has a way out ────────────────────────────────
