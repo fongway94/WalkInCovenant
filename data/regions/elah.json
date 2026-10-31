@@ -803,52 +803,6 @@
    }
   }
  ],
- "shouts": [
-  {
-   "kind": "threat",
-   "line": {
-    "en": "“Choose you a man, and let him come down to me!”",
-    "zh": "「你们拣选一个人，叫他下来到我这里来！他若能与我交战，把我杀了，我们就作你们的仆人。」"
-   },
-   "tell": {
-    "en": "He shouts loud enough for the whole valley. He wants you to be afraid before you start.",
-    "zh": "他喊得整条山谷都听见。他要你先害怕。"
-   }
-  },
-  {
-   "kind": "mock",
-   "line": {
-    "en": "“Am I a dog, that thou comest to me with staves?”",
-    "zh": "「我岂是狗呢，你竟拿杖到我这里来？」"
-   },
-   "tell": {
-    "en": "He is looking at your hands. He wants to know what you are carrying.",
-    "zh": "他在看你的手。他想知道你手里有什么。"
-   }
-  },
-  {
-   "kind": "contempt",
-   "line": {
-    "en": "“Whose son is this youth? He is but a boy.”",
-    "zh": "「这少年人是谁的儿子？」他不再对你说话，开始对别人说你。"
-   },
-   "tell": {
-    "en": "He has stopped talking to you. Now he is talking about you, to everyone else.",
-    "zh": "他不跟你说话了。他在跟别人说你。"
-   }
-  },
-  {
-   "kind": "doubt",
-   "line": {
-    "en": "“Forty days, and thy God has sent no one. Will he save thee?”",
-    "zh": "「我今日向以色列人的军队骂阵。你们叫一个人出来，与我交战吧！」"
-   },
-   "tell": {
-    "en": "This one is quiet. It has been in your head for forty days.",
-    "zh": "这一句很轻。可它在你心里已经响了四十天。"
-   }
-  }
- ],
  "items": [
   {
    "id": "stone1",
@@ -1001,8 +955,8 @@
    "zh": "走到营地边上。哥哥们在那边"
   },
   "fight": {
-   "en": "Answer him with what you carry. Then throw.",
-   "zh": "用你带着的话回答他。然后放手。"
+   "en": "Dodge his spear. Then put a stone in his forehead. Three of them.",
+   "zh": "躲开他的枪。然后把石子打进他的额头，三次。"
   },
   "npc": {
    "en": "Walk with Corin. He will bring you to %s.",
@@ -1366,7 +1320,81 @@
      }
     }
    ]
-  }
+  },
+  "battle_intro": [
+   {
+    "who": "",
+    "text": {
+     "en": "The line is behind you now. He has been waiting forty days for somebody to come down.",
+     "zh": "界线就在你身后。他等一个人下来，已经等了四十天。"
+    }
+   },
+   {
+    "who": "goliath",
+    "text": {
+     "en": "1 Samuel 17:44 — “And the Philistine said to David, Come to me, and I will give thy flesh unto the fowls of the air, and to the beasts of the field.”",
+     "zh": "撒母耳记上 17:44\n「非利士人又对大卫说：来吧！我将你的肉给空中的飞鸟、田野的走兽吃。」"
+    }
+   },
+   {
+    "who": "david",
+    "text": {
+     "en": "1 Samuel 17:45 — “Thou comest to me with a sword, and with a spear, and with a shield:",
+     "zh": "撒母耳记上 17:45\n「你来攻击我，是靠着刀枪和铜戟；"
+    }
+   },
+   {
+    "who": "david",
+    "text": {
+     "en": "but I come to thee in the name of the LORD of hosts, the God of the armies of Israel, whom thou hast defied.”",
+     "zh": "我来攻击你，是靠着万军之耶和华的名，就是你所怒骂带领以色列军队的神。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "You set a stone in the sling. Five of them, warm in your hand.",
+     "zh": "你把一块石子扣进皮兜。五个石子，在你手心里。"
+    }
+   }
+  ],
+  "victory": [
+   {
+    "who": "",
+    "text": {
+     "en": "The stone sinks into his forehead. Goliath falls face down into the dust he cursed for forty days.",
+     "zh": "石子陷进他的额头。歌利亚脸朝下，扑倒在他骂了四十天的那片尘土里。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "The Philistine line breaks at once. The whole army of Israel shouts as one.",
+     "zh": "非利士人的阵线一下子散了。以色列全军在同一刻喊了出来。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "1 Samuel 17:47 — “And all this assembly shall know that the LORD saveth not with sword and spear: for the battle is the LORD’S, and he will give you into our hands.”",
+     "zh": "撒母耳记上 17:47\n「又使这众人知道耶和华使人得胜，不是用刀用枪，因为争战的胜败全在乎耶和华。他必将你们交在我们手里。」"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "This was never the story of a small boy beating a big man.",
+     "zh": "这从来不是「小男孩打败大巨人」的故事。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "It is the story of a God who keeps covenant, and a boy who knew the battle was not his.",
+     "zh": "这是一位守约的神，和一个知道这场仗不属于自己的少年。"
+    }
+   }
+  ]
  },
  "prologue": [
   {

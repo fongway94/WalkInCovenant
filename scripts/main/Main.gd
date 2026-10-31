@@ -1,14 +1,14 @@
 extends Node2D
 ## Main — boots the world and wires the loop.
 ##
-## Overworld → talk / gather / cross the line → BECOME → word-battle → RETURN.
+## Overworld → talk / gather / cross the line → BECOME → the fight → RETURN.
 ## Story logic stays in data; Main only routes the moments between systems.
 
 var region: Region = null
 var hud: Hud = null
 var touch: TouchControls = null
 var become: BecomeController = null
-var battle: WordBattle = null
+var fight: GoliathFight = null
 
 var stones := 0
 var _stones_total := 0
@@ -98,7 +98,7 @@ func _process(delta: float) -> void:
 	if region == null or region.dialogue == null:
 		return
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
-		and not _in_battle and battle == null and practice == null \
+		and not _in_battle and fight == null and practice == null \
 		and not (journal != null and journal.is_open())
 	if stuck:
 		_dead_pause += delta
@@ -120,7 +120,7 @@ func _process(delta: float) -> void:
 func _update_touch_ownership() -> void:
 	if touch == null or region == null:
 		return
-	var owned := region.is_paused() or battle != null or practice != null \
+	var owned := region.is_paused() or fight != null or practice != null \
 		or (journal != null and journal.is_open())
 	touch.set_blocked(owned)
 
@@ -194,7 +194,11 @@ func _update_guidance() -> void:
 				# escort who stops beside the villager and waits for you.
 				var nxt: Npc = _next_unspoken()
 				key = "npc"
-				target = nxt.global_position
+				# While he is walking, the arrow points at HIM — the objective
+				# says "follow Corin", so the arrow had better mean Corin. Once
+				# he has arrived and is waiting, it points at the person he
+				# brought you to.
+				target = corin.global_position if corin.is_leading() else nxt.global_position
 				point = true
 				line = I18n.t(obj.get(key, {})) % nxt.display_name()
 				if corin.lead_target != nxt:
@@ -437,7 +441,7 @@ func _on_trigger(id: String) -> void:
 		return
 	if act == Act.READY:
 		# You crossed that line once as a witness and were told it was not your
-		# battle. Now you cross it as the boy who said it was not his either.
+		# fight. Now you cross it as the boy who said it was not his either.
 		_start_battle()
 		return
 	if act != Act.WITNESS and act != Act.DONE:
@@ -544,7 +548,7 @@ func _start_david_act() -> void:
 ## A place that says one thing when you stand in it. Optional by construction:
 ## no marker, no reward, nothing in the journal, and it never blocks a walk.
 func _on_curio(_id: String, lines: Array) -> void:
-	if lines.is_empty() or _in_battle or battle != null or practice != null:
+	if lines.is_empty() or _in_battle or fight != null or practice != null:
 		return
 	if region.dialogue != null and region.dialogue.is_open():
 		return
@@ -561,7 +565,7 @@ func _open_journal() -> void:
 		return
 	if region.dialogue != null and region.dialogue.is_open():
 		return
-	if _in_battle or battle != null or practice != null:
+	if _in_battle or fight != null or practice != null:
 		return
 	var refs: Array = []
 	for id in (GameState.data.get("words", []) as Array):
@@ -640,30 +644,62 @@ func _start_errand() -> void:
 				region.set_paused(false)))
 
 
+## Chapter 5: the fight. Not a quiz about the fight — a sling, five stones, and
+## a giant who swings a spear at you.
+##
+## The verses still matter, and they are still the point: they are what the
+## valley gave you, they sit in the book, and they open and close the scene. What
+## changed is that the player now has to THROW and DODGE to finish the chapter,
+## instead of picking the right sentence from four options.
 func _start_battle() -> void:
 	act = Act.FIGHT
 	_in_battle = true
+	region.set_paused(true)
 	# The nameplate is the whole promise of this chapter: for the length of the
 	# fight the hands on the sling are David's (docs/FEEL.md §3).
 	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
-	hud.set_objective(I18n.t({
-		"en": "Answer him with what you carry. Then throw.",
-		"zh": "用你带着的经文回答他。然后，放手。"}))
-	battle = WordBattle.new()
-	add_child(battle)
-	battle.setup(region)
-	battle.on_win = _on_win
-	battle.start()
+	hud.set_objective(I18n.t(region.model.objectives.get("fight", {})))
+	AudioDirector.play_sfx("sling", -6.0)
+	var da: Dictionary = region.model.david_act
+	var intro: Array = da.get("battle_intro", [])
+	if intro.is_empty():
+		_open_fight()
+		return
+	# 1 Samuel 17:44-45 spoken at the line, verbatim, then the sling comes out.
+	region.dialogue.show_lines(intro, _errand_speaker, _open_fight)
 
 
+func _open_fight() -> void:
+	GameState.grant_seal("the_argument")
+	GameState.record_way("stand")
+	fight = GoliathFight.new()
+	add_child(fight)
+	fight.finished.connect(_on_win)
+	fight.start()
+
+
+## He is down. The valley reacts before you do — 1 Samuel 17:47 is the line the
+## chapter closes on, and it is spoken here, over the dust, while you are still
+## David.
 func _on_win() -> void:
-	become.end("david", _after_return)
+	if fight != null:
+		fight.queue_free()
+		fight = null
+	region.set_paused(true)
+	var da: Dictionary = region.model.david_act
+	var victory: Array = da.get("victory", [])
+	if victory.is_empty():
+		become.end("david", _after_return)
+		return
+	AudioDirector.play_sfx("hit", -2.0)
+	region.dialogue.show_lines(victory, _errand_speaker, func():
+		become.end("david", _after_return))
 
 
 func _after_return() -> void:
-	if battle:
-		battle.queue_free()
-		battle = null
+	if fight:
+		fight.queue_free()
+		fight = null
 	_in_battle = false
 	# the valley is quiet: he will not shout again
 	GameState.set_flag("goliath_down", true)

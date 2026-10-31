@@ -12,12 +12,13 @@ extends SceneTree
 ##   2. spawn / npc / item tiles are walkable
 ##   3. a navigation path exists from spawn to every NPC and every item
 ##      (Covenant's reachable() BFS was test-only; here it gates the build)
-##   4. every NPC line and every word/shout has BOTH languages
-##   5. every shout kind has at least one matching word kind in the same
-##      region, so no word-battle round can be unwinnable
+##   4. every NPC line and every verse card has BOTH languages
+##   5. the fight can be won (hits vs stones, dodge window inside the strike).
+##      It replaced the verse quiz, so this replaced the quiz's check
 
 const RegionModelScript = preload("res://scripts/systems/RegionModel.gd")
 const ScreenFitScript = preload("res://scripts/systems/ScreenFit.gd")
+const GoliathFightScript = preload("res://scripts/setpiece/GoliathFight.gd")
 
 var failures := 0
 
@@ -278,9 +279,6 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_has_both(line.get("text"), "%s:npc %s line" % [rid, n.get("id")])
 	for w in m.words:
 		_has_both(w.get("text"), "%s:word %s" % [rid, w.get("id")])
-	for s in m.shouts:
-		_has_both(s.get("line"), "%s:shout line" % rid)
-		_has_both(s.get("tell"), "%s:shout tell" % rid)
 	# the beats a trigger speaks (refusing you, remembering the fight) and the
 	# first-run briefing are player-facing prose too
 	for t in m.triggers:
@@ -335,11 +333,13 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		_fail("%s: no ending — the chapter would stop the moment the giant falls" % rid)
 	_ok("all dialogue, verses, objectives and the ending are bilingual")
 
-	# 5. no unwinnable shout
-	var word_kinds := {}
-	for w in m.words:
-		word_kinds[w.get("kind")] = true
-	for s in m.shouts:
-		if not word_kinds.has(s.get("kind")):
-			_fail("%s: shout kind '%s' has no matching verse — unwinnable round" % [rid, s.get("kind")])
-	_ok("every shout is answerable")
+	# 5. the fight is a fight, and it can be finished.
+	# It used to be a verse quiz followed by a duel; the duel is now the whole
+	# confrontation, so the gate is that its numbers still add up.
+	if GoliathFightScript.HITS_TO_WIN < 1:
+		_fail("%s: the fight needs at least one hit to win" % rid)
+	if GoliathFightScript.STONES < GoliathFightScript.HITS_TO_WIN:
+		_fail("%s: fewer stones than hits needed — unwinnable" % rid)
+	if GoliathFightScript.DODGE_WINDOW <= 0.0 or GoliathFightScript.DODGE_WINDOW >= 1.0:
+		_fail("%s: the dodge window must sit inside the strike" % rid)
+	_ok("the fight is winnable and has a dodge window")

@@ -33,7 +33,6 @@ var prologue: Array = []             # the modern-day arrival, before the briefi
 var curios: Array = []                # {id, at:[x,y], r, lines:[...]}
 var exits: Array = []                # {to, at:[x,y]}
 var words: Array = []                # the verses people hand you; become your moves
-var shouts: Array = []               # what the giant shouts at you
 var ending: Dictionary = {}          # the chapter's closing beats + reflection
 var objectives: Dictionary = {}       # the words the HUD points at each step
 ## 1 Samuel 17:17-39, as data: the errand that put David in the valley. Absent
@@ -107,7 +106,6 @@ func _init_from(d: Dictionary, tiles_meta: Dictionary) -> bool:
 		prologue = raw_pr
 	exits = d.get("exits", [])
 	words = d.get("words", [])
-	shouts = d.get("shouts", [])
 	ending = d.get("ending", {})
 	objectives = d.get("objectives", {})
 	david_act = d.get("david_act", {})

@@ -165,8 +165,19 @@ func _do_patrol(delta: float) -> void:
 
 
 func _do_follow(delta: float) -> void:
-	if lead_target != null and is_instance_valid(lead_target) and not _lead_arrived:
-		_do_lead(delta)
+	if lead_target != null and is_instance_valid(lead_target):
+		if not _lead_arrived:
+			_do_lead(delta)
+		else:
+			# He has arrived, and now he WAITS at the person he brought you to.
+			# He used to fall straight through to "follow the player" here, so
+			# the objective read "follow Corin" while Corin walked behind you
+			# (reported after playtest 9). A guide who has reached the
+			# destination stands at it, facing you, until the story moves on.
+			_moving = false
+			_path = PackedVector2Array()
+			_path_i = 0
+			face_toward(player.global_position)
 		return
 	var d := (player.global_position - global_position).length()
 	if d < FOLLOW_KEEPUP:
@@ -383,8 +394,23 @@ func _update_anim(delta: float) -> void:
 	sprite.vframes = 4
 
 
+func is_leading() -> bool:
+	return lead_target != null and not _lead_arrived
+
+
+func is_waiting_ahead() -> bool:
+	return lead_target != null and _lead_arrived
+
+
 func _draw() -> void:
 	draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
+	# A guide who has reached the person you were following him to says so with
+	# a downward chevron: it is the difference between "he stopped" and "he is
+	# broken".
+	if is_waiting_ahead():
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(-3, -26), Vector2(3, -26), Vector2(0, -22)]),
+			Color(0.80, 0.92, 0.96, 0.9))
 	# A mark over every person you have not spoken to yet. Playtest 6 walked past
 	# four people who each held a verse and never knew they were worth stopping
 	# for: the HUD prompt only appears once you are already in range, and a mark

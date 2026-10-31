@@ -4,7 +4,7 @@ extends Node
 ## run_all.gd checks the CONTENT is well formed. This checks the GAME WORKS.
 ## It boots Main.tscn, reads the briefing, talks to all four people, crosses the
 ## line with an empty pouch, goes back for the stones, crosses again, fights the
-## word battle to a win, walks back into the valley, and asserts the save state
+## fight to a win, walks back into the valley, and asserts the save state
 ## afterwards. Everything is driven through the same entry points a player's
 ## thumbs would use, so a regression in Region, DialogueBox, BecomeController or
 ## WordBattle fails the build instead of failing somebody's first playtest.
@@ -217,6 +217,42 @@ func _run() -> void:
 	await _stand(region, 16, 27, 4)
 	_check(not region.dialogue._open, "the brook does not repeat itself")
 
+	# ── 2e. the guide leads, he does not trail ───────────────────────────
+	# Reported after playtest 9: "the top left says follow Corin to find a young
+	# man, but instead the NPC follows me." He led correctly until he ARRIVED,
+	# and then fell through to the player-follow branch — so the objective said
+	# "follow Corin" while Corin walked behind you.
+	var guide: Npc = _find_npc(region, "corin")
+	var aim: Npc = _find_npc(region, "boy")
+	if guide != null and aim != null:
+		guide.talk()
+		_check(region.dialogue._open, "the guide has something to say first")
+		_drain(region.dialogue)
+		await _frames(3)
+		_check(guide.lead_target == aim, "after talking he is leading you to the next person")
+		# he walks toward the person, not toward you
+		guide.clear_lead()
+		guide.lead_to(aim, Callable())
+		var gap0 := guide.global_position.distance_to(aim.global_position)
+		for i in range(24):
+			guide._do_lead(0.1)
+		var gap1 := guide.global_position.distance_to(aim.global_position)
+		_check(gap1 < gap0 - 1.0, "the guide walks to the person (%.1f -> %.1f px)" % [gap0, gap1])
+		# and once he has arrived he waits there
+		var guard2 := 0
+		while not guide.has_arrived() and guard2 < 400:
+			guide._do_lead(0.1)
+			guard2 += 1
+		_check(guide.has_arrived(), "he gets there")
+		var wait_pos := guide.global_position
+		var saved_pos: Vector2 = region.player.global_position
+		region.player.global_position = saved_pos + Vector2(96, 48)
+		guide._do_follow(0.2)
+		region.player.global_position = saved_pos
+		_check(guide.global_position == wait_pos,
+			"an arrived guide waits at the person; he does not follow you")
+		_check(guide.is_waiting_ahead(), "and the game knows he is waiting, so it can say so")
+
 	# ── 3. the four people on the road ───────────────────────────────────
 	var cast := ["corin", "boy", "woman", "elder"]
 	for c in cast:
@@ -382,80 +418,77 @@ func _run() -> void:
 		_drain(region.dialogue)
 	await _frames(3)
 	_check(main.act_id() == "ready", "after the armour comes off you are sent down (act=%s)" % main.act_id())
-	_check(main.battle == null, "the king does not start the fight")
+	_check(main.fight == null, "the king does not start the fight")
 	_check(not region._paused, "the walk to the line is yours to make")
 
 	# ── 6d. walk to the line, as David ───────────────────────────────────
 	await _stand(region, 16, 15, 3)
 	await _stand(region, 16, 10, 4)
+	_check(main.act_id() == "fight", "crossing the line as David starts the fight (act=%s)" % main.act_id())
+	_check(region._paused, "the world stops for the confrontation")
+	await _wait_open(region.dialogue)
+	_check(region.dialogue._open, "the line is spoken before the fight: 17:44 and 17:45")
+	_drain(region.dialogue)
 	var waited2 := 0
-	while main.battle == null and waited2 < FRAME_GUARD:
+	while main.fight == null and waited2 < FRAME_GUARD:
 		await get_tree().process_frame
 		waited2 += 1
-	_check(main.battle != null, "crossing the line again starts the fight")
-	if main.battle == null:
+	_check(main.fight != null, "the words end and the fight begins")
+	if main.fight == null:
 		_finish_run()
 		return
-	var battle = main.battle
-	_check(battle.hand.size() >= 1, "you carry verses into the fight (%d)" % battle.hand.size())
+	var duel = main.fight
 
-	# ── 7. the shouting match ────────────────────────────────────────────
-	var rounds := 0
-	while battle.fight == null and rounds < 12:
-		rounds += 1
-		_drain(region.dialogue)
-		if region.dialogue._in_choices:
-			var pick := _answer_index(region.dialogue, battle)
-			_check(pick >= 0, "round %d can be answered with a verse you carry" % rounds)
-			if pick < 0:
-				break
-			region.dialogue._pick(pick)
-		await _frames(3)
-	_check(rounds >= 2, "the argument ran at least two rounds (took %d)" % rounds)
-
-	# ── 7b. the fight: he attacks, you dodge, you throw ──────────────────
-	# Playtest 7: "should make it more interesting like fighting goliath. throw
-	# stone to attack goliath and avoid its attack". Both halves are driven here
-	# through the same press() a thumb uses.
-	_check(battle.fight != null, "the argument ends in the fight itself")
-	var nerve_start := 0
-	if battle.fight != null:
-		nerve_start = int(battle.fight.nerve)
+	# ── 7. the fight: he attacks, you dodge, you throw ──────────────────
+	# Playtest 9: "david goliath should be a real fight using stone throwing and
+	# avoid goliath attack instead of using word". There is no quiz left: the
+	# whole confrontation is this loop, driven here through the same press() a
+	# thumb uses.
+	_check(duel.HITS_TO_WIN == 3, "three stones finish it")
+	_check(not region.dialogue._open, "no dialogue box is covering the fight")
+	var nerve_start := int(duel.nerve)
 	var saw_strike := false
 	var saw_aim := false
+	var strikes := 0
+	var aims := 0
 	var fight_frames := 0
-	# Play the duel at real speed. Everything else in this test runs at 24x, and
-	# at 24x a strike phase is two frames long — the assertions below would then
-	# be racing the engine instead of testing the fight.
+	# Real speed: everything else in this run is at 24x, where a strike phase is
+	# two frames long and the assertions below would race the engine.
 	Engine.time_scale = 1.0
-	while battle.fight != null and fight_frames < FRAME_GUARD:
+	Engine.max_fps = 240
+	while main.fight != null and fight_frames < 4000:
 		fight_frames += 1
-		var f = battle.fight
+		var f = main.fight
 		if f == null:
 			break
 		if int(f.phase) == int(GoliathFight.Phase.STRIKE):
 			saw_strike = true
-			f.press()                     # dodge
+			strikes += 1
+			f.press()                     # step aside
 		elif int(f.phase) == int(GoliathFight.Phase.AIM):
 			saw_aim = true
+			aims += 1
 			f.aim_perfect()
-			f.press()                     # throw
+			f.press()                     # let go
 		await get_tree().process_frame
+	Engine.max_fps = 0
 	Engine.time_scale = 24.0
-	_check(saw_strike, "Goliath attacks, and the strike phase is reachable")
-	_check(saw_aim, "the throw phase is reachable")
-	_check(battle.fight == null, "three stones end the fight")
+	_check(saw_strike, "Goliath attacks, and the strike is dodgeable")
+	_check(saw_aim, "and you get a throw after every exchange")
+	_check(strikes >= 3 and aims >= 3, "the fight alternated %d strikes / %d throws" % [strikes, aims])
+	_check(main.fight == null, "three stones end the fight")
 	_check(nerve_start == 3, "a dodged strike costs no nerve (nerve was %d)" % nerve_start)
-	_check(battle.fight == null and fight_frames > 0, "the fight ran a real loop, not one press")
-	await _frames(4)
 
-	# the win lines, then RETURN, which hands the story back before the controls
+	# the victory lines, then RETURN, which hands the story back before controls
 	var cleared := 0
-	while main.battle != null and cleared < FRAME_GUARD:
-		_drain(region.dialogue)
+	while cleared < FRAME_GUARD:
+		if region.dialogue._open:
+			_drain(region.dialogue)
+		elif main.act_id() != "fight":
+			break
 		await get_tree().process_frame
 		cleared += 1
-	_check(main.battle == null, "the win closes the battle and cleans it up")
+	_check(main.act_id() != "fight", "the win closes the fight (act=%s)" % main.act_id())
 
 	# ── 7c. chapter 6 is witnessed: the aftermath is a person ────────────
 	var corin: Npc = _find_npc(region, "corin")
@@ -680,18 +713,6 @@ func _find_npc(region, id: String) -> Npc:
 		if str(npc.data.get("id", "")) == id:
 			return npc
 	return null
-
-
-func _answer_index(dlg, battle) -> int:
-	## The verse whose kind answers the shout he just made. WordBattle only
-	## shouts kinds you are holding, so this must always find one.
-	var kind := str(battle.shout.get("kind", ""))
-	var opts: Array = dlg._choices
-	for i in range(opts.size()):
-		var o: Dictionary = opts[i]
-		if str(o.get("kind", "")) == kind:
-			return i
-	return -1
 
 
 func _has(v: Variant, id: String) -> bool:
