@@ -66,6 +66,14 @@ var _after_resolve := "aim"
 ## He does not disappear the instant the third stone lands. The win plays out on
 ## the same screen for a beat, and only then does the chapter move on.
 const FALL_TIME := 1.0
+
+## How long a press stays queued when it lands in a phase that cannot use it.
+## A player presses when they see the threat, which is a fraction of a second
+## before the phase that answers it opens; a press that is simply thrown away
+## reads as a dead game (BUG-016).
+const BUFFER_SECS := 0.45
+var _buffer := 0.0
+## The A badge this screen draws for itself. See _press_at().
 var _fall := 0.0
 var _emitted := false
 
@@ -98,6 +106,7 @@ func _build() -> void:
 	_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_layer)
 	_layer.draw.connect(_redraw)
+	_layer.gui_input.connect(_on_layer_gui)
 
 	_gol = TextureRect.new()
 	_gol.texture = _frame("res://art/characters/goliath_idle.png")
@@ -180,6 +189,7 @@ func _process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta * 3.0)
 	_shake = maxf(0.0, _shake - delta * 3.0)
 	_msg_t = maxf(0.0, _msg_t - delta)
+	_buffer = maxf(0.0, _buffer - delta)
 	match phase:
 		Phase.TELEGRAPH:
 			_t += delta
@@ -187,6 +197,13 @@ func _process(delta: float) -> void:
 				phase = Phase.STRIKE
 				_t = 0.0
 				_strike = 0.0
+				# A press made while he was winding up is not wasted: the spear
+				# is live now, so it counts as the dodge. This is the whole
+				# point of the buffer — the player pressed because they saw the
+				# threat, a hair before the game was ready to accept it.
+				if _buffer > 0.0:
+					_buffer = 0.0
+					press()
 		Phase.STRIKE:
 			_t += delta
 			var speed := 1.0 / maxf(0.58, STRIKE_TIME - float(round_no - 1) * 0.04)
@@ -232,9 +249,10 @@ func _after_resolve_step() -> void:
 
 
 # ── input ────────────────────────────────────────────────────────────────
-func _input(event: InputEvent) -> void:
-	if phase == Phase.DONE:
-		return
+## Every way a player can mean "the one button", reduced to a bool. Kept as its
+## own function because TWO engine paths call it (see below) and they must agree
+## exactly.
+func _is_press(event: InputEvent) -> bool:
 	var pressed := false
 	if event is InputEventScreenTouch:
 		pressed = (event as InputEventScreenTouch).pressed
@@ -244,28 +262,63 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey:
 		var k := event as InputEventKey
 		if not k.pressed or k.echo:
-			return
+			return false
 		if k.keycode == KEY_ESCAPE:
-			return
+			return false
 		# A dodge is a direction as much as a button: on a phone the thumb is
 		# already on the stick, and the first thing a player tries when a spear
 		# comes at them is to move.
-		pressed = k.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D] \
+		pressed = k.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_LEFT, KEY_RIGHT,
+			KEY_A, KEY_D, KEY_UP, KEY_DOWN, KEY_W, KEY_S] \
 			or event.is_action_pressed("interact") or event.is_action_pressed("ui_accept") \
-			or event.is_action_pressed("move_left") or event.is_action_pressed("move_right")
-	elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
-		pressed = true
-	elif event.is_action_pressed("move_left") or event.is_action_pressed("move_right"):
-		pressed = true
-	if not pressed:
+			or event.is_action_pressed("move_left") or event.is_action_pressed("move_right") \
+			or event.is_action_pressed("move_up") or event.is_action_pressed("move_down")
+	else:
+		pressed = event.is_action_pressed("interact") or event.is_action_pressed("ui_accept") \
+			or event.is_action_pressed("move_left") or event.is_action_pressed("move_right") \
+			or event.is_action_pressed("move_up") or event.is_action_pressed("move_down")
+	return pressed
+
+
+## The world path. `_input` runs before the GUI, so the fight hears a click even
+## though its own full-screen layer would otherwise claim it.
+func _input(event: InputEvent) -> void:
+	_try_press(event)
+
+
+## The GUI path, on the full-screen Control this scene draws on. If the layer
+## has the pointer, the click is still a press — and TapGate is what stops the
+## same physical click being counted twice by the two paths (BUG-016).
+func _on_layer_gui(event: InputEvent) -> void:
+	_try_press(event)
+
+
+func _try_press(event: InputEvent) -> void:
+	if phase == Phase.DONE or not _is_press(event):
 		return
-	# One thumb, one action — the same arbitration the world uses, so a touch and
-	# its emulated mouse twin cannot dodge AND throw in the same instant.
 	if not TapGate.take():
+		# The other engine path already had this physical press.
 		get_viewport().set_input_as_handled()
 		return
 	get_viewport().set_input_as_handled()
-	press()
+	_press_at()
+
+
+## A press, in whatever phase it arrives. Every one of them is answered: the two
+## phases that cannot use a press queue it briefly and say so on screen, because
+## a tap that produces nothing at all is indistinguishable from a broken game —
+## and this was the reported "cant click anything to fight" (BUG-016).
+func _press_at() -> void:
+	match phase:
+		Phase.TELEGRAPH, Phase.RESOLVE:
+			_buffer = BUFFER_SECS
+			_say(I18n.t({"en": "Not yet — he is winding up. Wait for the spear.",
+				"zh": "还不行 —— 他在蓄力。等枪尖过来。"}), 1.0)
+			AudioDirector.play_sfx("blip", -12.0)
+		Phase.STRIKE:
+			press()
+		Phase.AIM:
+			press()
 
 
 ## The one button. It means "step aside" while he is striking and "let go" while
@@ -460,6 +513,22 @@ func _redraw() -> void:
 		_layer.draw_multiline_string(font, Vector2(e + 4, e + 16), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2,
 			Color(0.97, 0.87, 0.65, 0.95))
+
+	# ── the button, on the screen that asks for it ─────────────────────
+	# TouchControls hides the A button while a setpiece owns the screen, so the
+	# hint "A / tap" was telling a phone player to press something that was not
+	# there (BUG-017). Every scene that takes the screen draws its own.
+	if phase != Phase.DONE:
+		var a_c := Vector2(vs.x - 30.0, vs.y - 26.0)
+		var live: bool = phase == Phase.STRIKE or phase == Phase.AIM
+		var tint := Color(0.97, 0.87, 0.65, 0.40 if live else 0.16)
+		var edge := Color(0.97, 0.87, 0.65, 0.85 if live else 0.35)
+		if _buffer > 0.0:
+			tint = Color(0.97, 0.87, 0.65, 0.55)
+		_layer.draw_circle(a_c, 15.0, tint)
+		_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, edge, 1.0)
+		_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.85 if live else 0.45))
 
 
 func _head() -> Vector2:

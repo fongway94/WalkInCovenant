@@ -61,6 +61,7 @@ func _run() -> void:
 	await _check_dialogue_taps()
 	await _check_journal_escape()
 	await _check_drill_keys()
+	await _check_fight_input()
 	_finish()
 
 
@@ -353,6 +354,89 @@ func _check_drill_keys() -> void:
 	_check(done[0], "and the drill can be finished on a keyboard")
 	drill.queue_free()
 	await _frames(1)
+
+
+# ── BUG-016: the duel hears a real press, and answers every one ────────────
+## The smoke test drives the fight by calling `press()`, which is exactly how
+## BUG-015 hid: a scene can have a perfect state machine and no way into it. So
+## this check pushes real events through `Input.parse_input_event` — the same
+## path a browser click and a phone tap take — and asserts the fight reacts.
+func _check_fight_input() -> void:
+	var f = GoliathFight.new()
+	add_child(f)
+	await _frames(2)
+	f.start()
+	# The fight runs in real time: at 24x a telegraph is two frames and the
+	# timing under test would be the engine loop's, not the player's.
+	Engine.time_scale = 1.0
+	Engine.max_fps = 240
+	await _frames(2)
+
+	_check(f._layer.is_connected("gui_input", Callable(f, "_on_layer_gui")),
+		"the duel's screen listens for clicks on its own layer")
+	_check(int(f.phase) == int(GoliathFight.Phase.TELEGRAPH), "the duel opens by winding up")
+
+	# (1) a press while he winds up is ANSWERED, not swallowed
+	TapGate.reset()
+	_click()
+	await _frames(2)
+	_check(f._msg != "", "a press while he winds up says why nothing happened yet")
+	_check(f._buffer > 0.0, "and it is queued rather than thrown away")
+
+	# (2) a press made just before the spear goes live counts as the dodge
+	var guard := 0
+	while float(f._t) < f._telegraph_time() - 0.30 and guard < 400:
+		await _frames(1)
+		guard += 1
+	TapGate.reset()
+	_click()
+	await _frames(1)
+	guard = 0
+	while int(f.phase) == int(GoliathFight.Phase.TELEGRAPH) and guard < 200:
+		await _frames(1)
+		guard += 1
+	_check(bool(f._dodged), "a queued press becomes the dodge when the spear arrives")
+	_check(int(f.nerve) == 3, "and the dodge costs no nerve (nerve=%d)" % int(f.nerve))
+
+	# (3) a press during the aim phase throws — the A button's synthetic action
+	guard = 0
+	while int(f.phase) != int(GoliathFight.Phase.AIM) and guard < 400:
+		await _frames(1)
+		guard += 1
+	if int(f.phase) != int(GoliathFight.Phase.AIM):
+		_check(false, "the duel reaches the aim phase (phase=%d)" % int(f.phase))
+	else:
+		f.aim_perfect()
+		TapGate.reset()
+		var ev := InputEventAction.new()
+		ev.action = "interact"
+		ev.pressed = true
+		Input.parse_input_event(ev)
+		await _frames(3)
+		_check(int(f.hits) == 1, "the A button's action throws the stone (hits=%d)" % int(f.hits))
+		# and the same press does not count twice (the two engine paths)
+		_check(int(f.stones) == f.STONES - 1,
+			"one press spends one stone (stones=%d)" % int(f.stones))
+
+	Engine.max_fps = 0
+	Engine.time_scale = 24.0
+	f.queue_free()
+	await _frames(2)
+
+
+## A real mouse click, through the pipeline, so this is the event a browser
+## actually delivers.
+func _click() -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = Vector2(200, 100)
+	Input.parse_input_event(down)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = Vector2(200, 100)
+	Input.parse_input_event(up)
 
 
 # ── harness ───────────────────────────────────────────────────────────────

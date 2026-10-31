@@ -142,8 +142,13 @@ func _input(event: InputEvent) -> void:
 
 
 ## The one button. Dodging is not a thing here; every press is a release.
+## A press that lands while the last stone is still resolving is acknowledged
+## rather than swallowed: "nothing happened" is what a broken game feels like
+## (BUG-016).
 func press() -> void:
 	if phase != Phase.AIM:
+		if phase == Phase.RESOLVE:
+			_say(I18n.t({"en": "Wait for the next jar.", "zh": "等下一个陶罐。"}))
 		return
 	if absf(_marker - 0.5) <= _band:
 		hits += 1
@@ -236,6 +241,13 @@ func _draw_all() -> void:
 		_layer.draw_multiline_string(font, Vector2(22, vs.y - 44), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 9, 2, Color(0.97, 0.87, 0.65, 0.95))
 	if phase == Phase.AIM:
+		# The button the line above names, on the screen that names it: the
+		# touch controls hide theirs while a setpiece owns the picture.
+		var a_c := Vector2(vs.x - 30.0, vs.y - 26.0)
+		_layer.draw_circle(a_c, 15.0, Color(0.97, 0.87, 0.65, 0.36))
+		_layer.draw_arc(a_c, 15.0, 0.0, TAU, 28, Color(0.97, 0.87, 0.65, 0.8), 1.0)
+		_layer.draw_string(font, a_c + Vector2(-4, 4), "A",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.8))
 		_layer.draw_multiline_string(font, Vector2(22, vs.y - 16),
 			I18n.t({"en": "A / tap — release the stone", "zh": "按 A 或点屏幕 —— 放手"}),
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 8, 2, Color(0.85, 0.85, 0.8, 0.85))
