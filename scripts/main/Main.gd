@@ -602,6 +602,13 @@ func _on_trigger(id: String) -> void:
 		# fight. Now you cross it as the boy who said it was not his either.
 		_start_battle()
 		return
+	if act == Act.STONES:
+		# A silent nothing at the most important line in the chapter reads as a
+		# broken game. He is not ready, and the valley says so.
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "Not with an empty pouch. Five stones, down at the brook.",
+			"zh": "空着手不行。五块石子，在下面的溪边。"}))
+		return
 	if act != Act.WITNESS and act != Act.DONE:
 		return
 	if bool(GameState.flag("goliath_down")):
