@@ -154,6 +154,7 @@ func start() -> void:
 	_msg_t = 0.0
 	_fall = 0.0
 	_emitted = false
+	_buffer = 0.0          # a queued press must not survive into a new fight
 	_begin_round()
 
 

@@ -1198,16 +1198,31 @@ func _practice_done() -> void:
 		_story_flag("elah_drill_done"))
 
 
+## How many of the errand's items are already in the bag, derived from the
+## region's pickup flags — one source of truth, so a reload cannot disagree with
+## the ground.
+func _errand_provisions(items: Array) -> int:
+	var n := 0
+	for it in items:
+		if bool(GameState.flag(Region.pickup_key(str(region.model.id), str(it.get("id", ""))))):
+			n += 1
+	return n
+
+
 ## Jesse's errand: the provisions, the walk, the brothers who do not want him
 ## there. Without this beat the stones and the fight arrive with no story under
 ## them (1 Samuel 17:17-28).
 func _start_errand() -> void:
 	act = Act.ERRAND
-	provisions = 0
 	_brothers_met = false
 	var da: Dictionary = region.model.david_act
 	var items: Array = da.get("items", [])
 	_provision_total = items.size()
+	# Count what is actually gone, not zero. The runner replays a resumed
+	# mission's opening beat, so this function runs again on a reload: zeroing
+	# here wiped a half-finished errand, and once pickups remember being taken
+	# (BUG-018) it also left items that were gone and could never be collected.
+	provisions = _errand_provisions(items)
 	# Stand him where the errand happens, with the camera already there: the
 	# provisions are small props, and making the player walk 35 tiles to find
 	# them was reported as "the quest item cannot be seen on the map".

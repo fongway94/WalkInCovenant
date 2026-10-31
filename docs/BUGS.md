@@ -33,7 +33,7 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 17 found, 17 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
+**Summary: 18 found, 18 fixed, 0 open, 0 P0.** Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 
@@ -362,6 +362,37 @@ save-corruption class and is fixed structurally rather than worked around.
   world's buttons stay hidden underneath, which is the part that was correct.
 - **Regression test:** covered indirectly by `_check_fight_input()` (the badge is
   only drawn while `phase != DONE`); the visual itself needs a device.
+
+## BUG-018 — the provisions you picked up were on the ground again after a reload
+
+- **Severity:** P1 · **Status:** Fixed
+- **Where:** `scripts/world/Region.gd` → `spawn_pickup()`, `_check_pickups()`;
+  `scripts/main/Main.gd` → `_start_errand()`, `_errand_provisions()`
+- **Reproduce:** start Jesse's errand, pick up one provision, let the game
+  autosave (it does, every frame), reload. The provision is **back on the
+  ground**, and picking it up again takes the count to 2 having carried 1.
+  The same bread can be farmed: save, reload, pick up, save, reload. Ten
+  reloads finish a four-item errand standing in one place.
+- **Expected:** an item in the bag is not also on the ground (audit area D, "no
+  duplication or loss").
+- **Actual:** `spawn_pickup()` built every item unconditionally and
+  `_check_pickups()` only set an in-memory `got`, so the ground had no memory
+  while the counter beside it was restored from the save — the two disagreed
+  after every reload, in the player's favour, silently.
+- **Root cause:** pickups were the only collectable thing in the game without a
+  save key. Curios already used `curio_<id>`; NPCs used `talked:<region>:<npc>`.
+  The pattern existed and the errand simply was not using it.
+- **Fix:** a region-scoped `pickup:<region>:<id>` flag, written when the item is
+  taken and read by `spawn_pickup()` before it builds anything; and the errand's
+  count is now **derived** from those flags (`_errand_provisions`) instead of
+  being zeroed on entry. Deriving matters: the runner replays a resumed
+  mission's opening beat, so `_start_errand()` runs again on a reload — with
+  flags but a zero count, the errand would have been *unfinishable* (items gone,
+  counter at 0/4) rather than merely farmable.
+- **Regression test:** `tests/deep.gd` → `_check_pickups()`, which takes a real
+  pickup by standing on it, asserts the flag, then asks the region for the same
+  item again and asserts it does **not** come back, and that the derived count
+  agrees.
 
 ---
 

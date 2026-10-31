@@ -215,8 +215,20 @@ func _spawn_pickups() -> void:
 ## Add one pickup to the world after load. The David act lays out the provisions
 ## in his father's hand this way — they belong to a scene that has not happened
 ## yet when the valley is first built.
+## The save key for "this region's copy of this item has been picked up".
+## Region-scoped, like an NPC's `talked:` key, so two stories can both have bread
+## (BUG-018).
+static func pickup_key(rid: String, id: String) -> String:
+	return "pickup:%s:%s" % [rid, id]
+
+
 func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 		extra: Dictionary = {}) -> void:
+	# An item that is already in the bag must not be lying on the ground again.
+	# Without this, every reload put the provisions back and the errand's count
+	# could be collected twice (BUG-018).
+	if bool(GameState.flag(pickup_key(str(model.id), id))):
+		return
 	var node := Node2D.new()
 	node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
 	var tex := load("res://art/props/%s.png" % sprite)
@@ -304,6 +316,7 @@ func _check_pickups() -> void:
 		if d < PICK_RANGE:
 			p["got"] = true
 			p["node"].queue_free()
+			GameState.set_flag(pickup_key(str(model.id), str(p["id"])), true)
 			pickup_taken.emit(p["id"])
 			EventBus.item_picked_up.emit(p["id"])
 

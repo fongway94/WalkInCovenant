@@ -51,6 +51,7 @@ func _run() -> void:
 
 	await _check_save()
 	await _check_stones()
+	await _check_pickups()
 	_check_goliath()
 	await _check_talked_survives()
 	await _check_armour_offset()
@@ -131,6 +132,55 @@ func _check_stones() -> void:
 	await _frames(2)
 	_check(got[0] == 5, "A confirms the five stones on a keyboard (got %d)" % got[0])
 	panel.queue_free()
+	await _frames(1)
+
+
+# ── BUG-018: what you picked up does not come back ───────────────────────
+## Pickups had no persisted state at all: the region spawned every one of them
+## fresh, so a reload put the provisions back on the ground while the count they
+## fed was restored from the save — the same bread could be collected again, and
+## a resumed errand could be finished without walking the errand.
+func _check_pickups() -> void:
+	var region = main.region
+	var rid := str(region.model.id)
+	var key := Region.pickup_key(rid, "deep_prov")
+	GameState.data["flags"].erase(key)
+	var pv_before: int = int(main.provisions)
+
+	region.spawn_pickup("deep_prov", "provision", "jar", 5, 5)
+	await _frames(1)
+	var found = null
+	for it in region.pickups:
+		if str(it["id"]) == "deep_prov":
+			found = it
+	_check(found != null, "an item with no flag is on the ground")
+	if found == null:
+		return
+
+	# walk onto it
+	var node: Node2D = found["node"]
+	region.player.global_position = node.global_position
+	region._check_pickups()
+	await _frames(1)
+	_check(bool(GameState.flag(key)), "taking an item is written to the save")
+	_check(bool(found["got"]), "and the item is gone from this region")
+
+	# the reload: a rebuilt world asks for the same item in the same place
+	region.spawn_pickup("deep_prov", "provision", "jar", 5, 5)
+	await _frames(1)
+	var back := false
+	for it in region.pickups:
+		if str(it["id"]) == "deep_prov" and not bool(it["got"]):
+			back = true
+	_check(not back, "a reloaded region does not put it back on the ground")
+
+	# and the errand's count is derived from the ground, so a resumed run cannot
+	# start at zero with the items already gone (or at four with them all there)
+	var counted: int = main._errand_provisions([{"id": "deep_prov"}, {"id": "deep_absent"}])
+	_check(counted == 1, "the errand counts what is taken, not what it is told")
+
+	GameState.data["flags"].erase(key)
+	main.provisions = pv_before
 	await _frames(1)
 
 
