@@ -34,7 +34,6 @@ var arrow: WaypointArrow = null
 var journal_btn: Button = null
 var lang_btn: Button = null
 var sound_btn: Button = null
-var sound_btn: Button = null
 var region: Region = null
 
 var _stones_n := 0
