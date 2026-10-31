@@ -95,7 +95,13 @@ func _run() -> void:
 	_check(region.player != null, "player spawned")
 	_check(region.dialogue != null, "dialogue box exists")
 	_check(region.npcs.size() == 4, "4 people in the valley (got %d)" % region.npcs.size())
-	_check(region.pickups.size() == 5, "5 stones in the brook (got %d)" % region.pickups.size())
+	# The five stones of 17:40 belong to David's act and are laid out when the
+	# verse is spoken, so at boot there must be none of them: the witness cannot
+	# pick up a scene that has not happened yet.
+	_check(region.pickups.size() == 0,
+		"the valley opens with nothing to collect (got %d)" % region.pickups.size())
+	_check(int(main._stones_total) == 5,
+		"and the brook still knows it holds five stones (got %d)" % int(main._stones_total))
 	_check(region.triggers.size() == 1, "challenge trigger was built (got %d)" % region.triggers.size())
 	_check(_tile_of(region.player) == region.model.spawn, "player stands on the authored spawn tile")
 
