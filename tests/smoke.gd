@@ -510,7 +510,7 @@ func _run() -> void:
 	panel.toggle(3)
 	panel.toggle(4)
 	_check(panel.is_full(), "five chosen, and the scene knows it")
-	var before_six := panel.chosen_count()
+	var before_six: int = int(panel.chosen_count())
 	panel.toggle(5)
 	_check(panel.chosen_count() == before_six, "a sixth stone cannot be taken")
 	_check(int(main.stones) != 5, "the pouch is still empty while the choice is open")

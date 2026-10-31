@@ -260,7 +260,9 @@ func _draw_all() -> void:
 			continue
 		var p := _stone_pos(i)
 		var shade: int = int(s["shade"])
-		var body := [Color(0.62, 0.60, 0.55), Color(0.55, 0.53, 0.50), Color(0.68, 0.66, 0.60)][shade]
+		var palette: Array[Color] = [Color(0.62, 0.60, 0.55), Color(0.55, 0.53, 0.50),
+			Color(0.68, 0.66, 0.60)]
+		var body: Color = palette[clampi(shade, 0, 2)]
 		_layer.draw_circle(p + Vector2(1.0, 1.5), rad, Color(0.10, 0.14, 0.15, 0.45))
 		_layer.draw_circle(p, rad, body)
 		_layer.draw_circle(p + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.45,
