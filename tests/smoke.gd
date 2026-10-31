@@ -549,7 +549,7 @@ func _run() -> void:
 		# one gesture = one step, even though it arrives as two events
 		var page0 := int(region.dialogue._page)
 		var line0 := int(region.dialogue._i)
-		var full := region.dialogue._current_page_text()
+		var full: String = str(region.dialogue._current_page_text())
 		region.dialogue._shown = float(full.length())
 		region.dialogue.text_lbl.text = full
 		var tap := InputEventScreenTouch.new()
@@ -572,7 +572,7 @@ func _run() -> void:
 		TapGate.reset()
 		var page1 := int(region.dialogue._page)
 		var line1 := int(region.dialogue._i)
-		var full1 := region.dialogue._current_page_text()
+		var full1: String = str(region.dialogue._current_page_text())
 		region.dialogue._shown = float(full1.length())
 		region.dialogue.text_lbl.text = full1
 		var tap2 := InputEventScreenTouch.new()
