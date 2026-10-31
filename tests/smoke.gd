@@ -319,6 +319,7 @@ func _run() -> void:
 	# Chapter 2 first: three days earlier, the sheep slope, and the drill that
 	# teaches the one input the fight asks for. Then Jesse's errand. Then the
 	# king. Only then is there a fight.
+	var level_before := int(GameState.data["level"])
 	await _stand(region, 16, 10, 4)
 	_check(bool(main._in_battle), "crossing with the camp's words in hand begins BECOME")
 	_check(region._paused, "the world holds still while you become David")
