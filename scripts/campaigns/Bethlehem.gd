@@ -20,7 +20,11 @@ extends Node
 ## elder, the woman at the well, Jesse's household as they wait — are invented,
 ## and none of them says anything Scripture contradicts.
 
-var main: Node = null
+## Deliberately untyped: `Main` is a scene script, not a class the engine's
+## reference knows, and a chapter may only rely on the handful of things the
+## contract names (card, hud, region). Typing it as `Node` made the API checker
+## (rightly) complain that Node has no `card`.
+var main = null
 var region: Region = null
 var runner: MissionRunner = null
 
@@ -28,7 +32,7 @@ var runner: MissionRunner = null
 var _busy := false
 
 
-func setup(m: Node, r: Region, run: MissionRunner) -> void:
+func setup(m, r: Region, run: MissionRunner) -> void:
 	main = m
 	region = r
 	runner = run
