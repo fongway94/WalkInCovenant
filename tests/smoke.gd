@@ -868,10 +868,10 @@ func _run() -> void:
 	var south_at: Array = south.get("at", [16, 46])
 	await _stand(region, int(south_at[0]), int(south_at[1]), 3)
 	_press_interact(region)
-	var waited := 0
-	while main.region != null and str(main.region.region_id) == "elah" and waited < 400:
+	var hops := 0
+	while main.region != null and str(main.region.region_id) == "elah" and hops < 400:
 		await _frames(1)
-		waited += 1
+		hops += 1
 	_check(main.region != null and str(main.region.region_id) == "bethlehem",
 		"the exit takes you somewhere else (region=%s)"
 		% (str(main.region.region_id) if main.region != null else "null"))
@@ -957,10 +957,10 @@ func _run() -> void:
 		var b_at: Array = back.get("at", [16, 30])
 		await _stand(beth, int(b_at[0]), int(b_at[1]), 3)
 		_press_interact(beth)
-		var waited2 := 0
-		while main.region != null and str(main.region.region_id) == "bethlehem" and waited2 < 400:
+		var hops_home := 0
+		while main.region != null and str(main.region.region_id) == "bethlehem" and hops_home < 400:
 			await _frames(1)
-			waited2 += 1
+			hops_home += 1
 		_check(main.region != null and str(main.region.region_id) == "elah",
 			"and it leads back to the valley")
 		if main.region != null and str(main.region.region_id) == "elah":
