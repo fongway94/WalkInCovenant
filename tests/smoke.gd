@@ -485,6 +485,10 @@ func _run() -> void:
 	_check(not bool(dave.armour), "the armour comes off")
 	_check(absf(dave.speed_scale() - 1.0) < 0.001, "and David walks like himself again")
 	_check(bool(GameState.flag("elah_armour_off")), "the chapter records that it came off")
+	print("  diag  mission=%s closing=%s flag=%s paused=%s open=%s" % [
+		str(main.runner.current_id()), str(main.runner._closing),
+		str(GameState.flag("elah_armour_off")), str(region._paused),
+		str(region.dialogue._open)])
 	_check(main.act_id() == "stones",
 		"the mission moves on to the brook (act=%s)" % main.act_id())
 	_check(int(main._stones_total) == 5, "the brook asks for five stones (got %d)" % int(main._stones_total))
