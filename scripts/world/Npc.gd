@@ -138,7 +138,9 @@ func emote(text: String) -> void:
 	if _bubble == null:
 		_bubble = Panel.new()
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.06, 0.08, 0.10, 0.92)
+		# Opaque, like the journal: 0.92 let a sheep behind the bubble show
+		# through as a dark blob over the words (CI frame 08_quest_update).
+		sb.bg_color = Color(0.06, 0.08, 0.10, 1.0)
 		sb.border_color = Color(0.79, 0.64, 0.36, 0.85)
 		sb.set_border_width_all(1)
 		sb.set_content_margin_all(3)
