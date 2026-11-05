@@ -1162,7 +1162,7 @@ func _check_bubbles() -> void:
 	var bub: Panel = speaker._bubble
 	_check(bub != null, "the NPC built a bubble")
 	if bub != null:
-		_check(bub.size.x <= 134.0 and bub.size.y <= 34.0,
+		_check(bub.size.x <= 114.0 and bub.size.y <= 24.0,
 			"it stays a glance-sized %dx%d, not a slab" % [int(bub.size.x), int(bub.size.y)])
 		_check(speaker._bubble_lbl.position.x >= 0.0
 			and speaker._bubble_lbl.size.y <= bub.size.y,

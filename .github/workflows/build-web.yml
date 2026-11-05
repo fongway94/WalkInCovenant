@@ -399,7 +399,7 @@ jobs:
 
       # GitHub TRUNCATES an annotation message at 4096 characters and allows
       # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
-      # each frame is cut into 3500-char chunks, spread round-robin over twelve
+      # each frame is cut into 3800-char chunks, spread round-robin over twelve
       # short steps. Twelve (rather than the original eight) keeps the per-step
       # count low now that the harness captures twelve states — boot control,
       # a 2x Chinese-text review, sheep interaction, quest update, 4:3 layout
@@ -408,7 +408,7 @@ jobs:
         if: always()
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
-          # Quantising to 64 colours keeps it a real, readable pixel frame at
+          # Quantising to 48 colours keeps it a real, readable pixel frame at
           # ~7 KB, so a whole run fits comfortably inside GitHub's ~50
           # annotation/check-run cap. Pillow is a transport detail only; the
           # engine's own Image class does the in-run regression comparison.
@@ -428,11 +428,11 @@ jobs:
               src = f
               if Image is not None:
                   small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(colors=64).save(small, optimize=True)
+                  Image.open(f).convert("RGB").quantize(colors=48).save(small, optimize=True)
                   src = small
               raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
-              CH = 3500
+              CH = 3800
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))

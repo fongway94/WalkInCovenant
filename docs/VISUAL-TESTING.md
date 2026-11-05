@@ -27,7 +27,8 @@ CI artifacts and raw logs live on hosts this sandbox cannot reach
 `api.github.com`** and are readable with `gh api`. So the `visual` job prints
 each PNG as base64 `::notice::WICFRAME|name|chunk|total|data` lines. An
 annotation is truncated at 4096 characters and a step may emit ~10 notices, so
-chunks are 3500 characters, spread round-robin over twelve short steps
+chunks are 3800 characters (still under the 4096-character truncation),
+spread round-robin over twelve short steps
 (measured: a 320×180 capture is ~20 KB → ~27 KB base64 → ~8 chunks). Then:
 
 ```bash
@@ -50,6 +51,8 @@ itself is on a blocked host.
   produced, but every `WICFRAME` notice was truncated to 4096 characters, so
   nothing could be decoded. Fixed by 3500-character chunks spread over eight
   steps, and by quantising the transport copy to 64 colours (~7 KB/frame).
+  (The chunk size is now 3800 and the palette 48, to fit twelve frames under
+  GitHub's ~50-annotation cap; see the capability section above.)
 - Run `41980997515`: the visual job went green
   (`input_routed=true parsed_opens=true direct=false` — a parsed
   `InputEventAction` really reaches `Node._unhandled_input` and opens a

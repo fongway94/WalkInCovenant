@@ -503,12 +503,12 @@
    },
    "chatter": [
     {
-     "en": "“Forty days. I ran out of ink on the nineteenth.”",
-     "zh": "「四十天了。第十九天我就把墨用完了。」"
+     "en": "“The ink ran out on day nineteen.”",
+     "zh": "「第十九天墨就用完了。」"
     },
     {
-     "en": "“Stand still a moment. That shadow is going to move.”",
-     "zh": "「别动。那片影子等会儿要挪。」"
+     "en": "“Hold still. That shadow is about to move.”",
+     "zh": "「别动。影子要挪了。」"
     }
    ]
   },
@@ -671,8 +671,8 @@
    },
    "chatter": [
     {
-     "en": "“He starts shouting about this time every morning.”",
-     "zh": "「他差不多每天这时候开骂。」"
+     "en": "“He starts shouting about now.”",
+     "zh": "「他这时候该开骂了。」"
     }
    ]
   },
@@ -786,8 +786,8 @@
    },
    "chatter": [
     {
-     "en": "“Water's on. Sit down if your feet are wet.”",
-     "zh": "「水烧上了。脚湿了就坐一会儿。」"
+     "en": "“The water's on. Sit a while.”",
+     "zh": "「水烧上了。坐会儿。」"
     }
    ]
   },
@@ -912,8 +912,8 @@
    },
    "chatter": [
     {
-     "en": "“Tighten it before it breaks, not after.”",
-     "zh": "「趁没断先勒紧，别等断了再勒。」"
+     "en": "“Tighten it before it breaks.”",
+     "zh": "「趁没断，先勒紧。」"
     }
    ]
   },

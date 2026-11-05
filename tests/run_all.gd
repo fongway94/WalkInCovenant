@@ -735,6 +735,11 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 				_has_both(line.get("text"), "%s:npc %s by_flag %s" % [rid, nd.get("id"), key])
 		for ch in (nd.get("chatter", []) as Array):
 			_has_both(ch, "%s:npc %s chatter" % [rid, nd.get("id")])
+			# A bubble is one glance-sized line. A long line used to wrap an
+			# autowrapped Label into a black slab over the world (frame 06).
+			if str((ch as Dictionary).get("zh", "")).length() > 14:
+				_fail("%s: npc %s chatter is too long for one line"
+					% [rid, nd.get("id")])
 	# The herding loop is data. A stray without a temperament is a sprite, not
 	# an animal; a fold without a tile is a sheep with nowhere to walk.
 	var shd: Dictionary = m.david_act.get("shepherd", {})

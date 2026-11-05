@@ -78,9 +78,15 @@ var world_paused := false
 ## combined minimum size of its children, and an autowrapped Chinese Label has
 ## no word breaks: one long chatter line grew this into an 84x150 black slab
 ## over the middle of the shepherd slope. Found by reviewing CI frame 06_flock,
-## not by a pixel diff. A Panel keeps exactly the rectangle we give it.
-const BUBBLE_W := 132.0
-const BUBBLE_H := 32.0
+## not by a pixel diff. A Panel keeps exactly the rectangle we give it, and the
+## label is one clipped line — a bubble is a glance, not a second dialogue box.
+const BUBBLE_W := 112.0
+const BUBBLE_H := 22.0
+## ONE voice at a time, across the whole world. Every NPC used to start its own
+## 16 s timer at the same instant, so three bubbles arrived together over the
+## objective line. This is a wall-clock gate: the per-NPC timer below is scaled
+## by Engine.time_scale and would fire every few real frames in a sped-up test.
+static var _chat_gate_ms: int = 0
 var _bubble: Panel = null
 var _bubble_lbl: Label = null
 var _bubble_until := 0
@@ -144,13 +150,11 @@ func emote(text: String) -> void:
 		_bubble_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 		_bubble_lbl.add_theme_constant_override("shadow_offset_x", 1)
 		_bubble_lbl.add_theme_constant_override("shadow_offset_y", 1)
-		# Two lines at most, then the rest is cut. A bubble is a glance, not a
-		# second dialogue box; the full line stays in the book if it matters.
-		_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_bubble_lbl.clip_text = true
 		_bubble_lbl.custom_minimum_size = Vector2(0, 0)
 		_bubble_lbl.position = Vector2(4, 3)
-		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 6)
+		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 5)
 		_bubble_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble.add_child(_bubble_lbl)
 		add_child(_bubble)
@@ -175,7 +179,14 @@ func _process(delta: float) -> void:
 	_chat_cd -= delta
 	if _chat_cd > 0.0 or global_position.distance_to(player.global_position) > 72.0:
 		return
+	if Time.get_ticks_msec() < _chat_gate_ms:
+		return
+	# Never draw a bubble into the HUD's objective/toast band. A person near
+	# the top of the camera simply stays quiet; the beat is optional.
+	if get_global_transform_with_canvas().origin.y < 58.0:
+		return
 	var d: Dictionary = lines[_chat_i % lines.size()]
+	_chat_gate_ms = Time.get_ticks_msec() + 16000
 	emote(I18n.t(d))
 	_chat_i += 1
 	_chat_cd = 16.0
