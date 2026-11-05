@@ -12,6 +12,14 @@ run in which its own check executed and passed:
 
 # Pass 4 — the David chapter, read as a story
 
+**Verified in CI `41963019742`** (`4ffdebe`): content lint, the full playthrough
+and the regression suite (`deep: PASS — 109 checks hold`, floor 100) all green.
+Two runs before it were red — `41961892986` and `41962456561` — and both
+failures were in the *tests*, not the game: one still asserted the questionnaire
+this pass deleted, and one drained the ending so completely that the loop
+watching for it saw nothing. They are recorded rather than quietly fixed, because
+"green" only means something if the red runs are on the record.
+
 Passes 1–3 asked whether the game works. This pass asked whether the chapter
 *lands*, with the same rule: nothing is claimed that cannot be pointed at.
 

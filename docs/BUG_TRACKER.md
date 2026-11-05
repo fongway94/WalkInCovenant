@@ -23,11 +23,11 @@ _None. Every bug found this pass is fixed and has a check. See "Fixed" below and
 
 | ID | Sev | What | Regression test | State |
 |---|---|---|---|---|
-| BUG-033 | **P1** | 1 Samuel 17:34–36 was missing from the game. David's answer to Saul — the lion, the bear and the lamb he took back out of a lion's mouth — is the ground his courage stands on, and chapter 17 spent it in a single paraphrase. Without it Saul's "you are only a boy" has nothing to answer it except a claim. | `tests/run_all.gd` `_check_verses` + the required-speaker list; the lines are asserted present in the playthrough by citation (`17:34`, `17:35`) | Fixed, awaiting CI |
-| BUG-034 | **P1** | **Goliath's own taunt (17:44) had no name and no portrait.** `battle_intro` gives that line `"who": "goliath"`, and `goliath` was in no speaker table, so the box fell back to the raw id and an empty portrait: the giant's one sentence in the whole chapter was delivered as anonymous narration. | new content gate `_check_speakers()` — every `who` in every line must resolve to a person, a speaker-table entry or a cast entry | Fixed, awaiting CI |
-| BUG-035 | **P2** | The camp was frozen for the whole chapter: three dialogue states (first / later / after the giant) meant four people each said one sentence while the story walked from an errand to the brook. | `tests/deep.gd` `_check_by_act_lines()` | Fixed, awaiting CI |
-| BUG-036 | **P2** | The chapter ended on a **questionnaire aimed at the player** — "你生命里，现在站着什么样的巨人？信心的第一步，你想怎么走？" — with a moral in every answer. That is the one voice this project forbids (witness, not author), it broke the story's own frame at the last moment, and it was the last thing a player saw. | `tests/run_all.gd`: the ending must have ≥3 story lines; `ask`/`options` are optional and no longer required | Fixed, awaiting CI |
-| BUG-037 | **P2** | 18 characters used by the new prose had **no glyph in the bundled font** and would have rendered as tofu (习 仆 借 写 咬 喘 思 拜 牙 疤 礼 管 羔 臂 衔 许 遍 闻). | `check_font` gate (799 codepoints); `fonts/game.ttf` rebuilt from Noto Sans SC | Fixed, awaiting CI |
+| BUG-033 | **P1** | 1 Samuel 17:34–36 was missing from the game. David's answer to Saul — the lion, the bear and the lamb he took back out of a lion's mouth — is the ground his courage stands on, and chapter 17 spent it in a single paraphrase. Without it Saul's "you are only a boy" has nothing to answer it except a claim. | `tests/run_all.gd` `_check_verses` + the required-speaker list; the lines are asserted present in the playthrough by citation (`17:34`, `17:35`) | **Verified** |
+| BUG-034 | **P1** | **Goliath's own taunt (17:44) had no name and no portrait.** `battle_intro` gives that line `"who": "goliath"`, and `goliath` was in no speaker table, so the box fell back to the raw id and an empty portrait: the giant's one sentence in the whole chapter was delivered as anonymous narration. | new content gate `_check_speakers()` — every `who` in every line must resolve to a person, a speaker-table entry or a cast entry | **Verified** |
+| BUG-035 | **P2** | The camp was frozen for the whole chapter: three dialogue states (first / later / after the giant) meant four people each said one sentence while the story walked from an errand to the brook. | `tests/deep.gd` `_check_by_act_lines()` | **Verified** |
+| BUG-036 | **P2** | The chapter ended on a **questionnaire aimed at the player** — "你生命里，现在站着什么样的巨人？信心的第一步，你想怎么走？" — with a moral in every answer. That is the one voice this project forbids (witness, not author), it broke the story's own frame at the last moment, and it was the last thing a player saw. | `tests/run_all.gd`: the ending must have ≥3 story lines; `ask`/`options` are optional and no longer required | **Verified** |
+| BUG-037 | **P2** | 18 characters used by the new prose had **no glyph in the bundled font** and would have rendered as tofu (习 仆 借 写 咬 喘 思 拜 牙 疤 礼 管 羔 臂 衔 许 遍 闻). | `check_font` gate (799 codepoints); `fonts/game.ttf` rebuilt from Noto Sans SC | **Verified** |
 
 ## Found and deliberately not fixed
 
@@ -44,6 +44,8 @@ _None. Every bug found this pass is fixed and has a check. See "Fixed" below and
 
 | Run | Commit | Result |
 |---|---|---|
-| _pending_ | this pass | lint (static gates + content lint + playthrough + regression suite) · export · deploy |
+| `41961892986` | `79b1ac4` | **red**: two smoke assertions still expected the questionnaire (BUG-036), and the `by_act` fallback check assumed an untouched NPC. Both were faults in the *tests*, fixed by fixing the tests. |
+| `41962456561` | `07aad66` | **red**: one left — the drain ran through the whole ending, so the loop that used to catch a choice saw nothing. Replaced with a check that reads the pages the drain advanced past. |
+| `41963019742` | `4ffdeb e` | **green**: `run_all: ALL CHECKS PASSED` · `smoke: PASS — the slice played start to finish` · `deep: PASS — 109 checks hold` · export ✅ · deploy skipped (working branch) |
 | `41213672343` | `7b23ead` | pass 3 merged to `main`: lint ✅ · export ✅ · deploy ✅ |
 | `41211645356` | `e49dd03` | pass 3: lint ✅ · export ✅ |
