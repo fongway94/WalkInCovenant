@@ -374,7 +374,12 @@ jobs:
         if: always()
         run: |
           if [ ! -f visual.txt ]; then echo "::warning::no visual log"; exit 0; fi
-          BAD=$(grep -aE "SCRIPT ERROR|Parse Error|ERROR:|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve" visual.txt | head -20 || true)
+          # Godot prints "ERROR: N resources still in use at exit" while
+          # tearing down a scene booted from the command line. That is engine
+          # housekeeping, not a script or runtime failure; everything else
+          # named here is a real one.
+          BAD=$(grep -aE "SCRIPT ERROR|Parse Error|ERROR:|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve" visual.txt \
+            | grep -av "resources still in use at exit" | head -20 || true)
           if [ -n "$BAD" ]; then
             printf '%s\n' "$BAD" | tr '\n' '|' | cut -c1-3000 \
               | while IFS= read -r l; do printf '::error::%s\n' "$l"; done
@@ -388,7 +393,7 @@ jobs:
         if: always()
         run: |
           if [ -f visual.txt ]; then
-            grep -aE 'visual:|  FAIL' visual.txt | head -8 \
+            grep -aE '  FAIL|visual: PASS|visual: [0-9]+ FAILURE' visual.txt | head -4 \
               | while IFS= read -r l; do printf '::notice::%s\n' "$l"; done
           fi
 
@@ -399,15 +404,30 @@ jobs:
       - name: Prepare base64 frame chunks
         if: always()
         run: |
+          # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
+          # Quantising to 64 colours keeps it a real, readable pixel frame at
+          # ~7 KB, so a whole run fits comfortably inside GitHub's ~50
+          # annotation/check-run cap. Pillow is a transport detail only; the
+          # engine's own Image class does the in-run regression comparison.
+          python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           import base64, glob, os
           os.makedirs("build/ann", exist_ok=True)
+          try:
+              from PIL import Image
+          except ImportError:
+              Image = None
           lines = []
           files = sorted(glob.glob("build/frames/*.png"))
           if not files:
               print("::warning::visual job produced no frames")
           for f in files:
-              raw = base64.b64encode(open(f, "rb").read()).decode()
+              src = f
+              if Image is not None:
+                  small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
+                  Image.open(f).convert("RGB").quantize(colors=64).save(small, optimize=True)
+                  src = small
+              raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
               CH = 3500
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]

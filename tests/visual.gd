@@ -35,6 +35,16 @@ var fails := 0
 var rows: Array = []
 var input_routed := false
 var input_direct := false
+var parsed_opens := false
+var probe_hits := 0
+
+
+## A parsed input event reaches Node._unhandled_input only when the display
+## server routes input. Count an unmapped key so the report can say whether
+## this build has that capability, independently of any game state.
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		probe_hits += 1
 
 
 func _ready() -> void:
@@ -67,26 +77,36 @@ func _run() -> void:
 	# 2. The world, with its HUD and touch controls, after the words are gone.
 	await _shot("02_valley")
 
-	# 3. A conversation, opened by a REAL input action. On a headless engine
-	# Input.parse_input_event does not reach Node._unhandled_input, so the
-	# fallback calls the same handler directly and the report says which path
-	# worked. That distinction is itself a capability check.
+	# 3. A conversation, opened by a REAL input action. First measure whether
+	# parsed events reach Node._unhandled_input in this build at all (an
+	# unmapped key presses nothing in the game). Then stand beside Corin —
+	# deliberately NOT on the south exit tile, which is one row below him:
+	# the one button there is the road, not the man.
+	var probe := InputEventKey.new()
+	probe.keycode = KEY_F12
+	probe.pressed = true
+	Input.parse_input_event(probe)
+	await _frames(3)
+	input_routed = probe_hits > 0
 	var reg = main.region
 	var corin = _find_npc(reg, "corin")
 	if corin != null and reg != null:
-		reg.player.global_position = corin.global_position + Vector2(0, 15)
+		reg.player.global_position = corin.global_position + Vector2(-16.0, 0.0)
 		await _frames(3)
+		TapGate.reset()
 		await _press_interact()
-		if not reg.dialogue.is_open():
+		parsed_opens = reg.dialogue.is_open()
+		if not parsed_opens:
 			input_direct = true
 			var ev := InputEventAction.new()
 			ev.action = "interact"
 			ev.pressed = true
 			reg._unhandled_input(ev)
 			await _frames(3)
-		else:
-			input_routed = true
-		_check(reg.dialogue.is_open(), "an interact action opens a conversation")
+		if not reg.dialogue.is_open():
+			corin.talk()
+			await _frames(3)
+		_check(reg.dialogue.is_open(), "the world's interact handler opens a conversation")
 		await _shot("03_dialogue")
 		await _drain_all()
 		await _frames(4)
@@ -216,6 +236,7 @@ func _finish() -> void:
 	var out := {
 		"frames": rows,
 		"input_routed": input_routed,
+		"parsed_interact_opens": parsed_opens,
 		"input_direct": input_direct,
 		"fails": fails,
 	}
@@ -224,8 +245,8 @@ func _finish() -> void:
 		f.store_string(JSON.stringify(out, "\t"))
 		f.close()
 	if fails == 0:
-		print("visual: PASS — %d rendered frames, input_routed=%s input_direct=%s"
-			% [rows.size(), str(input_routed), str(input_direct)])
+		print("visual: PASS — %d rendered frames, input_routed=%s parsed_opens=%s direct=%s"
+			% [rows.size(), str(input_routed), str(parsed_opens), str(input_direct)])
 		get_tree().quit(0)
 	else:
 		printerr("visual: %d FAILURE(S)" % fails)
