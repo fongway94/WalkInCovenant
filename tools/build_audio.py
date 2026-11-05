@@ -264,6 +264,26 @@ def sfx_blip():
     return fade_edges(sig)
 
 
+def sfx_sheep():
+    # A short, soft bleat: two falling nasal syllables, no pitch sweep that
+    # could read as a comic effect. It plays when a stray notices the player or
+    # is driven toward the fold, and never more than once every few seconds.
+    sig = buf(0.34)
+    mix(sig, tone(432.0, 0.20, 0.15, 2.0, harm=(1.0, 0.48, 0.22)), 0.0, 0.55)
+    mix(sig, tone(384.0, 0.18, 0.15, 2.2, harm=(1.0, 0.42, 0.18)), 0.12, 0.48)
+    return fade_edges(sig)
+
+
+def sfx_horn():
+    # The sound across the valley that starts the chapter's curiosity beat:
+    # low, breathy, a little out of tune, with a long tail. Deliberately quiet
+    # in the mix — it is *distant*, not a fanfare.
+    sig = buf(1.15)
+    mix(sig, tone(146.83, 0.95, 0.72, 1.6, harm=(1.0, 0.48, 0.20, 0.08)), 0.0, 0.55)
+    mix(sig, tone(219.50, 0.82, 0.66, 1.8, harm=(1.0, 0.30, 0.10)), 0.09, 0.26)
+    return fade_edges(sig, 14.0)
+
+
 def sfx_verse():
     # The chapter's theological sound event: a rising chime, then a shimmer that
     # outlasts the dialogue box that triggered it. It must not sound like a
@@ -405,6 +425,8 @@ SFX = {
     "dodge": (sfx_dodge, 0.50),
     "pickup": (sfx_pickup, 0.60),
     "blip": (sfx_blip, 0.30),
+    "sheep": (sfx_sheep, 0.42),
+    "horn": (sfx_horn, 0.45),
     "verse": (sfx_verse, 0.62),
     "quest": (sfx_quest, 0.55),
     "ui": (sfx_ui, 0.45),

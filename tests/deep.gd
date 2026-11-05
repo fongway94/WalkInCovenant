@@ -48,12 +48,14 @@ func _run() -> void:
 	add_child(main)
 	await _frames(4)
 
-	# Get the arrival out of the way: several checks below need a world that is
-	# not paused with a box over it.
+	# PRIORITY 1: there is no arrival chain to get out of the way any more.
+	# Several checks below need a walkable world; assert that a fresh boot
+	# simply starts with one, instead of draining boxes that may not exist.
 	if main.region != null and main.region.dialogue != null:
-		await _drain(main.region.dialogue)
-		main._brief_once()
-		await _drain(main.region.dialogue)
+		_check(not main.region.is_paused(), "a fresh boot hands over the world unpaused")
+		_check(main.boot_forced_pages == 0, "and forces no dialogue pages")
+		_check(main.background_lines().size() >= 5,
+			"the arrival words are still available, in the book")
 	await _frames(2)
 
 	await _check_save()
@@ -86,6 +88,7 @@ func _run() -> void:
 	await _check_language_switch()
 	await _check_save_shape()
 	await _check_legacy_spine()
+	_check_living_flock()
 	_check_flock_resume()
 	_finish()
 
@@ -1137,6 +1140,68 @@ func _check_legacy_spine() -> void:
 	w.close()
 	GameState.load_game()
 	await _frames(1)
+
+
+# ── LIVING WORLD: the sheep are animals, not sprites ─────────────────────
+## Exercises the real FlockSheep state machine headlessly. Calls its `_process`
+## by hand with a known delta and a known player position, so the reaction does
+## not depend on a timer, a tween or a display. Runs before _check_flock_resume
+## and cleans the slope up so that check starts from an empty fold.
+func _check_living_flock() -> void:
+	main._start_flock()
+	var live: Array = []
+	var tempers := {}
+	for p in main.region.pickups:
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) != "flock":
+			continue
+		var sheep_probe: FlockSheep = pd.get("node")
+		live.append(sheep_probe)
+		tempers[str(sheep_probe.temper)] = true
+	_check(live.size() == 3, "the fold spawns three live animals (%d)" % live.size())
+	_check(tempers.size() == 3, "each has its own disposition (%d)" % tempers.size())
+	if live.size() < 2:
+		return
+	var first_sheep: FlockSheep = live[0]
+	_check(first_sheep.has_method("mood_name") and first_sheep.mood_name() == "graze",
+		"a stray starts by grazing")
+	_check(first_sheep.fold.distance_to(first_sheep.anchor) > 16.0,
+		"it knows where the fold is, away from its own tile")
+	# Stand on the far side of the fold. The sheep should walk toward home.
+	var away := (first_sheep.anchor - first_sheep.fold).normalized()
+	main.region.player.global_position = first_sheep.anchor + away * 34.0
+	first_sheep._process(0.2)
+	_check(first_sheep.mood_name() == "herded" and first_sheep.trust > 0.0,
+		"holding the far side drives it (mood=%s trust=%.2f)" % [first_sheep.mood_name(), first_sheep.trust])
+	_check(first_sheep.driven_px > 0.0,
+		"and it actually walks toward the hurdle (%d px)" % int(first_sheep.driven_px))
+	# Now approach from the hurdle side: it shies, and cannot be caught during
+	# the startle. After the startle the world is forgiving again.
+	var second_sheep: FlockSheep = live[1]
+	var toward_fold := (second_sheep.fold - second_sheep.anchor).normalized()
+	main.region.player.global_position = second_sheep.anchor + toward_fold * 30.0
+	second_sheep._process(0.2)
+	_check(second_sheep.mood_name() == "alert",
+		"coming from the fold side makes it startle (mood=%s)" % second_sheep.mood_name())
+	_check(not second_sheep.wants_catch(8.0, 26.0),
+		"a startled sheep is not caught in the same instant")
+	second_sheep._startle = 0.0
+	_check(second_sheep.wants_catch(8.0, 26.0),
+		"and settles, so no player can ever be stuck")
+	# No save schema change was needed for this milestone; a version-1 save
+	# must still boot through the same migration the last milestone added.
+	_check(int(GameState.data.get("version", 0)) == 2,
+		"the living world added no new save schema (live save is still v2)")
+	# Leave the slope empty for _check_flock_resume().
+	for p in main.region.pickups.duplicate():
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) == "flock":
+			var dead_node: Node = pd.get("node")
+			if is_instance_valid(dead_node):
+				dead_node.queue_free()
+			main.region.pickups.erase(pd)
+	main._flock_active = false
+	main.sheep_home = 0
 
 
 # ── SHEPHERD: a save taken halfway through the flock resumes halfway ──────

@@ -176,6 +176,20 @@
     17,
     27
    ]
+  },
+  {
+   "type": "jar",
+   "at": [
+    12,
+    19
+   ]
+  },
+  {
+   "type": "wheat_sheaf",
+   "at": [
+    25,
+    22
+   ]
   }
  ],
  "npcs": [
@@ -692,6 +706,42 @@
     "seal": "anointed_shepherd"
    },
    "note": "16:12-13, the anointing, and the chapter's closing beat"
+  }
+ ],
+ "curios": [
+  {
+   "id": "beth_well",
+   "at": [
+    10,
+    20
+   ],
+   "r": 1,
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "Two women are drawing water. One of them leaves her jar on the rim and walks back up the street without it.",
+      "zh": "两个妇人在打水。有一个把罐子搁在井沿上，空着手往街上回去了。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "beth_olive",
+   "at": [
+    5,
+    14
+   ],
+   "r": 1,
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "Under the oldest olive tree the ground is worn smooth. People still come here to wait for someone.",
+      "zh": "最老的那棵橄榄树下，地面被踩得发亮。至今还有人来这儿等人。"
+     }
+    }
+   ]
   }
  ]
 }

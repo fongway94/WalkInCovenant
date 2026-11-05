@@ -373,6 +373,20 @@
     28,
     38
    ]
+  },
+  {
+   "type": "trough",
+   "at": [
+    22,
+    33
+   ]
+  },
+  {
+   "type": "staff",
+   "at": [
+    25,
+    34
+   ]
   }
  ],
  "npcs": [
@@ -392,50 +406,36 @@
     {
      "who": "",
      "text": {
-      "en": "A man stops beside you. Dust on his clothes, a scribe's long robe. His name is Corin.",
-      "zh": "一个人在你身边停下。满身是土，穿文士的长袍。他叫柯林。"
+      "en": "A man stops beside you. Dust on his robe, a reed pen behind his ear. He says his name is Corin.",
+      "zh": "一个人在你身边停下。袍子上全是土，耳朵后别着一支芦苇笔。他说自己叫柯林。"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“This is the Valley of Elah. About 1020 years before Christ.”",
-      "zh": "「这里是以拉谷。算起来，是公元前一〇二〇年前后。」"
+      "en": "“Elah. The army has stood here forty days. I write down what happens; that is all I do.”",
+      "zh": "「以拉谷。军队在这儿站了四十天。我只把看见的记下来，别的管不了。」"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“One thing to remember first: we are witnesses, not the ones this is about.”",
-      "zh": "「有一件事，你先记下：我们是见证人，不是主角。」"
-     }
-    },
-    {
-     "who": "corin",
-     "text": {
-      "en": "“The ending is God's; it is not ours to change. What is ours to decide is what kind of people we become.”",
-      "zh": "「结局是神定的，轮不到我们改。我们能定的，是自己要做什么样的人。」"
+      "en": "“You look as though you woke up in the wrong place. Sit a while. The ridge will still be there tomorrow.”",
+      "zh": "「看你像是醒错了地方。先坐会儿。山脊明天还在。」"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "Across the valley the Philistines shout their challenge every day. Forty days now.",
-      "zh": "山谷对面，非利士人天天叫阵。已经四十天了。"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "Not one man here has gone out.",
-      "zh": "这边没有一个人出去。"
+      "en": "He wets the pen and waits, as if something worth writing will happen before long.",
+      "zh": "他把笔蘸湿，等着，像是不久就会有值得写下的事。"
      }
     },
     {
      "who": "corin",
      "text": {
-      "en": "“So. Which side do you stand on?”",
-      "zh": "「那么，你站在哪一边？」"
+      "en": "“Come and find me before you go anywhere. I know who has been up that ridge.”",
+      "zh": "「走远以前先来找我。谁上过山脊，我心里有数。」"
      }
     }
    ],
@@ -493,7 +493,17 @@
       }
      }
     ]
-   }
+   },
+   "chatter": [
+    {
+     "en": "“Forty days. I ran out of ink on the nineteenth.”",
+     "zh": "「四十天了。第十九天我就把墨用完了。」"
+    },
+    {
+     "en": "“Stand still a moment. That shadow is going to move.”",
+     "zh": "「别动。那片影子等会儿要挪。」"
+    }
+   ]
   },
   {
    "id": "boy",
@@ -651,7 +661,13 @@
       }
      }
     ]
-   }
+   },
+   "chatter": [
+    {
+     "en": "“He starts shouting about this time every morning.”",
+     "zh": "「他差不多每天这时候开骂。」"
+    }
+   ]
   },
   {
    "id": "woman",
@@ -695,17 +711,17 @@
      }
     },
     {
-     "who": "woman",
+     "who": "",
      "text": {
-      "en": "“Take this. Bread, and a word with it.”",
-      "zh": "「拿着。饼，还有一句话。」"
+      "en": "She puts two loaves in your hands and goes back to dividing the rest.",
+      "zh": "她把两块饼塞到你手里，又低头去分剩下的。"
      }
     },
     {
      "who": "woman",
      "text": {
-      "en": "“Bread will not keep until tomorrow. The word will carry you further.”",
-      "zh": "「饼搁不到明天。这句话，能陪你走得远些。」"
+      "en": "“The bread is for today. The word is free; keep it or don't.”",
+      "zh": "「饼是今天吃的。那句话不要钱，记不记随你。」"
      }
     }
    ],
@@ -760,7 +776,13 @@
       }
      }
     ]
-   }
+   },
+   "chatter": [
+    {
+     "en": "“Water's on. Sit down if your feet are wet.”",
+     "zh": "「水烧上了。脚湿了就坐一会儿。」"
+    }
+   ]
   },
   {
    "id": "elder",
@@ -815,38 +837,24 @@
      }
     },
     {
-     "who": "elder",
-     "text": {
-      "en": "“He says you are young. He is not wrong about that.”",
-      "zh": "「他说你年轻——这话没说错。」"
-     }
-    },
-    {
-     "who": "elder",
-     "text": {
-      "en": "“His mistake is thinking that young means worth nothing.”",
-      "zh": "「他错在以为，年轻就什么都不是。」"
-     }
-    },
-    {
-     "who": "elder",
-     "text": {
-      "en": "“All my life, people have looked me up and down and settled on a price.”",
-      "zh": "「我这一辈子，都是这样被人上上下下看的。」"
-     }
-    },
-    {
      "who": "",
      "text": {
-      "en": "He pulls the strap one hole tighter.",
-      "zh": "他把皮带又勒紧一格。"
+      "en": "He pulls the strap one hole tighter, then tries the buckle with his thumb.",
+      "zh": "他把皮带又勒紧一格，用拇指试了试扣子。"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“Carry one sentence back with you. Let him speak, and have your answer ready.”",
-      "zh": "「带一句话回去。他开口，你答得上。」"
+      "en": "“Mine broke at Ai. I walked home carrying the door of my own shield.”",
+      "zh": "「我这条在艾城断过。回家那一路，盾牌是抱着的。」"
+     }
+    },
+    {
+     "who": "elder",
+     "text": {
+      "en": "“The stones are downstream. Take a word with you as well; he will ask you something.”",
+      "zh": "「石子在下游。带句话走，他会问你的。」"
      }
     }
    ],
@@ -894,7 +902,13 @@
       }
      }
     ]
-   }
+   },
+   "chatter": [
+    {
+     "en": "“Tighten it before it breaks, not after.”",
+     "zh": "「趁没断先勒紧，别等断了再勒。」"
+    }
+   ]
   },
   {
    "id": "hired_boy",
@@ -957,8 +971,45 @@
        "zh": "他把横木抬起来，让你过去。"
       }
      }
+    ],
+    "errand": [
+     {
+      "who": "hired_boy",
+      "text": {
+       "en": "“Your father called twice. Bread's still by the door.”",
+       "zh": "「你爹喊了两回。饼还在门边。」"
+      }
+     }
     ]
-   }
+   },
+   "by_flag": {
+    "elah_flock_done": [
+     {
+      "who": "hired_boy",
+      "text": {
+       "en": "“All three in. I'll shut the rail before it's properly dark.”",
+       "zh": "「三只都回来了。趁天没全黑，我把横木合上。」"
+      }
+     },
+     {
+      "who": "",
+      "text": {
+       "en": "He leans the crook against the hurdle and sits down on his heels.",
+       "zh": "他把棍子靠在栅栏上，蹲了下来。"
+      }
+     }
+    ]
+   },
+   "chatter": [
+    {
+     "en": "“One of them always goes uphill.”",
+     "zh": "「总有一只往坡上跑。」"
+    },
+    {
+     "en": "“Mind the lower rail.”",
+     "zh": "「当心底下那根横木。」"
+    }
+   ]
   }
  ],
  "words": [
@@ -1188,8 +1239,8 @@
  ],
  "objectives": {
   "corin": {
-   "en": "Talk to Corin, the scribe",
-   "zh": "先和柯林说话"
+   "en": "Someone is standing beside you. Ask where you are.",
+   "zh": "身边有人。过去问问这是什么地方。"
   },
   "stones": {
    "en": "Five smooth stones. Five — not six for luck, and no sword.",
@@ -1468,22 +1519,15 @@
     {
      "who": "",
      "text": {
-      "en": "The slope south of Bethlehem. There is still oil in your hair, and nobody at home mentions yesterday.",
-      "zh": "伯利恒南边的坡上。头发上还有油味，家里没人再提昨天的事。"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "It is nearly dark. Three sheep are still out.",
-      "zh": "天快黑了。还有三只羊没回来。"
+      "en": "The oil is still in your hair. Nobody at home has mentioned yesterday.",
+      "zh": "头发上还有油味。家里没人再提昨天的事。"
      }
     },
     {
      "who": "jesse",
      "text": {
-      "en": "“Find them while there is light. The bread is by the door; take it when you are back.”",
-      "zh": "「趁亮找回来。饼在门边，回来再拿。」"
+      "en": "“Find the three before the light goes. The bread is by the door; take it when you are back.”",
+      "zh": "「趁亮把那三只找回来。饼在门边，回来再拿。」"
      }
     }
    ],
@@ -1511,7 +1555,8 @@
      "at": [
       20,
       30
-     ]
+     ],
+     "temper": "skittish"
     },
     {
      "id": "sheep_east",
@@ -1519,7 +1564,8 @@
      "at": [
       29,
       33
-     ]
+     ],
+     "temper": "calm"
     },
     {
      "id": "sheep_west",
@@ -1527,7 +1573,8 @@
      "at": [
       27,
       39
-     ]
+     ],
+     "temper": "curious"
     }
    ],
    "home_lines": [
@@ -1545,6 +1592,10 @@
       "zh": "「歇口气。坡上那排罐子，你不是天天扔吗？」"
      }
     }
+   ],
+   "fold_at": [
+    24,
+    34
    ]
   },
   "saul": {
@@ -1957,6 +2008,40 @@
      "text": {
       "en": "“After that my hand was steadier when I threw.”",
       "zh": "「后来扔石头，手比那天稳了些。」"
+     }
+    }
+   ]
+  },
+  {
+   "id": "water_trough",
+   "at": [
+    21,
+    33
+   ],
+   "r": 1,
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "The trough was full at sunrise. It is half empty now, and there is wool floating on the water.",
+      "zh": "天亮时水槽是满的。这会儿剩了一半，水面上漂着几撮羊毛。"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ridge_view",
+   "at": [
+    29,
+    29
+   ],
+   "r": 1,
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "From here you can see both ridges and the road south. The sheep never come up this far on their own.",
+      "zh": "站在这儿，两边山脊和往南的路都看得见。羊自己不会走这么远。"
      }
     }
    ]

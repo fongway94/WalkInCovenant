@@ -272,6 +272,58 @@
    "solid": false,
    "notes": "wool caught on the thorns",
    "source": "artgen:wool_tuft"
+  },
+  {
+   "key": "sheep_graze",
+   "frames": 1,
+   "w": 14,
+   "h": 12,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "the flock grazing",
+   "source": "artgen:sheep_graze"
+  },
+  {
+   "key": "sheep_alert",
+   "frames": 1,
+   "w": 14,
+   "h": 12,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "a sheep that has noticed you",
+   "source": "artgen:sheep_alert"
+  },
+  {
+   "key": "trough",
+   "frames": 1,
+   "w": 16,
+   "h": 10,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "water for the fold",
+   "source": "artgen:trough"
+  },
+  {
+   "key": "staff",
+   "frames": 1,
+   "w": 8,
+   "h": 18,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "the crook by the hurdle",
+   "source": "artgen:staff"
   }
  ]
 }

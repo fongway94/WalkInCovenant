@@ -120,11 +120,12 @@ func _heading(text: String) -> void:
 ## Everything the panel shows is passed in: this node owns the furniture, not
 ## the story. `verse_refs` are resolved by the caller from the region data.
 func open_panel(title: String, objective: String, verse_refs: Array,
-		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary) -> void:
+		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary,
+		background: Array = []) -> void:
 	_args = {
 		"title": title, "objective": objective, "refs": verse_refs,
 		"stones": stones, "total": stones_total,
-		"seals": seals, "titles": seal_titles,
+		"seals": seals, "titles": seal_titles, "background": background,
 	}
 	_render()
 
@@ -185,6 +186,19 @@ func _render() -> void:
 			var nm: Dictionary = seal_titles.get(str(id), {})
 			var label := I18n.t(nm) if not nm.is_empty() else str(id)
 			_row("◆  " + label, 9, Color(0.86, 0.90, 0.86))
+
+	# Optional background. The opening used to force these lines in front of a
+	# new player; now they are here, at the bottom of the page, for the curious.
+	# A line is either the region's {who, text:{en,zh}} shape or a bare {en,zh}.
+	var bg: Array = _args.get("background", [])
+	_heading(_t("before"))
+	if bg.is_empty():
+		_row(_t("empty"), 9, Color(0.6, 0.62, 0.62), 1)
+	else:
+		for b in bg:
+			var d: Dictionary = b
+			var txt: Variant = d.get("text", d)
+			_row(I18n.t(txt), 8, Color(0.72, 0.76, 0.75), 1)
 
 	_panel.visible = true
 	_open = true

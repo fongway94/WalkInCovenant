@@ -2,11 +2,13 @@ extends Node
 ## tests/smoke.gd — plays the vertical slice headless and asserts the loop closes.
 ##
 ## run_all.gd checks the CONTENT is well formed. This checks the GAME WORKS.
-## It boots Main.tscn, reads the briefing, talks to all four people, crosses the
-## line with an empty pouch, goes back for the stones, crosses again, fights the
-## fight to a win, walks back into the valley, and asserts the save state
-## afterwards. Everything is driven through the same entry points a player's
-## thumbs would use, so a regression in Region, DialogueBox, BecomeController or
+## It boots Main.tscn straight into a walkable valley (the prologue and brief
+## are optional book pages now), asserts the measured time to control, talks to
+## all five people, drives three live sheep into the fold, crosses the line with
+## an empty pouch, goes back for the stones, crosses again, fights the fight to
+## a win, walks back into the valley, and asserts the save state afterwards.
+## Everything is driven through the same entry points a player's thumbs would
+## use, so a regression in Region, FlockSheep, DialogueBox, BecomeController or
 ## WordBattle fails the build instead of failing somebody's first playtest.
 ##
 ##   godot --headless --path . res://tests/smoke.tscn
@@ -196,18 +198,34 @@ func _run() -> void:
 		_check(ThemeDB.fallback_font.resource_path == "res://fonts/game.ttf",
 				"the theme falls back to the bundled font")
 
-	# ── 2. a first-time player is told what to do ────────────────────────
-	# Chapter 1 first: the witness arrives from somewhere with buses.
-	_check(region.dialogue._open, "the valley opens with the arrival")
-	_check(bool(GameState.flag("elah_opened")), "the prologue runs once and is marked")
-	_check(region.dialogue._lines.size() >= 4 or region.dialogue._box_id > 0,
-		"the arrival is a scene, not a single line")
-	_check(region._paused, "the briefing holds the world still")
-	_drain(region.dialogue)
-	_check(not region._paused, "the briefing releases the world")
-	_check(bool(GameState.flag("elah_briefed")), "the briefing is marked as seen")
-	main._brief_once()
-	_check(not region.dialogue._open, "the briefing does not repeat on a second visit")
+	# ── 2. PRIORITY 1: meaningful control before any exposition ──────────
+	# The last milestone's own review scored this opening 4/10: a 5-line
+	# prologue, a 3-line briefing and a caption, all before one step. These are
+	# the measurable acceptance checks for the redesign. The words are not gone
+	# — they are optional, in the book (checked in §2c).
+	_check(not region.dialogue._open,
+		"the boot opens on the world, not a text box")
+	_check(not region._paused, "the boot does not hold the world still")
+	_check(main.boot_forced_pages == 0,
+		"zero forced dialogue pages before control (%d)" % main.boot_forced_pages)
+	_check(main.boot_forced_actions == 0, "zero taps before control")
+	_check(main.boot_control_ms >= 0 and main.boot_control_ms < 3000,
+		"control arrives in %d ms with no chain of boxes" % main.boot_control_ms)
+	var bg: Array = main.background_lines()
+	_check(bg.size() >= 5,
+		"the arrival and the controls are still in the data (%d lines)" % bg.size())
+	# The first interaction is a person one tile away, not a tutorial.
+	var corin_first: Npc = _find_npc(region, "corin")
+	_check(corin_first != null and
+		corin_first.global_position.distance_to(region.player.global_position) < 40.0,
+		"a person to talk to is already in reach at the spawn")
+	# A few steps produce the small curiosity beat without stopping play.
+	await _stand(region, 19, 45, 4)
+	_check(bool(GameState.flag("elah_first_call")),
+		"walking a few steps is answered by a distant call")
+	_check(not region.dialogue._open and not region._paused,
+		"and the call is a toast, not another box")
+	await _stand(region, 16, 45, 3)
 
 	# ── 1e. the music bed ducks, and comes back ──────────────────────────
 	# Ducking used to be an assignment to `volume_db`: a step in the waveform,
@@ -220,7 +238,7 @@ func _run() -> void:
 	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < back_by:
 		await _frames(1)
 	_check(AudioDirector.music_db() >= -12.6,
-		"closing the arrival box lifts the music back to its mix level (%.1f dB)"
+		"the music reaches mix level with no arrival box to close (%.1f dB)"
 		% AudioDirector.music_db())
 	_check(AudioDirector.music_key() == str(region.model.music),
 		"the region's own theme is the current music (%s)" % AudioDirector.music_key())
@@ -233,7 +251,7 @@ func _run() -> void:
 	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < lift_by:
 		await _frames(1)
 	_check(AudioDirector.music_db() >= -12.6,
-		"and it comes back up when the box closes (%.1f dB)" % AudioDirector.music_db())
+		"and it comes back up when the duck is released (%.1f dB)" % AudioDirector.music_db())
 
 	# The caption is the one cinematic beat on the brief's list that was missing:
 	# the valley is named once, from the region's own data.
@@ -280,6 +298,15 @@ func _run() -> void:
 		_check(main.journal.is_open(), "the journal opens")
 		_check(region._paused, "the journal holds the world still")
 		_check(main.journal._panel.visible, "the journal has something on screen")
+		# The boot's removed exposition lives here instead: readable, optional,
+		# and never in front of the first step.
+		var page := ""
+		for c in main.journal._body.get_children():
+			if c is Label:
+				page += str(c.text)
+		var first_bg: Variant = (bg[0] as Dictionary).get("text", {})
+		_check(page.find(I18n.t(first_bg)) >= 0,
+			"the book prints the optional arrival words")
 		main.journal.close_panel()
 		_check(not main.journal.is_open(), "the journal closes")
 		_check(not region._paused, "closing the book gives the world back")
@@ -587,15 +614,60 @@ func _run() -> void:
 	await _drain_quiet(region.dialogue)
 	await _frames(3)
 
-	# ── 6a. the flock: a job, not another box ────────────────────────────
+	# ── 6a. the flock: a live herding loop, not three quest dots ──────────
 	var sh_data: Dictionary = region.model.david_act.get("shepherd", {})
 	var strays: Array = sh_data.get("strays", [])
 	_check(strays.size() == 3, "the slope has three strays to bring in")
 	_check(main._flock_active, "the opening gives the player a job to do")
+	# Region now builds FlockSheep nodes, not plain sprites. Read them from the
+	# world itself so this checks the shipped object, not a data promise.
+	var flock_nodes: Array = []
+	var tempers := {}
+	for p in region.pickups:
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) == "flock":
+			var node = pd.get("node")
+			flock_nodes.append(node)
+			tempers[str(node.temper)] = true
+	_check(flock_nodes.size() == 3,
+		"three live animals are on the ground (%d)" % flock_nodes.size())
+	_check(tempers.size() == 3,
+		"each stray has its own disposition (%d distinct)" % tempers.size())
+
+	# FIRST sheep: stand on the far side of the fold and the animal should
+	# start walking itself home. This is the interactive loop, not a pickup.
+	# Positions come from the LIVE animal, because a grazing sheep has drifted
+	# a few pixels from its authored tile by now; a hard-coded tile would make
+	# this check flaky rather than honest.
+	var n0 = flock_nodes[0]
+	var away0 := (n0.anchor - n0.fold).normalized()
+	region.player.global_position = n0.global_position + away0 * 34.0
+	await _frames(5)
+	_check(n0.trust > 0.0 or n0.mood_name() == "home",
+		"holding the far side drives a stray toward the fold (mood=%s trust=%.2f)"
+		% [n0.mood_name(), n0.trust])
+	_check(bool(GameState.flag("flock_hint_right")),
+		"and the game says what just happened, once")
+
+	# SECOND sheep: come at it from the fold side. It shies away — visible
+	# feedback — but nothing locks: after settling it can still be brought in.
+	var n1 = flock_nodes[1]
+	var toward1 := (n1.fold - n1.global_position).normalized()
+	region.player.global_position = n1.global_position + toward1 * 30.0
+	await _frames(2)
+	_check(n1.mood_name() == "alert" or n1.mood_name() == "herded",
+		"approaching from the fold side makes it react (mood=%s)" % n1.mood_name())
+	_check(bool(GameState.flag("flock_hint_wrong")),
+		"and the game answers with one short line, not a tutorial")
+
+	# Completability: walk to every authored tile and wait for the fold to be
+	# full. A sheep that shies must settle; a driven one may arrive on its own.
+	var idx := 0
 	for it in strays:
 		var sd: Dictionary = it
 		var at2: Array = sd.get("at", [])
 		if at2.size() != 2:
+			idx += 1
 			continue
 		# The broken hurdle is optional and has no marker. Find it between the
 		# second and the third sheep, while the world is still walking: once
@@ -607,9 +679,26 @@ func _run() -> void:
 			await _drain_quiet(region.dialogue)
 			await _frames(2)
 		await _stand(region, int(at2[0]), int(at2[1]), 3)
-		await _frames(4)
+		# A driven sheep may already be in; a startled one needs 0.7 s to
+		# settle. Wait for THIS animal, with a bound, not for a fixed count.
+		var want := idx + 1
+		var settle := 0
+		while main.sheep_home < want and settle < 120:
+			await _frames(1)
+			settle += 1
+		idx += 1
 	_check(main.sheep_home == 3, "all three strays came home (%d/3)" % main.sheep_home)
 	_check(not main._flock_active, "the job ends when the fold is full")
+	_check(bool(GameState.flag("elah_flock_done")),
+		"the finished task is a flag people can answer to")
+	var hb: Npc = _find_npc(region, "hired_boy")
+	if hb != null:
+		var now: Array = hb._lines_now()
+		var said := ""
+		for l in now:
+			said += str((l as Dictionary).get("text", {}).get("zh", ""))
+		_check(said.find("都回来了") >= 0,
+			"the hired boy remembers the fold is full")
 	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the fold has a short beat before the drill")
 	await _drain_quiet(region.dialogue)
