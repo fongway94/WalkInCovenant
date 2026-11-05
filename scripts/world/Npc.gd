@@ -81,7 +81,10 @@ var world_paused := false
 ## not by a pixel diff. A Panel keeps exactly the rectangle we give it, and the
 ## label is one clipped line — a bubble is a glance, not a second dialogue box.
 const BUBBLE_W := 112.0
-const BUBBLE_H := 22.0
+## 28, not 22: the bundled CJK font's minimum line height at 8 px is 24, so a
+## 22 px bubble clipped the bottom of every glyph (found by the red deep check
+## in CI run 42018457660, which printed "label 104x24 at 4,3").
+const BUBBLE_H := 28.0
 ## ONE voice at a time, across the whole world. Every NPC used to start its own
 ## 16 s timer at the same instant, so three bubbles arrived together over the
 ## objective line. This is a wall-clock gate: the per-NPC timer below is scaled
@@ -147,14 +150,13 @@ func emote(text: String) -> void:
 		_bubble_lbl = Label.new()
 		_bubble_lbl.add_theme_font_size_override("font_size", 8)
 		_bubble_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
-		_bubble_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-		_bubble_lbl.add_theme_constant_override("shadow_offset_x", 1)
-		_bubble_lbl.add_theme_constant_override("shadow_offset_y", 1)
+		# No shadow: at 8 px a solid black shadow sits under every CJK stroke
+		# and reads as a blotch (same finding as the optional journal rows).
 		_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_bubble_lbl.clip_text = true
 		_bubble_lbl.custom_minimum_size = Vector2(0, 0)
-		_bubble_lbl.position = Vector2(4, 3)
-		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 5)
+		_bubble_lbl.position = Vector2(4, 2)
+		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 4)
 		_bubble_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble.add_child(_bubble_lbl)
 		add_child(_bubble)

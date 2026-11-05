@@ -305,6 +305,7 @@ rewritten.
 | `42014467946` | `08cc8a4` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames, control=8ms/0 pages, 4:3fb=640x480 logical=320x240, input_routed=true parsed_opens=true direct=false`. |
 | `42015418307` | `b2fb9f1` | **red** — `api.github.com` class-reference outage → 76 false `xref_check` findings, runtime suites skipped; visual green, 12 frames, but `12_journal_before` lost one transport chunk. |
 | `42017005546` | `0a01126` | **red** — offline class reference and 42-chunk transport both worked (all 12 frames decoded), but one new deep assertion about the bubble's Control layout failed. |
+| `42018457660` | `903e7bc` | **red** — the diagnostic printed `label 104x24 at 4,3`: the 22 px bubble was shorter than the font's 24 px minimum line height, so it clipped every CJK glyph. Visual green, 12 frames. |
 
 Static gates (all nine) were clean at every push: `gd_lint` (32 files, 22
 class_names), `xref_check` (32 scripts, 4 autoloads), `api_check` (32 files, 54
@@ -321,13 +322,27 @@ A coarse 32×18 grid diff (limit 0.18) catches blank and wrong scenes; it did
 **not** catch any of these. Each was found in an upscaled CI PNG and fixed:
 
 1. `06_flock` had an 84×150 near-black slab — a `PanelContainer` clamped to an
-   unwrapped Chinese Label. Now a fixed 112×22 clipped `Panel`.
+   unwrapped Chinese Label. Now a fixed 112×28 clipped `Panel` (28 rather
+   than 22 because the CJK font's minimum line height is 24 px — a shorter
+   bubble clipped the bottom of every glyph).
 2. The first-call horn toast appeared over the flock instead of at boot, and
    two or three chatter bubbles arrived at once over the objective band. The
    beat moved to `02_valley`; a single wall-clock gate now governs all chatter.
 3. `12_journal_before` showed the optional rows as the dimmest text in the
    book, then as white text under black blotches (a 1 px solid shadow at 9 px).
    Now 9 px / 0.88, no shadow, and the harness scrolls to the heading.
+
+Two more came from the frames and from a *failing check that printed its
+numbers*, which is why the diagnostic was added rather than the assertion
+dropped:
+
+4. `04_journal` and `12_journal_before` had grey ghost text behind the rows —
+   the HUD and dialogue box showing through a 0.97-opaque panel. The panel is
+   now fully opaque.
+5. The 112×22 bubble was shorter than the bundled CJK font's 24 px minimum
+   line height, so the bottom of every glyph was clipped. `deep.gd` printed
+   `label 104x24 at 4,3` in run `42018457660`. The frame is now 112×28, the
+   label has no shadow, and the check asserts the configured geometry.
 
 ### Reliability, not relaxation
 

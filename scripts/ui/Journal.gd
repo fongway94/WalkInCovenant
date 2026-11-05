@@ -55,7 +55,10 @@ func _t(key: String) -> String:
 func _build() -> void:
 	_panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.08, 0.10, 0.97)
+	# Fully opaque. At 0.97 the HUD and any dialogue box still on screen showed
+	# through as grey ghost text behind 9 px rows — visible in CI frames
+	# 04_journal and 12_journal_before once the transport copy was quantised.
+	sb.bg_color = Color(0.06, 0.08, 0.10, 1.0)
 	sb.border_color = Color(0.79, 0.64, 0.36, 0.9)
 	sb.set_border_width_all(1)
 	sb.set_content_margin_all(8)

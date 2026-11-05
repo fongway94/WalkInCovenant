@@ -1162,7 +1162,7 @@ func _check_bubbles() -> void:
 	var bub: Panel = speaker._bubble
 	_check(bub != null, "the NPC built a bubble")
 	if bub != null:
-		_check(bub.size.x <= 114.0 and bub.size.y <= 24.0,
+		_check(bub.size.x <= 114.0 and bub.size.y <= 30.0,
 			"it stays a glance-sized %dx%d, not a slab" % [int(bub.size.x), int(bub.size.y)])
 		# Assert the CONFIGURED geometry rather than a Control's live size,
 		# which Godot may re-lay out on the next frame. The slab was caused by
@@ -1171,9 +1171,9 @@ func _check_bubbles() -> void:
 		var lbl: Label = speaker._bubble_lbl
 		_check(lbl.autowrap_mode == TextServer.AUTOWRAP_OFF
 			and lbl.clip_text
-			and lbl.size.x <= 112.0 and lbl.size.y <= 22.0
+			and lbl.size.x <= 112.0 and lbl.size.y <= 28.0
 			and lbl.position.x >= 0.0 and lbl.position.y >= 0.0
-			and lbl.position.y + lbl.size.y <= 22.0,
+			and lbl.position.y + lbl.size.y <= 28.0,
 			"and its text cannot outgrow the frame (label %dx%d at %d,%d)"
 			% [int(lbl.size.x), int(lbl.size.y), int(lbl.position.x),
 				int(lbl.position.y)])
