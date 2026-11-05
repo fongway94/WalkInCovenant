@@ -451,6 +451,18 @@ func _check_region_any(m, rid: String) -> void:
 			_fail("%s: scene '%s' is empty" % [rid, skey])
 		for line in lines:
 			_has_both(line.get("text"), "%s:scene %s" % [rid, skey])
+			# Scripture is marked as such and never dressed up as somebody's
+			# invented conversation. A `[Scripture]` / `【经文】` line must be
+			# narration, and must not sit inside a fictional 「 quote.
+			var lt: Dictionary = line.get("text", {})
+			if str(lt.get("en", "")).begins_with("[Scripture]") \
+					or str(lt.get("zh", "")).begins_with("【经文】"):
+				if str(line.get("who", "")) != "":
+					_fail("%s: scene %s puts marked Scripture in a speaker's mouth"
+						% [rid, skey])
+				if str(lt.get("zh", "")).find("「") >= 0:
+					_fail("%s: scene %s wraps marked Scripture in fictional quotes"
+						% [rid, skey])
 		_check_verses(lines, "%s:scene %s" % [rid, skey])
 
 	var seals := {}

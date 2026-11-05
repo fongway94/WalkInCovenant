@@ -86,6 +86,7 @@ func _run() -> void:
 	await _check_language_switch()
 	await _check_save_shape()
 	await _check_legacy_spine()
+	_check_flock_resume()
 	_finish()
 
 
@@ -1136,6 +1137,28 @@ func _check_legacy_spine() -> void:
 	w.close()
 	GameState.load_game()
 	await _frames(1)
+
+
+# ── SHEPHERD: a save taken halfway through the flock resumes halfway ──────
+## Region remembers each stray with its own `pickup:<region>:<id>` flag. Re-run
+## the opening with one of them already home: the others must come back, and
+## the one that is in must NOT reappear on the slope (BUG-018's whole point,
+## applied to the new mechanic). Runs last, so it cannot disturb the suite.
+func _check_flock_resume() -> void:
+	var key := Region.pickup_key("elah", "sheep_north")
+	GameState.set_flag(key, true)
+	main._start_flock()
+	_check(main.sheep_home == 1,
+		"a resumed save counts the stray that is already home")
+	var live := 0
+	for p in main.region.pickups:
+		if str((p as Dictionary).get("kind", "")) == "flock":
+			live += 1
+	_check(live == 2, "and only the two strays still out are on the ground")
+	_check(bool(main._flock_active), "and the job stays open until all three are in")
+	GameState.data["flags"].erase(key)
+	main._flock_active = false
+	main.sheep_home = 0
 
 
 # ── harness ───────────────────────────────────────────────────────────────

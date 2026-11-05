@@ -8,6 +8,22 @@ Size: **S** ≤ half a day · **M** a day · **L** more than a day, and split fi
 
 ---
 
+## Status at 2026-11-05 (the David's Life Before the Battlefield milestone)
+
+| # | State | Evidence |
+|---|---|---|
+| 1 Device pass | **Still open. Highest remaining risk.** | No phone, two aspect ratios or screenshots from hardware. `docs/DEVICE-CHECKLIST.md` is the untouched script. |
+| 2 Listen to the audio | **Still open.** | 14 SFX / 3 beds asserted as state only; never heard. |
+| 3 Screenshot inspection | **Done for six frames, not for the duel/camp on a device.** | CI renders real frames under Xvfb + llvmpipe; `frames/01_boot_dialogue`, `02_valley`, `03_dialogue`, `04_journal`, `05_bethlehem`, `06_flock` were decoded and looked at. `tests/frames/baseline_*.png` + a CI regression gate. The duel and a camp close-up are still uninspected; see `docs/VISUAL-TESTING.md`. |
+| 4 Spine reorder | **Done.** | `smoke: PASS` with the anointing on the required path; a Bethlehem save resumes in Bethlehem; version-1 saves migrate. `docs/ITERATION.md` §2. |
+| 5 Act 1 flock / lion's ground | **Partly done.** | Fold, standing sheep, three strays to bring in, hire-boy NPC, broken-hurdle discovery, family call — all playable and covered by smoke. Sheep do not wander and Jesse is not a standing NPC; see `docs/ITERATION.md` §§3, 5. |
+| 11 Chinese editorial pass | **Partly done.** | Bethlehem/family/Samuel/David scenes rewritten and Scripture marked; `elah.json` camp aphorisms remain. |
+
+The queue below is kept as originally written so the reasoning and acceptance
+tests survive; the table above is the current truth.
+
+---
+
 ## Now — before any new content
 
 | # | Item | Size | Why it is first | Done when |

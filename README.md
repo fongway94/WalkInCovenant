@@ -10,7 +10,7 @@ become the Bible character and live it.**
 > storm.
 
 ```
-Status:   stabilisation pass 4 complete (2026-11-05) — two chapters playable, CI green
+Status:   David's Life Before the Battlefield milestone (2026-11-05) — chronology fixed, shepherd opening playable, CI green
 Engine:   Godot 4.7.2 (MIT, free)
 Targets:  Web PWA → Android → iOS  (phone-first; Switch hardware explicitly out of scope)
 Build:    https://fongway94.github.io/WalkInCovenant/ — GitHub Pages, installable PWA
@@ -24,10 +24,15 @@ Content:  10 bilingual chapters inherited from Covenant; 2 built (1 Sam 16, 17),
 > opening week. Development has since passed it: the Valley of Elah (1 Samuel 17)
 > and Bethlehem (1 Samuel 16) are playable chapters, with a data-driven mission
 > runner, bilingual content, generated art and audio, three headless test suites
-> and a web/PWA build published on every push to `main`. **`docs/ROADMAP.md` is the
-> current working record; `docs/DEVELOPMENT_BACKLOG.md` is the ordered queue.**
-> Nothing visual, audible or tactile has been verified on a real device — see
-> `docs/DEVICE-CHECKLIST.md` and `docs/VISUAL-TESTING.md`.
+> and a web/PWA build published on every push to `main`. The 2026-11-05
+> milestone put 1 Samuel 16 **before** 1 Samuel 17, built a playable shepherd
+> opening (fold, flock, a herding job, the lion's ground), rewrote the family
+> and Samuel dialogue, and added a fourth test suite that renders real game
+> frames in CI. **`docs/ITERATION.md` is the current working record;
+> `docs/DEVELOPMENT_BACKLOG.md` is the ordered queue.** Six rendered frames have
+> been decoded and inspected, with committed visual baselines — but nothing
+> audible or tactile, and nothing on a real device in two aspect ratios, has
+> been verified. See `docs/DEVICE-CHECKLIST.md` and `docs/VISUAL-TESTING.md`.
 
 ---
 

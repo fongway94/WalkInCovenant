@@ -62,8 +62,19 @@ itself is on a blocked host.
   reported `visual_diff: clean` (diff 0.0000 on all five, tautologically — the
   baselines are those same reviewed captures). From here the coarse-grid
   comparison runs inside the engine on every CI render.
+- Runs `41981915709` and `41983194255`: the whole workflow went green —
+  `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to
+  finish`, `deep: PASS — 114 checks hold`, and `visual: PASS — 6 rendered
+  frames`. The sixth beat (`06_flock`) drives the game's own BECOME cut and
+  renders the shepherd fold, the sheep and the live `0/3` objective; it was
+  decoded and inspected by eye. After the Bethlehem dialogue rewrite,
+  `visual_diff.py` measured 0.0004–0.0164 for frames 01–05 against the
+  committed baselines (limit 0.18) — the gate tolerates real content change
+  but would catch a blank or wrong scene. **Six** reviewed baselines are now
+  committed, and the engine's own in-run comparison ran green on `41981915709`.
 - Not verified by any of this: a real phone in two aspect ratios, a single
-  audio sample, or tactile feel. See `docs/DEVICE-CHECKLIST.md` and
+  audio sample, tactile feel, a duel/camp close-up, or a browser opening the
+  web export. See `docs/DEVICE-CHECKLIST.md` and
   `docs/DEVELOPMENT_BACKLOG.md`.
 
 ## Honest limits

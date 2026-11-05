@@ -14,7 +14,9 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 ## The chapter as it now plays
 
 1. **Prologue** — you wake in the valley in somebody else's clothes (5 lines).
-2. **Briefing** — where you are, who the armies are, what the hands do.
+2. **Briefing** — who you are, the promise that you will *become* David, and the
+   hands (3 lines; the on-screen stick and contextual `A · 交谈` prompt do the
+   rest).
 3. **Corin** — the scribe who adopts you, tells you the rule of the chapter
    ("we are witnesses, not the protagonists"), and then escorts you.
 4. **Three people** — a soldier holding a spear he dare not use (Deut 20:3), a
@@ -23,24 +25,32 @@ by reading the code, not executed. DEVICE = needs a phone; **never claimed**.
 5. **The first look** — walking up the ridge plays the chapter's one scripted
    shot: pan to Goliath on the far slope, 1 Samuel 17:10, pan back.
 6. **The line** — the witness crosses it, and nothing happens to him. 17:11,
-   then Corin: *"you came to see this, you did not come to end it."* The story
-   changes hands.
-7. **BECOME** — the nameplate, the bars, the fade; three days earlier, the sheep
-   slope, and the sling drill that teaches the one input the fight asks for.
-8. **Jesse's errand** — provisions, the walk, and the brothers who want him gone
-   (17:17-28).
-9. **Saul** — the armour goes *on*, and the player is handed the world back
+   then Corin sends him *south*: before he becomes David he has to see where
+   David came from. The road to Bethlehem opens here, not after the credits.
+7. **Bethlehem / 1 Samuel 16** — the elder at the gate, Samuel at Jesse's
+   house, seven sons passed over, the youngest called in from the sheep, the
+   horn of oil (16:7-13, quoted verbatim and marked as Scripture). A save taken
+   here resumes here.
+8. **BECOME, on the walk back** — the nameplate, the bars, the fade; the slope
+   south of Bethlehem just after the anointing.
+8a. **The shepherd day** — a fold with standing sheep, three strays to bring in
+   before dark, a hired boy who answers to the act, a broken hurdle and wool on
+   the thorns (optional, no marker), then the sling drill that teaches the one
+   input the fight asks for.
+9. **Jesse's errand** — the family exchange (`「羊呢？」` / `「我看着。你早去早回。」`),
+   provisions, the walk, and the brothers who want him gone (17:17-28).
+10. **Saul** — the armour goes *on*, and the player is handed the world back
    wearing it: 42% speed, a stagger in the walk, bronze drawn over the sprite.
    The scene ends when they have actually tried to walk, or on A. Then 17:39.
-10. **The brook** — the picking scene: nine stones in the water, tap to take,
+11. **The brook** — the picking scene: nine stones in the water, tap to take,
     tap to put back, five wanted, a KEEP THEM button when the fifth is in the
     bag. 17:40 is spoken after the choice, because the verse reports what he
     did.
-11. **The line, as David** — 17:44-45, then a real duel: telegraph, spear,
+12. **The line, as David** — 17:44-45, then a real duel: telegraph, spear,
     step aside, aim, throw. Three stones, five in the pouch, no game over.
-12. **The aftermath** — the giant falls and stays on screen while 17:47 is
+13. **The aftermath** — the giant falls and stays on screen while 17:47 is
     spoken over him; back in the valley as yourself, Corin has to hear it; then
-    the ending card, the reflection question, and free roam.
+    the ending card and free roam (the ending questionnaire was removed).
 
 ---
 

@@ -1174,13 +1174,6 @@
   {
    "who": "",
    "text": {
-    "en": "The battle is not yours. All you can do is walk this valley and listen to its people.",
-    "zh": "这一仗不是你的。你能做的，只是走完这段路，听这里的人说话。"
-   }
-  },
-  {
-   "who": "",
-   "text": {
     "en": "Keep whatever they give you. On the day, you will not only watch David. You will be him.",
     "zh": "他们交给你的话，你要带上。到了那一天，你不会只是看着大卫——你会成为他。"
    }
@@ -1188,15 +1181,8 @@
   {
    "who": "",
    "text": {
-    "en": "Left thumb on the left half of the screen: walk. Push further out: run. A, bottom right: talk.",
-    "zh": "左手拇指按住画面左半边：走。推远一点：跑。右下角的 A：跟人说话。"
-   }
-  },
-  {
-   "who": "",
-   "text": {
-    "en": "Tap the screen to go on. If you lose the way, follow the arrow at the top right.",
-    "zh": "点一下画面，往下翻。找不到路，就看右上角的箭头。"
+    "en": "Left thumb walks; A, bottom right, talks. If you lose the way, follow the arrow.",
+    "zh": "左手走路，右下角 A 跟人说话。找不到路，就看右上角的箭头。"
    }
   }
  ],

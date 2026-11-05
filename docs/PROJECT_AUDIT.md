@@ -105,21 +105,34 @@ justification is not allowed here.
 | 9 | Performance | **6/10** | Reasonable by construction (A* on a 48×32 grid, ~20 sprites). Never measured. |
 | 10 | Chapter completeness | **6/10** | All six acts exist and the arc closes. −4: the anointing is an optional epilogue instead of Act 2; Act 1 has no playable life. |
 
-## 7. The three most serious remaining weaknesses
+## 7. The three most serious remaining weaknesses (2026-11-05 refresh)
 
-1. **1 Samuel 16 is optional, and it sits after 1 Samuel 17.** The anointing is
-   gated behind `elah_ended` and is reachable only by walking south after the
-   credits. It is the chapter's emotional centre and most players will never see
-   it. Fixing this means reordering the spine, which is the one change that can
-   break the playthrough suite — see `docs/DAVID_CHAPTER_PLAN.md` §1 for the
-   change and its exact blast radius.
-2. **Act 1 has no playable shepherd life.** "The shepherd" is four narration
-   lines on a slope inside a war camp, then a drill. There is no flock, no fold,
-   no father, no ordinary day to be taken away from — so the calling lands on a
-   stranger.
-3. **Nothing visual, audible or tactile has ever been verified.** Every claim
-   about how the game looks, sounds or feels is a claim about geometry and state.
-   This is a process weakness, not a code one, and it caps every score above.
+1. **Nothing has been verified on a real device, and nothing has been heard.**
+   The first two items below were closed this session; this one was not. Six
+   *rendered engine frames* have now been decoded and looked at, with committed
+   baselines and a regression gate — see `docs/VISUAL-TESTING.md` — but that is
+   software GL on a CI runner, not a phone in two aspect ratios, not a sound
+   card, and not a thumb. Every presentation score is still capped by this.
+2. **The opening is still a reading wall.** A 5-line prologue, a 3-line briefing
+   and a place card precede the first step. The briefing was cut from 5 lines;
+   the prologue is untouched. `docs/ITERATION.md` §5 records the player-facing
+   review and the evidence for it.
+3. **The new shepherd day is small and soft.** The three strays are static
+   sprites and walking within 10 px collects one; the sheep do not wander and
+   the herding has no resistance. It is a job, but not yet a living place.
+   `docs/DEVELOPMENT_BACKLOG.md` #5 is now partially done, not closed.
+
+**Closed this session (were §7 items 1 and 2 before the refresh):**
+
+- **1 Samuel 16 was optional and sat after 1 Samuel 17.** The south road now
+  opens on `elah_met_the_line`, a `bethlehem_call` mission sits before
+  `shepherd_drill`, and BECOME fires on the walk back. Version-1 saves get a
+  `legacy_spine` migration. `smoke.gd` plays Bethlehem before
+  `act_id() == "shepherd"` and green on CI — see `docs/ITERATION.md` §2.
+- **Act 1 had no playable shepherd life.** The slope now has a fold, standing
+  sheep, three strays to bring in, a hired boy who answers to the act, an
+  optional broken-hurdle discovery and a family exchange that leads into the
+  errand — see `docs/ITERATION.md` §3.
 
 ## 8. What must not be touched
 
@@ -127,3 +140,11 @@ The mission runner, the campaign-script seam, the region-data contract, the
 verse-integrity rules, `TapGate` arbitration, the save's tmp→rename→`.bak`
 write, and the three test suites. Each of them is load-bearing and each has
 already survived a defect that tried to break it.
+
+"Not touched" means **not rewritten or weakened**. This session *extended* the
+contracts where the milestone required it: one new mission, one new pickup
+kind, one new save version, a Scripture-marker gate, a flock-resume regression,
+and a fourth (visual) suite. No existing assertion was deleted; the two that
+were replaced asserted the wrong thing for the corrected chronology, and both
+replacements are stronger. `tests/deep.gd`'s `MIN_CHECKS = 100` floor still
+holds (114 checks on the last green run).
