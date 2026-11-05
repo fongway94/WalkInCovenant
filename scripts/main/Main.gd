@@ -1053,7 +1053,10 @@ func _first_sight() -> void:
 ## happens to him — the fight is not his. The story then hands him over to the
 ## boy who is actually walking down the ridge with bread in his hands.
 func _witness_at_the_line() -> void:
-	if _in_battle:
+	# The line is a one-time handover. With the corrected chronology the player
+	# can walk back up here before leaving for Bethlehem; a second crossing must
+	# not replay the beat or re-open the road conversation.
+	if _in_battle or bool(GameState.flag("elah_met_the_line")):
 		return
 	_in_battle = true
 	region.set_paused(true)
@@ -1068,6 +1071,11 @@ func _witness_at_the_line() -> void:
 		# swallow every later press of the line. `_begin_become()` sets it
 		# again when the player walks back from the anointing.
 		_in_battle = false
+		# This beat paused the world. It used to stay paused because the next
+		# mission WAS BECOME; with 1 Sam 16 in its place the player has a road
+		# to walk, and a frozen Region answers no input at all. Unpause first —
+		# `_begin_become()` pauses again itself when a legacy save starts it.
+		region.set_paused(false)
 		# The runner is watching: this closes the witness's mission and opens
 		# the next one, whichever the data says it is.
 		_story_flag("elah_met_the_line"))

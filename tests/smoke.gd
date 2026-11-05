@@ -416,15 +416,15 @@ func _run() -> void:
 	await _stand(region, 16, 10, 4)
 	# The mission opens by saying where to go, so the crossing box comes first.
 	await _wait_open(region.dialogue)
-	_drain(region.dialogue)
-	await _frames(3)
 	_check(region.dialogue._open, "the crossing says what it is: 17:11 and Corin's handover")
-	_drain(region.dialogue)
-	await _frames(3)
+	await _drain(region.dialogue)
+	await _frames(4)
 	_check(bool(GameState.flag("elah_met_the_line")),
 		"crossing with the camp's words sets the witness's flag")
 	_check(not bool(main._in_battle),
 		"and it does NOT start BECOME yet — the anointing comes first")
+	_check(not region._paused,
+		"the world is playable again: the road south needs a thumb, not a frozen map")
 	_check(main.runner.current_id() == "bethlehem_call",
 		"the next mission is the road south (mission=%s)" % main.runner.current_id())
 	_check(bool(main._may_leave("bethlehem")),
@@ -446,6 +446,10 @@ func _run() -> void:
 		return
 	var south_at: Array = south.get("at", [16, 46])
 	await _stand(region, int(south_at[0]), int(south_at[1]), 3)
+	# The crossing box set Region's short interact lock when it closed. A real
+	# player walks the length of the valley; let those frames pass here too.
+	await _frames(8)
+	TapGate.reset()
 	_press_interact(region)
 	var hops := 0
 	while main.region != null and str(main.region.region_id) == "elah" and hops < 400:
