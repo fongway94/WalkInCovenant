@@ -181,7 +181,7 @@ func _run() -> void:
 			break
 	_check(first_animal != null, "a stray is still out for the interaction frame")
 	if first_animal != null:
-		var away0 := (first_animal.anchor - first_animal.fold).normalized()
+		var away0: Vector2 = (first_animal.anchor - first_animal.fold).normalized()
 		main.region.player.global_position = first_animal.global_position + away0 * 34.0
 		await _frames(10)
 		await _shot("07_sheep_near")

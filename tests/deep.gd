@@ -1168,7 +1168,7 @@ func _check_living_flock() -> void:
 	_check(first_sheep.fold.distance_to(first_sheep.anchor) > 16.0,
 		"it knows where the fold is, away from its own tile")
 	# Stand on the far side of the fold. The sheep should walk toward home.
-	var away := (first_sheep.anchor - first_sheep.fold).normalized()
+	var away: Vector2 = (first_sheep.anchor - first_sheep.fold).normalized()
 	main.region.player.global_position = first_sheep.anchor + away * 34.0
 	first_sheep._process(0.2)
 	_check(first_sheep.mood_name() == "herded" and first_sheep.trust > 0.0,
@@ -1178,7 +1178,7 @@ func _check_living_flock() -> void:
 	# Now approach from the hurdle side: it shies, and cannot be caught during
 	# the startle. After the startle the world is forgiving again.
 	var second_sheep: FlockSheep = live[1]
-	var toward_fold := (second_sheep.fold - second_sheep.anchor).normalized()
+	var toward_fold: Vector2 = (second_sheep.fold - second_sheep.anchor).normalized()
 	main.region.player.global_position = second_sheep.anchor + toward_fold * 30.0
 	second_sheep._process(0.2)
 	_check(second_sheep.mood_name() == "alert",

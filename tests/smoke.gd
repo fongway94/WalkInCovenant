@@ -640,7 +640,7 @@ func _run() -> void:
 	# a few pixels from its authored tile by now; a hard-coded tile would make
 	# this check flaky rather than honest.
 	var n0 = flock_nodes[0]
-	var away0 := (n0.anchor - n0.fold).normalized()
+	var away0: Vector2 = (n0.anchor - n0.fold).normalized()
 	region.player.global_position = n0.global_position + away0 * 34.0
 	await _frames(5)
 	_check(n0.trust > 0.0 or n0.mood_name() == "home",
@@ -652,7 +652,7 @@ func _run() -> void:
 	# SECOND sheep: come at it from the fold side. It shies away — visible
 	# feedback — but nothing locks: after settling it can still be brought in.
 	var n1 = flock_nodes[1]
-	var toward1 := (n1.fold - n1.global_position).normalized()
+	var toward1: Vector2 = (n1.fold - n1.global_position).normalized()
 	region.player.global_position = n1.global_position + toward1 * 30.0
 	await _frames(2)
 	_check(n1.mood_name() == "alert" or n1.mood_name() == "herded",
