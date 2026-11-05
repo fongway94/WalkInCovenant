@@ -221,7 +221,7 @@ evidence for them.
 | `41981915709` (`5867eda`) | **all green**: `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 114 checks hold`, `visual: PASS — 5 rendered frames` with in-engine baseline comparison |
 | `41982749491` (`56e692a`) | `visual: PASS — 6 rendered frames`; `06_flock` inspected; smoke found one stale assertion (`4 people in the valley (got 5)` — the new hired boy) |
 | `41983194255` (`9e742c7`) | **all green**: `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 114 checks hold`, `visual: PASS — 6 rendered frames` |
-| final docs/test commit | see the CI badge for this branch; the last push adds the Scripture-separation gate, the flock-resume regression, six reviewed baselines and the 3-line briefing |
+| `41990823604` (`85c7961`) | **all green**: `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 117 checks hold`, `visual: PASS — 6 rendered frames`, lint ✅ · export-web ✅ · deploy skipped (working branch). This push added the Scripture-separation gate, the flock-resume regression, six reviewed baselines and the 3-line briefing. |
 
 Local gates after every stage: `gd_lint`, `check_export`, `xref_check`,
 `api_check`, `check_font`, `check_audio`, `check_chars`, `check_text_fit`,
