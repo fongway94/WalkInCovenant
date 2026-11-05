@@ -95,6 +95,7 @@ run, not by reading the diff. **Open: none.** Full reasoning in
 | `42018457660` | `903e7bc` | **red** — the diagnostic printed `label 104x24 at 4,3`: the 22 px bubble was shorter than the CJK font's minimum line height (BUG-051); visual green, 12 frames |
 | `42019344693` | `2fe704a` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames` |
 | `42019960134` | `2bf8dc4` | **green** — opaque bubble; 134 checks, 12 reviewed frames promoted as baselines, `visual_diff: clean` |
+| `42020598313` | `f1e67c3` | **green with baselines active** — 134 checks, 12 frames; all twelve in-engine baseline comparisons passed |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

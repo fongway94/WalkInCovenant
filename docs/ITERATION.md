@@ -56,8 +56,10 @@ Godot's benign "N resources still in use at exit" shutdown notice is excluded.
 
 Two transport defects were found and fixed by observing CI, not by guessing:
 GitHub truncates an annotation at 4096 characters (50 KB chunks were useless),
-and a step may emit ~10 notices. Frames are now 3500-character base64 chunks of
-a 64-colour quantised copy, spread round-robin over eight short steps.
+and a step may emit ~10 notices. Frames were 3500-character base64 chunks of
+a 64-colour quantised copy, spread round-robin over eight short steps. (§8
+raised this to 3800 characters / 48 colours over twelve steps once the harness
+grew to twelve frames and hit the annotation cap.)
 
 **Six real frames decoded and inspected by eye** (`python3
 tools/decode_frames.py <run-id>`): the valley with HUD/tents/NPCs, the prologue
@@ -240,7 +242,8 @@ against real runs; nothing in this file is claimed tested unless it was run.
 3. **Quantise the transported PNG to 64 colours.** The artifact keeps the
    engine's truecolour capture; only the annotation copy is quantised to stay
    under GitHub's annotation cap. The coarse 32×18 grid diff tolerates it
-   (measured 0.0004–0.0164 after real content changes, limit 0.18).
+   (measured 0.0004–0.0164 after real content changes, limit 0.18). §8 lowered
+   this to 48 colours for twelve frames; run-to-run variation is 0.0000–0.0171.
 4. **Legacy saves are marked, not rewritten.** `legacy_spine` lets the runner
    skip the new Bethlehem mission without inventing `beth_anointed`, so a
    version-1 save neither rewinds nor loses a chapter it never saw.
@@ -308,6 +311,7 @@ rewritten.
 | `42018457660` | `903e7bc` | **red** — the diagnostic printed `label 104x24 at 4,3`: the 22 px bubble was shorter than the font's 24 px minimum line height, so it clipped every CJK glyph. Visual green, 12 frames. |
 | `42019344693` | `2fe704a` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames, control=10ms/0 pages, 4:3fb=640x480 logical=320x240`, lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
 | `42019960134` | `2bf8dc4` | **green** — the opaque bubble; same 134 checks and 12 frames, `control=10ms`. All twelve PNGs decoded and reviewed; these are the frames promoted as baselines. |
+| `42020598313` | `f1e67c3` | **green with the baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames, control=9ms/0 pages`. The harness loaded all twelve `baseline_*.png` and every in-engine grid comparison passed (a failed load or a diff ≥0.18 would have made the harness quit 1 and failed the job). |
 
 Static gates (all nine) were clean at every push: `gd_lint` (32 files, 22
 class_names), `xref_check` (32 scripts, 4 autoloads), `api_check` (32 files, 54
@@ -379,6 +383,19 @@ all twelve and `visual_diff: clean`. Run-to-run variation between the last two
 green runs was 0.0000–0.0171 on the same coarse grid, far under the 0.18 limit,
 so the committed baselines are stable. `tests/visual.gd` compares every later
 capture against them in-engine.
+
+### Chinese rendered-context review
+
+The final frames were read at 4× and 6× before the baselines were promoted:
+`09_chinese_2x` (a 640×360 nearest upscale of the same framebuffer) shows the
+nameplate, the conversation box, the 「」 quotation marks and the 8 px chatter
+bubble with no tofu, no clipped glyph bottoms and no stray Latin punctuation.
+`12_journal_before` shows the gold 「来路」 heading and five bright 9 px
+prologue rows on an opaque panel. `08_quest_update` shows one short bubble
+fully inside its frame. A trailing `»` in a conversation is the box's
+typewriter/continue cue, not a truncated line — `_render_page()` reveals
+`_current_page_text()` progressively. This is a *rendered* reading of software
+GL, not a native-speaker or handset judgement.
 
 ### What this pass did **not** establish
 
