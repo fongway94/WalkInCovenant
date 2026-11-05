@@ -426,7 +426,18 @@
       "zh": "你记住了。"
      }
     }
-   ]
+   ],
+   "by_act": {
+    "stones": [
+     {
+      "who": "corin",
+      "text": {
+       "en": "“I will wait here. Whatever happens at that line, one of us should be able to write it down afterwards.”",
+       "zh": "「我在这儿等。界线那边不管出什么事，总得有个人事后写得下来。」"
+      }
+     }
+    ]
+   }
   },
   {
    "id": "boy",
@@ -550,7 +561,41 @@
       "zh": "你是照着他的额头打的。我看见石头飞出去，就那么一下。"
      }
     }
-   ]
+   ],
+   "by_act": {
+    "errand": [
+     {
+      "who": "boy",
+      "text": {
+       "en": "“Another one down from Bethlehem. That is the third today.”",
+       "zh": "「又下来一个伯利恒的。今天第三个了。」"
+      }
+     },
+     {
+      "who": "boy",
+      "text": {
+       "en": "“If you are going north, keep off the ridge. He starts shouting at first light.”",
+       "zh": "「你要往北走的话，别走山脊。他一亮天就开始骂。」"
+      }
+     }
+    ],
+    "ready": [
+     {
+      "who": "boy",
+      "text": {
+       "en": "“Is that … a sling? You are going up with a sling?”",
+       "zh": "「你手里那是……机弦？你就拿这个上去？」"
+      }
+     },
+     {
+      "who": "boy",
+      "text": {
+       "en": "“My mother told me not to be afraid. I am still working out what she meant.”",
+       "zh": "「我娘叫我不许怕。我到现在还没想明白，她那句话是什么意思。」"
+      }
+     }
+    ]
+   }
   },
   {
    "id": "woman",
@@ -632,7 +677,34 @@
       "zh": "有人把那巨人的甲抬进了一顶帐棚。今晚没人肯睡那一顶。"
      }
     }
-   ]
+   ],
+   "by_act": {
+    "stones": [
+     {
+      "who": "woman",
+      "text": {
+       "en": "“The water is cold down there. Pick the smooth ones — a sharp stone does not fly straight.”",
+       "zh": "「下面的水凉。挑光滑的——尖的飞不直。」"
+      }
+     }
+    ],
+    "ready": [
+     {
+      "who": "woman",
+      "text": {
+       "en": "“Eat something before you go up. I have said that to a lot of men this week.”",
+       "zh": "「上去以前吃口东西。这个礼拜，我跟好些人都这么说过。」"
+      }
+     },
+     {
+      "who": "woman",
+      "text": {
+       "en": "“You are the only one who came back down the hill in one piece. Do not make me wrong about that.”",
+       "zh": "「这坡上下来的人里，只有你一个是全的。别让我看错人。」"
+      }
+     }
+    ]
+   }
   },
   {
    "id": "elder",
@@ -746,7 +818,27 @@
       "zh": "他们一路追到迦特和以革伦去了。我老了，跟不动，就在这儿等消息。"
      }
     }
-   ]
+   ],
+   "by_act": {
+    "errand": [
+     {
+      "who": "elder",
+      "text": {
+       "en": "“Your brothers are up the north slope. You have your father's bread in that bag, I can smell it.”",
+       "zh": "「你哥哥们在北边坡上。袋子里是你父亲给的饼——我闻得出来。」"
+      }
+     }
+    ],
+    "armour": [
+     {
+      "who": "elder",
+      "text": {
+       "en": "“They put the king's coat on you. I wore borrowed armour once. It fits everybody and nobody.”",
+       "zh": "「他们给你穿上王的战衣了。我年轻的时候也穿过借来的甲。那东西谁都合身，谁都不合身。」"
+      }
+     }
+    ]
+   }
   }
  ],
  "words": [
@@ -1056,6 +1148,10 @@
   "armour": {
    "en": "Walk in the king's armour. You will find out why it has to come off.",
    "zh": "穿着王的盔甲走走吧。你会知道它为什么非脱下来不可。"
+  },
+  "bethlehem": {
+   "en": "The road south is open. Go back to Bethlehem and see where this began.",
+   "zh": "南边的路开着。回伯利恒去，看看这一切是从哪儿开始的。"
   }
  },
  "ending": {
@@ -1063,72 +1159,43 @@
    {
     "who": "",
     "text": {
-     "en": "The battle is the LORD's.",
-     "zh": "争战的胜败在乎耶和华。"
+     "en": "The Philistines broke and ran for Gath and Ekron. The Israelites went after them out of the valley, and then stood in the empty field, only breathing.",
+     "zh": "非利士人转身往迦特和以革伦跑。以色列人一路追出山谷，然后站在空地里，只是喘气。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "The stone was not thrown by your hand. But you learned one thing: do not stare at the giant in front of you.",
-     "zh": "石子不是你扔的。可你学会了一件事：不要只盯着眼前的巨人。"
+     "en": "Four stones left in the pouch. He counts them, and then counts them again.",
+     "zh": "皮兜里还剩四块石子。他数了一遍，又数了一遍。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Look at the God who is greater than he is.",
-     "zh": "要看那位比巨人更大的神。"
+     "en": "Men come down off the ridge to look, and somebody asks, loud enough to carry, whose son this boy is.",
+     "zh": "山脊上的人开始往下走，都想看清。有人高声问：这少年是谁的儿子？"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Remember the road God has already walked you down. That is where courage for this one comes from.",
-     "zh": "回头看看，神是怎么一路带你走过来的。你才有勇气，面对眼前这一个。"
+     "en": "He answers plainly, because it is the only thing he has: Bethlehem. Jesse's son. The youngest one, who was out with the sheep.",
+     "zh": "他照实答了，因为他只有这一句：伯利恒，耶西的儿子。家里最小的那个，放羊的。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Faith does not arrive all at once. It grows each time you look back.",
-     "zh": "信心不是突然长出来的。是一次一次回头看，慢慢长出来的。"
-    }
-   }
-  ],
-  "ask": {
-   "en": "What giant is standing in front of you now? What would your first step of faith be?",
-   "zh": "你生命里，现在站着什么样的巨人？信心的第一步，你想怎么走？"
-  },
-  "options": [
-   {
-    "t": {
-     "en": "Remember the road God has already walked me through",
-     "zh": "先回想神带我走过的路"
-    },
-    "insight": {
-     "en": "That is how David began — not with the giant, but with the lion and the bear behind him. (1 Samuel 17:37)",
-     "zh": "大卫就是从这儿开始的。不是从巨人开始，是从身后的狮子和熊开始。（撒母耳记上 17:37）"
+     "en": "The shouting stopped. The valley is quiet in a way it will take some getting used to.",
+     "zh": "骂声停了。山谷安静下来，安静得让人不习惯。"
     }
    },
    {
-    "t": {
-     "en": "Say it out loud to someone",
-     "zh": "找一个人，说出来"
-    },
-    "insight": {
-     "en": "That is wisdom. Before David went down to the giant, he was already talking to the men in the line. (1 Samuel 17:26)",
-     "zh": "这是聪明人的走法。下阵以前，大卫也先跟阵上的人说过话。（撒母耳记上 17:26）"
-    }
-   },
-   {
-    "t": {
-     "en": "Take off armour that is not mine",
-     "zh": "脱掉不合身的盔甲"
-    },
-    "insight": {
-     "en": "Saul's armour was good. It was only not David's. Discernment is knowing which help is actually yours. (1 Samuel 17:39)",
-     "zh": "扫罗那副盔甲是好的，只是它不是大卫的。分辨，就是分得清哪一份帮助真是给你的。（撒母耳记上 17:39）"
+    "who": "",
+    "text": {
+     "en": "The road south runs all the way to Bethlehem. None of this began in this valley.",
+     "zh": "往南的路，一直通到伯利恒。这一切，不是从这条山谷开始的。"
     }
    }
   ]
@@ -1275,6 +1342,11 @@
     "en": "Corin",
     "zh": "柯林",
     "actor": "corin"
+   },
+   "goliath": {
+    "en": "Goliath",
+    "zh": "歌利亚",
+    "actor": "goliath"
    }
   },
   "start_at": [
@@ -1299,6 +1371,13 @@
      "text": {
       "en": "The sheep graze behind you. The sling in your hand is worn shiny by your palm.",
       "zh": "羊在背后吃草。机弦握在手里，被手心磨得发亮。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "There is a scar on your forearm where a lion's tooth went in. Nobody in the army knows about it; a shepherd's work is not the sort of thing anyone writes down.",
+      "zh": "小臂上有一道疤，是狮子的牙咬进去留下的。营里没有一个人知道——牧羊人的事，本来也没人记。"
      }
     },
     {
@@ -1357,15 +1436,50 @@
     {
      "who": "david",
      "text": {
-      "en": "“The LORD that delivered me out of the paw of the lion, and out of the paw of the bear, he will deliver me out of the hand of this Philistine.”",
-      "zh": "「耶和华救我脱离狮子和熊的爪，也必救我脱离这非利士人的手。」"
+      "en": "1 Samuel 17:34\n“Thy servant kept his father's sheep, and there came a lion, and a bear, and took a lamb out of the flock:”",
+      "zh": "撒母耳记上 17:34\n「你仆人为父亲放羊，有时来了狮子，有时来了熊，从群中衔一只羊羔去。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "1 Samuel 17:35\n“And I went out after him, and smote him, and delivered it out of his mouth.”",
+      "zh": "撒母耳记上 17:35\n「我就追赶它，击打它，将羊羔从它口中救出来。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "1 Samuel 17:36\n“Thy servant slew both the lion and the bear:”",
+      "zh": "撒母耳记上 17:36\n「你仆人曾打死狮子和熊，」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“and this uncircumcised Philistine shall be as one of them, seeing he hath defied the armies of the living God.”",
+      "zh": "「这未受割礼的非利士人向永生神的军队骂阵，也必像狮子和熊一般。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "1 Samuel 17:37\n“David said moreover, The LORD that delivered me out of the paw of the lion,”",
+      "zh": "撒母耳记上 17:37\n「大卫又说：耶和华救我脱离狮子和熊的爪，」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“and out of the paw of the bear, he will deliver me out of the hand of this Philistine.”",
+      "zh": "「也必救我脱离这非利士人的手。」"
      }
     },
     {
      "who": "saul",
      "text": {
-      "en": "1 Samuel 17:37 — “Go, and the LORD be with thee.”",
-      "zh": "撒母耳记上 17:37\n「你可以去吧！耶和华必与你同在。」"
+      "en": "“Go, and the LORD be with thee.”",
+      "zh": "「你可以去吧！耶和华必与你同在。」"
      }
     },
     {

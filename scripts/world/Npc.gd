@@ -40,6 +40,9 @@ var dialogue: DialogueBox = null
 var pause_fn: Callable = Callable()
 var state: State = State.IDLE
 var talk_state: Talk = Talk.READY
+## The chapter's act, pushed down by Region (which Main pushes down). Only ever
+## used to pick which set of lines this person says.
+var act_name := ""
 ## Wall clock, not accumulated delta. The cooldown used to tick inside
 ## _physics_process — which is switched OFF whenever the region is paused, i.e.
 ## exactly when a conversation ends. A person whose last box closed while the
@@ -311,6 +314,25 @@ func talk() -> void:
 
 	# Third state, and the one chapter 6 needs: once the giant is down some
 	# people have a different thing to say, and it is not their first line.
+	var lines: Array = _lines_now()
+	dialogue.show_lines(lines, _speaker_for, _on_done)
+
+
+## What this person says RIGHT NOW. Three states — first words, later words,
+## after the giant — were all this game had, so a camp of four people went on
+## saying the same sentence while the chapter walked from an errand to the
+## brook. `by_act` lets the content answer to where the story has got to:
+##
+##   "by_act": {"stones": [...], "ready": [...]}
+##
+## It is the most specific thing the data can say, so it wins; a region that
+## does not use it behaves exactly as before.
+func _lines_now() -> Array:
+	var by: Dictionary = data.get("by_act", {})
+	if act_name != "" and by.has(act_name):
+		var act_lines: Array = by[act_name]
+		if not act_lines.is_empty():
+			return act_lines
 	var lines: Array = []
 	if bool(GameState.flag("goliath_down")) and not (data.get("after_win", []) as Array).is_empty():
 		lines = data.get("after_win", [])
@@ -320,7 +342,7 @@ func talk() -> void:
 		lines = data.get("lines", [])
 	if lines.is_empty():
 		lines = data.get("lines", [])
-	dialogue.show_lines(lines, _speaker_for, _on_done)
+	return lines
 
 
 func _speaker_for(who: String) -> Dictionary:

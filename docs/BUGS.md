@@ -7,6 +7,126 @@ regression check that failed before the fix and passes after it.
 **Verification record.** Every entry below is `Fixed` **and** verified by a green
 run in which its own check executed and passed:
 
+
+---
+
+# Pass 4 — the David chapter, read as a story
+
+**Verified in CI `41963019742`** (`4ffdebe`): content lint, the full playthrough
+and the regression suite (`deep: PASS — 109 checks hold`, floor 100) all green.
+Two runs before it were red — `41961892986` and `41962456561` — and both
+failures were in the *tests*, not the game: one still asserted the questionnaire
+this pass deleted, and one drained the ending so completely that the loop
+watching for it saw nothing. They are recorded rather than quietly fixed, because
+"green" only means something if the red runs are on the record.
+
+Passes 1–3 asked whether the game works. This pass asked whether the chapter
+*lands*, with the same rule: nothing is claimed that cannot be pointed at.
+
+## BUG-033 — the lion and the bear were missing
+
+**Severity:** P1 · **Status:** Fixed · **Area:** story / Scripture
+**Regression test:** `tests/run_all.gd` verse integrity + the playthrough's
+citation marks.
+
+- **Where:** `david_act.saul.lines`, 1 Samuel 17:33 → 17:37.
+- **What:** Saul says *"you are only a boy"*, David answers *"the LORD delivered
+  me from the paw of the lion and the bear"*, and the verses in between — 17:34,
+  17:35, 17:36, the king's own argument being answered with a shepherd's story —
+  were not there. The game paraphrased the ground of David's courage in a single
+  line and moved on.
+- **Why it matters more than a missing paragraph:** the whole chapter is built on
+  the claim that this boy has already been tested. Without 17:34–36, Saul's
+  objection has no answer except assertion, and the duel becomes luck.
+- **Fix:** 17:34, 17:35, 17:36 and 17:37 are quoted verbatim in KJV and 和合本
+  across the scene, in the order Scripture puts them, each marked as Scripture
+  and split into boxes the way this game has always split a long verse (17:40,
+  16:7). The line that used to sit there unattributed — *"耶和华救我脱离狮子和熊的
+  爪"* — was 17:37a spoken as ordinary dialogue with no citation: Scripture in a
+  character's mouth instead of in Scripture's quotation marks. It now carries its
+  verse. The shepherd act gained
+  one line of narration — a scar on the forearm nobody in the army knows about —
+  so the player has *seen* the thing Saul is about to hear.
+
+## BUG-034 — Goliath's taunt was delivered by nobody
+
+**Severity:** P1 · **Status:** Fixed · **Area:** dialogue / presentation
+**Regression test:** the new `_check_speakers()` content gate.
+
+- **Reproduce:** cross the line as David; the first words of the duel are
+  17:44, *"come to me, and I will give thy flesh unto the fowls of the air"*.
+- **Actual:** the line had `"who": "goliath"`, and `goliath` was in no speaker
+  table, so the box fell back to the raw id for a name and to an empty portrait.
+  The giant's only sentence in the chapter came out as anonymous narration — the
+  single most important voice in the scene, missing.
+- **Root cause:** speaker resolution is done in three different places (region
+  NPCs, `david_act.speakers`, an NPC's own `cast`), and a miss in all three is
+  not an error anywhere. It degrades rather than fails.
+- **Fix:** `goliath` is in `david_act.speakers` with the `goliath` rig, and a new
+  content gate resolves every `who` in every line against every cast a region
+  has, so a misspelt speaker is a red build rather than a nameless box.
+
+## BUG-035 — the camp was frozen for the whole chapter
+
+**Severity:** P2 · **Status:** Fixed · **Area:** NPCs
+**Regression test:** `tests/deep.gd` → `_check_by_act_lines()`.
+
+- **What:** an NPC had exactly three dialogue states — first words, later words,
+  after the giant. Four people who had each said one sentence in the witness act
+  went on saying the same sentence while the chapter walked an errand, an
+  armour, a brook and a duel past them.
+- **Fix:** `by_act` — a dictionary of act → lines. `Main` pushes the act down to
+  the region every frame (idempotent), the region to its people, and
+  `Npc._lines_now()` takes the most specific thing the data says. A region that
+  does not use it behaves exactly as before. The gate refuses a misspelt act
+  name, an empty list and a bad string, because silent dead data is how content
+  rots.
+- **Authored with it:** the boy, the woman, the old soldier and Corin now answer
+  to `errand`, `armour`, `stones` and `ready` — the woman's advice about smooth
+  stones is the brook's own rule, given by somebody who has never held a sling.
+
+## BUG-036 — the chapter ended on a questionnaire
+
+**Severity:** P2 · **Status:** Fixed · **Area:** story / voice
+**Regression test:** `tests/run_all.gd` — the ending must be ≥3 story lines.
+
+- **What the player got:** after 17:47, five lines of devotional address
+  ("不要只盯着眼前的巨人", "信心不是突然长出来的"), then a question aimed at the
+  player — *"你生命里，现在站着什么样的巨人？"* — with three answers, each of which
+  returned a moral.
+- **Why this is a defect and not a taste:** the chapter's own thesis is
+  *"我们是见证人，不是主角"*. The ending broke the frame it had spent an hour
+  building, stopped being about David, and spoke to the player as a congregation.
+  It is also the last thing anybody sees. Every prior prohibition in this
+  project — witness not author, no proselytising mechanics, no AI-philosophical
+  filler — is violated in that one screen.
+- **Fix:** the ending is now six lines of scene: the Philistines running for Gath
+  and Ekron, four stones counted twice in the pouch, the question in the camp
+  (*whose son is this boy*), his answer — Bethlehem, Jesse's son, the youngest —
+  the silence afterwards, and the road south. It ends the chapter and points at
+  1 Samuel 16 without preaching it.
+- **Two consequences:** `ask`/`options` became optional in the content gate (a
+  menu at the end of a story is allowed; it is not required), and the HUD now
+  points at the south road until the anointing has been seen, so the one scene
+  the chapter is built on is no longer a secret most players walk past.
+
+## BUG-037 — eighteen characters would have rendered as tofu
+
+**Severity:** P2 · **Status:** Fixed · **Area:** font / localisation
+**Regression test:** `check_font` (799 codepoints).
+
+- **What:** the new Chinese prose used characters the bundled subset font did
+  not contain (习 仆 借 写 咬 喘 思 拜 牙 疤 礼 管 羔 臂 衔 许 遍 闻). `check_font`
+  caught it before the push; on a device those eighteen glyphs would have been
+  empty boxes in the middle of the best-written scenes in the game.
+- **Fix:** `fonts/game.ttf` rebuilt from Noto Sans SC with `tools/build_font.py`
+  (the source face has to be cloned first; the recipe is in the tool's error
+  message and now in `docs/DEVICE-CHECKLIST.md`).
+
+---
+
+## Verification record, pass 3 onward
+
 | Run | Commit | Result |
 |---|---|---|
 | `41211227100` | `90f3900` | pass 3 closed: lint ✅ (static gates, content lint + reachability, playthrough, regression suite — **`MIN_CHECKS` floor held**, so the count could not have been faked by deleting checks) · export ✅ · deploy skipped (branch) |
@@ -54,9 +174,10 @@ Severity uses the mission's scale:
 | **P2 — Medium** | UI, audio, wrong dialogue behaviour, visual inconsistency |
 | **P3 — Low** | minor presentation and polish |
 
-**Summary: 32 found, 32 addressed, 0 open, 0 P0** — 15 in pass 1, 7 in pass 2,
-10 in pass 3 plus one investigation that cleared its suspect, plus the test
-coverage each pass added. Two of them (BUG-006, BUG-010)
+**Summary: 37 found, 37 addressed, 0 open, 0 P0** — 15 in pass 1, 7 in pass 2,
+10 in pass 3 plus one investigation that cleared its suspect, and 5 in pass 4,
+plus the test coverage each pass added. A bug is recorded in `docs/BUG_TRACKER.md`
+the moment it is found and written up here when it is closed. Two of them (BUG-006, BUG-010)
 could leave a player permanently unable to continue; one (BUG-011) is the
 save-corruption class and is fixed structurally rather than worked around.
 

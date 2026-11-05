@@ -677,6 +677,9 @@ func _run() -> void:
 	_check(main.act_id() != "fight", "the win closes the fight (act=%s)" % main.act_id())
 
 	# ── 7c. chapter 6 is witnessed: the aftermath is a person ────────────
+	# Filled by the drain below, which runs from Corin's last line through the
+	# whole ending: the ending's own words, so that "it played" is evidenced.
+	var ending_marks := {"四块石子": false, "往南的路": false}
 	var corin: Npc = _find_npc(region, "corin")
 	_check(main.act_id() == "aftermath",
 		"the giant falling hands you back to the witness (act=%s)" % main.act_id())
@@ -687,7 +690,12 @@ func _run() -> void:
 		corin.talk()
 		await _frames(2)
 		_check(region.dialogue._open, "the aftermath is played, not summarised")
-		_drain(region.dialogue)
+		# The aftermath hands straight into the ending, so this drain runs through
+		# both. Watching the pages go past is the only honest way to say the
+		# ending was actually played: it is a scene now, not a questionnaire
+		# (BUG-036), and a drained box chain looks exactly like a skipped one
+		# from the outside.
+		await _drain_marked(region.dialogue, ending_marks)
 
 	# A second thing to say is not Corin's private feature: with the giant down
 	# the whole camp answers differently, which is what a state-aware NPC is for.
@@ -702,19 +710,27 @@ func _run() -> void:
 	# still paused, and only then does the world resume. This used to dump the
 	# player into a silent field the instant the giant fell.
 	var settle := 0
-	var saw_reflection := false
 	while settle < FRAME_GUARD:
 		settle += 1
 		if region.dialogue._open:
 			if region.dialogue._in_choices:
-				saw_reflection = true
 				region.dialogue._pick(0)
 			else:
 				region.dialogue._advance()
 		elif not bool(main._in_battle) and not region._paused:
 			break
 		await get_tree().process_frame
-	_check(saw_reflection, "the chapter ends with a choice, not a dead stop")
+	# The ending is a scene now, not a questionnaire (`docs/BUGS.md` BUG-036), so
+	# what this has to prove is that the scene PLAYS and then hands the world
+	# back — not that it offers a menu.
+	_check(bool(ending_marks["四块石子"]) and bool(ending_marks["往南的路"]),
+		"the ending is played out in full — its own words reached the box")
+	var ending_guard := 0
+	while main.act_id() != "done" and ending_guard < FRAME_GUARD:
+		ending_guard += 1
+		await get_tree().process_frame
+	_check(main.act_id() == "done",
+		"and it finishes the chapter rather than stopping mid-scene (act=%s)" % main.act_id())
 	_check(not bool(main._in_battle), "RETURN completed and the valley is playable again")
 	_check(bool(GameState.flag("goliath_down")), "the valley remembers he is down")
 	_check(_has(GameState.data["relics"], "stones"), "the five stones are kept as a relic")
@@ -748,6 +764,9 @@ func _run() -> void:
 	_check(_tile_of(region.player) == Vector2i(16, 14), "you are stood back south of the line, past the re-arm row")
 
 	# ── 9. coming back is a memory, not a replay ─────────────────────────
+	# The ending places the player back south of the line as its last act; if it
+	# is still finishing, walking off now would be undone underneath us.
+	await _frames(3)
 	var xp_before := int(GameState.data["xp"])
 	await _stand(region, 16, 9, 4)
 	_check(not bool(main._in_battle), "walking back over the line does not replay the fight")
@@ -1022,6 +1041,21 @@ func _check(ok: bool, msg: String) -> void:
 ## been quiet for a few frames. `marks` records which of its keys were ever on a
 ## page, which is how the smoke test proves a verse was actually spoken rather
 ## than merely present in the data.
+## Like `_drain`, but records what actually appeared in the box. A chapter that
+## fires its ending and a chapter that skips its ending look identical if you
+## only watch the state afterwards; this watches the words.
+func _drain_marked(dlg, marks: Dictionary) -> void:
+	var guard := 0
+	while dlg._open and not dlg._in_choices and guard < 400:
+		var txt: String = str(dlg._current_page_text())
+		for k in marks:
+			if txt.find(str(k)) >= 0:
+				marks[k] = true
+		dlg._advance()
+		await _frames(1)
+		guard += 1
+
+
 func _drain_quiet(dlg, marks: Dictionary = {}) -> void:
 	var guard := 0
 	var quiet := 0
