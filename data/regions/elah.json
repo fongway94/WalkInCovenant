@@ -406,8 +406,15 @@
     {
      "who": "",
      "text": {
-      "en": "A man stops beside you. Dust on his robe, a reed pen behind his ear. He says his name is Corin.",
-      "zh": "一个人在你身边停下。袍子上全是土，耳朵后别着一支芦苇笔。他说自己叫柯林。"
+      "en": "A man stops beside you. Dust on his robe, a reed pen behind his ear.",
+      "zh": "一个人在你身边停下。袍子上全是土，耳朵后别着一支芦苇笔。"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "He says his name is Corin.",
+      "zh": "他说自己叫柯林。"
      }
     },
     {

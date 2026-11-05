@@ -66,11 +66,12 @@ a shipped change in this milestone, named in the last column.
 
 ## 6. Review gate
 
-`tests/visual.gd` captures eleven real engine frames at CI under Xvfb +
+`tests/visual.gd` captures twelve real engine frames at CI under Xvfb +
 llvmpipe. The six older states (boot, valley, dialogue, journal, Bethlehem,
-flock) now sit beside five new ones: a sheep that has noticed the player, a
+flock) now sit beside six new ones: a sheep that has noticed the player, a
 quest counter updating, a 2× nearest review of Chinese dialogue, a 4:3 window,
-and a real `ScreenFade` caught mid-cut. The harness also asserts cold-boot
+a real `ScreenFade` caught mid-cut, and the book scrolled to its optional
+"How you came here" pages. The harness also asserts cold-boot
 control latency and that the 4:3 framebuffer really is taller than 180 px.
 
 Frames are decoded with `tools/decode_frames.py`, **looked at**, and only then

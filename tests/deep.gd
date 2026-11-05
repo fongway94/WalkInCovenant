@@ -88,6 +88,7 @@ func _run() -> void:
 	await _check_language_switch()
 	await _check_save_shape()
 	await _check_legacy_spine()
+	_check_bubbles()
 	_check_living_flock()
 	_check_flock_resume()
 	_finish()
@@ -1140,6 +1141,33 @@ func _check_legacy_spine() -> void:
 	w.close()
 	GameState.load_game()
 	await _frames(1)
+
+
+# ── LIVING WORLD: an over-the-head line stays a bubble ────────────────────
+## Regression for a defect the coarse pixel-diff gate could NOT see: an
+## autowrapped Chinese Label with no word breaks made a PanelContainer grow
+## into a black slab across the middle of the slope (CI frame 06_flock). Give
+## the longest chatter line in the data to a real NPC and measure the rect.
+func _check_bubbles() -> void:
+	var longest := ""
+	for nd in main.region.model.npcs:
+		var ndd: Dictionary = nd
+		for ch in ndd.get("chatter", []):
+			var zh := str((ch as Dictionary).get("zh", ""))
+			if zh.length() > longest.length():
+				longest = zh
+	_check(longest.length() >= 8, "there is a real chatter line to measure (%d chars)" % longest.length())
+	var speaker: Npc = main.region.npcs[0]
+	speaker.emote(longest)
+	var bub: Panel = speaker._bubble
+	_check(bub != null, "the NPC built a bubble")
+	if bub != null:
+		_check(bub.size.x <= 134.0 and bub.size.y <= 34.0,
+			"it stays a glance-sized %dx%d, not a slab" % [int(bub.size.x), int(bub.size.y)])
+		_check(speaker._bubble_lbl.position.x >= 0.0
+			and speaker._bubble_lbl.size.y <= bub.size.y,
+			"and its text is inside the frame")
+		bub.visible = false
 
 
 # ── LIVING WORLD: the sheep are animals, not sprites ─────────────────────

@@ -74,7 +74,14 @@ var _lead_arrived := false
 ## an NPC occasionally says something without being spoken to. No nameplate,
 ## no portrait, no box: a person in a place, not another conversation.
 var world_paused := false
-var _bubble: PanelContainer = null
+## A plain Panel, NOT a PanelContainer. A Container clamps its own size to the
+## combined minimum size of its children, and an autowrapped Chinese Label has
+## no word breaks: one long chatter line grew this into an 84x150 black slab
+## over the middle of the shepherd slope. Found by reviewing CI frame 06_flock,
+## not by a pixel diff. A Panel keeps exactly the rectangle we give it.
+const BUBBLE_W := 132.0
+const BUBBLE_H := 32.0
+var _bubble: Panel = null
 var _bubble_lbl: Label = null
 var _bubble_until := 0
 var _chat_i := 0
@@ -120,7 +127,7 @@ func emote(text: String) -> void:
 	if text == "":
 		return
 	if _bubble == null:
-		_bubble = PanelContainer.new()
+		_bubble = Panel.new()
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.06, 0.08, 0.10, 0.92)
 		sb.border_color = Color(0.79, 0.64, 0.36, 0.85)
@@ -128,17 +135,30 @@ func emote(text: String) -> void:
 		sb.set_content_margin_all(3)
 		sb.set_corner_radius_all(2)
 		_bubble.add_theme_stylebox_override("panel", sb)
+		_bubble.custom_minimum_size = Vector2(BUBBLE_W, BUBBLE_H)
+		_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
+		_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble_lbl = Label.new()
 		_bubble_lbl.add_theme_font_size_override("font_size", 8)
 		_bubble_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
+		_bubble_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		_bubble_lbl.add_theme_constant_override("shadow_offset_x", 1)
+		_bubble_lbl.add_theme_constant_override("shadow_offset_y", 1)
+		# Two lines at most, then the rest is cut. A bubble is a glance, not a
+		# second dialogue box; the full line stays in the book if it matters.
 		_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_bubble_lbl.clip_text = true
+		_bubble_lbl.custom_minimum_size = Vector2(0, 0)
+		_bubble_lbl.position = Vector2(4, 3)
+		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 6)
+		_bubble_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble.add_child(_bubble_lbl)
-		_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_bubble)
 	_bubble_lbl.text = text
-	_bubble.size = Vector2(84, 22)
-	_bubble.position = Vector2(-42, -42)
+	_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
+	_bubble.position = Vector2(-BUBBLE_W * 0.5, -42)
 	_bubble.visible = true
+	_bubble_lbl.visible = true
 	_bubble_until = Time.get_ticks_msec() + 2700
 
 

@@ -42,7 +42,9 @@ var probe_hits := 0
 var control_ms := -1
 var boot_pages := -1
 var last_fb := Vector2i.ZERO
+var last_visible := Vector2.ZERO
 var layout_fb := Vector2i.ZERO
+var layout_visible := Vector2.ZERO
 
 
 ## A parsed input event reaches Node._unhandled_input only when the display
@@ -134,6 +136,25 @@ func _run() -> void:
 		main.call("_open_journal")
 		await _frames(5)
 		await _shot("04_journal")
+		# The removed prologue/briefing live at the BOTTOM of the same page.
+		# Scroll the real ScrollContainer and capture them, so "optional" is
+		# something we have actually seen rendered, not just a data promise.
+		var jpage := ""
+		for c in main.journal._body.get_children():
+			if c is Label:
+				jpage += str(c.text) + "|"
+		_check(jpage.find(I18n.t({"en": "How you came here", "zh": "来路"})) >= 0,
+			"the book has a 'How you came here' heading")
+		var bglines: Array = main.background_lines()
+		if bglines.size() > 0:
+			var first_bg: Variant = (bglines[0] as Dictionary).get("text", {})
+			_check(jpage.find(I18n.t(first_bg)) >= 0,
+				"and prints the first arrival line there")
+		var sc := _find_scroll(main.journal._panel)
+		if sc != null:
+			sc.scroll_vertical = 10000
+			await _frames(4)
+			await _shot("12_journal_before")
 		# `_close_journal` is only the signal handler that unpauses the world;
 		# the panel itself closes through its own method. Calling the handler
 		# left the book drawn over the next region's frame.
@@ -235,8 +256,12 @@ func _run() -> void:
 	await _frames(12)
 	await _shot_size("10_layout_4x3", 320, 240)
 	layout_fb = last_fb
+	layout_visible = last_visible
 	_check(layout_fb.y > 180,
-		"the 4:3 window really produced a taller %dx%d viewport" % [layout_fb.x, layout_fb.y])
+		"the 4:3 window really produced a taller %dx%d framebuffer" % [layout_fb.x, layout_fb.y])
+	_check(layout_visible.y > 180.0 and layout_visible.x >= 320.0,
+		"and a taller %.0fx%.0f LOGICAL viewport, not a stretched 16:9 picture"
+		% [layout_visible.x, layout_visible.y])
 	get_tree().root.size = Vector2i(640, 360)
 	await _frames(8)
 
@@ -278,6 +303,7 @@ func _shot_size(name: String, w: int, h: int) -> void:
 	var src_w := img.get_width()
 	var src_h := img.get_height()
 	last_fb = Vector2i(src_w, src_h)
+	last_visible = vp.get_visible_rect().size
 	img.resize(w, h, Image.INTERPOLATE_NEAREST)
 
 	var bins := {}
@@ -351,6 +377,7 @@ func _finish() -> void:
 		"boot_control_ms": control_ms,
 		"boot_forced_pages": boot_pages,
 		"layout_framebuffer": [layout_fb.x, layout_fb.y],
+		"layout_logical": [layout_visible.x, layout_visible.y],
 		"fails": fails,
 	}
 	var f := FileAccess.open(dir + "/summary.json", FileAccess.WRITE)
@@ -358,8 +385,9 @@ func _finish() -> void:
 		f.store_string(JSON.stringify(out, "\t"))
 		f.close()
 	if fails == 0:
-		print("visual: PASS — %d rendered frames, control=%dms/%d pages, 4:3fb=%dx%d, input_routed=%s parsed_opens=%s direct=%s"
+		print("visual: PASS — %d rendered frames, control=%dms/%d pages, 4:3fb=%dx%d logical=%.0fx%.0f, input_routed=%s parsed_opens=%s direct=%s"
 			% [rows.size(), control_ms, boot_pages, layout_fb.x, layout_fb.y,
+				layout_visible.x, layout_visible.y,
 				str(input_routed), str(parsed_opens), str(input_direct)])
 		get_tree().quit(0)
 	else:
@@ -368,6 +396,16 @@ func _finish() -> void:
 
 
 # ── harness ─────────────────────────────────────────────────────────────
+func _find_scroll(n: Node) -> ScrollContainer:
+	if n is ScrollContainer:
+		return n
+	for c in n.get_children():
+		var found := _find_scroll(c)
+		if found != null:
+			return found
+	return null
+
+
 func _press_interact() -> void:
 	var ev := InputEventAction.new()
 	ev.action = "interact"
