@@ -218,32 +218,40 @@ func _run() -> void:
 	# 5. A second region, entered by walking onto its exit and pressing the one
 	# button. The flag the road wants is read from the region's own data, so
 	# this frame survives a change to the chapter's chronology.
-	if reg != null and reg.model != null:
+	# Use the region that is LIVE now, not the one captured beside Corin: the
+	# BECOME cut above rebuilds the world, and holding a stale Region meant
+	# reading .region_id on a freed object once the exit fired (CI 42013468346).
+	var road_reg = main.region
+	if is_instance_valid(road_reg) and road_reg.model != null:
+		var old_rid := str(road_reg.region_id)
 		var at: Array = [16, 46]
 		var need := ""
-		for e in reg.model.exits:
+		for e in road_reg.model.exits:
 			if str((e as Dictionary).get("to", "")) == "bethlehem":
 				at = (e as Dictionary).get("at", at)
 				need = str((e as Dictionary).get("requires", ""))
 		if need != "":
 			GameState.set_flag(need, true)
-		reg.player.global_position = Vector2(float(at[0]) * 16.0 + 8.0,
+		road_reg.player.global_position = Vector2(float(at[0]) * 16.0 + 8.0,
 			float(at[1]) * 16.0 + 8.0)
 		await _frames(4)
 		await _press_interact()
-		if main.region != null and str(main.region.region_id) == reg.region_id:
+		# Travel frees the old Region. Never read a member off it afterwards;
+		# only ask the CURRENT world whether the road still needs a nudge.
+		if is_instance_valid(main.region) and str(main.region.region_id) == old_rid:
 			var ev2 := InputEventAction.new()
 			ev2.action = "interact"
 			ev2.pressed = true
-			reg._unhandled_input(ev2)
+			main.region._unhandled_input(ev2)
 		var hops := 0
-		while main.region != null and str(main.region.region_id) != "bethlehem" \
-				and hops < 400:
+		while is_instance_valid(main.region) \
+				and str(main.region.region_id) != "bethlehem" and hops < 400:
 			await _frames(1)
 			hops += 1
-		_check(main.region != null and str(main.region.region_id) == "bethlehem",
+		_check(is_instance_valid(main.region)
+			and str(main.region.region_id) == "bethlehem",
 			"the road south reaches a second region")
-		if main.region != null and str(main.region.region_id) == "bethlehem":
+		if is_instance_valid(main.region) and str(main.region.region_id) == "bethlehem":
 			await _frames(20)
 			await _drain_all()
 			await _frames(4)
