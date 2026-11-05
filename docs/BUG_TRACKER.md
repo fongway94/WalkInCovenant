@@ -46,6 +46,6 @@ _None. Every bug found this pass is fixed and has a check. See "Fixed" below and
 |---|---|---|
 | `41961892986` | `79b1ac4` | **red**: two smoke assertions still expected the questionnaire (BUG-036), and the `by_act` fallback check assumed an untouched NPC. Both were faults in the *tests*, fixed by fixing the tests. |
 | `41962456561` | `07aad66` | **red**: one left — the drain ran through the whole ending, so the loop that used to catch a choice saw nothing. Replaced with a check that reads the pages the drain advanced past. |
-| `41963019742` | `4ffdeb e` | **green**: `run_all: ALL CHECKS PASSED` · `smoke: PASS — the slice played start to finish` · `deep: PASS — 109 checks hold` · export ✅ · deploy skipped (working branch) |
+| `41963019742` | `4ffdebe` | **green**: `run_all: ALL CHECKS PASSED` · `smoke: PASS — the slice played start to finish` · `deep: PASS — 109 checks hold` · export ✅ · deploy skipped (working branch) |
 | `41213672343` | `7b23ead` | pass 3 merged to `main`: lint ✅ · export ✅ · deploy ✅ |
 | `41211645356` | `e49dd03` | pass 3: lint ✅ · export ✅ |
