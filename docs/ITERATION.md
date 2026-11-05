@@ -306,6 +306,8 @@ rewritten.
 | `42015418307` | `b2fb9f1` | **red** — `api.github.com` class-reference outage → 76 false `xref_check` findings, runtime suites skipped; visual green, 12 frames, but `12_journal_before` lost one transport chunk. |
 | `42017005546` | `0a01126` | **red** — offline class reference and 42-chunk transport both worked (all 12 frames decoded), but one new deep assertion about the bubble's Control layout failed. |
 | `42018457660` | `903e7bc` | **red** — the diagnostic printed `label 104x24 at 4,3`: the 22 px bubble was shorter than the font's 24 px minimum line height, so it clipped every CJK glyph. Visual green, 12 frames. |
+| `42019344693` | `2fe704a` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames, control=10ms/0 pages, 4:3fb=640x480 logical=320x240`, lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42019960134` | `2bf8dc4` | **green** — the opaque bubble; same 134 checks and 12 frames, `control=10ms`. All twelve PNGs decoded and reviewed; these are the frames promoted as baselines. |
 
 Static gates (all nine) were clean at every push: `gd_lint` (32 files, 22
 class_names), `xref_check` (32 scripts, 4 autoloads), `api_check` (32 files, 54
@@ -362,10 +364,24 @@ the 4096 truncation) and a 48-colour quantised transport copy brought it to 42
 frame chunks; `tools/decode_frames.py 42017005546` wrote all twelve PNGs. The
 artifact keeps the engine's truecolour capture.
 
+### Final state
+
+`42019960134` (`2bf8dc4`) is **green**: `run_all: ALL CHECKS PASSED`,
+`smoke: PASS — the slice played start to finish`, `deep: PASS — 134 checks
+hold`, `visual: PASS — 12 rendered frames, control=10ms/0 pages, 4:3fb=640x480
+logical=320x240, input_routed=true parsed_opens=true direct=false`; lint ✅ ·
+visual ✅ · export-web ✅ · deploy skipped (working branch). All twelve PNGs
+were decoded with `tools/decode_frames.py 42019960134`, inspected by eye (the
+sheet and 4× zooms), and promoted with
+`PYTHONPATH=/home/user/.cache/pillow_check python3 tools/visual_diff.py
+--write-bases`. A plain `tools/visual_diff.py` then reported `diff 0.0000` for
+all twelve and `visual_diff: clean`. Run-to-run variation between the last two
+green runs was 0.0000–0.0171 on the same coarse grid, far under the 0.18 limit,
+so the committed baselines are stable. `tests/visual.gd` compares every later
+capture against them in-engine.
+
 ### What this pass did **not** establish
 
-- No green CI run at the final HEAD at the time this section was written — the
-  table above is kept honest and is extended when a run finishes.
 - Audio: 16 WAVs and 3 beds are checksum-checked, never heard. No sound card.
 - No browser-export run, no real device, no two-aspect-ratio check, no tactile
   judgement. All twelve frames are software GL under Xvfb + llvmpipe.

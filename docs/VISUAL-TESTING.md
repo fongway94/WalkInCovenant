@@ -95,3 +95,34 @@ itself is on a blocked host.
   `docs/PROJECT_AUDIT.md` that is capped by "no frame has ever been looked at"
   is only partly lifted: a frame has now been rendered and inspected, but not
   by a human on the target hardware.
+
+## Reviewed baselines (2026-11-05, LIVING WORLD pass)
+
+Twelve frames from the green run `42019960134` (`2bf8dc4`) were decoded,
+upscaled and inspected by eye, then promoted with
+`PYTHONPATH=/home/user/.cache/pillow_check python3 tools/visual_diff.py
+--write-bases`. A plain `tools/visual_diff.py` reported `diff 0.0000` for all
+twelve; `tests/visual.gd` now compares each fresh capture against them in the
+engine (coarse 32×18 grid, `DIFF_LIMIT 0.18`). Variation between two
+consecutive green runs was 0.0000–0.0171, so they are stable enough for that
+limit.
+
+| Frame | What it proves |
+|---|---|
+| `01_boot_world` | control is immediate, no forced prologue/briefing pages |
+| `02_valley` | the boot horn beat and bilingual first-call toast |
+| `03_dialogue` | a real parsed interact action opens a conversation |
+| `04_journal` | the book is opaque and its rows are legible |
+| `05_bethlehem` | the second region renders with its place card |
+| `06_flock` | the slope with living sheep, no bubble slab, no stray toast |
+| `07_sheep_near` | a live animal and the quest toast |
+| `08_quest_update` | the objective counter advances; one quiet opaque bubble |
+| `09_chinese_2x` | Chinese at 2× with a conversation box |
+| `10_layout_4x3` | a taller *logical* 4:3 viewport, not a stretched picture |
+| `11_transition` | a real `ScreenFade` caught mid-fade |
+| `12_journal_before` | 「来路」 / "How you came here" is reachable by scrolling |
+
+These are **wrong-scene detectors, not an art-quality verdict.** Three of the
+five defects listed in `docs/ITERATION.md` §8 were invisible to this grid diff
+and were found only by looking at upscaled PNGs. The duel, the camp close-up,
+any real handset, the browser export and every sound remain unverified.
