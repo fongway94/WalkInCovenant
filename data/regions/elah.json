@@ -317,6 +317,62 @@
     22,
     7
    ]
+  },
+  {
+   "type": "fold",
+   "at": [
+    24,
+    34
+   ]
+  },
+  {
+   "type": "sheep",
+   "at": [
+    23,
+    35
+   ]
+  },
+  {
+   "type": "sheep",
+   "at": [
+    25,
+    35
+   ]
+  },
+  {
+   "type": "sheep",
+   "at": [
+    26,
+    34
+   ]
+  },
+  {
+   "type": "sheep",
+   "at": [
+    24,
+    36
+   ]
+  },
+  {
+   "type": "fold",
+   "at": [
+    28,
+    37
+   ]
+  },
+  {
+   "type": "bush",
+   "at": [
+    27,
+    37
+   ]
+  },
+  {
+   "type": "wool_tuft",
+   "at": [
+    28,
+    38
+   ]
   }
  ],
  "npcs": [
@@ -839,6 +895,70 @@
      }
     ]
    }
+  },
+  {
+   "id": "hired_boy",
+   "actor": "shepherd",
+   "at": [
+    22,
+    33
+   ],
+   "name": {
+    "en": "The hired boy",
+    "zh": "帮工的孩子"
+   },
+   "lines": [
+    {
+     "who": "",
+     "text": {
+      "en": "A boy about your age is mending the hurdle.",
+      "zh": "一个和你差不多年纪的孩子在修栅栏。"
+     }
+    },
+    {
+     "who": "hired_boy",
+     "text": {
+      "en": "“Mind the thorns. They keep the wool.”",
+      "zh": "「当心刺。羊毛都挂在上面了。」"
+     }
+    }
+   ],
+   "after": [
+    {
+     "who": "hired_boy",
+     "text": {
+      "en": "“I will stay with the fold.”",
+      "zh": "「我看着圈。」"
+     }
+    }
+   ],
+   "by_act": {
+    "witness": [
+     {
+      "who": "hired_boy",
+      "text": {
+       "en": "“These are Jesse's sheep. The camp is that way.”",
+       "zh": "「这是耶西家的羊。军营在那边。」"
+      }
+     }
+    ],
+    "shepherd": [
+     {
+      "who": "hired_boy",
+      "text": {
+       "en": "“Three are still out. I'll hold the hurdle, you go.”",
+       "zh": "「还有三只没回来。我守着栅栏，你去。」"
+      }
+     },
+     {
+      "who": "",
+      "text": {
+       "en": "He lifts the rail aside so you can get through.",
+       "zh": "他把横木抬起来，让你过去。"
+      }
+     }
+    ]
+   }
   }
  ],
  "words": [
@@ -1011,20 +1131,20 @@
       "zh": "「你是来看这件事的。你不是来结束它的。」"
      }
     },
-   {
-    "who": "corin",
-    "text": {
-     "en": "Before you become him, you have to see where he came from. The road south is open. Bethlehem — a prophet has come to Jesse's house.",
-     "zh": "「你要成为他，得先看看他从哪儿来。南边的路开了。伯利恒——有位先知到了耶西家。」"
+    {
+     "who": "corin",
+     "text": {
+      "en": "Before you become him, you have to see where he came from. The road south is open. Bethlehem — a prophet has come to Jesse's house.",
+      "zh": "「你要成为他，得先看看他从哪儿来。南边的路开了。伯利恒——有位先知到了耶西家。」"
+     }
+    },
+    {
+     "who": "",
+     "text": {
+      "en": "You look back down the valley. The forty days have not finished, and already you are being sent to their beginning.",
+      "zh": "你回头往谷底看。这四十天还没完，你却被派回它的起头。"
+     }
     }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "You look back down the valley. The forty days have not finished, and already you are being sent to their beginning.",
-     "zh": "你回头往谷底看。这四十天还没完，你却被派回它的起头。"
-    }
-   }
    ]
   }
  ],
@@ -1114,8 +1234,8 @@
    "zh": "跟着柯林走。他带你去找%s。"
   },
   "shepherd": {
-   "en": "A stone in the pouch. Practise on the jars.",
-   "zh": "皮兜里放一块石子，对着陶罐练手。"
+   "en": "Bring the three strays back to the fold before dark",
+   "zh": "天黑前，把走散的三只羊赶回圈里"
   },
   "saul": {
    "en": "Hear the king out. Then go.",
@@ -1150,8 +1270,8 @@
    "zh": "穿着王的盔甲走走吧。你会知道它为什么非脱下来不可。"
   },
   "bethlehem": {
-  "en": "Walk south to Bethlehem. See the boy with the sheep before you become him.",
-  "zh": "往南走到伯利恒。先看看那个放羊的孩子，再成为他。"
+   "en": "Walk south to Bethlehem. See the boy with the sheep before you become him.",
+   "zh": "往南走到伯利恒。先看看那个放羊的孩子，再成为他。"
   }
  },
  "ending": {
@@ -1205,43 +1325,43 @@
    {
     "who": "",
     "text": {
-     "en": "You look down. These hands are not yours.",
-     "zh": "你低下头。眼前这双手，不是你的。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "Three days earlier. Bethlehem.",
-     "zh": "三天前。伯利恒。"
-    }
-   },
-   {
-    "who": "",
-    "text": {
-     "en": "Your father stands in the doorway with a cloth bag in his hand.",
-     "zh": "父亲站在门口，手里提着一只布袋。"
+     "en": "Your father puts the cloth bag down by the door.",
+     "zh": "父亲把布袋放在门边。"
     }
    },
    {
     "who": "jesse",
     "text": {
      "en": "“Take this to your brothers: bread, cheese, and parched grain.”",
-     "zh": "「把这个给你哥哥们带去：饼、奶酪，还有炒好的麦子。」"
+     "zh": "「给你哥哥们带去：饼、奶酪，还有炒好的麦子。」"
     }
    },
    {
     "who": "jesse",
     "text": {
-     "en": "“They are with Saul's army, in the Valley of Elah. Go and see whether they are well.”",
-     "zh": "「他们跟着扫罗的军队，在以拉谷。去看看他们好不好。」"
+     "en": "“They are with Saul's army in the Valley of Elah. Go and see whether they are well.”",
+     "zh": "「他们在以拉谷，跟着扫罗的军队。去看看他们好不好。」"
+    }
+   },
+   {
+    "who": "david",
+    "text": {
+     "en": "“And the sheep?”",
+     "zh": "「羊呢？」"
+    }
+   },
+   {
+    "who": "jesse",
+    "text": {
+     "en": "“I will watch them. Go early, come back early.”",
+     "zh": "「我看着。你早去早回。」"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Pick up what your father has given you. Three things.",
-     "zh": "把父亲给的东西拿上。一共三样。"
+     "en": "Pick up the three things your father gave you.",
+     "zh": "把父亲给的三样东西拿上。"
     }
    }
   ],
@@ -1316,7 +1436,7 @@
    "jesse": {
     "en": "Jesse",
     "zh": "耶西",
-    "actor": "villager_b"
+    "actor": "jesse"
    },
    "eliab": {
     "en": "Eliab",
@@ -1362,36 +1482,22 @@
     {
      "who": "",
      "text": {
-      "en": "Three days earlier. The slope south of Bethlehem.",
-      "zh": "三天前。伯利恒南边的坡上。"
+      "en": "The slope south of Bethlehem. There is still oil in your hair, and nobody at home mentions yesterday.",
+      "zh": "伯利恒南边的坡上。头发上还有油味，家里没人再提昨天的事。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "The sheep graze behind you. The sling in your hand is worn shiny by your palm.",
-      "zh": "羊在背后吃草。机弦握在手里，被手心磨得发亮。"
+      "en": "It is nearly dark. Three sheep are still out.",
+      "zh": "天快黑了。还有三只羊没回来。"
      }
     },
     {
-     "who": "",
+     "who": "jesse",
      "text": {
-      "en": "There is a scar on your forearm where a lion's tooth went in. Nobody in the army knows about it; a shepherd's work is not the sort of thing anyone writes down.",
-      "zh": "小臂上有一道疤，是狮子的牙咬进去留下的。营里没有一个人知道——牧羊人的事，本来也没人记。"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "A row of clay jars stands on the slope. You throw at them every day until your arm aches.",
-      "zh": "坡上立着一排陶罐。你天天对着它们扔石头，扔到胳膊发酸。"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "This is not battle. This is practice.",
-      "zh": "这不是打仗。是练手。"
+      "en": "“Find them while there is light. The bread is by the door; take it when you are back.”",
+      "zh": "「趁亮找回来。饼在门边，回来再拿。」"
      }
     }
    ],
@@ -1405,10 +1511,52 @@
      }
     },
     {
+     "who": "jesse",
+     "text": {
+      "en": "“Your brothers are still in the Valley of Elah. Take these to them.”",
+      "zh": "「你哥哥们还在以拉谷。把这些给他们带去。」"
+     }
+    }
+   ],
+   "strays": [
+    {
+     "id": "sheep_north",
+     "sprite": "sheep",
+     "at": [
+      20,
+      30
+     ]
+    },
+    {
+     "id": "sheep_east",
+     "sprite": "sheep",
+     "at": [
+      29,
+      33
+     ]
+    },
+    {
+     "id": "sheep_west",
+     "sprite": "sheep",
+     "at": [
+      27,
+      39
+     ]
+    }
+   ],
+   "home_lines": [
+    {
      "who": "",
      "text": {
-      "en": "Your father wants you at the camp. Your brothers are there.",
-      "zh": "父亲叫你去一趟军营。哥哥们在那边。"
+      "en": "The last one is in. You lean the stick against the hurdle.",
+      "zh": "最后一只进了圈。你把棍子靠在栅栏上。"
+     }
+    },
+    {
+     "who": "jesse",
+     "text": {
+      "en": "“Rest a moment. That row of jars on the slope — don't you throw at them every day?”",
+      "zh": "「歇口气。坡上那排罐子，你不是天天扔吗？」"
      }
     }
    ]
@@ -1795,6 +1943,37 @@
      }
     }
    ]
+  },
+  {
+   "id": "lions_ground",
+   "at": [
+    28,
+    37
+   ],
+   "r": 2,
+   "lines": [
+    {
+     "who": "david",
+     "text": {
+      "en": "“This hurdle broke that day.”",
+      "zh": "「这道坎是那天撞坏的。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“There is wool still on the thorns. I never told them the whole of it.”",
+      "zh": "「羊毛还挂在刺上。我没跟家里细说。」"
+     }
+    },
+    {
+     "who": "david",
+     "text": {
+      "en": "“After that my hand was steadier when I threw.”",
+      "zh": "「后来扔石头，手比那天稳了些。」"
+     }
+    }
+   ]
   }
  ],
  "missions": [
@@ -1847,7 +2026,7 @@
     "kind": "flag",
     "key": "elah_drill_done"
    },
-   "note": "BECOME, three days earlier, then the sling drill on the slope"
+   "note": "BECOME on the walk back from the anointing; the flock comes home, then the sling drill on the slope"
   },
   {
    "id": "errand",

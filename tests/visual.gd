@@ -124,6 +124,31 @@ func _run() -> void:
 		_check(not main.journal.is_open(),
 			"the book closes before the picture moves on")
 
+	# 4b. The shepherd opening, rendered through the game's OWN BECOME cut.
+	# This is a scene probe rather than a second playthrough: the two story
+	# flags a player returning from Bethlehem carries are set, then the engine
+	# runs the handover, the opening lines and the flock itself. The harness
+	# draws nothing; the fold, sheep and objective are all the shipped game.
+	GameState.set_flag("elah_met_the_line", true)
+	GameState.set_flag("beth_anointed", true)
+	main._begin_become()
+	var become_frames := 0
+	while main.act_id() != "shepherd" and become_frames < 400:
+		await _frames(1)
+		become_frames += 1
+	_check(main.act_id() == "shepherd", "the BECOME cut reaches the shepherd act")
+	# `act` is set BEFORE the fade and the opening lines, so wait for the box
+	# itself; draining too early leaves it drawn over the flock frame.
+	var opening_frames := 0
+	while not main.region.dialogue.is_open() and opening_frames < 400:
+		await _frames(1)
+		opening_frames += 1
+	_check(main.region.dialogue.is_open(), "the shepherd opening has its short beat")
+	await _drain_all()
+	await _frames(8)
+	_check(bool(main._flock_active), "the fold has its three strays on the ground")
+	await _shot("06_flock")
+
 	# 5. A second region, entered by walking onto its exit and pressing the one
 	# button. The flag the road wants is read from the region's own data, so
 	# this frame survives a change to the chapter's chronology.

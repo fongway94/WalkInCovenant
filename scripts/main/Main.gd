@@ -48,6 +48,12 @@ var _in_battle := false
 enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, ARMOUR, STONES, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
+## The shepherd opening's one job: three strays, brought home by walking to
+## them. `Region` remembers each one through its own pickup flag, so a save
+## taken halfway through the flock resumes halfway, not from the first line.
+var sheep_home := 0
+var _sheep_total := 0
+var _flock_active := false
 var practice: SlingPractice = null
 var fade: ScreenFade = null
 var journal: Journal = null
@@ -308,6 +314,13 @@ func _update_guidance() -> void:
 	match act:
 		Act.SHEPHERD:
 			key = "shepherd"
+			if _flock_active:
+				# A goal with a direction. The arrow points at the nearest
+				# unclaimed stray and the counter is on the same line, so the
+				# player never has to remember a sentence from a closed box.
+				target = _nearest_pickup("flock", p.global_position)
+				point = true
+				line = "%s  %d/%d" % [I18n.t(obj.get(key, {})), sheep_home, _sheep_total]
 		Act.SAUL:
 			key = "saul"
 			var king := _npc("saul")
@@ -982,6 +995,15 @@ func _on_verse(_id: String, ref: String) -> void:
 
 
 func _on_pickup(id: String) -> void:
+	if id.begins_with("sheep_") and _flock_active:
+		sheep_home += 1
+		AudioDirector.play_sfx("pickup", -4.0)
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "Back in the fold · %d/%d", "zh": "回圈了 · %d/%d"})
+			% [sheep_home, _sheep_total])
+		if sheep_home >= _sheep_total:
+			_flock_finished()
+		return
 	if id.begins_with("prov"):
 		provisions += 1
 		EventBus.toast_requested.emit(I18n.t({
@@ -1147,10 +1169,12 @@ func _begin_become() -> void:
 		_start_david_act)
 
 
-## Act II opens three days earlier, on the slope where David kept his father's
-## sheep. The drill is here for one reason: the fight asks exactly one input in
-## its aim phase, and nothing in the game taught it before the giant was already
-## standing in front of you (playtest 8: "throw stone to attack goliath").
+## Act II opens on the slope where David kept his father's sheep — AFTER the
+## anointing the player has just witnessed in Bethlehem, not "three days
+## earlier". The flock, the optional broken hurdle and Jesse's call are here so
+## the errand interrupts a day the player has actually lived. The drill still
+## teaches the one input the fight asks for (playtest 8: "throw stone to attack
+## goliath"), but it now comes after the sheep are in.
 func _start_david_act() -> void:
 	# `_in_battle` guarded the line while BECOME played. From here the act
 	# itself guards it (SHEPHERD/ERRAND/SAUL ignore the line, READY answers it),
@@ -1170,7 +1194,50 @@ func _start_david_act() -> void:
 	region.set_paused(true)
 	# A cut, not a jump: black, the slope, then the words.
 	fade.run(0.45, func(): _place_at(st), 0.35, func():
-		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_practice))
+		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_flock))
+
+
+## The flock is the one small mechanic the shepherd day needs. Walking to a
+## stray brings it in: no fetch list, no quiz, no reward screen. Each one is
+## remembered by Region's own `pickup:` flag, so a reload cannot put a sheep
+## back on the slope or ask for it twice.
+func _start_flock() -> void:
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	var strays: Array = sh.get("strays", [])
+	_sheep_total = strays.size()
+	sheep_home = 0
+	_flock_active = false
+	for it in strays:
+		var sd: Dictionary = it
+		var sid := str(sd.get("id", ""))
+		if sid == "":
+			_sheep_total -= 1
+			continue
+		if bool(GameState.flag(Region.pickup_key(str(region.model.id), sid))):
+			sheep_home += 1
+			continue
+		var at: Array = sd.get("at", [16, 45])
+		region.spawn_pickup(sid, "flock", str(sd.get("sprite", "sheep")),
+			int(at[0]), int(at[1]), sd)
+	region.set_paused(false)
+	if _sheep_total <= 0 or sheep_home >= _sheep_total:
+		# A save taken after the last sheep but before the drill.
+		_flock_finished()
+		return
+	_flock_active = true
+
+
+func _flock_finished() -> void:
+	_flock_active = false
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	var lines: Array = sh.get("home_lines", [])
+	if lines.is_empty():
+		_start_practice()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.set_paused(false)
+		_start_practice())
 
 
 ## Put the player on a tile and take the camera with them, with no glide.
@@ -1182,7 +1249,9 @@ func _on_curio(_id: String, lines: Array) -> void:
 	if region.dialogue != null and region.dialogue.is_open():
 		return
 	region.set_paused(true)
-	region.dialogue.show_lines(lines, func(_w): return {}, func():
+	# A curio is allowed to have a voice: the broken hurdle is David remembering
+	# his own day, and a nameless box would read like another bit of narration.
+	region.dialogue.show_lines(lines, _speaker, func():
 		region.set_paused(false))
 
 

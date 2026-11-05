@@ -233,6 +233,45 @@
    ],
    "solid": false,
    "notes": ""
+  },
+  {
+   "key": "sheep",
+   "frames": 1,
+   "w": 14,
+   "h": 12,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "the flock on the slope",
+   "source": "artgen:sheep"
+  },
+  {
+   "key": "fold",
+   "frames": 1,
+   "w": 16,
+   "h": 12,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "a hurdle; one is broken at the lion's ground",
+   "source": "artgen:fold"
+  },
+  {
+   "key": "wool_tuft",
+   "frames": 1,
+   "w": 8,
+   "h": 6,
+   "footprint": [
+    0,
+    0
+   ],
+   "solid": false,
+   "notes": "wool caught on the thorns",
+   "source": "artgen:wool_tuft"
   }
  ]
 }

@@ -11,7 +11,7 @@ Priority 1. This document is the capability report, not a claim of quality.
 | Display / GPU | **None.** No Xvfb, no Mesa DRI, no browser, no sound card. | **Yes, software.** `xvfb-run` + Mesa llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`), `--rendering-driver opengl3`. |
 | Automated input | n/a | **Yes.** `Input.parse_input_event(InputEventAction)` through the engine's own pipeline, with a direct-handler fallback that is reported separately. |
 | Screenshot capture | n/a | **Yes.** `RenderingServer.frame_post_draw` → `get_viewport().get_texture().get_image()` → nearest-downscale to 320×180 → PNG. |
-| Scene-by-scene | n/a | **Yes.** `tests/visual.tscn` boots the shipped `Main.tscn` and captures five named beats: boot dialogue, the valley, a conversation, the journal, and Bethlehem. |
+| Scene-by-scene | n/a | **Yes.** `tests/visual.tscn` boots the shipped `Main.tscn` and captures six named beats: boot dialogue, the valley, a conversation, the journal, the shepherd flock, and Bethlehem. |
 | Visual regression | **Yes, locally**, on decoded PNGs (`tools/visual_diff.py`). | **Yes, in-run**, when `tests/frames/baseline_*.png` are committed: a 32×18 averaged colour-grid diff with a 0.18 limit. |
 | Browser export testing | **No.** No browser binary, and the Pages host / CI artifact host are unreachable. | Not built. The web export is produced and size-checked by `export-web`, but nothing opens it in a browser. |
 | Console / runtime errors | n/a | **Yes.** The render log is grepped for `SCRIPT ERROR`, `Parse Error`, `ERROR:`, failed script loads, null instances and unresolved classes; a match fails the job. |

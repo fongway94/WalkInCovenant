@@ -581,11 +581,39 @@ func _run() -> void:
 		"returning from the anointing hands over to David (waited %d frames)" % waited)
 	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the slope speaks before anything else")
-	_drain(region.dialogue)
-	await _frames(2)
+	await _drain_quiet(region.dialogue)
+	await _frames(3)
 
-	# ── 6a. the drill ────────────────────────────────────────────────────
-	_check(main.practice != null, "the sling drill starts after the narration")
+	# ── 6a. the flock: a job, not another box ────────────────────────────
+	var sh_data: Dictionary = region.model.david_act.get("shepherd", {})
+	var strays: Array = sh_data.get("strays", [])
+	_check(strays.size() == 3, "the slope has three strays to bring in")
+	_check(main._flock_active, "the opening gives the player a job to do")
+	for it in strays:
+		var sd: Dictionary = it
+		var at2: Array = sd.get("at", [])
+		if at2.size() != 2:
+			continue
+		# The broken hurdle is optional and has no marker. Find it between the
+		# second and the third sheep, while the world is still walking: once
+		# the drill starts, curios deliberately stay quiet.
+		if str(sd.get("id", "")) == "sheep_west":
+			await _stand(region, 28, 37, 3)
+			await _wait_open(region.dialogue)
+			_check(region.dialogue._open, "the broken hurdle has three lines when you find it")
+			await _drain_quiet(region.dialogue)
+			await _frames(2)
+		await _stand(region, int(at2[0]), int(at2[1]), 3)
+		await _frames(4)
+	_check(main.sheep_home == 3, "all three strays came home (%d/3)" % main.sheep_home)
+	_check(not main._flock_active, "the job ends when the fold is full")
+	await _wait_open(region.dialogue)
+	_check(region.dialogue._open, "the fold has a short beat before the drill")
+	await _drain_quiet(region.dialogue)
+	await _frames(3)
+
+	# ── 6a2. the drill ───────────────────────────────────────────────────
+	_check(main.practice != null, "the sling drill starts after the flock is in")
 	var throws := 0
 	var practice_frames := 0
 	while main.practice != null and practice_frames < FRAME_GUARD:

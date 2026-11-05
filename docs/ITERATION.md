@@ -39,7 +39,7 @@ being able to see something.
 - **Found working:** check-run annotations on `api.github.com` are readable
   with `gh api`, so CI can hand rendered PNGs back as base64.
 - **Built:** `tests/visual.gd` + `tests/visual.tscn` (boots the shipped
-  `Main.tscn`, drives a real `InputEventAction`, captures five named beats,
+  `Main.tscn`, drives a real `InputEventAction`, captures six named beats,
   checks colour diversity/luma, compares committed baselines), a `visual` job
   in `.github/workflows/build-web.yml` (downloads Godot 4.7.2 on a hosted
   runner, Xvfb + llvmpipe, console/runtime error gate, base64 annotations,
