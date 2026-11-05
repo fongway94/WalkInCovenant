@@ -194,36 +194,36 @@
     {
      "who": "",
      "text": {
-      "en": "The old man does not ask who you are. He asks the only question that matters to him this morning.",
-      "zh": "老人没有问你是谁。他只问了这个早上对他最要紧的一件事。"
+      "en": "The old man at the gate looks you over and speaks first.",
+      "zh": "城门边的老人看了你一眼，先开了口。"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“You are not from the town. Then I will tell you plainly: Samuel is here.”",
-      "zh": "「你不是镇上的人。那我直说：撒母耳来了。」"
+      "en": "“You are not from this town. Then I will tell you: Samuel is here.”",
+      "zh": "「你不是本镇的人。那我告诉你：撒母耳来了。」"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "He came up the road at first light with a horn at his side, and the elders went out to meet him trembling.",
-      "zh": "天刚亮他就顺着大路上来了，身边带着一只角。长老们出去迎他的时候，腿都在抖。"
+      "en": "He came up the road at first light with a horn at his side. The elders went out to meet him.",
+      "zh": "天刚亮他顺着大路上来，腰间带着一只角。长老们出去迎他，腿都在抖。"
      }
     },
     {
      "who": "",
      "text": {
-      "en": "When a prophet comes to a small town, it is never for a small reason.",
-      "zh": "先知到一个小镇上来，从来不是为了小事。"
+      "en": "Since then nobody in the town has gone back to work.",
+      "zh": "从那以后，镇上没人再回去干活。"
      }
     },
     {
      "who": "elder",
      "text": {
-      "en": "“Jesse's house is up by the wall. Go and see for yourself, and when you come back down, tell me what he wanted.”",
-      "zh": "「耶西的家在城墙边上。你自己上去看。下来的时候，告诉我他要做什么。」"
+      "en": "“Jesse's house is up by the wall. Go and see. When you come back down, tell me what he wanted.”",
+      "zh": "「耶西家在城墙边。你自己上去看。下来时告诉我他要什么。」"
      }
     }
    ],
@@ -231,8 +231,8 @@
     {
      "who": "",
      "text": {
-      "en": "I have lived here seventy years, and I have never seen the whole town stand still in the street like this.",
-      "zh": "我在这儿住了七十年，从来没见过全镇的人这样站在街上不动。"
+      "en": "Seventy years I have lived here. I have never seen the whole street stand still like this.",
+      "zh": "我在这儿住了七十年，没见过整条街这样站着不动。"
      }
     }
    ]
@@ -252,8 +252,8 @@
     {
      "who": "",
      "text": {
-      "en": "A woman is drawing water she does not need, because her hands want something to do.",
-      "zh": "一个妇人在打水，其实她并不需要水，只是手里得做点什么。"
+      "en": "A woman at the well has drawn two buckets and carries neither away.",
+      "zh": "井边的妇人打了两桶水，一桶也没提走。"
      }
     },
     {
@@ -303,8 +303,8 @@
     {
      "who": "",
      "text": {
-      "en": "The father keeps one hand on the doorframe the whole time he is speaking, as if the house might move.",
-      "zh": "父亲说话的时候，一只手一直扶在门框上，好像这间屋子会挪动。"
+      "en": "He keeps one hand on the doorframe while he says it.",
+      "zh": "他说这话的时候，一只手一直扶着门框。"
      }
     }
    ],
@@ -312,8 +312,8 @@
     {
      "who": "jesse",
      "text": {
-      "en": "“Whatever the prophet wants, he has not said it to me. Fathers are the last to be told.”",
-      "zh": "「先知要什么，他没跟我说。做父亲的，总是最后才知道。」"
+      "en": "“He has not told me which one he wants. I brought them all.”",
+      "zh": "「他没说要找哪一个。我就把他们都叫来了。」"
      }
     }
    ]
@@ -349,8 +349,8 @@
     {
      "who": "",
      "text": {
-      "en": "I am the eldest. Whatever is beginning in this house should have begun with me.",
-      "zh": "我是长子。这个家里要出什么事，也该先从我这儿起。"
+      "en": "I am the eldest. He did not say a word to me.",
+      "zh": "我是长子。他连一句话都没跟我说。"
      }
     }
    ]
@@ -370,15 +370,15 @@
     {
      "who": "",
      "text": {
-      "en": "The old prophet sits with his hands folded. He does not look at you the way the town looks at you.",
-      "zh": "老先知坐着，双手交叠。他看你的样子，和镇上看你的人不一样。"
+      "en": "The old prophet sits with his hands on his knees. He does not hurry to speak.",
+      "zh": "老先知坐着，两手放在膝上。他没急着开口。"
      }
     },
     {
      "who": "samuel",
      "text": {
-      "en": "“You came up with the crowd. Then sit and watch what the LORD does in a house you have never been in.”",
-      "zh": "「你是跟着人上来的。那就坐下，看耶和华在你不认识的家里做什么。」"
+      "en": "“You came up with the crowd. Sit down and watch. Say nothing.”",
+      "zh": "「你是跟着人上来的。坐下看着，别说话。」"
      }
     },
     {
@@ -393,8 +393,8 @@
     {
      "who": "samuel",
      "text": {
-      "en": "“You are still here. Good. Watch — do not help. This is not a thing a bystander can carry.”",
-      "zh": "「你还在。很好。看着，别插手。这件事，旁人替不了。」"
+      "en": "“You are still here. Good. Stand where you are and watch.”",
+      "zh": "「你还在。好。站在那儿看着就行。」"
      }
     }
    ]
@@ -415,8 +415,8 @@
     {
      "who": "",
      "text": {
-      "en": "The flock is thin and dusty, and the boy with it is the only person in Bethlehem still working.",
-      "zh": "羊群又瘦又脏。整个伯利恒，只有看着它们的那个男孩还在干活。"
+      "en": "The sheep are spread over the slope. The boy with them still has the stick in his hand.",
+      "zh": "羊在坡上散着。看羊的孩子手里还拿着棍子。"
      }
     },
     {
@@ -429,8 +429,8 @@
     {
      "who": "david",
      "text": {
-      "en": "“The prophet is at the house. I heard the women say it. Nobody in Bethlehem has slept well since.”",
-      "zh": "「先知在家里。我听妇人们说了。从那天起，伯利恒没有一个人睡好过。」"
+      "en": "“The prophet is at the house. I heard the women say it. Nobody here has slept well for two days.”",
+      "zh": "「先知在家里。我听妇人们说了。这两天镇上都没睡好。」"
      }
     }
    ],
@@ -498,8 +498,8 @@
   {
    "who": "",
    "text": {
-    "en": "Bethlehem sits high enough that the wind comes off the hills all night. Everything here is small, and everything here is watched.",
-    "zh": "伯利恒地势高，整夜都有山风。这里什么都小，什么都被人看着。"
+    "en": "Bethlehem sits high; the wind came off the hills all night. Nobody has started work this morning. People are standing in their doorways.",
+    "zh": "伯利恒地势高，夜里山风没停过。今早没人开工，人都站在门口。"
    }
   }
  ],
@@ -515,24 +515,24 @@
    {
     "who": "",
     "text": {
-     "en": "The gate is open and nobody is working. Everyone is standing very still, the way people do when they are all afraid of the same thing.",
-     "zh": "城门开着，可是没有人在干活。所有人都站着不动 —— 人怕同一件事的时候，就是这个样子。"
+     "en": "The gate is open and nobody is working. People stand in the street without saying much.",
+     "zh": "城门开着，没人干活。人都在街上站着，不说话。"
     }
    }
   ],
   "sons": [
    {
-    "who": "samuel",
+    "who": "",
     "text": {
-     "en": "1 Samuel 16:7\n“But the LORD said unto Samuel, Look not on his countenance, or on the height of his stature; because I have refused him:”",
-     "zh": "撒母耳记上 16:7\n「耶和华却对撒母耳说：不要看他的外貌和他身材高大，我不拣选他。"
+     "en": "[Scripture] 1 Samuel 16:7\nBut the LORD said unto Samuel, Look not on his countenance, or on the height of his stature; because I have refused him:",
+     "zh": "【经文】撒母耳记上 16:7\n耶和华却对撒母耳说：不要看他的外貌和他身材高大，我不拣选他。"
     }
    },
    {
-    "who": "samuel",
+    "who": "",
     "text": {
-     "en": "“for the LORD seeth not as man seeth; for man looketh on the outward appearance, but the LORD looketh on the heart.”",
-     "zh": "因为，耶和华不像人看人：人是看外貌；耶和华是看内心。」"
+     "en": "for the LORD seeth not as man seeth; for man looketh on the outward appearance, but the LORD looketh on the heart.",
+     "zh": "因为，耶和华不像人看人：人是看外貌；耶和华是看内心。"
     }
    },
    {
@@ -543,54 +543,54 @@
     }
    },
    {
-    "who": "samuel",
+    "who": "",
     "text": {
-     "en": "1 Samuel 16:10\n“Again, Jesse made seven of his sons to pass before Samuel. And Samuel said unto Jesse, The LORD hath not chosen these.”",
-     "zh": "撒母耳记上 16:10\n「耶西叫他七个儿子都从撒母耳面前经过，撒母耳对耶西说：这都不是耶和华所拣选的。」"
-    }
-   },
-   {
-    "who": "samuel",
-    "text": {
-     "en": "1 Samuel 16:11\n“And Samuel said unto Jesse, Are here all thy children?”",
-     "zh": "撒母耳记上 16:11\n「撒母耳对耶西说：你的儿子都在这里吗？"
-    }
-   },
-   {
-    "who": "samuel",
-    "text": {
-     "en": "“And he said, There remaineth yet the youngest, and, behold, he keepeth the sheep.”",
-     "zh": "他回答说：还有个小的，现在放羊。」"
-    }
-   },
-   {
-    "who": "samuel",
-    "text": {
-     "en": "“And Samuel said unto Jesse, Send and fetch him: for we will not sit down till he come hither.”",
-     "zh": "撒母耳对耶西说：你打发人去叫他来；他若不来，我们必不坐席。」"
+     "en": "[Scripture] 1 Samuel 16:10\nAgain, Jesse made seven of his sons to pass before Samuel. And Samuel said unto Jesse, The LORD hath not chosen these.",
+     "zh": "【经文】撒母耳记上 16:10\n耶西叫他七个儿子都从撒母耳面前经过，撒母耳对耶西说：这都不是耶和华所拣选的。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "Nobody moves. Then the whole room turns and looks at you, because you are the only one in it who is not from this house.",
-     "zh": "没有人动。然后满屋子的人转过来看你 —— 因为这一屋子里，只有你不是这家的。"
+     "en": "[Scripture] 1 Samuel 16:11\nAnd Samuel said unto Jesse, Are here all thy children?",
+     "zh": "【经文】撒母耳记上 16:11\n撒母耳对耶西说：你的儿子都在这里吗？"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "And he said, There remaineth yet the youngest, and, behold, he keepeth the sheep.",
+     "zh": "他回答说：还有个小的，现在放羊。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "And Samuel said unto Jesse, Send and fetch him: for we will not sit down till he come hither.",
+     "zh": "撒母耳对耶西说：你打发人去叫他来；他若不来，我们必不坐席。"
+    }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "Nobody moves. Then everyone in the room turns to look at you.",
+     "zh": "没有人动。屋里的人都转过头来看你。"
     }
    }
   ],
   "anoint": [
    {
-    "who": "samuel",
+    "who": "",
     "text": {
-     "en": "1 Samuel 16:12\n“And he sent, and brought him in. Now he was ruddy, and withal of a beautiful countenance, and goodly to look to.”",
-     "zh": "撒母耳记上 16:12\n「耶西就打发人去叫了他来。他面色光红，双目清秀，容貌俊美。"
+     "en": "[Scripture] 1 Samuel 16:12\nAnd he sent, and brought him in. Now he was ruddy, and withal of a beautiful countenance, and goodly to look to.",
+     "zh": "【经文】撒母耳记上 16:12\n耶西就打发人去叫了他来。他面色光红，双目清秀，容貌俊美。"
     }
    },
    {
-    "who": "samuel",
+    "who": "",
     "text": {
-     "en": "“And the LORD said, Arise, anoint him: for this is he.”",
-     "zh": "耶和华说：这就是他，你起来膏他。」"
+     "en": "And the LORD said, Arise, anoint him: for this is he.",
+     "zh": "耶和华说：这就是他，你起来膏他。"
     }
    },
    {
@@ -603,29 +603,29 @@
    {
     "who": "",
     "text": {
-     "en": "1 Samuel 16:13\n“Then Samuel took the horn of oil, and anointed him in the midst of his brethren:”",
-     "zh": "撒母耳记上 16:13\n「撒母耳就用角里的膏油，在他诸兄中膏了他。"
+     "en": "[Scripture] 1 Samuel 16:13\nThen Samuel took the horn of oil, and anointed him in the midst of his brethren:",
+     "zh": "【经文】撒母耳记上 16:13\n撒母耳就用角里的膏油，在他诸兄中膏了他。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "“and the Spirit of the LORD came upon David from that day forward. So Samuel rose up, and went to Ramah.”",
-     "zh": "从这日起，耶和华的灵就大大感动大卫。撒母耳起身回拉玛去了。」"
+     "en": "and the Spirit of the LORD came upon David from that day forward. So Samuel rose up, and went to Ramah.",
+     "zh": "从这日起，耶和华的灵就大大感动大卫。撒母耳起身回拉玛去了。"
     }
    },
    {
     "who": "",
     "text": {
-     "en": "You have seen the end of this story and now its beginning, and the beginning is somebody's youngest son coming in from the sheep.",
-     "zh": "你已经看过这件事的结局，现在看到它的开头 —— 而这个开头，不过是有人家最小的儿子，从羊群里回来了。"
+     "en": "Nobody speaks. He stands among his brothers with the oil still on his hair.",
+     "zh": "屋里没人说话。他站在几个哥哥中间，头发上还沾着油。"
     }
    },
    {
     "who": "samuel",
     "text": {
-     "en": "“Go back down the road when you are ready. He will need it: the valley, the giant, all of it.”",
-     "zh": "「想走的时候，就顺着大路下去。他会需要你看见过的那些 —— 山谷、巨人，所有的一切。」"
+     "en": "“The road back is down there. Go when you are ready. There is nothing for you to do here.”",
+     "zh": "「回去的路在下面。想走就走吧，这里没你要做的事了。」"
     }
    }
   ]

@@ -101,7 +101,10 @@ func _run() -> void:
 		"the region is the one data/campaigns.json registered (%s)" % region.region_id)
 	_check(region.player != null, "player spawned")
 	_check(region.dialogue != null, "dialogue box exists")
-	_check(region.npcs.size() == 4, "4 people in the valley (got %d)" % region.npcs.size())
+	_check(region.npcs.size() == 5,
+		"the valley has its four people and a boy at the fold (got %d)" % region.npcs.size())
+	_check(_find_npc(region, "hired_boy") != null,
+		"the hired boy is standing at the fold")
 	# The five stones of 17:40 belong to David's act and are laid out when the
 	# verse is spoken, so at boot there must be none of them: the witness cannot
 	# pick up a scene that has not happened yet.
