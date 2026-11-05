@@ -164,7 +164,20 @@ func _run() -> void:
 				"and prints the first arrival line there")
 		var sc := _find_scroll(main.journal._panel)
 		if sc != null:
-			sc.scroll_vertical = 10000
+			# Land on the optional section, not past it. Scrolling to 10000
+			# showed only the tail of the prologue with its 「来路」/How you
+			# came here heading scrolled off the top — a reader could find it,
+			# but the frame did not prove the section exists.
+			var before_text := I18n.t({"en": "How you came here", "zh": "来路"})
+			var head_y := -1.0
+			for c in main.journal._body.get_children():
+				if c is Label and str((c as Label).text) == before_text:
+					head_y = (c as Control).position.y
+					break
+			if head_y >= 0.0:
+				sc.scroll_vertical = int(maxf(0.0, head_y - 8.0))
+			else:
+				sc.scroll_vertical = 10000
 			await _frames(4)
 			await _shot("12_journal_before")
 		# `_close_journal` is only the signal handler that unpauses the world;

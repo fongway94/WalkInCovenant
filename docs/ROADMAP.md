@@ -5,6 +5,17 @@ broken, what is next. `docs/AUDIT.md` holds the Phase 1 findings,
 `docs/RESET-REPORT.md` the per-phase reports with evidence, and this file the
 order the work is being done in.
 
+> **LIVING WORLD (2026-11-05, after this roadmap was written):** the forced
+> prologue/briefing/place card were removed from boot — control is immediate —
+> and the arrival prose moved to an optional 「来路」 / "How you came here" section
+> in the journal. The three sheep are now animals with moods, trust and startle;
+> NPCs speak short bilingual chatter, react with `emote()` and change lines on
+> `by_flag`; the chapter moves from dusk to morning. Twelve CI frames were
+> decoded and reviewed. **`docs/ITERATION.md` §8 is the current working record;
+> `docs/ART_DIRECTION.md` is the art direction; `docs/VISUAL-TESTING.md` the
+> honest limit of what those frames prove.** The numbered list below is the
+> historical chapter walk-through and is kept for its reasoning.
+
 **Evidence key** — CI = the real engine, headless, on GitHub Actions
 (`tests/run_all.gd` content + `tests/smoke.gd` full playthrough). READ = proven
 by reading the code, not executed. DEVICE = needs a phone; **never claimed**.

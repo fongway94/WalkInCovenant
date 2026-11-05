@@ -94,33 +94,35 @@ justification is not allowed here.
 
 | # | Dimension | Score | Evidence |
 |---|---|---|---|
-| 1 | Technical reliability | **7/10** | 37 defects found and fixed, each with a check that failed first; 3 test suites; 9 static gates; a `MIN_CHECKS` floor so the suite cannot be made green by deleting checks. −3: nothing has run on a phone; two of the three suites cannot exercise real input routing headless. |
-| 2 | Gameplay interaction | **6/10** | Movement is immediate and analog, the sling drill and the brook are real interactions with real state, the duel alternates strike/aim phases. −4: most NPC contact is still "walk up, press A, read". |
-| 3 | Story immersion | **7/10** (6 → 7 in pass 4) | The witness frame ("we are witnesses, not the protagonists") is a genuine idea, and it is told through people rather than captions. **Raised** because the chapter no longer ends on a questionnaire aimed at the player: it ends on a scene (the Philistine rout to Gath and Ekron, four stones counted twice, the camp asking whose son this boy is, the quiet, the road south), asserted word-by-word in `smoke.gd` after the drain. −3: Act 1 is still narration on a slope; nobody has *seen* a frame. |
-| 4 | Narrative pacing | **5/10** | The witness act is dense and good; everything after BECOME is a checklist of five beats with no quiet between them. There is no optional content that rewards curiosity beyond four curios. |
-| 5 | Biblical accuracy | **9/10** (8 → 9 in pass 4) | Verbatim quotations, correct citations, canonical outcomes preserved, invented characters never speak Scripture. **Raised** because 1 Samuel 17:34–37 is now quoted verbatim, in order, KJV + 和合本, each marked as Scripture (the 17:37a paraphrase that used to sit unattributed inside 「」 is gone), and a `_check_speakers()` gate now refuses any line whose `who` resolves to nobody — so Goliath's 17:44 can no longer be delivered as anonymous narration. −1: 1 Samuel 16 still plays *after* 1 Samuel 17 (tracker O-6), so the chronology of the two chapters is not yet the chronology of Scripture. |
-| 6 | Chinese writing | **7/10** | Natural, uneven only where it turns aphoristic ("他错在以为，年轻就什么都不是"). The Bethlehem scenes are the best prose in the game. |
-| 7 | Visual consistency | **5/10** | One grid, one palette family, consistent sprite proportions. −5: no animals, no interiors, no weather; and **no frame has ever been looked at** — the layout is proven geometrically, not by eye. |
+| 1 | Technical reliability | **8/10** | 37+ defects found and fixed, each with a check that failed first; 4 test suites (the visual one proves a parsed `InputEventAction` reaches `_unhandled_input`); 9 static gates; 12 rendered CI frames; a `MIN_CHECKS` floor; and a pinned offline Godot class reference so the static checks no longer fail when `api.github.com` is down. −2: nothing has run on a phone or in the browser export. |
+| 2 | Gameplay interaction | **7/10** | Movement is immediate and analog (boot-to-control measured at 8–14 ms in CI), the sling drill and the brook are real interactions with real state, and the three sheep now graze, startle, build trust and have to be driven from behind the fold — she is not collected by walking within 10 px. −3: most NPC contact is still "walk up, press A, read"; the duel and camp close-up have not been reviewed as images. |
+| 3 | Story immersion | **8/10** (6 → 7 in pass 4, → 8 in LIVING WORLD) | The witness frame ("we are witnesses, not the protagonists") is a genuine idea, and it is told through people rather than captions. **Raised** again because people now speak without being asked: short bilingual chatter, one-voice-at-a-time bubbles, `emote()` reactions to the flock, lines that change on `by_flag`, a horn and toast on the first call, and dusk → morning over the same map. −2: no sound or device verification; the duel and camp have not been looked at as images. |
+| 4 | Narrative pacing | **7/10** | **Raised** because the boot no longer forces the prologue, briefing and place card: the player walks within one frame and the arrival prose moved to an optional 「来路」 / "How you came here" section at the bottom of the journal, reachable by scrolling. Curios and `by_flag` lines now reward returning. −3: 9–10 px Chinese at 320×180 has been read in software-GL frames only, and the aftermath still has no quiet beat. |
+| 5 | Biblical accuracy | **9/10** (8 → 9 in pass 4) | Verbatim quotations, correct citations, canonical outcomes preserved, invented characters never speak Scripture. **Raised** because 1 Samuel 17:34–37 is now quoted verbatim, in order, KJV + 和合本, each marked as Scripture (the 17:37a paraphrase that used to sit unattributed inside 「」 is gone), and a `_check_speakers()` gate now refuses any line whose `who` resolves to nobody — so Goliath's 17:44 can no longer be delivered as anonymous narration. −1: the chronology is now correct (1 Samuel 16 before 17, tracker O-6 closed), but the invented shepherd-day and camp prose sits beside marked Scripture with only the 「」/marker convention to tell them apart. |
+| 6 | Chinese writing | **8/10** | Camp aphorisms were rewritten into plain speech, Corin's narration split into two readable pages, all chatter cut to ≤12 characters so a bubble stays one line, and the hired boy's lines change after the flock comes home. −2: no native-speaker/author listening pass; the rendered 9 px Chinese has been read only in software-GL frames. |
+| 7 | Visual consistency | **7/10** | One grid, one palette family, consistent sprite proportions; animals with two-frame animation, dusk/morning palettes and frozen sway while paused. **Twelve decoded CI frames were inspected by eye** and three real defects were found and fixed from them (a black bubble slab, a horn toast over the flock, unreadable optional rows). −3: no interiors, no weather, no duel/camp close-up, and all of it is software GL rather than a phone. |
 | 8 | Controls and usability | **7/10** | Floating stick, always-visible A, one tap = one action, escape from every box, journal on keys and thumb. −3: unverified on a device; the journal button is 26×17 logical units. |
 | 9 | Performance | **6/10** | Reasonable by construction (A* on a 48×32 grid, ~20 sprites). Never measured. |
-| 10 | Chapter completeness | **6/10** | All six acts exist and the arc closes. −4: the anointing is an optional epilogue instead of Act 2; Act 1 has no playable life. |
+| 10 | Chapter completeness | **8/10** | All six acts exist and the arc closes; 1 Samuel 16 is on the required spine, and Act 1 is a playable shepherd day with a living flock. −2: the duel and camp close-up are unreviewed, and only 2 of the planned 4 v1.0 chapters are built. |
 
 ## 7. The three most serious remaining weaknesses (2026-11-05 refresh)
 
-1. **Nothing has been verified on a real device, and nothing has been heard.**
-   The first two items below were closed this session; this one was not. Six
-   *rendered engine frames* have now been decoded and looked at, with committed
-   baselines and a regression gate — see `docs/VISUAL-TESTING.md` — but that is
+1. **Nothing has been verified on a real device, in a browser export, or by
+   ear.** Twelve *rendered engine frames* have now been decoded and looked at,
+   with committed baselines — see `docs/VISUAL-TESTING.md` — but that is
    software GL on a CI runner, not a phone in two aspect ratios, not a sound
-   card, and not a thumb. Every presentation score is still capped by this.
-2. **The opening is still a reading wall.** A 5-line prologue, a 3-line briefing
-   and a place card precede the first step. The briefing was cut from 5 lines;
-   the prologue is untouched. `docs/ITERATION.md` §5 records the player-facing
-   review and the evidence for it.
-3. **The new shepherd day is small and soft.** The three strays are static
-   sprites and walking within 10 px collects one; the sheep do not wander and
-   the herding has no resistance. It is a job, but not yet a living place.
-   `docs/DEVELOPMENT_BACKLOG.md` #5 is now partially done, not closed.
+   card, not a thumb, and not the shipped WebAssembly export. Every
+   presentation score is still capped by this. `docs/DEVICE-CHECKLIST.md`
+   remains the untouched script.
+2. **The duel and the camp have never been seen close up.** Three review
+   defects were found in the twelve frames that *were* captured (a slab, a
+   misplaced toast, dim optional rows), which is good evidence that the beats
+   nobody captured still have defects. Audio ducking, crossfades and levels are
+   asserted as state, never heard.
+3. **Small type on a small logical screen.** 9–10 px Chinese at 320×180 has
+   been read in upscaled CI PNGs, and the optional journal rows were brightened
+   from review — but on a real handset in 4:3 and 16:9 that judgement is still
+   a guess, and the journal button remains 26×17 logical units (O-3).
 
 **Closed this session (were §7 items 1 and 2 before the refresh):**
 
@@ -133,6 +135,9 @@ justification is not allowed here.
   sheep, three strays to bring in, a hired boy who answers to the act, an
   optional broken-hurdle discovery and a family exchange that leads into the
   errand — see `docs/ITERATION.md` §3.
+- **LIVING WORLD pass:** the reading wall, the static flock, silent NPCs and
+  the fixed-time-of-day are all closed; 12 frames reviewed, three defects
+  fixed from them. See `docs/ITERATION.md` §8.
 
 ## 8. What must not be touched
 
@@ -147,4 +152,6 @@ kind, one new save version, a Scripture-marker gate, a flock-resume regression,
 and a fourth (visual) suite. No existing assertion was deleted; the two that
 were replaced asserted the wrong thing for the corrected chronology, and both
 replacements are stronger. `tests/deep.gd`'s `MIN_CHECKS = 100` floor still
-holds (114 checks on the last green run).
+holds (134 checks on the last green run). The LIVING WORLD pass added checks
+rather than removing them: `_check_bubbles()`, `_check_living_flock()`, cold
+boot, live-position herding, a logical 4:3 assertion and a twelfth frame.

@@ -254,4 +254,111 @@ against real runs; nothing in this file is claimed tested unless it was run.
    the milestone review: the on-screen thumb stick, the contextual `A · 交谈`
    prompt and the waypoint arrow already teach what two of those lines said.
 
-_(This file is updated as the milestone proceeds.)_
+_(Sections 1–7 are the David's Life Before the Battlefield milestone. Section 8
+is the pass that followed it.)_
+
+
+---
+
+## 8. LIVING WORLD — the pass after the milestone (2026-11-05)
+
+The milestone left five open weaknesses on its own list: a reading wall, static
+sheep, no optional reason to return to the book, silent NPCs, and no weather or
+time of day. This pass took those five, not a new chapter. The directive was
+still "small and polished, not a feature set", and no stable system was
+rewritten.
+
+### What changed
+
+- **Immediate control.** `Main._opening()` no longer forces the prologue,
+  briefing and place card. The player moves within the first frame; CI measures
+  boot-to-control at 8–14 ms and 0 forced pages. The arrival prose is still
+  there for the curious: `journal.before` → 「来路」 / "How you came here", at
+  the bottom of the book, reachable by scrolling (`12_journal_before`).
+- **The sheep are animals.** `scripts/world/FlockSheep.gd` is a real state
+  machine (`GRAZE / ALERT / HERDED / GOING_HOME`) with three tempers, trust
+  that builds when you drive from *behind* the fold, a 0.7 s startle when you
+  come at them from the front, two-frame animation, bleats and per-animal
+  completion. `Region.collect_pickup(id, guided)` sets one flag, updates the HUD
+  once and opens the save door; `elah_flock_done` changes what the hired boy
+  says. `SAVE_VERSION` went 1 → 2.
+- **People speak without being asked.** `Npc` has short bilingual chatter
+  (~16 s, one voice at a time, wall-clock gated), `emote()` reactions to the
+  flock, and `by_flag` lines that take precedence over `by_act`. Every chatter
+  line is ≤12 characters in both languages, guarded by `run_all.gd`.
+- **Time passes.** The chapter opens at dusk and the errand begins in the
+  morning; wheat, bushes and wool tufts sway ≤1 px and freeze while the world
+  is paused. A horn and a bilingual toast mark the first call at boot.
+- **Twelve rendered beats.** `tests/visual.gd` grew from six to twelve states
+  (`01_boot_world` … `11_transition`, `12_journal_before`), asserts a physical
+  640×480 framebuffer with a logical 320×240 4:3 view, drives real parsed input
+  through `_unhandled_input`, and survives `_swap_region()` without reading a
+  freed node. `tests/deep.gd` reached 134 checks.
+
+### Verification chain (every red run is listed)
+
+| Run | Commit | Result |
+|---|---|---|
+| `42010446492` | `a8666b0` | **red** — `Cannot infer type of "away0"` in `smoke.gd:643` / `visual.gd:184`. Fixed by typing five `Vector2` locals. |
+| `42011308826` | `a7fc8a5` | **green** — `deep: PASS — 130 checks hold`, 11 frames. Review found a black slab over `06_flock`. |
+| `42013468346` | `5ac37ad` | **red** — lint green (134 checks), visual `previously freed` `region_id` + timeout, 9 frames. Fixed with live `main.region` / `is_instance_valid`. |
+| `42014467946` | `08cc8a4` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames, control=8ms/0 pages, 4:3fb=640x480 logical=320x240, input_routed=true parsed_opens=true direct=false`. |
+| `42015418307` | `b2fb9f1` | **red** — `api.github.com` class-reference outage → 76 false `xref_check` findings, runtime suites skipped; visual green, 12 frames, but `12_journal_before` lost one transport chunk. |
+| `42017005546` | `0a01126` | **red** — offline class reference and 42-chunk transport both worked (all 12 frames decoded), but one new deep assertion about the bubble's Control layout failed. |
+
+Static gates (all nine) were clean at every push: `gd_lint` (32 files, 22
+class_names), `xref_check` (32 scripts, 4 autoloads), `api_check` (32 files, 54
+engine classes), `check_font` (826 codepoints), `check_text_fit`,
+`check_export`, `check_audio` (16 sounds, 3 tracks, 2661.7 KB), `check_chars`
+(3 variants / 3 rigs), `pack_art` (49 tiles / 15 keys / 26 props). JSON and
+YAML parse, `NP = 12`. The corrected BFS reachability validator reported
+`elah 1340/1340` and `bethlehem 900/900` tiles with every named point
+reachable and `fold_at [24,34]` walkable; `elah/bethlehem errors: NONE`.
+
+### Three defects found by looking, not by a diff
+
+A coarse 32×18 grid diff (limit 0.18) catches blank and wrong scenes; it did
+**not** catch any of these. Each was found in an upscaled CI PNG and fixed:
+
+1. `06_flock` had an 84×150 near-black slab — a `PanelContainer` clamped to an
+   unwrapped Chinese Label. Now a fixed 112×22 clipped `Panel`.
+2. The first-call horn toast appeared over the flock instead of at boot, and
+   two or three chatter bubbles arrived at once over the objective band. The
+   beat moved to `02_valley`; a single wall-clock gate now governs all chatter.
+3. `12_journal_before` showed the optional rows as the dimmest text in the
+   book, then as white text under black blotches (a 1 px solid shadow at 9 px).
+   Now 9 px / 0.88, no shadow, and the harness scrolls to the heading.
+
+### Reliability, not relaxation
+
+`xref_check` already dropped `NO-CLASS` / `OWN-MEMBER` findings when *every*
+class lookup failed. The `42015418307` outage was partial, so some classes
+resolved and the guard never fired — `Node2D` was reported to exist nowhere and
+`Player.global_position` to be a typo. `tools/godot_docs/` now commits the
+parsed 4.7-stable class reference for all 54 classes this project uses, with a
+`VERSION` file; `api_check.fetch_doc()` prefers it when `VERSION == REF` and
+still falls back to the network for an unknown class or a future engine
+upgrade. **No check was weakened.** The same outage now cannot skip the runtime
+suites.
+
+The frame transport also hit GitHub's ~50-annotation cap with twelve frames:
+`12_journal_before` came back 4/5 chunks. 3800-character chunks (still under
+the 4096 truncation) and a 48-colour quantised transport copy brought it to 42
+frame chunks; `tools/decode_frames.py 42017005546` wrote all twelve PNGs. The
+artifact keeps the engine's truecolour capture.
+
+### What this pass did **not** establish
+
+- No green CI run at the final HEAD at the time this section was written — the
+  table above is kept honest and is extended when a run finishes.
+- Audio: 16 WAVs and 3 beds are checksum-checked, never heard. No sound card.
+- No browser-export run, no real device, no two-aspect-ratio check, no tactile
+  judgement. All twelve frames are software GL under Xvfb + llvmpipe.
+- No duel or camp close-up; the twelve beats cover boot, valley, conversation,
+  journal, Bethlehem, flock, sheep, quest update, Chinese 2×, 4:3 layout,
+  transition and the optional book section.
+- 9–10 px Chinese read in upscaled PNGs is not a legibility result for a phone.
+- `tests/frames/` baselines are a wrong-scene detector, not an art-quality
+  verdict. They are promoted only after the frames are inspected by eye.
+
+_(Section 8 is updated as this pass proceeds.)_

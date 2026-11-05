@@ -12,12 +12,12 @@ Size: **S** ≤ half a day · **M** a day · **L** more than a day, and split fi
 
 | # | State | Evidence |
 |---|---|---|
-| 1 Device pass | **Still open. Highest remaining risk.** | No phone, two aspect ratios or screenshots from hardware. `docs/DEVICE-CHECKLIST.md` is the untouched script. |
-| 2 Listen to the audio | **Still open.** | 14 SFX / 3 beds asserted as state only; never heard. |
-| 3 Screenshot inspection | **Done for six frames, not for the duel/camp on a device.** | CI renders real frames under Xvfb + llvmpipe; `frames/01_boot_dialogue`, `02_valley`, `03_dialogue`, `04_journal`, `05_bethlehem`, `06_flock` were decoded and looked at. `tests/frames/baseline_*.png` + a CI regression gate. The duel and a camp close-up are still uninspected; see `docs/VISUAL-TESTING.md`. |
+| 1 Device pass | **Still open. Highest remaining risk.** | No phone, two aspect ratios, browser-export run or hardware screenshot. `docs/DEVICE-CHECKLIST.md` is the untouched script. |
+| 2 Listen to the audio | **Still open.** | 16 SFX / 3 beds asserted as state only; never heard. Two new sounds (horn, sheep bleat) were added this pass and are likewise unheard. |
+| 3 Screenshot inspection | **Done for twelve frames, not for the duel/camp or a device.** | CI renders real frames under Xvfb + llvmpipe; `frames/01_boot_world` … `12_journal_before` were decoded and looked at, and three real defects fixed from them (bubble slab, horn toast over the flock, unreadable optional rows). `tests/frames/baseline_*.png` hold the reviewed set. The duel and a camp close-up are still uninspected; see `docs/VISUAL-TESTING.md`. |
 | 4 Spine reorder | **Done.** | `smoke: PASS` with the anointing on the required path; a Bethlehem save resumes in Bethlehem; version-1 saves migrate. `docs/ITERATION.md` §2. |
-| 5 Act 1 flock / lion's ground | **Partly done.** | Fold, standing sheep, three strays to bring in, hire-boy NPC, broken-hurdle discovery, family call — all playable and covered by smoke. Sheep do not wander and Jesse is not a standing NPC; see `docs/ITERATION.md` §§3, 5. |
-| 11 Chinese editorial pass | **Partly done.** | Bethlehem/family/Samuel/David scenes rewritten and Scripture marked; `elah.json` camp aphorisms remain. |
+| 5 Act 1 flock / lion's ground | **Done for the flock; Jesse still a voice, not a standing NPC.** | Sheep now graze, startle, build trust, bleat and must be driven from behind the fold; three tempers, per-animal completion, `elah_flock_done` flag, dusk → morning. Covered by `smoke.gd` and `deep.gd`. The lion's ground remains a line, not a scene. |
+| 11 Chinese editorial pass | **Partly done, extended.** | Bethlehem/family/Samuel/David scenes rewritten and Scripture marked; camp aphorisms rewritten, Corin's narration split into two pages, chatter cut to ≤12 characters, hired boy's lines change on `by_flag`. No native-speaker/author listening pass; 9 px rendered Chinese read only in software GL. |
 
 The queue below is kept as originally written so the reasoning and acceptance
 tests survive; the table above is the current truth.
