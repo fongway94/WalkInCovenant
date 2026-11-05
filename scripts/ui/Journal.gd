@@ -198,7 +198,13 @@ func _render() -> void:
 		for b in bg:
 			var d: Dictionary = b
 			var txt: Variant = d.get("text", d)
-			_row(I18n.t(txt), 8, Color(0.72, 0.76, 0.75), 1)
+			# Optional does not mean unreadable. These are the words the boot
+			# no longer forces on a player; at 8 px and 0.72 grey they were
+			# the dimmest thing in the book (CI frame 12_journal_before).
+			var row := _row(I18n.t(txt), 9, Color(0.88, 0.90, 0.88), 1)
+			row.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+			row.add_theme_constant_override("shadow_offset_x", 1)
+			row.add_theme_constant_override("shadow_offset_y", 1)
 
 	_panel.visible = true
 	_open = true

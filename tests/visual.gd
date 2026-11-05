@@ -90,8 +90,20 @@ func _run() -> void:
 	await _shot("01_boot_world")
 	await _frames(28)
 
-	# 2. The settled world, with its HUD, touch controls and the person in reach.
+	# 2. The settled world, with its HUD, touch controls and the person in
+	# reach — and the small curiosity beat that answers the first few steps.
+	# Trigger it HERE, where it belongs, instead of letting it fire late over
+	# the sheep frames: the distant horn is a toast, never a box or a pause.
+	main.region.player.global_position = Vector2(19.0 * 16.0 + 8.0, 45.0 * 16.0 + 8.0)
+	await _frames(6)
+	_check(bool(GameState.flag("elah_first_call")),
+		"a few steps are answered by the distant call")
+	_check(not main.region.dialogue.is_open() and not main.region.is_paused(),
+		"and the call never takes the world away")
 	await _shot("02_valley")
+	await _frames(30)
+	main.region.player.global_position = Vector2(16.0 * 16.0 + 8.0, 45.0 * 16.0 + 8.0)
+	await _frames(3)
 
 	# 3. A conversation, opened by a REAL input action. First measure whether
 	# parsed events reach Node._unhandled_input in this build at all (an
