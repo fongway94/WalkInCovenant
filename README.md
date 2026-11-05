@@ -10,13 +10,24 @@ become the Bible character and live it.**
 > storm.
 
 ```
-Status:   pre-Phase 0 — planning complete, scaffold committed
-Engine:   Godot 4.7 (MIT, free)
+Status:   stabilisation pass 4 complete (2026-11-05) — two chapters playable, CI green
+Engine:   Godot 4.7.2 (MIT, free)
 Targets:  Web PWA → Android → iOS  (phone-first; Switch hardware explicitly out of scope)
+Build:    https://fongway94.github.io/WalkInCovenant/ — GitHub Pages, installable PWA
 Budget:   US$0
 Team:     Solo, spare time
-Content:  10 bilingual chapters inherited from Covenant, 4 shipping in v1.0
+Content:  10 bilingual chapters inherited from Covenant; 2 built (1 Sam 16, 17), 4 planned for v1.0
 ```
+
+> **Where this actually stands (2026-11-05).** The five documents below describe the
+> original Phase 0 plan, and the checklist in "Getting started" is that plan's
+> opening week. Development has since passed it: the Valley of Elah (1 Samuel 17)
+> and Bethlehem (1 Samuel 16) are playable chapters, with a data-driven mission
+> runner, bilingual content, generated art and audio, three headless test suites
+> and a web/PWA build published on every push to `main`. **`docs/ROADMAP.md` is the
+> current working record; `docs/DEVELOPMENT_BACKLOG.md` is the ordered queue.**
+> Nothing visual, audible or tactile has been verified on a real device — see
+> `docs/DEVICE-CHECKLIST.md` and `docs/VISUAL-TESTING.md`.
 
 ---
 

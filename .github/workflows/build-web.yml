@@ -320,6 +320,98 @@ jobs:
           echo "an interruption or reload regression check failed"
           exit 1
 
+  # ── rendered frames: the one capability the headless suites cannot have ──
+  # The three GDScript suites run --headless, where Godot has no rendering
+  # device and get_viewport().get_texture() cannot produce a picture. This job
+  # runs the SAME project under Xvfb with Mesa's software OpenGL driver, boots
+  # the shipped Main.tscn, plays beats through the engine's input pipeline and
+  # saves real framebuffer captures. The PNGs come back to the authoring
+  # sandbox as base64 check-run annotations, because artifacts and raw logs
+  # live on hosts that sandbox cannot reach (tools/decode_frames.py).
+  visual:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.7.2 (hosted runners can reach GitHub releases)
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-bin
+          GODOT=$(find /tmp/godot-bin -type f -name 'Godot_v4.7.2*' | head -1)
+          cp "$GODOT" /tmp/godot
+          chmod +x /tmp/godot
+          /tmp/godot --version
+
+      - name: Install Xvfb and software OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libxcursor1 \
+            libxinerama1 libxi6 libxrandr2 mesa-utils fontconfig || true
+
+      - name: Import resources and build the global class cache
+        run: /tmp/godot --headless --path . --import || true
+
+      - name: Render real gameplay frames (Xvfb + llvmpipe)
+        id: render
+        continue-on-error: true
+        run: |
+          mkdir -p build/frames
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/visual.tscn > visual.txt 2>&1
+          STATUS=$?
+          cat visual.txt
+          echo "render exit=$STATUS"
+          exit $STATUS
+
+      - name: Console and runtime error gate
+        if: always()
+        run: |
+          if [ ! -f visual.txt ]; then echo "::warning::no visual log"; exit 0; fi
+          BAD=$(grep -aE "SCRIPT ERROR|Parse Error|ERROR:|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve" visual.txt | head -20 || true)
+          if [ -n "$BAD" ]; then
+            printf '%s\n' "$BAD" | tr '\n' '|' | cut -c1-3000 \
+              | while IFS= read -r l; do printf '::error::%s\n' "$l"; done
+            exit 1
+          fi
+          echo "visual: no script or runtime errors in the render log"
+
+      - name: Publish frames as annotations (base64, so the authoring sandbox can see them)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import base64, glob, os
+          files = sorted(glob.glob("build/frames/*.png"))
+          if not files:
+              print("::warning::visual job produced no frames")
+          for f in files:
+              raw = base64.b64encode(open(f, "rb").read()).decode()
+              name = os.path.basename(f)[:-4]
+              CH = 50000
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              for i, part in enumerate(parts):
+                  print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frames
+          path: build/frames
+          if-no-files-found: ignore
+
+      - name: Fail the job if rendering failed
+        if: steps.render.outcome != 'success'
+        run: |
+          echo "rendered-frame harness failed; see the annotations above"
+          exit 1
+
   # ── export the web build ─────────────────────────────────────────────────
   export-web:
     needs: lint

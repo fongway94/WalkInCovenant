@@ -41,6 +41,14 @@ art/_preview/
 web/build/
 www/
 
+# ── Rendered-frame captures ─────────────────────────────────────────────
+# CI writes build/frames/*.png; tools/decode_frames.py decodes the same images
+# into frames/ locally. Neither is source. The REVIEWED baselines in
+# tests/frames/baseline_*.png ARE committed, on purpose: they are the visual
+# regression reference.
+/build/
+/frames/
+
 # ── Node (tools/ only — the game itself is Godot, not Node) ─────────────
 node_modules/
 npm-debug.log*

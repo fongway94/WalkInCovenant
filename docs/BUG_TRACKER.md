@@ -19,6 +19,12 @@ failed before it now passes) → **Verified** (that check has run green in CI).
 _None. Every bug found this pass is fixed and has a check. See "Fixed" below and
 `docs/BUGS.md` for the write-ups._
 
+The **deliberately unfixed findings (O-1…O-7)** are not bugs in the tracker's
+sense — each has a written reason below or in `docs/BUGS.md` — and the work they
+imply is queued in `docs/DEVELOPMENT_BACKLOG.md`. O-6 (1 Sam 16 out of order and
+optional) and O-7 (Act 1 has no playable shepherd life) are the two P1s the
+current milestone is meant to close.
+
 ## Fixed in this pass (pass 4)
 
 | ID | Sev | What | Regression test | State |

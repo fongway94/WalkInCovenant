@@ -108,7 +108,7 @@ A mission is a dictionary in `data/regions/elah.json`:
 The chapter list: `witness_camp → witness_line → shepherd_drill → errand →
 saul_armour → brook_stones → the_line → aftermath`.
 
-## Before anything else: stabilisation (current phase, 2026-10)
+## Before anything else: stabilisation (passes 1–4, 2026-10 → 2026-11-05)
 
 The priority changed. Feature work is paused until the two chapters are
 *reliable*, not merely present. `docs/BUGS.md` is the live record; this is what
@@ -161,7 +161,12 @@ the authoring sandbox has no phone, no sound card and no Godot binary. See
 `docs/DEVICE-CHECKLIST.md`. The audio mix and the touch/layout experience are
 the two areas where a green build says the least.
 
-## Next, in order
+## Next, in order (superseded by the current milestone)
+
+The ordered queue now lives in **`docs/DEVELOPMENT_BACKLOG.md`**, and the current
+milestone is *David's Life Before the Battlefield*: correct chronology (1 Sam 16
+before 1 Sam 17), a rendered-gameplay inspection capability, a playable
+shepherd-life opening, and a Chinese dialogue edit — see `docs/ITERATION.md`.
 
 1. Device pass: real phone, landscape, several aspect ratios, thumbs through both
    chapters. Nothing here replaces that.
