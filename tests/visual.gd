@@ -116,8 +116,13 @@ func _run() -> void:
 		main.call("_open_journal")
 		await _frames(5)
 		await _shot("04_journal")
-		main.call("_close_journal")
+		# `_close_journal` is only the signal handler that unpauses the world;
+		# the panel itself closes through its own method. Calling the handler
+		# left the book drawn over the next region's frame.
+		main.journal.close_panel()
 		await _frames(4)
+		_check(not main.journal.is_open(),
+			"the book closes before the picture moves on")
 
 	# 5. A second region, entered by walking onto its exit and pressing the one
 	# button. The flag the road wants is read from the region's own data, so

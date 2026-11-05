@@ -417,8 +417,13 @@ func _run() -> void:
 	# The mission opens by saying where to go, so the crossing box comes first.
 	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the crossing says what it is: 17:11 and Corin's handover")
-	await _drain(region.dialogue)
+	# The mission brief opens FIRST, then the trigger's own beat chains behind
+	# it. Drain until the screen has been quiet for a few frames, or the flag
+	# below is read while the second box is still on screen.
+	await _drain_quiet(region.dialogue)
 	await _frames(4)
+	_check(not region.dialogue.is_open(),
+		"the two crossing beats have both finished before the flag is read")
 	_check(bool(GameState.flag("elah_met_the_line")),
 		"crossing with the camp's words sets the witness's flag")
 	_check(not bool(main._in_battle),
