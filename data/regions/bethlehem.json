@@ -442,7 +442,18 @@
       "zh": "我去。可羊也得跟着。没有我，它们不认得回来的路。"
      }
     }
-   ]
+   ],
+   "by_act": {
+    "witness": [
+     {
+      "who": "david",
+      "text": {
+       "en": "“You came a long way to stand in a field. Sit, if you like. They do not mind strangers.”",
+       "zh": "「你大老远跑来，站在田里。要坐就坐吧，它们不认生。」"
+      }
+     }
+    ]
+   }
   }
  ],
  "objectives": {

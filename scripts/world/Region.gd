@@ -41,6 +41,10 @@ var _mod: CanvasModulate = null
 var _props_meta: Dictionary = {}
 var _tiles_meta: Dictionary = {}
 var _paused := false
+## The chapter's act, pushed down by `Main` every frame. An NPC does not know
+## what an act is, but a person in a camp does know what is happening in it, and
+## this is the one word it needs to say the right thing (`Npc._lines_now()`).
+var act_name := ""
 var _interact_lock := 0.0
 var _mark_t := 0.0
 var _curio_done := {}
@@ -538,6 +542,17 @@ func _draw() -> void:
 		pts.append(Vector2(p.x + 3, ty))
 		pts.append(Vector2(p.x, ty + 4))
 		draw_colored_polygon(pts, col)
+
+
+## Cheap and idempotent: Main calls it every frame, and nothing downstream has
+## to poll or unsubscribe.
+func set_act(a: String) -> void:
+	if a == act_name:
+		return
+	act_name = a
+	for n in npcs:
+		var npc: Npc = n
+		npc.act_name = a
 
 
 func is_paused() -> bool:

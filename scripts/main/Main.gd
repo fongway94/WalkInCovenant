@@ -230,6 +230,9 @@ func _prepare_chapter() -> void:
 func _process(delta: float) -> void:
 	if region == null or region.dialogue == null:
 		return
+	# People answer to where the story has got to (`Npc.by_act`). One push per
+	# frame, idempotent, so nothing downstream has to subscribe to anything.
+	region.set_act(act_id())
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
 		and not _in_battle and fight == null and practice == null \
 		and not (journal != null and journal.is_open())
@@ -378,6 +381,19 @@ func _update_guidance() -> void:
 				var row := int(region.model.trigger_data("challenge").get("row", 11))
 				target = Vector2(p.global_position.x, float(row * 16))
 				point = true
+
+	# The chapter is over, and the one thing left to see is where it began: the
+	# road south to Bethlehem is open the moment the giant falls (1 Samuel 16 is
+	# the chapter this one comes out of). It was open before and nothing said so,
+	# so the anointing — the anointing — was a secret most players would never
+	# walk into. The arrow points at it until it has been seen.
+	if act == Act.DONE and bool(GameState.flag("elah_ended")) \
+			and not bool(GameState.flag("beth_anointed")):
+		key = "bethlehem"
+		var road: Array = _exit_for("bethlehem").get("at", [])
+		if road.size() == 2:
+			target = Vector2(float(road[0]) * 16.0 + 8.0, float(road[1]) * 16.0 + 8.0)
+			point = true
 
 	if key != "npc":
 		var co: Npc = _npc("corin")

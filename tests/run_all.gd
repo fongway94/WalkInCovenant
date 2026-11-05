@@ -274,6 +274,15 @@ func _check_verses(lines: Array, where: String) -> void:
 		_fail("%s: a verse opens with a quote mark and is never closed" % where)
 
 
+## The acts a line may be filed under. Kept here rather than read out of
+## `Main.gd` for the same reason the box's height is kept in one place: a
+## content gate that imports the thing it is checking cannot catch a change in
+## it. If an act is added to `Main.ACT_NAMES`, this list is where it is
+## registered — and a mismatch is caught by `_check_acts_match()`.
+const ACT_NAMES := ["witness", "shepherd", "errand", "saul", "armour", "stones",
+	"ready", "fight", "aftermath", "done"]
+
+
 ## The campaign contract, as a check. Any region file must pass this before it
 ## counts as a place a player can stand in, let alone a story they can play:
 ## walkable spawn, people and things you can reach, exits that point at regions
@@ -313,6 +322,23 @@ func _check_region_any(m, rid: String) -> void:
 				+ (nd.get("after_win", []) as Array):
 			_has_both(line.get("text"), "%s:npc %s line" % [rid, nd.get("id")])
 		_check_verses(nd.get("lines", []), "%s:npc %s" % [rid, nd.get("id")])
+		# A person can now answer to the act the chapter is in (`Npc.by_act`).
+		# A misspelt act is silently dead data — the line exists, nobody ever
+		# hears it, and nothing throws. Same gate as every other string.
+		var by: Dictionary = nd.get("by_act", {})
+		for act_key in by:
+			if not ACT_NAMES.has(str(act_key)):
+				_fail("%s: npc %s has by_act '%s', which is not an act (one of %s)"
+					% [rid, nd.get("id"), act_key, ", ".join(ACT_NAMES)])
+				continue
+			var act_lines: Array = by[act_key]
+			if act_lines.is_empty():
+				_fail("%s: npc %s by_act '%s' is empty — say nothing by omitting it"
+					% [rid, nd.get("id"), act_key])
+			for line in act_lines:
+				_has_both(line.get("text"), "%s:npc %s by_act %s line"
+					% [rid, nd.get("id"), act_key])
+			_check_verses(act_lines, "%s:npc %s by_act %s" % [rid, nd.get("id"), act_key])
 
 	# ── everything the story needs must be WALKABLE TO, not merely drawn ────
 	# `solid_at_tile` said a bush in Bethlehem and the camp fire in the valley
@@ -466,7 +492,63 @@ func _check_region_any(m, rid: String) -> void:
 				% [rid, mid, seal])
 		for bl in mm.get("brief", []):
 			_has_both(bl.get("text"), "%s: mission '%s' brief line" % [rid, mid])
+	_check_speakers(m, rid)
 	_ok("%s: walkable, reachable, bilingual, verses whole, missions and exits valid" % rid)
+
+
+## Every line that is given a speaker must be given a speaker the cast knows.
+##
+## A `who` resolves to a name and a portrait through the region's people, the
+## chapter's speaker table, or an NPC's own cast. When none of them knows the id,
+## the box still opens — with the raw id for a name and no face at all — so a
+## single typo ships a nameless line and nothing anywhere complains. This is the
+## cheapest possible place to say so.
+func _check_speakers(m, rid: String) -> void:
+	var known := {}
+	for n in m.npcs:
+		known[str(n.get("id", ""))] = true
+		for k in (n.get("cast", {}) as Dictionary):
+			known[str(k)] = true
+	for k in (m.david_act.get("speakers", {}) as Dictionary):
+		known[str(k)] = true
+	var bad := {}
+	var blocks: Array = []
+	for n in m.npcs:
+		for key in ["lines", "after", "after_win"]:
+			blocks.append(n.get(key, []))
+		for key in (n.get("by_act", {}) as Dictionary):
+			blocks.append((n.get("by_act", {}) as Dictionary)[key])
+	blocks.append(m.prologue)
+	blocks.append(m.briefing)
+	for key in m.david_act:
+		if (m.david_act[key] as Variant) is Array:
+			blocks.append(m.david_act[key])
+		elif (m.david_act[key] as Variant) is Dictionary:
+			var blk: Dictionary = m.david_act[key]
+			for lk in blk:
+				if (blk[lk] as Variant) is Array:
+					blocks.append(blk[lk])
+	for sk in m.scenes:
+		blocks.append(m.scenes[sk])
+	for t in m.triggers:
+		var td: Dictionary = t
+		for key in ["refuse", "memory", "witness", "firstsight", "lines", "arrive"]:
+			if (td.get(key, []) as Variant) is Array:
+				blocks.append(td.get(key, []))
+	blocks.append(m.ending.get("lines", []))
+	for mi in m.missions:
+		blocks.append((mi as Dictionary).get("brief", []))
+	for block in blocks:
+		for line in (block as Array):
+			if not (line is Dictionary):
+				continue
+			var who := str((line as Dictionary).get("who", ""))
+			if who == "" or known.has(who):
+				continue
+			bad[who] = true
+	for who in bad:
+		_fail("%s: a line is spoken by '%s', who is in no cast — the box would open nameless"
+			% [rid, who])
 
 
 func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
@@ -623,7 +705,7 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_has_both(line.get("text"), "%s:armour %s" % [rid, key])
 	# Corin speaks in the witness's last beat and in David's act, so his name has
 	# to be in the speakers table or the box would open nameless.
-	for sid in ["corin", "david", "saul", "jesse", "eliab"]:
+	for sid in ["corin", "david", "saul", "jesse", "eliab", "goliath"]:
 		if not (m.david_act.get("speakers", {}) as Dictionary).has(sid):
 			_fail("%s: david_act.speakers has no '%s'" % [rid, sid])
 	for n in m.npcs:
@@ -642,12 +724,21 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 			_fail("%s: objectives is missing '%s' — the HUD would point at nothing" % [rid, key])
 	for line in (m.ending.get("lines", []) as Array):
 		_has_both(line.get("text"), "%s:ending line" % rid)
-	_has_both(m.ending.get("ask"), "%s:ending question" % rid)
+	# The ending is a scene, not a form. `ask`/`options` are allowed but not
+	# required: the chapter used to close on a questionnaire aimed at the
+	# player ("what giant is standing in front of you now?") with a moral in
+	# every answer, which is the one voice this game may not use — it is a
+	# witness, not an author. The story ending is required; a menu on the end
+	# of it is not.
+	if m.ending.has("ask"):
+		_has_both(m.ending.get("ask"), "%s:ending question" % rid)
 	for o in (m.ending.get("options", []) as Array):
 		_has_both(o.get("t"), "%s:ending option" % rid)
 		_has_both(o.get("insight"), "%s:ending insight" % rid)
 	if (m.ending.get("lines", []) as Array).is_empty():
 		_fail("%s: no ending — the chapter would stop the moment the giant falls" % rid)
+	if (m.ending.get("lines", []) as Array).size() < 3:
+		_fail("%s: the ending is %d line(s); a chapter that spent an hour getting here ends on a scene, not a sentence" % [rid, (m.ending.get("lines", []) as Array).size()])
 	# Scripture in a dialogue line is written "book chapter:verse" on its own
 	# line, then the verse in 「」. A line that opens a verse but never closes it
 	# is a truncated quotation, which is the one thing this game may not do.

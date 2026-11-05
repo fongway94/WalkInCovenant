@@ -75,6 +75,7 @@ func _run() -> void:
 	await _check_journal_language()
 	await _check_pouch_restore()
 	await _check_place_card_language()
+	await _check_by_act_lines()
 	await _check_drill_keys()
 	await _check_fight_input()
 	await _check_duel_resupply()
@@ -860,6 +861,37 @@ func _check_place_card_language() -> void:
 	main.card.sub_lbl.modulate.a = 0.0
 	main.card._busy = false
 	I18n.set_lang(before)
+
+
+# ── act-aware dialogue: the camp answers to where the story is ────────────
+## Three states — first words, later words, after the giant — meant a camp of
+## four people said one sentence each while the chapter walked from an errand to
+## the brook. `by_act` lets the content answer to the act; this proves the
+## wiring (Region pushes the act down, Npc picks the most specific set) rather
+## than the prose.
+func _check_by_act_lines() -> void:
+	var npc: Npc = main._npc("boy")
+	if npc == null:
+		_check(false, "the boy is in the camp")
+		return
+	npc.act_name = "ready"
+	var ready: Array = npc._lines_now()
+	_check(not ready.is_empty(), "an act with lines of its own answers with them")
+	_check(str((ready[0] as Dictionary).get("text", {}).get("zh", ""))
+			!= str((npc.data.get("lines", [])[0] as Dictionary).get("text", {}).get("zh", "")),
+		"and not with the words he said in the first act")
+	npc.act_name = "errand"
+	var errand: Array = npc._lines_now()
+	_check(str((errand[0] as Dictionary).get("text", {}).get("zh", ""))
+			!= str((ready[0] as Dictionary).get("text", {}).get("zh", "")),
+		"and a different act gets different words")
+	npc.act_name = "witness"
+	_check(npc._lines_now() == npc.data.get("lines", []),
+		"an act with nothing of its own falls back to his first words")
+	# The push is one-way and idempotent: Main sets it every frame.
+	main.region.set_act("stones")
+	_check(npc.act_name == "stones", "the region pushes the act down to its people")
+	main.region.set_act(main.act_id())
 
 
 func _journal_has(text: String) -> bool:
