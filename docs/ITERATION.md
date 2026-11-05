@@ -74,6 +74,11 @@ _Status: pending; will be written after the implementation is verified._
 | Run | Commit | Result |
 |---|---|---|
 | `41976218706` | `21f5824` | baseline before this session: all green |
+| `41978406540` | `07d890d` | first real render: 5 PNGs + `frames` artifact; notices truncated at 4096 chars; the final gate failed on `continue-on-error` semantics |
+| `41978946511` | `8c857e5` | 3 of 5 frames decoded; harness verdict published: one failed assertion (`an interact action opens a conversation`) because the player stood on the south exit, not beside Corin |
+| `41979819655` | `45defed` | visual ✅; smoke found a real bug: the witness beat left the world paused, so the road south answered no input |
+| `41980997515` | `b0ea215` | visual ✅ with 5 complete frames; smoke found a second real bug: two chained crossing boxes needed a quiet-drain |
+| `41981486351` | `c369f31` | visual ✅, all 5 frames decoded and inspected; smoke down to one wrong assertion (`_in_battle` is a fade guard, not chapter state) |
 
 ## 7. Decisions taken without asking (and their trade-offs)
 

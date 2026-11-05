@@ -566,8 +566,11 @@ func _run() -> void:
 				"the anointing has happened BEFORE the battle")
 			_check(main.runner.current_id() == "shepherd_drill",
 				"walking back from Bethlehem starts BECOME (mission=%s)" % main.runner.current_id())
-			_check(bool(main._in_battle),
-				"the BECOME fade owns the picture on the return walk")
+			# `_in_battle` is a guard for the duration of the fade, not a
+			# chapter state: `_start_david_act()` clears it as soon as the cut
+			# ends. What must be true here is the ORDER of the two chapters.
+			_check(not bool(GameState.flag("elah_drill_done")),
+				"the drill has not happened yet: the anointing came first")
 
 	# ── 6-pre. BECOME, on the walk back from Bethlehem ────────────────────
 	var waited := 0

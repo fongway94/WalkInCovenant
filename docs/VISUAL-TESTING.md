@@ -44,6 +44,28 @@ as incomplete rather than writing a truncated PNG. The harness verdict and any
 failed assertions are also published as annotations, because the raw job log
 itself is on a blocked host.
 
+## Observed results (2026-11-05)
+
+- Run `41978406540`: first render. Five PNGs and a `frames` artifact were
+  produced, but every `WICFRAME` notice was truncated to 4096 characters, so
+  nothing could be decoded. Fixed by 3500-character chunks spread over eight
+  steps, and by quantising the transport copy to 64 colours (~7 KB/frame).
+- Run `41980997515`: the visual job went green
+  (`input_routed=true parsed_opens=true direct=false` — a parsed
+  `InputEventAction` really reaches `Node._unhandled_input` and opens a
+  conversation). All five frames decoded. The harness had left the journal panel
+  drawn over the Bethlehem shot; fixed by calling `Journal.close_panel()`.
+- Run `41981486351`: five frames decoded and **inspected by eye**: the valley
+  with HUD/tents/NPCs, the prologue box, Corin's conversation box, the journal
+  page, and the Bethlehem place card over a second map. Five reviewed captures
+  were promoted to `tests/frames/baseline_*.png`; `tools/visual_diff.py` then
+  reported `visual_diff: clean` (diff 0.0000 on all five, tautologically — the
+  baselines are those same reviewed captures). From here the coarse-grid
+  comparison runs inside the engine on every CI render.
+- Not verified by any of this: a real phone in two aspect ratios, a single
+  audio sample, or tactile feel. See `docs/DEVICE-CHECKLIST.md` and
+  `docs/DEVELOPMENT_BACKLOG.md`.
+
 ## Honest limits
 
 - These are **real engine frames**, not mock-ups: they prove the scenes render
