@@ -48,6 +48,22 @@ var _in_battle := false
 enum Act { WITNESS, SHEPHERD, ERRAND, SAUL, ARMOUR, STONES, READY, FIGHT, AFTERMATH, DONE }
 var act: int = Act.WITNESS
 var provisions := 0
+## The shepherd opening's one job: three strays, brought home by walking to
+## them. `Region` remembers each one through its own pickup flag, so a save
+## taken halfway through the flock resumes halfway, not from the first line.
+var sheep_home := 0
+var _sheep_total := 0
+var _flock_active := false
+## PRIORITY 1 metric. A new save must reach meaningful control with ZERO forced
+## dialogue pages and ZERO taps; `boot_control_ms` is the wall-clock from
+## `_ready()` to the world accepting movement (the opening fade is the only
+## wait, ~0.7 s). Both are asserted in `tests/smoke.gd` §2 so a future "helpful"
+## tutorial box cannot quietly come back.
+var boot_forced_pages := -1
+var boot_forced_actions := 0
+var boot_control_ms := -1
+var _boot_started_ms := 0
+var _first_call_armed := false
 var practice: SlingPractice = null
 var fade: ScreenFade = null
 var journal: Journal = null
@@ -78,6 +94,7 @@ func act_id() -> String:
 
 
 func _ready() -> void:
+	_boot_started_ms = Time.get_ticks_msec()
 	# Order matters twice over here.
 	#
 	# 1. Region._ready() builds the world and emits region_ready, and _ready()
@@ -145,6 +162,7 @@ func _build_region(region_id: String, from_id: String) -> void:
 	region.from_region = from_id
 	region.region_ready.connect(_on_region_ready)
 	region.pickup_taken.connect(_on_pickup)
+	region.flock_reacted.connect(_on_flock_reacted)
 	region.trigger_fired.connect(_on_trigger)
 	region.curio_seen.connect(_on_curio)
 	region.exit_taken.connect(_travel)
@@ -233,6 +251,7 @@ func _process(delta: float) -> void:
 	# People answer to where the story has got to (`Npc.by_act`). One push per
 	# frame, idempotent, so nothing downstream has to subscribe to anything.
 	region.set_act(act_id())
+	_tick_first_call()
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
 		and not _in_battle and fight == null and practice == null \
 		and not (journal != null and journal.is_open())
@@ -308,6 +327,13 @@ func _update_guidance() -> void:
 	match act:
 		Act.SHEPHERD:
 			key = "shepherd"
+			if _flock_active:
+				# A goal with a direction. The arrow points at the nearest
+				# unclaimed stray and the counter is on the same line, so the
+				# player never has to remember a sentence from a closed box.
+				target = _nearest_pickup("flock", p.global_position)
+				point = true
+				line = "%s  %d/%d" % [I18n.t(obj.get(key, {})), sheep_home, _sheep_total]
 		Act.SAUL:
 			key = "saul"
 			var king := _npc("saul")
@@ -382,13 +408,16 @@ func _update_guidance() -> void:
 				target = Vector2(p.global_position.x, float(row * 16))
 				point = true
 
-	# The chapter is over, and the one thing left to see is where it began: the
-	# road south to Bethlehem is open the moment the giant falls (1 Samuel 16 is
-	# the chapter this one comes out of). It was open before and nothing said so,
-	# so the anointing — the anointing — was a secret most players would never
-	# walk into. The arrow points at it until it has been seen.
-	if act == Act.DONE and bool(GameState.flag("elah_ended")) \
-			and not bool(GameState.flag("beth_anointed")):
+	# CHRONOLOGY, not completion, opens the road south. 1 Samuel 16 happened
+	# before 1 Samuel 17: as soon as the witness has seen the line, the HUD
+	# sends him to Bethlehem for the anointing, and only the walk back starts
+	# BECOME. A version-1 save that is already in David's chapter keeps its
+	# place (`legacy_spine`): it is not sent backwards through a story it has
+	# already played. A finished save that never saw the anointing is still
+	# invited, because act DONE means there is nothing left to interrupt.
+	if bool(GameState.flag("elah_met_the_line")) \
+			and not bool(GameState.flag("beth_anointed")) \
+			and (act == Act.DONE or not bool(GameState.flag("legacy_spine"))):
 		key = "bethlehem"
 		var road: Array = _exit_for("bethlehem").get("at", [])
 		if road.size() == 2:
@@ -441,6 +470,13 @@ func _mission_ctx() -> Dictionary:
 	}
 	for k in (GameState.data.get("flags", {}) as Dictionary):
 		c[str(k)] = GameState.data["flags"][k]
+	# SAVE MIGRATION. A version-1 save made before the chronology fix can be
+	# halfway through David's chapter with `beth_anointed` still false. The new
+	# `bethlehem_call` mission must not drag that player back to 1 Sam 16, so
+	# for the runner only that condition reads as met. The real save flag is
+	# left untouched: the anointing is still unseen and the road stays open.
+	if bool(c.get("legacy_spine", false)):
+		c["beth_anointed"] = true
 	return c
 
 
@@ -865,7 +901,7 @@ func _on_region_ready() -> void:
 			# A region with its own script knows where its own story stopped.
 			_resume_index = runner.first_unmet(_mission_ctx())
 		_begin_missions()
-		_prologue_once()
+		_opening()
 
 
 ## A saved valley has to boot into the chapter it left. Reloading after the win
@@ -925,34 +961,60 @@ func _restore_pos(pr: Dictionary) -> void:
 		_place_at(pos)
 
 
-## Chapter 1. The witness is not from here, and saying so once, at the top, in
-## their own century, is the difference between a setting and a story. Then the
-## valley explains itself (the briefing).
-func _prologue_once() -> void:
-	if GameState.flag(str(region.region_id) + "_opened") == true:
-		_brief_once()
+## PRIORITY 1 — the first five minutes.
+##
+## The old boot made a new player dismiss a 5-line modern-day prologue and a
+## 3-line "how to play" briefing before the world would accept a single step.
+## It scored 4/10 for immediate interest in the last milestone's own review.
+## Now the first frame is the valley itself: two ridges, the camp, and a person
+## standing one tile away. The place card names it, the HUD names the next
+## action, and the thumb can move immediately.
+##
+## The words did not get thrown away. `background_lines()` keeps the arrival and
+## the controls in the region's own data, and the journal prints them under
+## "Before" — optional, readable at any time, never a gate. Corin's first
+## conversation still carries the witness frame in a human voice.
+func _opening() -> void:
+	if region == null:
 		return
-	if region.model.prologue.is_empty():
-		_brief_once()
-		return
-	GameState.set_flag(str(region.region_id) + "_opened", true)
-	region.set_paused(true)
-	region.dialogue.show_lines(region.model.prologue, func(_w): return {}, func():
-		_brief_once())
+	_card_once()
+	boot_forced_pages = 0
+	if region.dialogue != null and region.dialogue.is_open():
+		# If a future change puts a box in front of the boot again, this makes
+		# the regression measurable instead of silently passing.
+		boot_forced_pages = region.dialogue._lines.size()
+	boot_forced_actions = 0
+	boot_control_ms = Time.get_ticks_msec() - _boot_started_ms
+	# The distant call is armed only for a genuinely fresh save. A resumed
+	# player is already somewhere else in the valley and has heard it.
+	var pr: Dictionary = GameState.data.get("progress", {})
+	_first_call_armed = str(pr.get("act", "")) == ""
 
 
-func _brief_once() -> void:
-	## First time in the valley, say what the place is and what the hands do.
-	## After that the region is just a place to walk in (docs/WORLD.md §4).
-	if GameState.flag(str(region.region_id) + "_briefed") == true:
+func background_lines() -> Array:
+	if region == null or region.model == null:
+		return []
+	return (region.model.prologue as Array) + (region.model.briefing as Array)
+
+
+## A small moment that asks a question, once the player has taken a few steps:
+## a horn across the valley and one line of somebody else's voice. It is a
+## toast, not a box — the world never stops. Nothing depends on having seen it.
+func _tick_first_call() -> void:
+	if not _first_call_armed or region == null or region.player == null:
 		return
-	if region.model.briefing.is_empty():
+	if region.is_paused() or bool(GameState.flag("elah_first_call")):
 		return
-	GameState.set_flag(str(region.region_id) + "_briefed", true)
-	region.set_paused(true)
-	region.dialogue.show_lines(region.model.briefing, func(_w): return {}, func():
-		region.set_paused(false)
-		_card_once())
+	var boot := Vector2(float(region.model.spawn.x) * 16.0 + 8.0,
+		float(region.model.spawn.y) * 16.0 + 8.0)
+	if region.player.global_position.distance_to(boot) < 40.0:
+		return
+	_first_call_armed = false
+	GameState.set_flag("elah_first_call", true)
+	AudioDirector.play_sfx("horn", -18.0)
+	EventBus.toast_requested.emit(I18n.t({
+		"en": "Across the valley, a horn. Forty days, and they still answer it with silence.",
+		"zh": "对面山上传来号角。四十天了，这边还是没人应。"}))
 
 
 ## The caption. Once per region, after the valley has explained itself, so it
@@ -972,6 +1034,20 @@ func _on_verse(_id: String, ref: String) -> void:
 
 
 func _on_pickup(id: String) -> void:
+	if id.begins_with("sheep_") and _flock_active:
+		sheep_home += 1
+		AudioDirector.play_sfx("pickup", -4.0)
+		# The feedback says what actually happened. A sheep that was driven
+		# home walked itself into the hurdle; one that was picked up was carried.
+		# Same counter, different sentence — the loop is legible in the HUD.
+		var line: Dictionary = {"en": "Carried in · %d/%d", "zh": "抱回圈了 · %d/%d"}
+		if _sheep_guided(id):
+			line = {"en": "It came in on its own · %d/%d", "zh": "它自己进圈了 · %d/%d"}
+		EventBus.toast_requested.emit(I18n.t(line) % [sheep_home, _sheep_total])
+		_herd_boy_reacts(sheep_home)
+		if sheep_home >= _sheep_total:
+			_flock_finished()
+		return
 	if id.begins_with("prov"):
 		provisions += 1
 		EventBus.toast_requested.emit(I18n.t({
@@ -1043,7 +1119,10 @@ func _first_sight() -> void:
 ## happens to him — the fight is not his. The story then hands him over to the
 ## boy who is actually walking down the ridge with bread in his hands.
 func _witness_at_the_line() -> void:
-	if _in_battle:
+	# The line is a one-time handover. With the corrected chronology the player
+	# can walk back up here before leaving for Bethlehem; a second crossing must
+	# not replay the beat or re-open the road conversation.
+	if _in_battle or bool(GameState.flag("elah_met_the_line")):
 		return
 	_in_battle = true
 	region.set_paused(true)
@@ -1052,8 +1131,19 @@ func _witness_at_the_line() -> void:
 		_begin_become()
 		return
 	region.dialogue.show_lines(lines, _speaker, func():
+		# `_in_battle` guarded the crossing while the beat was on screen. It is
+		# not a chapter state: with the corrected chronology the next mission
+		# is the road south (1 Sam 16), not BECOME, so leaving it set would
+		# swallow every later press of the line. `_begin_become()` sets it
+		# again when the player walks back from the anointing.
+		_in_battle = false
+		# This beat paused the world. It used to stay paused because the next
+		# mission WAS BECOME; with 1 Sam 16 in its place the player has a road
+		# to walk, and a frozen Region answers no input at all. Unpause first —
+		# `_begin_become()` pauses again itself when a legacy save starts it.
+		region.set_paused(false)
 		# The runner is watching: this closes the witness's mission and opens
-		# the one whose first beat is BECOME.
+		# the next one, whichever the data says it is.
 		_story_flag("elah_met_the_line"))
 
 
@@ -1123,10 +1213,12 @@ func _begin_become() -> void:
 		_start_david_act)
 
 
-## Act II opens three days earlier, on the slope where David kept his father's
-## sheep. The drill is here for one reason: the fight asks exactly one input in
-## its aim phase, and nothing in the game taught it before the giant was already
-## standing in front of you (playtest 8: "throw stone to attack goliath").
+## Act II opens on the slope where David kept his father's sheep — AFTER the
+## anointing the player has just witnessed in Bethlehem, not "three days
+## earlier". The flock, the optional broken hurdle and Jesse's call are here so
+## the errand interrupts a day the player has actually lived. The drill still
+## teaches the one input the fight asks for (playtest 8: "throw stone to attack
+## goliath"), but it now comes after the sheep are in.
 func _start_david_act() -> void:
 	# `_in_battle` guarded the line while BECOME played. From here the act
 	# itself guards it (SHEPHERD/ERRAND/SAUL ignore the line, READY answers it),
@@ -1144,9 +1236,110 @@ func _start_david_act() -> void:
 	var sh: Dictionary = da.get("shepherd", {})
 	var st: Array = sh.get("start_at", [])
 	region.set_paused(true)
-	# A cut, not a jump: black, the slope, then the words.
-	fade.run(0.45, func(): _place_at(st), 0.35, func():
-		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_practice))
+	# A cut, not a jump: black, the slope, then ONE line. The old opening spent
+	# three pages explaining a day the player was about to live; the objective
+	# and the moving animals now do that work (docs/ART_DIRECTION.md §2).
+	# "Before dark" is literally the light on the grass, not a caption.
+	fade.run(0.45, func():
+		_place_at(st)
+		region.set_time_of_day("dusk"), 0.35, func():
+		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_flock))
+
+
+## The flock is the one small mechanic the shepherd day needs. Walking to a
+## stray brings it in: no fetch list, no quiz, no reward screen. Each one is
+## remembered by Region's own `pickup:` flag, so a reload cannot put a sheep
+## back on the slope or ask for it twice.
+func _start_flock() -> void:
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	var strays: Array = sh.get("strays", [])
+	_sheep_total = strays.size()
+	sheep_home = 0
+	_flock_active = false
+	for it in strays:
+		var sd: Dictionary = it
+		var sid := str(sd.get("id", ""))
+		if sid == "":
+			_sheep_total -= 1
+			continue
+		if bool(GameState.flag(Region.pickup_key(str(region.model.id), sid))):
+			sheep_home += 1
+			continue
+		var at: Array = sd.get("at", [16, 45])
+		# Each stray gets its own disposition and the fold's tile. Region turns
+		# that into a FlockSheep: grazing, reacting, and able to walk itself
+		# home when the player holds the far side.
+		var extra: Dictionary = sd.duplicate()
+		extra["fold"] = sh.get("fold_at", [24, 34])
+		region.spawn_pickup(sid, "flock", str(sd.get("sprite", "sheep")),
+			int(at[0]), int(at[1]), extra)
+	region.set_paused(false)
+	if _sheep_total <= 0 or sheep_home >= _sheep_total:
+		# A save taken after the last sheep but before the drill.
+		_flock_finished()
+		return
+	_flock_active = true
+
+
+## How this particular sheep came in, read from Region's single source of
+## truth. Region writes `guided` when the animal walked home on its own.
+func _sheep_guided(id: String) -> bool:
+	if region == null:
+		return false
+	for p in region.pickups:
+		if str((p as Dictionary).get("id", "")) == id:
+			return bool((p as Dictionary).get("guided", false))
+	return false
+
+
+## A bystander noticing work being finished. Three short bubbles, no box, no
+## pause, no moral. The hired boy is the only person on the slope who sees it.
+func _herd_boy_reacts(count: int) -> void:
+	if region == null:
+		return
+	var say := ""
+	match count:
+		1: say = I18n.t({"en": "“Two more.”", "zh": "「还有两只。」"})
+		2: say = I18n.t({"en": "“Just the one down the slope.”", "zh": "「就剩坡下那只了。」"})
+		3: say = I18n.t({"en": "“All in. I'll shut the rail.”", "zh": "「都回来了。我把横木合上。」"})
+	for n in region.npcs:
+		var npc: Npc = n
+		if npc.npc_id() == "hired_boy":
+			npc.emote(say)
+			return
+
+
+## One-time, context-sensitive feedback. Nothing here is a tutorial: it only
+## answers something the animal just DID, and it never stops the world.
+func _on_flock_reacted(_id: String, mood: int) -> void:
+	if practice != null or fight != null or region == null or region.is_paused():
+		return
+	if mood == 1 and not bool(GameState.flag("flock_hint_wrong")):
+		GameState.set_flag("flock_hint_wrong", true)
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "It shied uphill. Try coming from the other side.",
+			"zh": "它往坡上躲了。换一头过来。"}))
+	elif mood >= 2 and not bool(GameState.flag("flock_hint_right")):
+		GameState.set_flag("flock_hint_right", true)
+		EventBus.toast_requested.emit(I18n.t({
+			"en": "That's it. Keep behind it and it will walk itself in.",
+			"zh": "对了。跟在后面，它自己会往圈里走。"}))
+
+
+func _flock_finished() -> void:
+	_flock_active = false
+	# The hired boy (and anyone else with a `by_flag` line) now answers to a
+	# finished task instead of repeating "three are still out".
+	GameState.set_flag("elah_flock_done", true)
+	var sh: Dictionary = region.model.david_act.get("shepherd", {})
+	var lines: Array = sh.get("home_lines", [])
+	if lines.is_empty():
+		_start_practice()
+		return
+	region.set_paused(true)
+	region.dialogue.show_lines(lines, _speaker, func():
+		region.set_paused(false)
+		_start_practice())
 
 
 ## Put the player on a tile and take the camera with them, with no glide.
@@ -1158,7 +1351,9 @@ func _on_curio(_id: String, lines: Array) -> void:
 	if region.dialogue != null and region.dialogue.is_open():
 		return
 	region.set_paused(true)
-	region.dialogue.show_lines(lines, func(_w): return {}, func():
+	# A curio is allowed to have a voice: the broken hurdle is David remembering
+	# his own day, and a nameless box would read like another bit of narration.
+	region.dialogue.show_lines(lines, _speaker, func():
 		region.set_paused(false))
 
 
@@ -1197,8 +1392,11 @@ func _print_journal() -> void:
 	for sid in seals:
 		titles[str(sid)] = GameState.seal_title(str(sid))
 	var c: Dictionary = CampaignModel.current()
+	# "Before" is the optional background the 2026-11-05 opening redesign moved
+	# out of the boot: the modern-day arrival and the controls, still in the
+	# region's own data, readable whenever the player is curious.
 	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
-		stones, _stones_total, seals, titles)
+		stones, _stones_total, seals, titles, background_lines())
 
 
 ## The two HUD switches can be pressed with the book open. Everything on the
@@ -1288,6 +1486,9 @@ func _start_errand() -> void:
 	region.set_paused(true)
 	fade.run(0.45, func():
 		_place_at(st)
+		# The shepherd slope was dusk. Morning returns with the errand, so the
+	# two acts are visibly different days and the light is not a UI trick.
+		region.set_time_of_day("morning")
 		for it in items:
 			var at: Array = it.get("at", [0, 0])
 			region.spawn_pickup(str(it.get("id", "prov")), "provision",

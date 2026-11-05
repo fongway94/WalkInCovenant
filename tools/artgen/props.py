@@ -266,6 +266,124 @@ def signpost(seed=19):
     cv.outline(); return cv
 
 
+# ── the shepherd's slope (1 Samuel 16–17) ───────────────────────────────
+# These three are small, non-blocking, and deliberately plain. The flock is a
+# PLACE, not a minigame: a sheep is a lump of wool with a dark head, a hurdle is
+# two uprights and a rail, and the tuft is what a thorn bush kept. All three
+# reuse the existing palette, so the slope reads as the same world as the camp.
+def sheep(seed=20):
+    cv = Canvas(14, 12)
+    cv.ellipse(7, 11, 4, 1, SHADOW, fill=True)
+    for x in (4, 6, 9, 10):
+        cv.vline(x, 8, 3, c("hair_dark", 1))
+    for (cx, cy, r) in ((4, 6, 2), (6, 5, 3), (8, 5, 2), (5, 4, 2)):
+        cv.circle(cx, cy, r, c("wool", 2), fill=True)
+    for (cx, cy, r) in ((5, 4, 2), (7, 3, 2), (8, 5, 1)):
+        cv.circle(cx, cy, r, c("linen", 5), fill=True)
+    cv.ellipse(11, 5, 1, 1, c("hair_dark", 2), fill=True)
+    cv.px(12, 4, c("hair_dark", 1))
+    cv.px(11, 5, c("linen", 4))
+    cv.outline()
+    return cv
+
+
+def sheep_graze(seed=23):
+    """The same animal with its head down in the grass. Two frames are enough
+    to read as *alive*: `sheep()` looks up, this one eats. Same silhouette, same
+    14x12 box, same palette, so swapping textures never makes the herd jump."""
+    cv = Canvas(14, 12)
+    cv.ellipse(7, 11, 4, 1, SHADOW, fill=True)
+    for x in (4, 6, 9, 10):
+        cv.vline(x, 8, 3, c("hair_dark", 1))
+    for (cx, cy, r) in ((4, 6, 2), (6, 5, 3), (8, 5, 2), (5, 4, 2)):
+        cv.circle(cx, cy, r, c("wool", 2), fill=True)
+    for (cx, cy, r) in ((5, 4, 2), (7, 3, 2), (8, 5, 1)):
+        cv.circle(cx, cy, r, c("linen", 5), fill=True)
+    # head lowered to the grass, muzzle to the right
+    cv.ellipse(11, 8, 2, 1, c("hair_dark", 2), fill=True)
+    cv.px(12, 9, c("hair_dark", 1))
+    cv.px(12, 8, c("linen", 4))
+    cv.px(10, 6, c("hair_dark", 1))
+    cv.outline()
+    return cv
+
+
+def sheep_alert(seed=24):
+    """Head up, ears forward, one foreleg lifted: a sheep that has noticed you.
+    Used for `ALERT` and `HERDED` so the reaction is visible at 320x180."""
+    cv = Canvas(14, 12)
+    cv.ellipse(7, 11, 4, 1, SHADOW, fill=True)
+    for x in (4, 6, 9):
+        cv.vline(x, 8, 3, c("hair_dark", 1))
+    cv.px(10, 10, c("hair_dark", 1))         # lifted hoof
+    for (cx, cy, r) in ((4, 6, 2), (6, 5, 3), (8, 4, 2), (5, 4, 2)):
+        cv.circle(cx, cy, r, c("wool", 2), fill=True)
+    for (cx, cy, r) in ((5, 4, 2), (7, 3, 2), (8, 4, 1)):
+        cv.circle(cx, cy, r, c("linen", 5), fill=True)
+    cv.ellipse(11, 4, 2, 2, c("hair_dark", 2), fill=True)
+    cv.px(10, 2, c("hair_dark", 1))          # ear
+    cv.px(12, 6, c("hair_dark", 1))          # muzzle
+    cv.px(12, 4, c("linen", 5))              # eye
+    cv.outline()
+    return cv
+
+
+def trough(seed=25):
+    """A stone watering trough. It is the one object on the slope that says
+    somebody works here every day: the fold, the water and the staff are David's
+    ordinary responsibility, not decoration."""
+    cv = Canvas(16, 10)
+    cv.ellipse(8, 9, 7, 1, SHADOW, fill=True)
+    cv.rect(1, 4, 14, 5, c("stone", 1))
+    cv.frame(1, 4, 14, 5, c("stone", 3))
+    cv.hline(2, 5, 12, c("water", 2))
+    cv.hline(3, 6, 10, c("water", 3))
+    cv.px(5, 5, c("foam", 3)); cv.px(10, 5, c("foam", 3))
+    cv.hline(2, 4, 12, c("stone", 4))
+    cv.px(1, 8, c("stone", 0)); cv.px(14, 8, c("stone", 0))
+    cv.outline()
+    return cv
+
+
+def staff(seed=26):
+    """A shepherd's crook leaning against the hurdle. Small enough not to read
+    as a weapon; the shape is the point (Psalm 23 is not quoted over it)."""
+    cv = Canvas(8, 18)
+    cv.ellipse(4, 17, 2, 1, SHADOW, fill=True)
+    cv.line(3, 16, 5, 4, c("wood", 2))
+    cv.line(4, 16, 6, 4, c("wood", 3))
+    cv.px(6, 3, c("wood", 3)); cv.px(7, 3, c("wood", 2))
+    cv.px(7, 2, c("wood", 2)); cv.px(6, 1, c("wood", 2))
+    cv.px(5, 1, c("wood", 2)); cv.px(4, 2, c("wood", 2))
+    cv.outline()
+    return cv
+
+
+def fold(seed=21):
+    cv = Canvas(16, 12)
+    cv.vline(2, 1, 10, c("wood", 2))
+    cv.vline(13, 1, 10, c("wood", 2))
+    cv.hline(1, 3, 14, c("wood", 3))
+    # the lower rail is broken in the middle: the mark the lion left
+    cv.hline(1, 7, 5, c("wood", 3))
+    cv.hline(11, 7, 5, c("wood", 3))
+    cv.line(6, 7, 8, 9, c("wood", 1))
+    cv.line(10, 7, 8, 9, c("wood", 1))
+    cv.px(2, 1, c("wood", 4)); cv.px(13, 1, c("wood", 4))
+    cv.outline()
+    return cv
+
+
+def wool_tuft(seed=22):
+    cv = Canvas(8, 6)
+    cv.ellipse(4, 5, 3, 1, SHADOW, fill=True)
+    for (cx, cy, r) in ((3, 3, 2), (5, 3, 2)):
+        cv.circle(cx, cy, r, c("linen", 4), fill=True)
+    cv.px(3, 2, c("linen", 5)); cv.px(5, 2, c("linen", 5))
+    cv.outline()
+    return cv
+
+
 def _build():
     _reg("olive_tree", olive_tree(), (1, 1), True, notes="Gethsemane, the Mount of Olives")
     _reg("palm_tree", palm_tree(), (1, 1), True, notes="Jericho, the Jordan, Egypt")
@@ -286,6 +404,13 @@ def _build():
     _reg("fire", fire(), (1, 1), False, frames=2, notes="Peter warmed himself by one")
     _reg("boat", boat(), (2, 1), True, notes="Sea of Galilee")
     _reg("signpost", signpost(), (0, 0), False)
+    _reg("sheep", sheep(), (0, 0), False, notes="the flock on the slope, head up")
+    _reg("sheep_graze", sheep_graze(), (0, 0), False, notes="the flock on the slope, grazing")
+    _reg("sheep_alert", sheep_alert(), (0, 0), False, notes="a sheep that has noticed you")
+    _reg("fold", fold(), (0, 0), False, notes="a hurdle; one is broken at the lion's ground")
+    _reg("wool_tuft", wool_tuft(), (0, 0), False, notes="wool caught on the thorns")
+    _reg("trough", trough(), (0, 0), False, notes="water for the fold; David's daily work")
+    _reg("staff", staff(), (0, 0), False, notes="the crook leaning against the hurdle")
 
 
 _build()

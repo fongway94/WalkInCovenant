@@ -1,0 +1,1 @@
+{"inherits": "Node", "members": ["TIMER_PROCESS_IDLE", "TIMER_PROCESS_PHYSICS", "autostart", "ignore_time_scale", "is_stopped", "one_shot", "paused", "process_callback", "start", "stop", "time_left", "timeout", "wait_time"], "methods": {"is_stopped": [0, 0], "start": [0, 0], "stop": [0, 0]}, "virtuals": []}

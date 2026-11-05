@@ -2,11 +2,13 @@ extends Node
 ## tests/smoke.gd — plays the vertical slice headless and asserts the loop closes.
 ##
 ## run_all.gd checks the CONTENT is well formed. This checks the GAME WORKS.
-## It boots Main.tscn, reads the briefing, talks to all four people, crosses the
-## line with an empty pouch, goes back for the stones, crosses again, fights the
-## fight to a win, walks back into the valley, and asserts the save state
-## afterwards. Everything is driven through the same entry points a player's
-## thumbs would use, so a regression in Region, DialogueBox, BecomeController or
+## It boots Main.tscn straight into a walkable valley (the prologue and brief
+## are optional book pages now), asserts the measured time to control, talks to
+## all five people, drives three live sheep into the fold, crosses the line with
+## an empty pouch, goes back for the stones, crosses again, fights the fight to
+## a win, walks back into the valley, and asserts the save state afterwards.
+## Everything is driven through the same entry points a player's thumbs would
+## use, so a regression in Region, FlockSheep, DialogueBox, BecomeController or
 ## WordBattle fails the build instead of failing somebody's first playtest.
 ##
 ##   godot --headless --path . res://tests/smoke.tscn
@@ -101,7 +103,10 @@ func _run() -> void:
 		"the region is the one data/campaigns.json registered (%s)" % region.region_id)
 	_check(region.player != null, "player spawned")
 	_check(region.dialogue != null, "dialogue box exists")
-	_check(region.npcs.size() == 4, "4 people in the valley (got %d)" % region.npcs.size())
+	_check(region.npcs.size() == 5,
+		"the valley has its four people and a boy at the fold (got %d)" % region.npcs.size())
+	_check(_find_npc(region, "hired_boy") != null,
+		"the hired boy is standing at the fold")
 	# The five stones of 17:40 belong to David's act and are laid out when the
 	# verse is spoken, so at boot there must be none of them: the witness cannot
 	# pick up a scene that has not happened yet.
@@ -193,18 +198,34 @@ func _run() -> void:
 		_check(ThemeDB.fallback_font.resource_path == "res://fonts/game.ttf",
 				"the theme falls back to the bundled font")
 
-	# ── 2. a first-time player is told what to do ────────────────────────
-	# Chapter 1 first: the witness arrives from somewhere with buses.
-	_check(region.dialogue._open, "the valley opens with the arrival")
-	_check(bool(GameState.flag("elah_opened")), "the prologue runs once and is marked")
-	_check(region.dialogue._lines.size() >= 4 or region.dialogue._box_id > 0,
-		"the arrival is a scene, not a single line")
-	_check(region._paused, "the briefing holds the world still")
-	_drain(region.dialogue)
-	_check(not region._paused, "the briefing releases the world")
-	_check(bool(GameState.flag("elah_briefed")), "the briefing is marked as seen")
-	main._brief_once()
-	_check(not region.dialogue._open, "the briefing does not repeat on a second visit")
+	# ── 2. PRIORITY 1: meaningful control before any exposition ──────────
+	# The last milestone's own review scored this opening 4/10: a 5-line
+	# prologue, a 3-line briefing and a caption, all before one step. These are
+	# the measurable acceptance checks for the redesign. The words are not gone
+	# — they are optional, in the book (checked in §2c).
+	_check(not region.dialogue._open,
+		"the boot opens on the world, not a text box")
+	_check(not region._paused, "the boot does not hold the world still")
+	_check(main.boot_forced_pages == 0,
+		"zero forced dialogue pages before control (%d)" % main.boot_forced_pages)
+	_check(main.boot_forced_actions == 0, "zero taps before control")
+	_check(main.boot_control_ms >= 0 and main.boot_control_ms < 3000,
+		"control arrives in %d ms with no chain of boxes" % main.boot_control_ms)
+	var bg: Array = main.background_lines()
+	_check(bg.size() >= 5,
+		"the arrival and the controls are still in the data (%d lines)" % bg.size())
+	# The first interaction is a person one tile away, not a tutorial.
+	var corin_first: Npc = _find_npc(region, "corin")
+	_check(corin_first != null and
+		corin_first.global_position.distance_to(region.player.global_position) < 40.0,
+		"a person to talk to is already in reach at the spawn")
+	# A few steps produce the small curiosity beat without stopping play.
+	await _stand(region, 19, 45, 4)
+	_check(bool(GameState.flag("elah_first_call")),
+		"walking a few steps is answered by a distant call")
+	_check(not region.dialogue._open and not region._paused,
+		"and the call is a toast, not another box")
+	await _stand(region, 16, 45, 3)
 
 	# ── 1e. the music bed ducks, and comes back ──────────────────────────
 	# Ducking used to be an assignment to `volume_db`: a step in the waveform,
@@ -217,7 +238,7 @@ func _run() -> void:
 	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < back_by:
 		await _frames(1)
 	_check(AudioDirector.music_db() >= -12.6,
-		"closing the arrival box lifts the music back to its mix level (%.1f dB)"
+		"the music reaches mix level with no arrival box to close (%.1f dB)"
 		% AudioDirector.music_db())
 	_check(AudioDirector.music_key() == str(region.model.music),
 		"the region's own theme is the current music (%s)" % AudioDirector.music_key())
@@ -230,7 +251,7 @@ func _run() -> void:
 	while AudioDirector.music_db() < -12.6 and Time.get_ticks_msec() < lift_by:
 		await _frames(1)
 	_check(AudioDirector.music_db() >= -12.6,
-		"and it comes back up when the box closes (%.1f dB)" % AudioDirector.music_db())
+		"and it comes back up when the duck is released (%.1f dB)" % AudioDirector.music_db())
 
 	# The caption is the one cinematic beat on the brief's list that was missing:
 	# the valley is named once, from the region's own data.
@@ -277,6 +298,15 @@ func _run() -> void:
 		_check(main.journal.is_open(), "the journal opens")
 		_check(region._paused, "the journal holds the world still")
 		_check(main.journal._panel.visible, "the journal has something on screen")
+		# The boot's removed exposition lives here instead: readable, optional,
+		# and never in front of the first step.
+		var page := ""
+		for c in main.journal._body.get_children():
+			if c is Label:
+				page += str(c.text)
+		var first_bg: Variant = (bg[0] as Dictionary).get("text", {})
+		_check(page.find(I18n.t(first_bg)) >= 0,
+			"the book prints the optional arrival words")
 		main.journal.close_panel()
 		_check(not main.journal.is_open(), "the journal closes")
 		_check(not region._paused, "closing the book gives the world back")
@@ -408,36 +438,274 @@ func _run() -> void:
 	var carried: Array = GameState.data["words"]
 	_check(carried.size() == 4, "four verses were handed over (got %d)" % carried.size())
 
-	# ── 6. BECOME, and then David's whole story ─────────────────────────
-	# Chapter 2 first: three days earlier, the sheep slope, and the drill that
-	# teaches the one input the fight asks for. Then Jesse's errand. Then the
-	# king. Only then is there a fight.
+	# ── 6. the witness's line, then the road south (1 Sam 16 before 1 Sam 17) ──
+	# The crossing no longer hands straight over to David: it opens the road
+	# south. BECOME fires when the player walks BACK from the anointing, and the
+	# David chapter below is unchanged from that point on.
 	var level_before := int(GameState.data["level"])
 	await _stand(region, 16, 10, 4)
 	# The mission opens by saying where to go, so the crossing box comes first.
 	await _wait_open(region.dialogue)
-	_drain(region.dialogue)
-	await _frames(3)
-	_check(bool(main._in_battle), "crossing with the camp's words in hand begins BECOME")
-	_check(region._paused, "the world holds still while you become David")
-	# 1 Samuel 17:11 is spoken at the line, Corin says the story is changing
-	# hands, and only then does the perspective move. No abrupt swap.
-	_check(region.dialogue._open, "the crossing says what it is: 17:11, and handover")
-	_drain(region.dialogue)
-	await _frames(3)
+	_check(region.dialogue._open, "the crossing says what it is: 17:11 and Corin's handover")
+	# The mission brief opens FIRST, then the trigger's own beat chains behind
+	# it. Drain until the screen has been quiet for a few frames, or the flag
+	# below is read while the second box is still on screen.
+	await _drain_quiet(region.dialogue)
+	await _frames(4)
+	_check(not region.dialogue.is_open(),
+		"the two crossing beats have both finished before the flag is read")
+	_check(bool(GameState.flag("elah_met_the_line")),
+		"crossing with the camp's words sets the witness's flag")
+	_check(not bool(main._in_battle),
+		"and it does NOT start BECOME yet — the anointing comes first")
+	_check(not region._paused,
+		"the world is playable again: the road south needs a thumb, not a frozen map")
+	_check(main.runner.current_id() == "bethlehem_call",
+		"the next mission is the road south (mission=%s)" % main.runner.current_id())
+	_check(bool(main._may_leave("bethlehem")),
+		"the south road is open on the witness's line, not on the ending")
+
+	# ── 6b. the road south: 1 Samuel 16, BEFORE the battle ───────────────
+	# The campaign contract, exercised rather than asserted: walk onto the exit,
+	# take it, and check that a DIFFERENT region is running — its own map, its own
+	# people, its own mission list, its own chapter script, its own music — then
+	# play its story to the anointing and come home. With the corrected spine
+	# BECOME begins on the walk back, not at the witness's line.
+	var south := {}
+	for e in region.model.exits:
+		if str(e.get("to", "")) == "bethlehem":
+			south = e
+	_check(not south.is_empty(), "the valley has a road south to a second region")
+	if south.is_empty():
+		_finish_run()
+		return
+	var south_at: Array = south.get("at", [16, 46])
+	await _stand(region, int(south_at[0]), int(south_at[1]), 3)
+	# The crossing box set Region's short interact lock when it closed. A real
+	# player walks the length of the valley; let those frames pass here too.
+	await _frames(8)
+	TapGate.reset()
+	_press_interact(region)
+	var hops := 0
+	while main.region != null and str(main.region.region_id) == "elah" and hops < 400:
+		await _frames(1)
+		hops += 1
+	_check(main.region != null and str(main.region.region_id) == "bethlehem",
+		"the exit takes you somewhere else (region=%s)"
+		% (str(main.region.region_id) if main.region != null else "null"))
+	if main.region == null or str(main.region.region_id) != "bethlehem":
+		_finish_run()
+		return
+	var beth = main.region
+	_check(beth.npcs.size() >= 6, "Bethlehem has its own people (%d)" % beth.npcs.size())
+	_check(str(beth.model.music) == "bethlehem", "and its own music cue")
+	_check(main.chapter != null, "its chapter script loaded")
+	_check(main.runner.current_id() == "beth_gate",
+		"its own mission list started at the top (mission=%s)" % main.runner.current_id())
+	var on_exit := false
+	for e in beth.model.exits:
+		var e_at: Array = e.get("at", [])
+		if e_at.size() == 2 and _tile_of(beth.player) == Vector2i(int(e_at[0]), int(e_at[1])):
+			on_exit = true
+	_check(not on_exit, "the player arrives beside the road home, not on it")
+	var marks := {}
+	await _drain_quiet(beth.dialogue, marks)
+	var step := {}
+	if main.chapter != null:
+		step = main.chapter.call("guidance")
+	_check(not step.is_empty() and str(step.get("line", "")) != "",
+		"the chapter says what to do next, in its own words")
+
+	# the elder at the gate
+	var b_elder: Npc = _find_npc(beth, "elder")
+	_check(b_elder != null, "the elder of Bethlehem is at the gate")
+	if b_elder != null:
+		b_elder.talk()
+		_check(beth.dialogue._open, "he speaks when you press A")
+		await _drain_quiet(beth.dialogue)
+		_check(bool(GameState.flag("beth_met_elder")), "asking him why the town stopped sets the flag")
+		_check(main.runner.current_id() == "beth_sons",
+			"the mission list moves to the house (mission=%s)" % main.runner.current_id())
+
+	# Samuel, and the procession of the sons (16:7-11)
+	var b_samuel: Npc = _find_npc(beth, "samuel")
+	_check(b_samuel != null, "Samuel is at Jesse's house")
+	if b_samuel != null:
+		b_samuel.talk()
+		marks = {"16:7": false, "16:10": false, "16:11": false}
+		await _drain_quiet(beth.dialogue, marks)
+		_check(bool(marks["16:7"]), "the sons scene quotes 1 Samuel 16:7")
+		_check(bool(marks["16:10"]), "and 16:10, when the seven are not chosen")
+		_check(bool(marks["16:11"]), "and 16:11, the youngest out with the sheep")
+		_check(bool(GameState.flag("beth_sons_seen")), "the house has been searched")
+		_check(main.runner.current_id() == "beth_call",
+			"and the next step is the field (mission=%s)" % main.runner.current_id())
+
+	# the youngest son, out with the flock
+	var b_david: Npc = _find_npc(beth, "david")
+	_check(b_david != null, "David is out with the flock")
+	if b_david != null:
+		b_david.talk()
+		await _drain_quiet(beth.dialogue)
+		_check(bool(GameState.flag("beth_called")), "calling him in sets the flag")
+		_check(b_david.state == Npc.State.FOLLOW, "and he comes with you")
+		_check(main.runner.current_id() == "beth_anoint",
+			"the last mission is the anointing (mission=%s)" % main.runner.current_id())
+
+	# back to Samuel, and the oil (16:12-13)
+	if b_samuel != null:
+		await _until_talkable(b_samuel)
+		# Say WHY if he will not answer, instead of failing four assertions
+		# further down with no cause attached.
+		_check(b_samuel.can_talk(),
+			"Samuel will speak again once his last word is done (box=%s talk=%d)"
+			% [str(beth.dialogue.is_open()), int(b_samuel.talk_state)])
+		b_samuel.talk()
+		marks = {"16:12": false, "16:13": false}
+		await _drain_quiet(beth.dialogue, marks)
+		_check(bool(marks["16:12"]), "the anointing quotes 1 Samuel 16:12")
+		_check(bool(marks["16:13"]), "and 16:13, the Spirit on David from that day")
+		_check(bool(GameState.flag("beth_anointed")), "the oil has been poured")
+		_check(main.runner.current_id() == "",
+			"and the region's mission list is finished (mission=%s)" % main.runner.current_id())
+		_check(_has(GameState.data.get("seals", []), "anointed_shepherd"),
+			"the chapter pays its mark, once, through the runner")
+
+	# the road home
+	var back := {}
+	for e in beth.model.exits:
+		if str(e.get("to", "")) == "elah":
+			back = e
+	_check(not back.is_empty(), "Bethlehem has a road back to the valley")
+	if not back.is_empty():
+		var b_at: Array = back.get("at", [16, 30])
+		await _stand(beth, int(b_at[0]), int(b_at[1]), 3)
+		_press_interact(beth)
+		var hops_home := 0
+		while main.region != null and str(main.region.region_id) == "bethlehem" and hops_home < 400:
+			await _frames(1)
+			hops_home += 1
+		_check(main.region != null and str(main.region.region_id) == "elah",
+			"and it leads back to the valley")
+		if main.region != null and str(main.region.region_id) == "elah":
+			await _frames(6)
+			# Every section below uses `region`; the return walk built a NEW
+			# Region node, so point the local at the world that is now live.
+			region = main.region
+			_check(bool(GameState.flag("beth_anointed")),
+				"the anointing has happened BEFORE the battle")
+			_check(main.runner.current_id() == "shepherd_drill",
+				"walking back from Bethlehem starts BECOME (mission=%s)" % main.runner.current_id())
+			# `_in_battle` is a guard for the duration of the fade, not a
+			# chapter state: `_start_david_act()` clears it as soon as the cut
+			# ends. What must be true here is the ORDER of the two chapters.
+			_check(not bool(GameState.flag("elah_drill_done")),
+				"the drill has not happened yet: the anointing came first")
+
+	# ── 6-pre. BECOME, on the walk back from Bethlehem ────────────────────
 	var waited := 0
 	while main.act_id() != "shepherd" and waited < FRAME_GUARD:
 		await get_tree().process_frame
 		waited += 1
 	_check(main.act_id() == "shepherd",
-		"the become hands over to the shepherd chapter (waited %d frames)" % waited)
+		"returning from the anointing hands over to David (waited %d frames)" % waited)
 	await _wait_open(region.dialogue)
 	_check(region.dialogue._open, "the slope speaks before anything else")
-	_drain(region.dialogue)
-	await _frames(2)
+	await _drain_quiet(region.dialogue)
+	await _frames(3)
 
-	# ── 6a. the drill ────────────────────────────────────────────────────
-	_check(main.practice != null, "the sling drill starts after the narration")
+	# ── 6a. the flock: a live herding loop, not three quest dots ──────────
+	var sh_data: Dictionary = region.model.david_act.get("shepherd", {})
+	var strays: Array = sh_data.get("strays", [])
+	_check(strays.size() == 3, "the slope has three strays to bring in")
+	_check(main._flock_active, "the opening gives the player a job to do")
+	# Region now builds FlockSheep nodes, not plain sprites. Read them from the
+	# world itself so this checks the shipped object, not a data promise.
+	var flock_nodes: Array = []
+	var tempers := {}
+	for p in region.pickups:
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) == "flock":
+			var node = pd.get("node")
+			flock_nodes.append(node)
+			tempers[str(node.temper)] = true
+	_check(flock_nodes.size() == 3,
+		"three live animals are on the ground (%d)" % flock_nodes.size())
+	_check(tempers.size() == 3,
+		"each stray has its own disposition (%d distinct)" % tempers.size())
+
+	# FIRST sheep: stand on the far side of the fold and the animal should
+	# start walking itself home. This is the interactive loop, not a pickup.
+	# Positions come from the LIVE animal, because a grazing sheep has drifted
+	# a few pixels from its authored tile by now; a hard-coded tile would make
+	# this check flaky rather than honest.
+	var n0 = flock_nodes[0]
+	var away0: Vector2 = (n0.anchor - n0.fold).normalized()
+	region.player.global_position = n0.global_position + away0 * 34.0
+	await _frames(5)
+	_check(n0.trust > 0.0 or n0.mood_name() == "home",
+		"holding the far side drives a stray toward the fold (mood=%s trust=%.2f)"
+		% [n0.mood_name(), n0.trust])
+	_check(bool(GameState.flag("flock_hint_right")),
+		"and the game says what just happened, once")
+
+	# SECOND sheep: come at it from the fold side. It shies away — visible
+	# feedback — but nothing locks: after settling it can still be brought in.
+	var n1 = flock_nodes[1]
+	var toward1: Vector2 = (n1.fold - n1.global_position).normalized()
+	region.player.global_position = n1.global_position + toward1 * 30.0
+	await _frames(2)
+	_check(n1.mood_name() == "alert" or n1.mood_name() == "herded",
+		"approaching from the fold side makes it react (mood=%s)" % n1.mood_name())
+	_check(bool(GameState.flag("flock_hint_wrong")),
+		"and the game answers with one short line, not a tutorial")
+
+	# Completability: walk to every authored tile and wait for the fold to be
+	# full. A sheep that shies must settle; a driven one may arrive on its own.
+	var idx := 0
+	for it in strays:
+		var sd: Dictionary = it
+		var at2: Array = sd.get("at", [])
+		if at2.size() != 2:
+			idx += 1
+			continue
+		# The broken hurdle is optional and has no marker. Find it between the
+		# second and the third sheep, while the world is still walking: once
+		# the drill starts, curios deliberately stay quiet.
+		if str(sd.get("id", "")) == "sheep_west":
+			await _stand(region, 28, 37, 3)
+			await _wait_open(region.dialogue)
+			_check(region.dialogue._open, "the broken hurdle has three lines when you find it")
+			await _drain_quiet(region.dialogue)
+			await _frames(2)
+		await _stand(region, int(at2[0]), int(at2[1]), 3)
+		# A driven sheep may already be in; a startled one needs 0.7 s to
+		# settle. Wait for THIS animal, with a bound, not for a fixed count.
+		var want := idx + 1
+		var settle := 0
+		while main.sheep_home < want and settle < 120:
+			await _frames(1)
+			settle += 1
+		idx += 1
+	_check(main.sheep_home == 3, "all three strays came home (%d/3)" % main.sheep_home)
+	_check(not main._flock_active, "the job ends when the fold is full")
+	_check(bool(GameState.flag("elah_flock_done")),
+		"the finished task is a flag people can answer to")
+	var hb: Npc = _find_npc(region, "hired_boy")
+	if hb != null:
+		var now: Array = hb._lines_now()
+		var said := ""
+		for l in now:
+			said += str((l as Dictionary).get("text", {}).get("zh", ""))
+		_check(said.find("都回来了") >= 0,
+			"the hired boy remembers the fold is full")
+	await _wait_open(region.dialogue)
+	_check(region.dialogue._open, "the fold has a short beat before the drill")
+	await _drain_quiet(region.dialogue)
+	await _frames(3)
+
+	# ── 6a2. the drill ───────────────────────────────────────────────────
+	_check(main.practice != null, "the sling drill starts after the flock is in")
 	var throws := 0
 	var practice_frames := 0
 	while main.practice != null and practice_frames < FRAME_GUARD:
@@ -901,129 +1169,48 @@ func _run() -> void:
 		OS.delay_msec(560)
 		_check(witness.can_talk(), "and the person is talkable again after the cooldown")
 
-	# ── 11. the road south, and a second region ──────────────────────────
-	# The campaign contract, exercised rather than asserted: walk onto the exit,
-	# take it, and check that a DIFFERENT region is running — its own map, its own
-	# people, its own mission list, its own chapter script, its own music — then
-	# play its story to the end and come home.
-	var south := {}
+	# ── 11. after the ending, the road south still works and does not replay ─
+	var south_late := {}
 	for e in region.model.exits:
 		if str(e.get("to", "")) == "bethlehem":
-			south = e
-	_check(not south.is_empty(), "the valley has a road south to a second region")
-	if south.is_empty():
-		_finish_run()
-		return
-	var south_at: Array = south.get("at", [16, 46])
-	await _stand(region, int(south_at[0]), int(south_at[1]), 3)
-	_press_interact(region)
-	var hops := 0
-	while main.region != null and str(main.region.region_id) == "elah" and hops < 400:
-		await _frames(1)
-		hops += 1
-	_check(main.region != null and str(main.region.region_id) == "bethlehem",
-		"the exit takes you somewhere else (region=%s)"
-		% (str(main.region.region_id) if main.region != null else "null"))
-	if main.region == null or str(main.region.region_id) != "bethlehem":
-		_finish_run()
-		return
-	var beth = main.region
-	_check(beth.npcs.size() == 6, "Bethlehem has its own people (%d)" % beth.npcs.size())
-	_check(str(beth.model.music) == "bethlehem", "and its own music cue")
-	_check(main.chapter != null, "its chapter script loaded")
-	_check(main.runner.current_id() == "beth_gate",
-		"its own mission list started at the top (mission=%s)" % main.runner.current_id())
-	var on_exit := false
-	for e in beth.model.exits:
-		var e_at: Array = e.get("at", [])
-		if e_at.size() == 2 and _tile_of(beth.player) == Vector2i(int(e_at[0]), int(e_at[1])):
-			on_exit = true
-	_check(not on_exit, "the player arrives beside the road home, not on it")
-	var marks := {}
-	await _drain_quiet(beth.dialogue, marks)
-	var step := {}
-	if main.chapter != null:
-		step = main.chapter.call("guidance")
-	_check(not step.is_empty() and str(step.get("line", "")) != "",
-		"the chapter says what to do next, in its own words")
-
-	# the elder at the gate
-	var b_elder: Npc = _find_npc(beth, "elder")
-	_check(b_elder != null, "the elder of Bethlehem is at the gate")
-	if b_elder != null:
-		b_elder.talk()
-		_check(beth.dialogue._open, "he speaks when you press A")
-		await _drain_quiet(beth.dialogue)
-		_check(bool(GameState.flag("beth_met_elder")), "asking him why the town stopped sets the flag")
-		_check(main.runner.current_id() == "beth_sons",
-			"the mission list moves to the house (mission=%s)" % main.runner.current_id())
-
-	# Samuel, and the procession of the sons (16:7-11)
-	var b_samuel: Npc = _find_npc(beth, "samuel")
-	_check(b_samuel != null, "Samuel is at Jesse's house")
-	if b_samuel != null:
-		b_samuel.talk()
-		marks = {"16:7": false, "16:10": false, "16:11": false}
-		await _drain_quiet(beth.dialogue, marks)
-		_check(bool(marks["16:7"]), "the sons scene quotes 1 Samuel 16:7")
-		_check(bool(marks["16:10"]), "and 16:10, when the seven are not chosen")
-		_check(bool(marks["16:11"]), "and 16:11, the youngest out with the sheep")
-		_check(bool(GameState.flag("beth_sons_seen")), "the house has been searched")
-		_check(main.runner.current_id() == "beth_call",
-			"and the next step is the field (mission=%s)" % main.runner.current_id())
-
-	# the youngest son, out with the flock
-	var b_david: Npc = _find_npc(beth, "david")
-	_check(b_david != null, "David is out with the flock")
-	if b_david != null:
-		b_david.talk()
-		await _drain_quiet(beth.dialogue)
-		_check(bool(GameState.flag("beth_called")), "calling him in sets the flag")
-		_check(b_david.state == Npc.State.FOLLOW, "and he comes with you")
-		_check(main.runner.current_id() == "beth_anoint",
-			"the last mission is the anointing (mission=%s)" % main.runner.current_id())
-
-	# back to Samuel, and the oil (16:12-13)
-	if b_samuel != null:
-		await _until_talkable(b_samuel)
-		# Say WHY if he will not answer, instead of failing four assertions
-		# further down with no cause attached.
-		_check(b_samuel.can_talk(),
-			"Samuel will speak again once his last word is done (box=%s talk=%d)"
-			% [str(beth.dialogue.is_open()), int(b_samuel.talk_state)])
-		b_samuel.talk()
-		marks = {"16:12": false, "16:13": false}
-		await _drain_quiet(beth.dialogue, marks)
-		_check(bool(marks["16:12"]), "the anointing quotes 1 Samuel 16:12")
-		_check(bool(marks["16:13"]), "and 16:13, the Spirit on David from that day")
-		_check(bool(GameState.flag("beth_anointed")), "the oil has been poured")
-		_check(main.runner.current_id() == "",
-			"and the region's mission list is finished (mission=%s)" % main.runner.current_id())
-		_check(_has(GameState.data.get("seals", []), "anointed_shepherd"),
-			"the chapter pays its mark, once, through the runner")
-
-	# the road home
-	var back := {}
-	for e in beth.model.exits:
-		if str(e.get("to", "")) == "elah":
-			back = e
-	_check(not back.is_empty(), "Bethlehem has a road back to the valley")
-	if not back.is_empty():
-		var b_at: Array = back.get("at", [16, 30])
-		await _stand(beth, int(b_at[0]), int(b_at[1]), 3)
-		_press_interact(beth)
-		var hops_home := 0
-		while main.region != null and str(main.region.region_id) == "bethlehem" and hops_home < 400:
+			south_late = e
+	_check(not south_late.is_empty(), "the valley still has its road south")
+	_check(str(south_late.get("requires", "")) == "elah_met_the_line",
+		"and that road is gated on the witness's line, not on the ending")
+	_check(bool(GameState.flag("beth_anointed")),
+		"the anointing was seen before the battle")
+	if not south_late.is_empty():
+		var south_at2: Array = south_late.get("at", [16, 46])
+		await _stand(region, int(south_at2[0]), int(south_at2[1]), 3)
+		_press_interact(region)
+		var hops2 := 0
+		while main.region != null and str(main.region.region_id) == "elah" and hops2 < 400:
 			await _frames(1)
-			hops_home += 1
-		_check(main.region != null and str(main.region.region_id) == "elah",
-			"and it leads back to the valley")
-		if main.region != null and str(main.region.region_id) == "elah":
+			hops2 += 1
+		_check(main.region != null and str(main.region.region_id) == "bethlehem",
+			"a finished chapter can still walk to Bethlehem")
+		if main.region != null and str(main.region.region_id) == "bethlehem":
 			await _frames(4)
-			_check(main.act_id() == "done",
-				"a finished chapter comes back finished, not replaying (act=%s)" % main.act_id())
+			await _drain_quiet(main.region.dialogue)
 			_check(main.runner.current_id() == "",
 				"and its mission list does not start over (mission=%s)" % main.runner.current_id())
+			var back2 := {}
+			for e in main.region.model.exits:
+				if str(e.get("to", "")) == "elah":
+					back2 = e
+			if not back2.is_empty():
+				var b2: Array = back2.get("at", [16, 30])
+				await _stand(main.region, int(b2[0]), int(b2[1]), 3)
+				_press_interact(main.region)
+				var hops3 := 0
+				while main.region != null and str(main.region.region_id) == "bethlehem" and hops3 < 400:
+					await _frames(1)
+					hops3 += 1
+				_check(main.region != null and str(main.region.region_id) == "elah",
+					"and it leads back to the valley")
+				await _frames(4)
+				_check(main.act_id() == "done",
+					"a finished chapter comes back finished, not replaying (act=%s)" % main.act_id())
 
 	_finish_run()
 

@@ -1,0 +1,1 @@
+{"inherits": "Texture2D", "members": ["atlas", "filter_clip", "margin", "region", "resource_local_to_scene"], "methods": {}, "virtuals": []}

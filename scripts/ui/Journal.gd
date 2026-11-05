@@ -55,7 +55,10 @@ func _t(key: String) -> String:
 func _build() -> void:
 	_panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.08, 0.10, 0.97)
+	# Fully opaque. At 0.97 the HUD and any dialogue box still on screen showed
+	# through as grey ghost text behind 9 px rows — visible in CI frames
+	# 04_journal and 12_journal_before once the transport copy was quantised.
+	sb.bg_color = Color(0.06, 0.08, 0.10, 1.0)
 	sb.border_color = Color(0.79, 0.64, 0.36, 0.9)
 	sb.set_border_width_all(1)
 	sb.set_content_margin_all(8)
@@ -120,11 +123,12 @@ func _heading(text: String) -> void:
 ## Everything the panel shows is passed in: this node owns the furniture, not
 ## the story. `verse_refs` are resolved by the caller from the region data.
 func open_panel(title: String, objective: String, verse_refs: Array,
-		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary) -> void:
+		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary,
+		background: Array = []) -> void:
 	_args = {
 		"title": title, "objective": objective, "refs": verse_refs,
 		"stones": stones, "total": stones_total,
-		"seals": seals, "titles": seal_titles,
+		"seals": seals, "titles": seal_titles, "background": background,
 	}
 	_render()
 
@@ -185,6 +189,24 @@ func _render() -> void:
 			var nm: Dictionary = seal_titles.get(str(id), {})
 			var label := I18n.t(nm) if not nm.is_empty() else str(id)
 			_row("◆  " + label, 9, Color(0.86, 0.90, 0.86))
+
+	# Optional background. The opening used to force these lines in front of a
+	# new player; now they are here, at the bottom of the page, for the curious.
+	# A line is either the region's {who, text:{en,zh}} shape or a bare {en,zh}.
+	var bg: Array = _args.get("background", [])
+	_heading(_t("before"))
+	if bg.is_empty():
+		_row(_t("empty"), 9, Color(0.6, 0.62, 0.62), 1)
+	else:
+		for b in bg:
+			var d: Dictionary = b
+			var txt: Variant = d.get("text", d)
+			# Optional does not mean unreadable. These are the words the boot
+			# no longer forces on a player; at 8 px and 0.72 grey they were
+			# the dimmest thing in the book (CI frame 12_journal_before).
+			# No shadow either: at 9 px a 1 px solid black shadow sits *under*
+			# every CJK stroke and reads as a black blotch behind the row.
+			_row(I18n.t(txt), 9, Color(0.88, 0.90, 0.88), 1)
 
 	_panel.visible = true
 	_open = true

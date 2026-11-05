@@ -48,12 +48,14 @@ func _run() -> void:
 	add_child(main)
 	await _frames(4)
 
-	# Get the arrival out of the way: several checks below need a world that is
-	# not paused with a box over it.
+	# PRIORITY 1: there is no arrival chain to get out of the way any more.
+	# Several checks below need a walkable world; assert that a fresh boot
+	# simply starts with one, instead of draining boxes that may not exist.
 	if main.region != null and main.region.dialogue != null:
-		await _drain(main.region.dialogue)
-		main._brief_once()
-		await _drain(main.region.dialogue)
+		_check(not main.region.is_paused(), "a fresh boot hands over the world unpaused")
+		_check(main.boot_forced_pages == 0, "and forces no dialogue pages")
+		_check(main.background_lines().size() >= 5,
+			"the arrival words are still available, in the book")
 	await _frames(2)
 
 	await _check_save()
@@ -85,6 +87,10 @@ func _run() -> void:
 	await _check_choice_ducks()
 	await _check_language_switch()
 	await _check_save_shape()
+	await _check_legacy_spine()
+	_check_bubbles()
+	_check_living_flock()
+	_check_flock_resume()
 	_finish()
 
 
@@ -1098,6 +1104,164 @@ func _check_save_shape() -> void:
 	w.close()
 	GameState.load_game()
 	await _frames(1)
+
+
+# ── CHRONOLOGY (2026-11-05): a version-1 save is not sent backwards ───────
+## 1 Samuel 16 moved before 1 Samuel 17. A save made before that change can be
+## standing in the armour, the brook or the duel with `beth_anointed` false.
+## The new `bethlehem_call` mission would otherwise drag that player back to
+## Bethlehem mid-chapter. `GameState._migrate()` marks it `legacy_spine`, and
+## Main._mission_ctx() lets ONLY the runner treat the new condition as met.
+func _check_legacy_spine() -> void:
+	GameState.save_game()
+	var good: Dictionary = GameState.data.duplicate(true)
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		_check(false, "the save can be written to test a legacy spine")
+		return
+	f.store_string(JSON.stringify({
+		"version": 1,
+		"flags": {"elah_drill_done": true, "elah_brothers_met": true},
+		"region": "elah",
+	}))
+	f.close()
+	_check(GameState.load_game(), "a version-1 save from David's chapter still loads")
+	_check(bool(GameState.flag("legacy_spine")),
+		"it is marked legacy_spine, so the new Bethlehem mission cannot rewind it")
+	_check(not bool(GameState.flag("beth_anointed")),
+		"and the anointing is not invented for a player who never saw it")
+	_check(int(GameState.data["version"]) == 2,
+		"the save is stamped with the new schema")
+	var ctx: Dictionary = main._mission_ctx()
+	_check(bool(ctx.get("beth_anointed", false)),
+		"the runner sees the new mission as satisfied, without rewriting the save")
+	# put the good save back for anything that runs after this
+	var w := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	w.store_string(JSON.stringify(good))
+	w.close()
+	GameState.load_game()
+	await _frames(1)
+
+
+# ── LIVING WORLD: an over-the-head line stays a bubble ────────────────────
+## Regression for a defect the coarse pixel-diff gate could NOT see: an
+## autowrapped Chinese Label with no word breaks made a PanelContainer grow
+## into a black slab across the middle of the slope (CI frame 06_flock). Give
+## the longest chatter line in the data to a real NPC and measure the rect.
+func _check_bubbles() -> void:
+	var longest := ""
+	for nd in main.region.model.npcs:
+		var ndd: Dictionary = nd
+		for ch in ndd.get("chatter", []):
+			var zh := str((ch as Dictionary).get("zh", ""))
+			if zh.length() > longest.length():
+				longest = zh
+	_check(longest.length() >= 8, "there is a real chatter line to measure (%d chars)" % longest.length())
+	var speaker: Npc = main.region.npcs[0]
+	speaker.emote(longest)
+	var bub: Panel = speaker._bubble
+	_check(bub != null, "the NPC built a bubble")
+	if bub != null:
+		_check(bub.size.x <= 114.0 and bub.size.y <= 30.0,
+			"it stays a glance-sized %dx%d, not a slab" % [int(bub.size.x), int(bub.size.y)])
+		# Assert the CONFIGURED geometry rather than a Control's live size,
+		# which Godot may re-lay out on the next frame. The slab was caused by
+		# an autowrapped CJK Label, so "no autowrap + clipped + bounded" is the
+		# real regression guard; the numbers are printed for a failing run.
+		var lbl: Label = speaker._bubble_lbl
+		_check(lbl.autowrap_mode == TextServer.AUTOWRAP_OFF
+			and lbl.clip_text
+			and lbl.size.x <= 112.0 and lbl.size.y <= 28.0
+			and lbl.position.x >= 0.0 and lbl.position.y >= 0.0
+			and lbl.position.y + lbl.size.y <= 28.0,
+			"and its text cannot outgrow the frame (label %dx%d at %d,%d)"
+			% [int(lbl.size.x), int(lbl.size.y), int(lbl.position.x),
+				int(lbl.position.y)])
+		bub.visible = false
+
+
+# ── LIVING WORLD: the sheep are animals, not sprites ─────────────────────
+## Exercises the real FlockSheep state machine headlessly. Calls its `_process`
+## by hand with a known delta and a known player position, so the reaction does
+## not depend on a timer, a tween or a display. Runs before _check_flock_resume
+## and cleans the slope up so that check starts from an empty fold.
+func _check_living_flock() -> void:
+	main._start_flock()
+	var live: Array = []
+	var tempers := {}
+	for p in main.region.pickups:
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) != "flock":
+			continue
+		var sheep_probe: FlockSheep = pd.get("node")
+		live.append(sheep_probe)
+		tempers[str(sheep_probe.temper)] = true
+	_check(live.size() == 3, "the fold spawns three live animals (%d)" % live.size())
+	_check(tempers.size() == 3, "each has its own disposition (%d)" % tempers.size())
+	if live.size() < 2:
+		return
+	var first_sheep: FlockSheep = live[0]
+	_check(first_sheep.has_method("mood_name") and first_sheep.mood_name() == "graze",
+		"a stray starts by grazing")
+	_check(first_sheep.fold.distance_to(first_sheep.anchor) > 16.0,
+		"it knows where the fold is, away from its own tile")
+	# Stand on the far side of the fold. The sheep should walk toward home.
+	var away: Vector2 = (first_sheep.anchor - first_sheep.fold).normalized()
+	main.region.player.global_position = first_sheep.anchor + away * 34.0
+	first_sheep._process(0.2)
+	_check(first_sheep.mood_name() == "herded" and first_sheep.trust > 0.0,
+		"holding the far side drives it (mood=%s trust=%.2f)" % [first_sheep.mood_name(), first_sheep.trust])
+	_check(first_sheep.driven_px > 0.0,
+		"and it actually walks toward the hurdle (%d px)" % int(first_sheep.driven_px))
+	# Now approach from the hurdle side: it shies, and cannot be caught during
+	# the startle. After the startle the world is forgiving again.
+	var second_sheep: FlockSheep = live[1]
+	var toward_fold: Vector2 = (second_sheep.fold - second_sheep.anchor).normalized()
+	main.region.player.global_position = second_sheep.anchor + toward_fold * 30.0
+	second_sheep._process(0.2)
+	_check(second_sheep.mood_name() == "alert",
+		"coming from the fold side makes it startle (mood=%s)" % second_sheep.mood_name())
+	_check(not second_sheep.wants_catch(8.0, 26.0),
+		"a startled sheep is not caught in the same instant")
+	second_sheep._startle = 0.0
+	_check(second_sheep.wants_catch(8.0, 26.0),
+		"and settles, so no player can ever be stuck")
+	# No save schema change was needed for this milestone; a version-1 save
+	# must still boot through the same migration the last milestone added.
+	_check(int(GameState.data.get("version", 0)) == 2,
+		"the living world added no new save schema (live save is still v2)")
+	# Leave the slope empty for _check_flock_resume().
+	for p in main.region.pickups.duplicate():
+		var pd: Dictionary = p
+		if str(pd.get("kind", "")) == "flock":
+			var dead_node: Node = pd.get("node")
+			if is_instance_valid(dead_node):
+				dead_node.queue_free()
+			main.region.pickups.erase(pd)
+	main._flock_active = false
+	main.sheep_home = 0
+
+
+# ── SHEPHERD: a save taken halfway through the flock resumes halfway ──────
+## Region remembers each stray with its own `pickup:<region>:<id>` flag. Re-run
+## the opening with one of them already home: the others must come back, and
+## the one that is in must NOT reappear on the slope (BUG-018's whole point,
+## applied to the new mechanic). Runs last, so it cannot disturb the suite.
+func _check_flock_resume() -> void:
+	var key := Region.pickup_key("elah", "sheep_north")
+	GameState.set_flag(key, true)
+	main._start_flock()
+	_check(main.sheep_home == 1,
+		"a resumed save counts the stray that is already home")
+	var live := 0
+	for p in main.region.pickups:
+		if str((p as Dictionary).get("kind", "")) == "flock":
+			live += 1
+	_check(live == 2, "and only the two strays still out are on the ground")
+	_check(bool(main._flock_active), "and the job stays open until all three are in")
+	GameState.data["flags"].erase(key)
+	main._flock_active = false
+	main.sheep_home = 0
 
 
 # ── harness ───────────────────────────────────────────────────────────────

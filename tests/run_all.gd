@@ -451,6 +451,18 @@ func _check_region_any(m, rid: String) -> void:
 			_fail("%s: scene '%s' is empty" % [rid, skey])
 		for line in lines:
 			_has_both(line.get("text"), "%s:scene %s" % [rid, skey])
+			# Scripture is marked as such and never dressed up as somebody's
+			# invented conversation. A `[Scripture]` / `【经文】` line must be
+			# narration, and must not sit inside a fictional 「 quote.
+			var lt: Dictionary = line.get("text", {})
+			if str(lt.get("en", "")).begins_with("[Scripture]") \
+					or str(lt.get("zh", "")).begins_with("【经文】"):
+				if str(line.get("who", "")) != "":
+					_fail("%s: scene %s puts marked Scripture in a speaker's mouth"
+						% [rid, skey])
+				if str(lt.get("zh", "")).find("「") >= 0:
+					_fail("%s: scene %s wraps marked Scripture in fictional quotes"
+						% [rid, skey])
 		_check_verses(lines, "%s:scene %s" % [rid, skey])
 
 	var seals := {}
@@ -709,8 +721,36 @@ func _check_region(rid: String, tiles: Dictionary, pmeta: Dictionary) -> void:
 		if not (m.david_act.get("speakers", {}) as Dictionary).has(sid):
 			_fail("%s: david_act.speakers has no '%s'" % [rid, sid])
 	for n in m.npcs:
-		for line in (n.get("after_win", []) as Array):
-			_has_both(line.get("text"), "%s:npc %s after_win" % [rid, n.get("id")])
+		var nd: Dictionary = n
+		for line in (nd.get("after_win", []) as Array):
+			_has_both(line.get("text"), "%s:npc %s after_win" % [rid, nd.get("id")])
+		# Task-aware lines and over-the-head bubbles are player-facing prose
+		# too. `by_flag` is a dictionary of save-flag -> beat; `chatter` is a
+		# bare {en,zh} pair. Neither may be half translated.
+		var byf: Dictionary = nd.get("by_flag", {})
+		for key in byf:
+			if str(key) == "":
+				_fail("%s: npc %s has a by_flag line with no flag" % [rid, nd.get("id")])
+			for line in (byf[key] as Array):
+				_has_both(line.get("text"), "%s:npc %s by_flag %s" % [rid, nd.get("id"), key])
+		for ch in (nd.get("chatter", []) as Array):
+			_has_both(ch, "%s:npc %s chatter" % [rid, nd.get("id")])
+			# A bubble is one glance-sized line. A long line used to wrap an
+			# autowrapped Label into a black slab over the world (frame 06).
+			if str((ch as Dictionary).get("zh", "")).length() > 14:
+				_fail("%s: npc %s chatter is too long for one line"
+					% [rid, nd.get("id")])
+	# The herding loop is data. A stray without a temperament is a sprite, not
+	# an animal; a fold without a tile is a sheep with nowhere to walk.
+	var shd: Dictionary = m.david_act.get("shepherd", {})
+	if not shd.is_empty():
+		var fa: Array = shd.get("fold_at", [])
+		if fa.size() != 2 or m.solid_at_tile(int(fa[0]), int(fa[1])):
+			_fail("%s: shepherd.fold_at is missing or inside a wall" % rid)
+		for sd in (shd.get("strays", []) as Array):
+			var sdd: Dictionary = sd
+			if not ["skittish", "calm", "curious"].has(str(sdd.get("temper", ""))):
+				_fail("%s: stray %s has no temperament" % [rid, sdd.get("id")])
 	for sp in (m.david_act.get("speakers", {}) as Dictionary).values():
 		_has_both(sp, "%s:david_act speaker name" % rid)
 	# The chapter ending and the HUD's objective lines are player-facing prose

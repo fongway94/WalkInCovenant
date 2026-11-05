@@ -1,0 +1,1 @@
+{"inherits": "Node", "members": ["custom_viewport", "follow_viewport_enabled", "follow_viewport_scale", "get_canvas", "get_final_transform", "hide", "layer", "offset", "rotation", "scale", "show", "transform", "visibility_changed", "visible"], "methods": {"get_canvas": [0, 0], "get_final_transform": [0, 0], "hide": [0, 0], "show": [0, 0]}, "virtuals": []}

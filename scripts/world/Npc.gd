@@ -69,6 +69,32 @@ var _talked := false
 var lead_target: Npc = null
 var lead_arrive_fn: Callable = Callable()
 var _lead_arrived := false
+## A short line above the head that never pauses the world. This is how a
+## bystander reacts to something the player DID (a sheep brought in), and how
+## an NPC occasionally says something without being spoken to. No nameplate,
+## no portrait, no box: a person in a place, not another conversation.
+var world_paused := false
+## A plain Panel, NOT a PanelContainer. A Container clamps its own size to the
+## combined minimum size of its children, and an autowrapped Chinese Label has
+## no word breaks: one long chatter line grew this into an 84x150 black slab
+## over the middle of the shepherd slope. Found by reviewing CI frame 06_flock,
+## not by a pixel diff. A Panel keeps exactly the rectangle we give it, and the
+## label is one clipped line — a bubble is a glance, not a second dialogue box.
+const BUBBLE_W := 112.0
+## 28, not 22: the bundled CJK font's minimum line height at 8 px is 24, so a
+## 22 px bubble clipped the bottom of every glyph (found by the red deep check
+## in CI run 42018457660, which printed "label 104x24 at 4,3").
+const BUBBLE_H := 28.0
+## ONE voice at a time, across the whole world. Every NPC used to start its own
+## 16 s timer at the same instant, so three bubbles arrived together over the
+## objective line. This is a wall-clock gate: the per-NPC timer below is scaled
+## by Engine.time_scale and would fire every few real frames in a sped-up test.
+static var _chat_gate_ms: int = 0
+var _bubble: Panel = null
+var _bubble_lbl: Label = null
+var _bubble_until := 0
+var _chat_i := 0
+var _chat_cd := 9.0
 
 
 func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
@@ -102,6 +128,72 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 
 func npc_id() -> String:
 	return data.get("id", "npc")
+
+
+## A reaction, not a conversation. The bubble is short, quiet, and cannot take
+## the controls away. It also cannot steal a tap: `mouse_filter` ignores input.
+func emote(text: String) -> void:
+	if text == "":
+		return
+	if _bubble == null:
+		_bubble = Panel.new()
+		var sb := StyleBoxFlat.new()
+		# Opaque, like the journal: 0.92 let a sheep behind the bubble show
+		# through as a dark blob over the words (CI frame 08_quest_update).
+		sb.bg_color = Color(0.06, 0.08, 0.10, 1.0)
+		sb.border_color = Color(0.79, 0.64, 0.36, 0.85)
+		sb.set_border_width_all(1)
+		sb.set_content_margin_all(3)
+		sb.set_corner_radius_all(2)
+		_bubble.add_theme_stylebox_override("panel", sb)
+		_bubble.custom_minimum_size = Vector2(BUBBLE_W, BUBBLE_H)
+		_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
+		_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bubble_lbl = Label.new()
+		_bubble_lbl.add_theme_font_size_override("font_size", 8)
+		_bubble_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
+		# No shadow: at 8 px a solid black shadow sits under every CJK stroke
+		# and reads as a blotch (same finding as the optional journal rows).
+		_bubble_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_bubble_lbl.clip_text = true
+		_bubble_lbl.custom_minimum_size = Vector2(0, 0)
+		_bubble_lbl.position = Vector2(4, 2)
+		_bubble_lbl.size = Vector2(BUBBLE_W - 8, BUBBLE_H - 4)
+		_bubble_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bubble.add_child(_bubble_lbl)
+		add_child(_bubble)
+	_bubble_lbl.text = text
+	_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
+	_bubble.position = Vector2(-BUBBLE_W * 0.5, -42)
+	_bubble.visible = true
+	_bubble_lbl.visible = true
+	_bubble_until = Time.get_ticks_msec() + 2700
+
+
+func _process(delta: float) -> void:
+	if _bubble != null and _bubble.visible and Time.get_ticks_msec() >= _bubble_until:
+		_bubble.visible = false
+	if world_paused or model == null or player == null or dialogue == null:
+		return
+	if dialogue.is_open() or talk_state != Talk.READY:
+		return
+	var lines: Array = data.get("chatter", [])
+	if lines.is_empty():
+		return
+	_chat_cd -= delta
+	if _chat_cd > 0.0 or global_position.distance_to(player.global_position) > 72.0:
+		return
+	if Time.get_ticks_msec() < _chat_gate_ms:
+		return
+	# Never draw a bubble into the HUD's objective/toast band. A person near
+	# the top of the camera simply stays quiet; the beat is optional.
+	if get_global_transform_with_canvas().origin.y < 58.0:
+		return
+	var d: Dictionary = lines[_chat_i % lines.size()]
+	_chat_gate_ms = Time.get_ticks_msec() + 16000
+	emote(I18n.t(d))
+	_chat_i += 1
+	_chat_cd = 16.0
 
 
 ## The citation for a verse id, from the region's word list. Kept next to the
@@ -328,6 +420,15 @@ func talk() -> void:
 ## It is the most specific thing the data can say, so it wins; a region that
 ## does not use it behaves exactly as before.
 func _lines_now() -> Array:
+	# A completed task is the MOST specific thing a person can know about you.
+	# `by_flag` wins over `by_act`, so the hired boy stops saying "three are
+	# still out" the moment the fold is full. Keys are save flags, in data.
+	var byf: Dictionary = data.get("by_flag", {})
+	for k in byf.keys():
+		if bool(GameState.flag(str(k))):
+			var fl: Array = byf[k]
+			if not fl.is_empty():
+				return fl
 	var by: Dictionary = data.get("by_act", {})
 	if act_name != "" and by.has(act_name):
 		var act_lines: Array = by[act_name]

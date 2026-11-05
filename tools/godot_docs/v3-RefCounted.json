@@ -1,0 +1,1 @@
+{"inherits": "Object", "members": ["get_reference_count", "init_ref", "reference", "unreference"], "methods": {"get_reference_count": [0, 0], "init_ref": [0, 0], "reference": [0, 0], "unreference": [0, 0]}, "virtuals": []}

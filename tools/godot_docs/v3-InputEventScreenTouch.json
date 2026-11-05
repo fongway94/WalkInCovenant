@@ -1,0 +1,1 @@
+{"inherits": "InputEventFromWindow", "members": ["canceled", "double_tap", "index", "position", "pressed"], "methods": {}, "virtuals": []}

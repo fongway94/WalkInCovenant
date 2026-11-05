@@ -1,0 +1,1 @@
+{"inherits": "Node2D", "members": ["centered", "flip_h", "flip_v", "frame", "frame_changed", "frame_coords", "get_rect", "hframes", "is_pixel_opaque", "offset", "region_enabled", "region_filter_clip_enabled", "region_rect", "texture", "texture_changed", "vframes"], "methods": {"get_rect": [0, 0], "is_pixel_opaque": [0, 0]}, "virtuals": []}

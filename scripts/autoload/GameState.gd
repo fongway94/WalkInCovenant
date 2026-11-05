@@ -10,7 +10,10 @@ extends Node
 ## from both — see EventBus.gd — so the Mirror stays honest.
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 1
+## 2 = 2026-11-05: 1 Samuel 16 moved before 1 Samuel 17. Version-1 saves that
+## are already inside David's chapter need `legacy_spine` (see _migrate below)
+## so the new Bethlehem mission does not send them backwards.
+const SAVE_VERSION := 2
 
 const VIRTUES := ["courage", "wisdom", "compassion", "faith"]
 const WAYS := ["step", "notice", "stay", "wait"]
@@ -258,9 +261,35 @@ func load_game() -> bool:
 	for k in data:
 		if parsed.has(k):
 			data[k] = parsed[k]
+	var from := int(parsed.get("version", 1))
 	_coerce(defaults)
+	_migrate(from)
+	data["version"] = SAVE_VERSION
 	EventBus.game_loaded.emit()
 	return true
+
+
+## A save outlives the code that wrote it. When the chapter spine changed —
+## the anointing moved from an optional epilogue to Act 2 — an old save could
+## be standing in the armour, the brook or the duel with `beth_anointed` false.
+## Treating that as "go to Bethlehem" would be a progression trap. Mark such a
+## save as `legacy_spine` instead: `Main._mission_ctx()` lets the runner treat
+## the new mission as satisfied WITHOUT rewriting the story flag, so the player
+## resumes exactly where they left off and can still walk south later if they
+## want to see the chapter they missed. Fresh games and saves that already saw
+## the anointing are untouched.
+func _migrate(from: int) -> void:
+	if from >= 2:
+		return
+	var f: Dictionary = data["flags"]
+	if bool(f.get("beth_anointed", false)):
+		return
+	var in_davids_chapter := ["elah_drill_done", "elah_brothers_met",
+		"elah_armour_off", "goliath_down", "elah_ended"]
+	for k in in_davids_chapter:
+		if bool(f.get(k, false)):
+			f["legacy_spine"] = true
+			return
 
 
 ## A save is a file on disk: it can be older than this build, hand-edited, or

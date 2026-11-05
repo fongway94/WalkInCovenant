@@ -9,7 +9,14 @@ class_name Region
 
 const TILE := 16.0
 const PICK_RANGE := 10.0
+## A sheep is a moving animal, not a coin on a tile. Its catch radius is wider
+## so the wandering never turns "stand here" into "chase it". The authored tile
+## stays the place the objective points at (docs/ART_DIRECTION.md §3).
+const FLOCK_PICK_RANGE := 26.0
 const TALK_RANGE := 22.0
+## Props that breathe. One pixel, slow, phase-offset per instance; frozen while
+## a dialogue box owns the picture. No marker, no reward, no gameplay meaning.
+const SWAY_KEYS := ["wheat_sheaf", "bush", "wool_tuft"]
 ## Anything within this radius of an exit tile can be left through it.
 const EXIT_RANGE := 13.0
 ## How long after a box closes the A button is ignored. Long enough to swallow
@@ -49,9 +56,15 @@ var _interact_lock := 0.0
 var _mark_t := 0.0
 var _curio_done := {}
 var _curio_cool := 0.0
+## {sprite, x, y, phase} — ambient sway, updated once a frame in _process.
+var _swayers: Array = []
+var _sway_t := 0.0
 
 signal region_ready
 signal pickup_taken(id: String)
+## A stray noticed (or was driven by) the player. Main decides the one line of
+## context feedback; Region owns no prose.
+signal flock_reacted(id: String, mood: int)
 signal curio_seen(id: String, lines: Array)
 signal trigger_fired(id: String)
 signal exit_taken(to: String)
@@ -142,6 +155,9 @@ func _spawn_props() -> void:
 		s.position = Vector2(cx, cy - h * 0.5)
 		s.z_index = 0
 		_ys.add_child(s)
+		if SWAY_KEYS.has(key):
+			_swayers.append({"sprite": s, "x": cx, "y": cy - h * 0.5,
+				"phase": float(tx) * 0.37 + float(ty) * 0.19})
 		if fr > 1:
 			var t := Timer.new()
 			t.wait_time = 0.35
@@ -233,17 +249,61 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 	# could be collected twice (BUG-018).
 	if bool(GameState.flag(pickup_key(str(model.id), id))):
 		return
-	var node := Node2D.new()
-	node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
-	var tex := load("res://art/props/%s.png" % sprite)
-	if tex != null:
-		var sp := Sprite2D.new()
-		sp.texture = tex
-		sp.scale = Vector2(0.85, 0.85)
-		node.add_child(sp)
+	var node: Node2D
+	if kind == "flock":
+		# The stray is a live animal: it grazes, notices the player and can be
+		# driven toward the hurdle. All of that is the sheep's own state; Region
+		# keeps the one door into story progress (collect_pickup).
+		var fs := FlockSheep.new()
+		fs.setup(id, [tx, ty], extra.get("fold", [24, 34]),
+			str(extra.get("temper", "calm")), player, self)
+		fs.reacted.connect(_on_sheep_reacted)
+		fs.arrived.connect(_on_sheep_arrived)
+		node = fs
+	else:
+		node = Node2D.new()
+		node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
+		var tex := load("res://art/props/%s.png" % sprite)
+		if tex != null:
+			var sp := Sprite2D.new()
+			sp.texture = tex
+			sp.scale = Vector2(0.85, 0.85)
+			node.add_child(sp)
 	_ys.add_child(node)
-	pickups.append({"id": id, "kind": kind, "node": node,
-		"got": false, "ref": extra.get("ref", ""), "data": extra})
+	var catch_range := PICK_RANGE
+	if kind == "flock":
+		catch_range = FLOCK_PICK_RANGE
+	pickups.append({"id": id, "kind": kind, "node": node, "got": false,
+		"guided": false, "range": catch_range,
+		"ref": extra.get("ref", ""), "data": extra})
+
+
+func _on_sheep_reacted(id: String, mood: int) -> void:
+	flock_reacted.emit(id, mood)
+
+
+func _on_sheep_arrived(id: String, guided: bool) -> void:
+	collect_pickup(id, guided)
+
+
+## The ONE door into "this is in the fold". Both walking up to a sheep and
+## driving it all the way home arrive here, so the pickup flag, the HUD and the
+## save can never disagree about how many sheep are in.
+func collect_pickup(id: String, guided: bool = false) -> void:
+	for p in pickups:
+		if str(p.get("id", "")) != id or bool(p.get("got", false)):
+			continue
+		p["got"] = true
+		p["guided"] = guided
+		GameState.set_flag(pickup_key(str(model.id), id), true)
+		var node: Node2D = p.get("node")
+		if node != null and node.has_method("go_home"):
+			node.call("go_home")
+		elif node != null:
+			node.queue_free()
+		pickup_taken.emit(id)
+		EventBus.item_picked_up.emit(id)
+		return
 
 
 func _spawn_triggers() -> void:
@@ -293,6 +353,14 @@ func _process(delta: float) -> void:
 	_mark_t += delta
 	if _interact_lock > 0.0:
 		_interact_lock = maxf(0.0, _interact_lock - delta)
+	if not _paused:
+		_sway_t += delta
+		for s in _swayers:
+			var d: Dictionary = s
+			var sp: Sprite2D = d["sprite"]
+			var ph := float(d["phase"])
+			sp.position = Vector2(float(d["x"]) + sin(_sway_t * 0.9 + ph) * 0.8,
+				float(d["y"]) + cos(_sway_t * 0.63 + ph) * 0.4)
 	if _paused or model == null or player == null:
 		return
 	# A conversation owns the world. Nothing in here may fire under an open box:
@@ -316,13 +384,17 @@ func _check_pickups() -> void:
 		if p["got"]:
 			continue
 		var node: Node2D = p["node"]
+		if not is_instance_valid(node):
+			continue
 		var d: float = (node.global_position - player.global_position).length()
-		if d < PICK_RANGE:
-			p["got"] = true
-			p["node"].queue_free()
-			GameState.set_flag(pickup_key(str(model.id), str(p["id"])), true)
-			pickup_taken.emit(p["id"])
-			EventBus.item_picked_up.emit(p["id"])
+		var rng := float(p.get("range", PICK_RANGE))
+		# A sheep that has just shied away is not caught in the same instant;
+		# it settles in 0.7 s. Everything else keeps the old 10 px rule exactly.
+		if node.has_method("wants_catch"):
+			if bool(node.call("wants_catch", d, rng)):
+				collect_pickup(str(p["id"]), bool(node.call("is_guided")))
+		elif d < rng:
+			collect_pickup(str(p["id"]))
 
 
 ## Standing somewhere quietly is allowed to be interesting. Each curio fires
@@ -532,8 +604,14 @@ func _draw() -> void:
 			continue
 		var p := node.global_position
 		var bob := sin(_mark_t * 2.6 + p.x * 0.11) * 1.5
-		var quest: bool = str(it.get("kind", "")) != "stone"
-		var col := Color(0.98, 0.86, 0.55, 0.95) if quest else Color(0.80, 0.92, 0.96, 0.9)
+		var kind := str(it.get("kind", ""))
+		# Gold says "fetch this". Pale wool says "this is an animal, walk it
+		# home". The distinction is the objective, drawn rather than explained.
+		var col := Color(0.80, 0.92, 0.96, 0.9)
+		if kind == "flock":
+			col = Color(0.94, 0.92, 0.80, 0.95)
+		elif kind != "stone":
+			col = Color(0.98, 0.86, 0.55, 0.95)
 		# a faint ring on the ground, so the item reads as "stand here"
 		draw_arc(p + Vector2(0, 4), 5.0, 0.0, TAU, 14, Color(col, col.a * 0.45), 1.0)
 		var ty := p.y - 13.0 + bob
@@ -566,3 +644,4 @@ func set_paused(v: bool) -> void:
 		player.set_physics_process(!v)
 	for n in npcs:
 		n.set_physics_process(!v)
+		n.world_paused = v

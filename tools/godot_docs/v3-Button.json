@@ -1,0 +1,1 @@
+{"inherits": "BaseButton", "members": ["alignment", "autowrap_mode", "autowrap_trim_flags", "clip_text", "expand_icon", "flat", "icon", "icon_alignment", "language", "text", "text_direction", "text_overrun_behavior", "vertical_icon_alignment"], "methods": {}, "virtuals": []}
