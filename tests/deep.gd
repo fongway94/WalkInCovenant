@@ -85,6 +85,7 @@ func _run() -> void:
 	await _check_choice_ducks()
 	await _check_language_switch()
 	await _check_save_shape()
+	await _check_legacy_spine()
 	_finish()
 
 
@@ -1092,6 +1093,43 @@ func _check_save_shape() -> void:
 	GameState.set_flag("deep_after_coerce", true)
 	_check(bool(GameState.flag("deep_after_coerce")), "and the repaired save still works")
 	GameState.data["flags"].erase("deep_after_coerce")
+	# put the good save back for anything that runs after this
+	var w := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	w.store_string(JSON.stringify(good))
+	w.close()
+	GameState.load_game()
+	await _frames(1)
+
+
+# ── CHRONOLOGY (2026-11-05): a version-1 save is not sent backwards ───────
+## 1 Samuel 16 moved before 1 Samuel 17. A save made before that change can be
+## standing in the armour, the brook or the duel with `beth_anointed` false.
+## The new `bethlehem_call` mission would otherwise drag that player back to
+## Bethlehem mid-chapter. `GameState._migrate()` marks it `legacy_spine`, and
+## Main._mission_ctx() lets ONLY the runner treat the new condition as met.
+func _check_legacy_spine() -> void:
+	GameState.save_game()
+	var good: Dictionary = GameState.data.duplicate(true)
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		_check(false, "the save can be written to test a legacy spine")
+		return
+	f.store_string(JSON.stringify({
+		"version": 1,
+		"flags": {"elah_drill_done": true, "elah_brothers_met": true},
+		"region": "elah",
+	}))
+	f.close()
+	_check(GameState.load_game(), "a version-1 save from David's chapter still loads")
+	_check(bool(GameState.flag("legacy_spine")),
+		"it is marked legacy_spine, so the new Bethlehem mission cannot rewind it")
+	_check(not bool(GameState.flag("beth_anointed")),
+		"and the anointing is not invented for a player who never saw it")
+	_check(int(GameState.data["version"]) == 2,
+		"the save is stamped with the new schema")
+	var ctx: Dictionary = main._mission_ctx()
+	_check(bool(ctx.get("beth_anointed", false)),
+		"the runner sees the new mission as satisfied, without rewriting the save")
 	# put the good save back for anything that runs after this
 	var w := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
 	w.store_string(JSON.stringify(good))

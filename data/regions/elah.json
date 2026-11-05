@@ -949,7 +949,7 @@
    "kind": "row",
    "row": 11,
    "rearm_row": 14,
-   "note": "crossing north of this row as the witness: refused until the camp has explained itself, then the story changes hands (BECOME)",
+   "note": "crossing north of this row as the witness: refused until the camp has explained itself, then the south road opens to 1 Samuel 16 (BECOME waits for the return walk)",
    "refuse": [
     {
      "who": "",
@@ -1011,20 +1011,20 @@
       "zh": "「你是来看这件事的。你不是来结束它的。」"
      }
     },
-    {
-     "who": "corin",
-     "text": {
-      "en": "Somebody else is already walking into the valley with bread in his hands. The story is about to change hands.",
-      "zh": "「另一个人已经提着饼，正往谷里走。故事要换到别人手上了。」"
-     }
-    },
-    {
-     "who": "",
-     "text": {
-      "en": "The valley folds. Three days ago, in the south, a father has just called a boy in from the sheep.",
-      "zh": "山谷合拢起来。三天前，南边，一个父亲刚把放羊的儿子叫回家。"
-     }
+   {
+    "who": "corin",
+    "text": {
+     "en": "Before you become him, you have to see where he came from. The road south is open. Bethlehem — a prophet has come to Jesse's house.",
+     "zh": "「你要成为他，得先看看他从哪儿来。南边的路开了。伯利恒——有位先知到了耶西家。」"
     }
+   },
+   {
+    "who": "",
+    "text": {
+     "en": "You look back down the valley. The forty days have not finished, and already you are being sent to their beginning.",
+     "zh": "你回头往谷底看。这四十天还没完，你却被派回它的起头。"
+    }
+   }
    ]
   }
  ],
@@ -1035,11 +1035,11 @@
     16,
     46
    ],
-   "requires": "elah_ended",
-   "note": "the south road to Bethlehem, 1 Samuel 16 - open once the chapter is over",
+   "requires": "elah_met_the_line",
+   "note": "the south road to Bethlehem, 1 Samuel 16 — open once the witness has seen the line, because the anointing came BEFORE the battle",
    "locked": {
-    "en": "The road south is the baggage train today. Not yet.",
-    "zh": "南边那条路今天走的是辎重队。还不行。"
+    "en": "The road south is the baggage train today. Go up to the line first.",
+    "zh": "南边那条路今天走的是辎重队。先上去看看那条界线。"
    }
   }
  ],
@@ -1150,8 +1150,8 @@
    "zh": "穿着王的盔甲走走吧。你会知道它为什么非脱下来不可。"
   },
   "bethlehem": {
-   "en": "The road south is open. Go back to Bethlehem and see where this began.",
-   "zh": "南边的路开着。回伯利恒去，看看这一切是从哪儿开始的。"
+  "en": "Walk south to Bethlehem. See the boy with the sheep before you become him.",
+  "zh": "往南走到伯利恒。先看看那个放羊的孩子，再成为他。"
   }
  },
  "ending": {
@@ -1827,6 +1827,16 @@
      }
     }
    ]
+  },
+  {
+   "id": "bethlehem_call",
+   "act": "witness",
+   "objective": "bethlehem",
+   "complete": {
+    "kind": "flag",
+    "key": "beth_anointed"
+   },
+   "note": "1 Samuel 16 comes BEFORE 1 Samuel 17: walk south and see the anointing while the witness is still himself. Completing it on the return walk starts BECOME."
   },
   {
    "id": "shepherd_drill",

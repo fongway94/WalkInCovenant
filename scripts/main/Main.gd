@@ -382,13 +382,16 @@ func _update_guidance() -> void:
 				target = Vector2(p.global_position.x, float(row * 16))
 				point = true
 
-	# The chapter is over, and the one thing left to see is where it began: the
-	# road south to Bethlehem is open the moment the giant falls (1 Samuel 16 is
-	# the chapter this one comes out of). It was open before and nothing said so,
-	# so the anointing — the anointing — was a secret most players would never
-	# walk into. The arrow points at it until it has been seen.
-	if act == Act.DONE and bool(GameState.flag("elah_ended")) \
-			and not bool(GameState.flag("beth_anointed")):
+	# CHRONOLOGY, not completion, opens the road south. 1 Samuel 16 happened
+	# before 1 Samuel 17: as soon as the witness has seen the line, the HUD
+	# sends him to Bethlehem for the anointing, and only the walk back starts
+	# BECOME. A version-1 save that is already in David's chapter keeps its
+	# place (`legacy_spine`): it is not sent backwards through a story it has
+	# already played. A finished save that never saw the anointing is still
+	# invited, because act DONE means there is nothing left to interrupt.
+	if bool(GameState.flag("elah_met_the_line")) \
+			and not bool(GameState.flag("beth_anointed")) \
+			and (act == Act.DONE or not bool(GameState.flag("legacy_spine"))):
 		key = "bethlehem"
 		var road: Array = _exit_for("bethlehem").get("at", [])
 		if road.size() == 2:
@@ -441,6 +444,13 @@ func _mission_ctx() -> Dictionary:
 	}
 	for k in (GameState.data.get("flags", {}) as Dictionary):
 		c[str(k)] = GameState.data["flags"][k]
+	# SAVE MIGRATION. A version-1 save made before the chronology fix can be
+	# halfway through David's chapter with `beth_anointed` still false. The new
+	# `bethlehem_call` mission must not drag that player back to 1 Sam 16, so
+	# for the runner only that condition reads as met. The real save flag is
+	# left untouched: the anointing is still unseen and the road stays open.
+	if bool(c.get("legacy_spine", false)):
+		c["beth_anointed"] = true
 	return c
 
 
@@ -1052,8 +1062,14 @@ func _witness_at_the_line() -> void:
 		_begin_become()
 		return
 	region.dialogue.show_lines(lines, _speaker, func():
+		# `_in_battle` guarded the crossing while the beat was on screen. It is
+		# not a chapter state: with the corrected chronology the next mission
+		# is the road south (1 Sam 16), not BECOME, so leaving it set would
+		# swallow every later press of the line. `_begin_become()` sets it
+		# again when the player walks back from the anointing.
+		_in_battle = false
 		# The runner is watching: this closes the witness's mission and opens
-		# the one whose first beat is BECOME.
+		# the next one, whichever the data says it is.
 		_story_flag("elah_met_the_line"))
 
 
