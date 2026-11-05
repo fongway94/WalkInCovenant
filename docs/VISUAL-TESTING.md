@@ -25,8 +25,10 @@ CI artifacts and raw logs live on hosts this sandbox cannot reach
 `results-receiver.actions.githubusercontent.com`) — `gh run download` and
 `gh run view --log` both fail with `EOF`. **Check-run annotations are on
 `api.github.com`** and are readable with `gh api`. So the `visual` job prints
-each PNG as base64 `::notice::WICFRAME|name|chunk|total|data` lines (50 KB per
-chunk), and:
+each PNG as base64 `::notice::WICFRAME|name|chunk|total|data` lines. An
+annotation is truncated at 4096 characters and a step may emit ~10 notices, so
+chunks are 3500 characters, spread round-robin over eight short steps
+(measured: a 320×180 capture is ~20 KB → ~27 KB base64 → ~8 chunks). Then:
 
 ```bash
 gh run list --limit 5                       # find the run id
@@ -36,9 +38,11 @@ python3 tools/visual_diff.py --write-bases  # after REVIEWING the images by eye
 ```
 
 `frames/*.png` and `build/frames/` are gitignored; the reviewed baselines in
-`tests/frames/` are committed. GitHub caps notice annotations per step, so if a
-run produces more than ~10 chunks the tail is dropped — `decode_frames.py`
-reports incomplete frames rather than writing a truncated PNG.
+`tests/frames/` are committed. If a frame arrives with missing chunks — an
+annotation cap, or a job that died mid-capture — `decode_frames.py` reports it
+as incomplete rather than writing a truncated PNG. The harness verdict and any
+failed assertions are also published as annotations, because the raw job log
+itself is on a blocked host.
 
 ## Honest limits
 

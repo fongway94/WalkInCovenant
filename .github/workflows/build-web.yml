@@ -382,22 +382,78 @@ jobs:
           fi
           echo "visual: no script or runtime errors in the render log"
 
-      - name: Publish frames as annotations (base64, so the authoring sandbox can see them)
+      # The harness's own verdict and every failed assertion, as annotations:
+      # raw job logs live on a host the authoring sandbox cannot reach.
+      - name: Publish the harness verdict
+        if: always()
+        run: |
+          if [ -f visual.txt ]; then
+            grep -aE 'visual:|  FAIL' visual.txt | head -8 \
+              | while IFS= read -r l; do printf '::notice::%s\n' "$l"; done
+          fi
+
+      # GitHub TRUNCATES an annotation message at 4096 characters and allows
+      # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
+      # each frame is cut into 3500-char chunks, spread round-robin over eight
+      # short steps. tools/decode_frames.py reassembles them by name/index.
+      - name: Prepare base64 frame chunks
         if: always()
         run: |
           python3 - <<'PY'
           import base64, glob, os
+          os.makedirs("build/ann", exist_ok=True)
+          lines = []
           files = sorted(glob.glob("build/frames/*.png"))
           if not files:
               print("::warning::visual job produced no frames")
           for f in files:
               raw = base64.b64encode(open(f, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
-              CH = 50000
+              CH = 3500
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
-                  print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+                  lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          NP = 8
+          buckets = [[] for _ in range(NP)]
+          for i, line in enumerate(lines):
+              buckets[i % NP].append(line)
+          for i, b in enumerate(buckets):
+              open("build/ann/part_%d.txt" % i, "w").write("\n".join(b) + ("\n" if b else ""))
+          print("prepared %d chunk(s) in %d parts for %d frame(s)" % (len(lines), NP, len(files)))
           PY
+
+      - name: Publish frame chunks 1/8
+        if: always()
+        run: |
+          [ -f build/ann/part_0.txt ] && cat build/ann/part_0.txt || true
+      - name: Publish frame chunks 2/8
+        if: always()
+        run: |
+          [ -f build/ann/part_1.txt ] && cat build/ann/part_1.txt || true
+      - name: Publish frame chunks 3/8
+        if: always()
+        run: |
+          [ -f build/ann/part_2.txt ] && cat build/ann/part_2.txt || true
+      - name: Publish frame chunks 4/8
+        if: always()
+        run: |
+          [ -f build/ann/part_3.txt ] && cat build/ann/part_3.txt || true
+      - name: Publish frame chunks 5/8
+        if: always()
+        run: |
+          [ -f build/ann/part_4.txt ] && cat build/ann/part_4.txt || true
+      - name: Publish frame chunks 6/8
+        if: always()
+        run: |
+          [ -f build/ann/part_5.txt ] && cat build/ann/part_5.txt || true
+      - name: Publish frame chunks 7/8
+        if: always()
+        run: |
+          [ -f build/ann/part_6.txt ] && cat build/ann/part_6.txt || true
+      - name: Publish frame chunks 8/8
+        if: always()
+        run: |
+          [ -f build/ann/part_7.txt ] && cat build/ann/part_7.txt || true
 
       - uses: actions/upload-artifact@v4
         if: always()
