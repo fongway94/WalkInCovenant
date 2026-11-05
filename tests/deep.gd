@@ -886,8 +886,17 @@ func _check_by_act_lines() -> void:
 			!= str((ready[0] as Dictionary).get("text", {}).get("zh", "")),
 		"and a different act gets different words")
 	npc.act_name = "witness"
-	_check(npc._lines_now() == npc.data.get("lines", []),
-		"an act with nothing of its own falls back to his first words")
+	# The fallback is the ordinary three-state rule (first words / later words /
+	# after the giant) — whichever of those the save has earned by now. What
+	# matters is that it is NOT one of the act-specific sets, i.e. that an act
+	# with nothing of its own says nothing act-specific.
+	var fallback: Array = npc._lines_now()
+	var from_act := false
+	for k in (npc.data.get("by_act", {}) as Dictionary):
+		if fallback == (npc.data.get("by_act", {}) as Dictionary)[k]:
+			from_act = true
+	_check(not from_act and not fallback.is_empty(),
+		"an act with nothing of its own falls back to his usual words")
 	# The push is one-way and idempotent: Main sets it every frame.
 	main.region.set_act("stones")
 	_check(npc.act_name == "stones", "the region pushes the act down to its people")

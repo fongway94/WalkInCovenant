@@ -702,19 +702,29 @@ func _run() -> void:
 	# still paused, and only then does the world resume. This used to dump the
 	# player into a silent field the instant the giant fell.
 	var settle := 0
-	var saw_reflection := false
+	var saw_ending := false
 	while settle < FRAME_GUARD:
 		settle += 1
 		if region.dialogue._open:
+			saw_ending = true
 			if region.dialogue._in_choices:
-				saw_reflection = true
 				region.dialogue._pick(0)
 			else:
 				region.dialogue._advance()
 		elif not bool(main._in_battle) and not region._paused:
 			break
 		await get_tree().process_frame
-	_check(saw_reflection, "the chapter ends with a choice, not a dead stop")
+	# The ending is a scene now, not a questionnaire (`docs/BUGS.md` BUG-036), so
+	# what this has to prove is that the scene PLAYS and then hands the world
+	# back — not that it offers a menu. The last thing the ending does runs on the
+	# frame after its final box closes, so wait for the act, then assert.
+	_check(saw_ending, "the ending is played, not skipped")
+	var ending_guard := 0
+	while main.act_id() != "done" and ending_guard < FRAME_GUARD:
+		ending_guard += 1
+		await get_tree().process_frame
+	_check(main.act_id() == "done",
+		"and it finishes the chapter rather than stopping mid-scene (act=%s)" % main.act_id())
 	_check(not bool(main._in_battle), "RETURN completed and the valley is playable again")
 	_check(bool(GameState.flag("goliath_down")), "the valley remembers he is down")
 	_check(_has(GameState.data["relics"], "stones"), "the five stones are kept as a relic")
@@ -748,6 +758,9 @@ func _run() -> void:
 	_check(_tile_of(region.player) == Vector2i(16, 14), "you are stood back south of the line, past the re-arm row")
 
 	# ── 9. coming back is a memory, not a replay ─────────────────────────
+	# The ending places the player back south of the line as its last act; if it
+	# is still finishing, walking off now would be undone underneath us.
+	await _frames(3)
 	var xp_before := int(GameState.data["xp"])
 	await _stand(region, 16, 9, 4)
 	_check(not bool(main._in_battle), "walking back over the line does not replay the fight")
