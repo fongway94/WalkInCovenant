@@ -1,0 +1,1 @@
+{"inherits": "Container", "members": ["ALIGNMENT_BEGIN", "ALIGNMENT_CENTER", "ALIGNMENT_END", "add_spacer", "alignment", "vertical"], "methods": {"add_spacer": [0, 0]}, "virtuals": []}

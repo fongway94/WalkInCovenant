@@ -26,6 +26,11 @@ import xml.etree.ElementTree as ET
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CACHE = "/tmp/godot-docs"
+## A pinned copy of the same class reference. CI must not depend on a live
+## api.github.com: a dead network made every engine class "unknown" and turned
+## xref_check into 76 false positives (run 42015418307). See tools/godot_docs/.
+VENDOR = os.path.join(ROOT, "tools", "godot_docs")
+VENDOR_VERSION = None
 REF = None          # git tag, resolved from project.godot below
 REPO = "godotengine/godot"
 
@@ -124,10 +129,27 @@ def gh(path):
     return None
 
 
+def vendor_version():
+    """The engine tag the committed class reference was parsed from, or ''."""
+    global VENDOR_VERSION
+    if VENDOR_VERSION is None:
+        p = os.path.join(VENDOR, "VERSION")
+        VENDOR_VERSION = ""
+        if os.path.isfile(p):
+            VENDOR_VERSION = open(p, encoding="utf-8").read().strip()
+    return VENDOR_VERSION
+
+
 def fetch_doc(cls):
     """Class reference for `cls`, or None if the engine has no such class."""
     if cls in docs:
         return docs[cls]
+    # Prefer the pinned copy: deterministic, offline, same Godot version.
+    if REF is not None and vendor_version() == REF:
+        vend = os.path.join(VENDOR, "v3-" + cls + ".json")
+        if os.path.isfile(vend):
+            docs[cls] = json.load(open(vend, encoding="utf-8"))
+            return docs[cls]
     path = os.path.join(CACHE, "v3-" + cls + ".json")
     if os.path.isfile(path):
         docs[cls] = json.load(open(path, encoding="utf-8"))

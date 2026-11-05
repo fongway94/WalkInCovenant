@@ -1,0 +1,1 @@
+{"inherits": "InputEvent", "members": ["action", "event_index", "pressed", "strength"], "methods": {}, "virtuals": []}

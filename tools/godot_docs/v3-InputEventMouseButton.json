@@ -1,0 +1,1 @@
+{"inherits": "InputEventMouse", "members": ["button_index", "canceled", "double_click", "factor", "pressed"], "methods": {}, "virtuals": []}
