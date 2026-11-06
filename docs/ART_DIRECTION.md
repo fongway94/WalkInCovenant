@@ -1,4 +1,4 @@
-# ART DIRECTION — the David chapter (living-world milestone, 2026-11-05)
+# ART DIRECTION — the David chapter (updated 2026-11-06)
 
 One page, so every pixel change in this milestone is answerable to the same
 rules. Sources of truth: `tools/artgen/palette.py` (colours),
@@ -66,13 +66,15 @@ a shipped change in this milestone, named in the last column.
 
 ## 6. Review gate
 
-`tests/visual.gd` captures twelve real engine frames at CI under Xvfb +
+`tests/visual.gd` captures **fourteen** real engine frames at CI under Xvfb +
 llvmpipe. The six older states (boot, valley, dialogue, journal, Bethlehem,
-flock) now sit beside six new ones: a sheep that has noticed the player, a
-quest counter updating, a 2× nearest review of Chinese dialogue, a 4:3 window,
-a real `ScreenFade` caught mid-cut, and the book scrolled to its optional
-"How you came here" pages. The harness also asserts cold-boot
-control latency and that the 4:3 framebuffer really is taller than 180 px.
+flock) sit beside six living-world states (a sheep that has noticed the player,
+a quest counter updating, a 2× nearest review of Chinese dialogue, a 4:3
+window, a real `ScreenFade` caught mid-cut, and the book scrolled to its
+optional "How you came here" pages) **and two climax states**: the Goliath
+duel and the valley after the fall. The harness also asserts cold-boot
+control latency, that the 4:3 framebuffer really is taller than 180 px, and
+that the duel's figures are the drawn sheets rather than scaled map sprites.
 
 Frames are decoded with `tools/decode_frames.py`, **looked at**, and only then
 promoted to `tests/frames/baseline_*.png`. The coarse grid diff is a
@@ -81,3 +83,28 @@ not mean the mood, hierarchy or legibility improved. A change to this document
 without a matching frame review is not a visual change. What CI still cannot
 judge for us: how the Chinese reads at 10 px on a phone, whether the horn and
 bleat sound right, and how the stick feels under a thumb.
+
+
+## 7. Premium-art extension (2026-11-06)
+
+The shortlist review in `assets/LICENSES.md` inspected the actual PNGs of six
+candidate sources (`docs/ART-COMPARISON.png`). All four external packs were
+rejected: cool blue/silver high-fantasy UI, flat un-outlined 16 px characters,
+and bright cyan/yellow terrain fight the warm outlined palette that already
+holds this game together. Three of them also carry mixed or platform-restricted
+terms. **The chosen direction is original, project-specific art**, generated
+from the same `palette.py` ramps, so coherence improves instead of being
+replaced by a second style.
+
+| Rule | Applied in |
+|---|---|
+| A dialogue portrait is a **separate drawing**, never the 16×16 walking sprite scaled up. 32×32, head at ~30% height, warm sepia ground, one outline pass, resting expression per character, nine-mood vocabulary. | `tools/artgen/faces.py`, `art/facesets/*.png`, `DialogueBox.FACES` |
+| Major characters differ in **silhouette**, not only robe colour: mantle, satchel, sling, staff, spear, crown, helm crest, beard, veil. | `tools/artgen/chars.py`, `art/characters/*_idle.png` |
+| A setpiece owns its own art scale. Goliath 64×64, David 32×32 — a real 2:1 contrast, no 8× upscale. Foreheads sit at ~30% of the figure height because the aim band is drawn there. | `tools/artgen/duel.py`, `art/duel/*.png`, `GoliathFight` |
+| The valley of the duel is directed, not a grey card: warm sky bands, two ridgelines, spear silhouettes of both armies (1 Sam 17:1-3), pebbled ground, per-figure contact shadows, and a body-fall rotation. Restrained — no glowing magic, no particles. | `scripts/setpiece/GoliathFight.gd` |
+| Every new art file is palette-locked, deterministic and statically `preload`ed, so the web export cannot silently lose it. | `tools/check_faces.py`, CI static gate |
+| A story result must change the world: once `goliath_down` is set, the standing figure leaves the ridge. | `Region.set_giant_down()`, `14_aftermath` frame |
+
+No external pack was vendored in this pass. The existing Ninja Adventure CC0
+tiles stay where they are; see `assets/LICENSES.md` for the exact licence
+evidence and the attribution wording for a future credits screen.

@@ -67,6 +67,7 @@ var _flash := 0.0
 var _a_punch := 0.0      # the A button visibly reacts to every accepted press
 var _shake := 0.0
 var _layer: Control = null
+var _bg: Control = null
 var _david: TextureRect = null
 var _gol: TextureRect = null
 ## Resting positions, so the shake can jitter around a known point instead of
@@ -103,12 +104,15 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	_layer = Control.new()
-	_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_layer.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_layer)
-	_layer.draw.connect(_redraw)
-	_layer.gui_input.connect(_on_layer_gui)
+	# Draw order matters. The backdrop is BEHIND the two figures; the timing
+	# cues, spear, band and words are IN FRONT of them. The old single Control
+	# drew everything behind the sprites, so the gold aim band — the one thing
+	# the player has to time a throw against — was hidden by Goliath's head.
+	_bg = Control.new()
+	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bg)
+	_bg.draw.connect(_redraw_bg)
 
 	_gol = TextureRect.new()
 	# Full-size drawn figures. The old code took a 16x16 overworld sprite and
@@ -119,15 +123,21 @@ func _build() -> void:
 	_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_gol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_gol.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer.add_child(_gol)
+	add_child(_gol)
 
 	_david = TextureRect.new()
 	_david.texture = DUEL_DAVID
 	_david.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_david.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_david.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer.add_child(_david)
+	add_child(_david)
 
+	_layer = Control.new()
+	_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_layer)
+	_layer.draw.connect(_redraw)
+	_layer.gui_input.connect(_on_layer_gui)
 
 ## Positions in one place, from the same layout maths the rest of the game uses.
 func _apply_layout() -> void:
@@ -146,6 +156,8 @@ func _apply_layout() -> void:
 	_gol.pivot_offset = _gol.size * 0.5
 	_david.pivot_offset = _david.size * 0.5
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _view_size() -> Vector2:
@@ -163,7 +175,7 @@ func _draw_ridge(full_w: float, base_y: float, depth: float, col: Color) -> void
 	while x < full_w:
 		var w := 9.0 + 13.0 * absf(sin(float(i) * 2.17 + depth))
 		var h := (5.0 + 15.0 * absf(sin(float(i) * 1.37 + depth * 3.0))) * depth
-		_layer.draw_rect(Rect2(Vector2(x, base_y - h), Vector2(w + 1.0, h + 2.0)), col)
+		_bg.draw_rect(Rect2(Vector2(x, base_y - h), Vector2(w + 1.0, h + 2.0)), col)
 		x += w
 		i += 1
 
@@ -175,13 +187,13 @@ func _draw_army(full_w: float, ridge_y: float) -> void:
 	var col := Color(0.10, 0.11, 0.11, 0.70)
 	for i in range(6):
 		var x := 7.0 + float(i) * 12.0
-		_layer.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 13.0), col, 1.0)
-		_layer.draw_line(Vector2(x - 3.0, ridge_y - 11.0),
+		_bg.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 13.0), col, 1.0)
+		_bg.draw_line(Vector2(x - 3.0, ridge_y - 11.0),
 			Vector2(x + 3.0, ridge_y - 11.0), col, 1.0)
 	for i in range(5):
 		var x := full_w - 8.0 - float(i) * 14.0
-		_layer.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 15.0), col, 1.0)
-		_layer.draw_line(Vector2(x - 3.0, ridge_y - 13.0),
+		_bg.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 15.0), col, 1.0)
+		_bg.draw_line(Vector2(x - 3.0, ridge_y - 13.0),
 			Vector2(x + 3.0, ridge_y - 13.0), col, 1.0)
 
 
@@ -193,7 +205,7 @@ func _draw_ground(vs: Vector2, ground: float) -> void:
 	for i in range(26):
 		var x := 5.0 + fmod(float(i) * 41.0, maxf(1.0, vs.x - 10.0))
 		var y := ground + 5.0 + fmod(float(i) * 17.0, floor_h)
-		_layer.draw_rect(Rect2(Vector2(x, y), Vector2(2.0, 1.0)), col)
+		_bg.draw_rect(Rect2(Vector2(x, y), Vector2(2.0, 1.0)), col)
 
 
 ## A contact shadow under each figure. Without one the two drawn sprites look
@@ -204,7 +216,7 @@ func _draw_shadow(base: Vector2, size: Vector2) -> void:
 	for i in range(12):
 		var a := TAU * float(i) / 12.0
 		pts.append(center + Vector2(cos(a) * size.x * 0.44, sin(a) * 3.0))
-	_layer.draw_colored_polygon(pts, Color(0.06, 0.05, 0.05, 0.38))
+	_bg.draw_colored_polygon(pts, Color(0.06, 0.05, 0.05, 0.38))
 
 
 func start() -> void:
@@ -297,6 +309,8 @@ func _process(delta: float) -> void:
 	# spear never travels, the marker never sweeps, and the whole thing looks
 	# like a still picture with a working state machine behind it.
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _after_resolve_step() -> void:
@@ -481,6 +495,8 @@ func _finish() -> void:
 	_fall = 0.0
 	_emitted = false
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _say(text: String, secs: float) -> void:
@@ -489,12 +505,10 @@ func _say(text: String, secs: float) -> void:
 
 
 # ── drawing ──────────────────────────────────────────────────────────────
-func _redraw() -> void:
-	var vs: Vector2 = _layer.size
+func _redraw_bg() -> void:
+	var vs: Vector2 = _bg.size
 	if vs.x <= 0.0:
 		return
-	var font := ThemeDB.fallback_font
-	var e := ScreenFit.edge(vs)
 	var ground := vs.y * 0.66
 
 	# ── the valley of Elah at dusk ──────────────────────────────────────
@@ -502,25 +516,33 @@ func _redraw() -> void:
 	# light on the horizon, two ridgelines, the two armies' spear silhouettes,
 	# and a textured floor. All of it is a handful of rects and lines, so it
 	# costs no more than the nine flat blocks it replaces.
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.07, 0.08, 0.10, 0.93))
+	_bg.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.07, 0.08, 0.10, 0.93))
 	var sky_h := ground * 0.74
 	var bh := sky_h / 6.0
 	for i in range(6):
 		var t := float(i) / 6.0
-		_layer.draw_rect(Rect2(Vector2(0, float(i) * bh), Vector2(vs.x, bh + 1.0)),
+		_bg.draw_rect(Rect2(Vector2(0, float(i) * bh), Vector2(vs.x, bh + 1.0)),
 			Color(0.11 + 0.10 * t, 0.11 + 0.06 * t, 0.12 + 0.02 * t, 0.58))
-	_layer.draw_rect(Rect2(Vector2(0, ground - 25.0), Vector2(vs.x, 11.0)),
+	_bg.draw_rect(Rect2(Vector2(0, ground - 25.0), Vector2(vs.x, 11.0)),
 		Color(0.66, 0.44, 0.24, 0.16))
 	_draw_ridge(vs.x, ground - 13.0, 0.62, Color(0.22, 0.21, 0.18, 0.80))
 	_draw_ridge(vs.x, ground - 2.0, 1.0, Color(0.13, 0.14, 0.13, 0.94))
 	_draw_army(vs.x, ground - 4.0)
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, vs.y - ground)),
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, vs.y - ground)),
 		Color(0.19, 0.16, 0.13, 0.97))
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 1.5)),
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 1.5)),
 		Color(0.34, 0.28, 0.21, 0.9))
 	_draw_ground(vs, ground)
 	_draw_shadow(_gol_base, _gol.size)
 	_draw_shadow(_david_base, _david.size)
+
+
+func _redraw() -> void:
+	var vs: Vector2 = _layer.size
+	if vs.x <= 0.0:
+		return
+	var font := ThemeDB.fallback_font
+	var e := ScreenFit.edge(vs)
 
 	var jitter := Vector2.ZERO
 	if _shake > 0.0:
@@ -585,8 +607,11 @@ func _redraw() -> void:
 	# The setpiece now hides the HUD and lays its own text out: what you are
 	# doing (dim), what to do right now (bright), and what just happened (gold).
 	if objective_text != "":
-		_layer.draw_string(font, Vector2(e + 4, e + 15), objective_text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.72, 0.76, 0.74, 0.9))
+		# 9 px, not 7: the project's CJK font is authored for 9-10 px and at 7
+		# Godot's rasteriser advances glyphs into each other. At 320x180 that
+		# reads as garbled Chinese (frame 13_duel, this pass).
+		_layer.draw_string(font, Vector2(e + 4, e + 16), objective_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.72, 0.76, 0.74, 0.9))
 
 	var hint := ""
 	var hint_col := Color(0.86, 0.86, 0.8, 0.95)
@@ -621,7 +646,7 @@ func _redraw() -> void:
 	# what is left in the pouch
 	_layer.draw_string(font, Vector2(e + 4, vs.y - 8),
 		I18n.t({"en": "stones %d" % stones, "zh": "石子 %d 块" % stones}),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.80, 0.82, 0.80, 0.95))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.80, 0.82, 0.80, 0.95))
 
 	# ── the button, on the screen that asks for it ─────────────────────
 	# TouchControls hides the A button while a setpiece owns the screen, so the

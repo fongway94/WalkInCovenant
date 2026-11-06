@@ -1,0 +1,28 @@
+{
+ "files": {
+  "art/duel/david.png": "675dfd3ea778c565f5461119f61b83d8d2b60274d936bb9cece3f6840ed789d9",
+  "art/duel/goliath.png": "15bffd1cfb81f4a9833b2ab8c90baf1e4accda5b1119ff121eecf5de88f65921",
+  "art/facesets/boy.png": "c87d85832a2d589a16b5ece87acb78c80e81959eadb29ae76aed0307fa176bde",
+  "art/facesets/corin.png": "322e44385c6b551cc1c9b3500b778afd7af77fa4be711ad43941371e2b56c10d",
+  "art/facesets/david.png": "7347ad133749d86264264cc75616138509e973e33779fdad04eba5be90f6eaae",
+  "art/facesets/elder.png": "3592b2ec04d561e770c441729e7360ec9fa85fdef2c7d2634ddbb39a785ce552",
+  "art/facesets/eliab.png": "cc8ef6325db5ca08d1a5aa3d6b5748f4c1a69fc9e037f9e4ced12e93e9908a3a",
+  "art/facesets/goliath.png": "4c1f8f92debd3bfbd8908893d2c4e9c95c1911f3a5d5e1878d48130dd23679e5",
+  "art/facesets/jesse.png": "8166c4af6b816ee57f16fc79bf5fdb4b9e44d0ed3df8d57772d547760d48771e",
+  "art/facesets/king.png": "ee932c92c9c99db72933e14fe26441d9a564d6ace1f19952dcaace698cc1fc55",
+  "art/facesets/pharisee.png": "36e996e472b36db504672150e505327ed578ef537f2e0bbccf23d7c89d0c4659",
+  "art/facesets/pilgrim.png": "5ec19b162a06f6669be5956844fb94a1f0ca1c6ca52ad396c82229498a8f9f24",
+  "art/facesets/priest.png": "436e127320ff9c8fa03a74b8ef5fa2228c240dc1072e55c7cc711511d7193aa2",
+  "art/facesets/samuel.png": "b094a4f8f2f810c316ea8c6db0729382ed144e9107d19f0782f62ae5aaf13806",
+  "art/facesets/shepherd.png": "0fa61a4679ba6e83f877e07a2f25fdab5c59b88582e844b1d0b2ea3043f347ef",
+  "art/facesets/soldier.png": "3adc4d083e8c2a2710aa0a91c23c5dd3de1eb423b5f1b401bf78b32c363bfd54",
+  "art/facesets/villager_a.png": "5b0dd4a83dcf52ca4ab75e01082343ecb3aff15438ff6b151233222a2c3be779",
+  "art/facesets/villager_b.png": "9693839e94f13cc316abbbfc815c26a87021ed76af0c21acf1c57af0085c60d4",
+  "art/facesets/villager_c.png": "d4af5c4e155c6d5017e11011348fd8a8072aa9caa1e58f04f5181a979a03f6aa",
+  "art/facesets/woman.png": "e265bc5b624e5767a95a0586804c6dd4004bc29731d561ffe0e1fd02f3050092"
+ },
+ "generators": {
+  "tools/artgen/duel.py": "ad35e835b926926ec55ce4c3acb04319993626f2ab628f960c211da8b7ace2da",
+  "tools/artgen/faces.py": "7d88d1d6962bc67074e10cec217108aaa037bb8ae58ffad229a64d8c62966db0"
+ }
+}

@@ -8,6 +8,19 @@ Size: **S** ≤ half a day · **M** a day · **L** more than a day, and split fi
 
 ---
 
+## Status at 2026-11-06 (premium-art / climax pass — supersedes the table below)
+
+| # | State | Evidence |
+|---|---|---|
+| 1 Device pass | **Still open. Highest remaining risk.** | No phone, two aspect ratios, browser-export run or hardware screenshot. Nothing in this pass changes that. |
+| 2 Listen to the audio | **Still open.** | 16 SFX / 3 beds remain checked as state, never heard. The duel now has a new backdrop but no new sound; no audio claim is made. |
+| 3 Screenshot inspection | **Fourteen rendered beats now staged; duel and aftermath newly added.** | `tests/visual.gd` grew from 12 to 14 frames: `13_duel` renders the shipped `GoliathFight` with its drawn 64px/32px figures and directed valley, `14_aftermath` renders the valley with the ridge empty. The twelve older baselines are reviewed; the two new frames must be decoded, looked at and promoted after the first green run. A camp close-up and a device screenshot remain open. |
+| 4 Premium art | **In progress, first cycle landed.** | 18 drawn 32×32 portraits, distinct cast silhouettes, dedicated duel figures, directed duel backdrop. Six candidate asset sources verified against real downloaded PNGs and licences; all rejected for style/rights (`assets/LICENSES.md`, `docs/ART-COMPARISON.png`). Chosen direction is original palette-locked art, gated by `tools/check_faces.py`. |
+| 5 Defects found by looking | **Two more.** | BUG-052: an ambient chatter bubble stayed frozen over an open conversation (the pause guard returned before hiding it). BUG-053: the standing Goliath sprite remained on the ridge after the duel. Both fixed with gates. |
+| 6 Chinese editorial pass | **Still partly open.** | No new dialogue was added in this pass; the two new duel hints were pre-existing. A native-speaker/author listening pass has still not happened. |
+
+---
+
 ## Status at 2026-11-05 (the David's Life Before the Battlefield milestone)
 
 | # | State | Evidence |

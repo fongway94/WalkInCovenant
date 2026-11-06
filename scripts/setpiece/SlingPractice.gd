@@ -236,7 +236,7 @@ func _draw_all() -> void:
 	# jars broken / to go
 	_layer.draw_string(font, Vector2(22, 22),
 		I18n.t({"en": "jars %d of %d" % [hits, targets], "zh": "陶罐 %d／%d" % [hits, targets]}),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.93, 0.88, 0.74, 0.9))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.93, 0.88, 0.74, 0.9))
 	if _msg != "" and _msg_t > 0.0:
 		_layer.draw_multiline_string(font, Vector2(22, vs.y - 44), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 9, 2, Color(0.97, 0.87, 0.65, 0.95))

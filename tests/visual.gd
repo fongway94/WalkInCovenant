@@ -135,6 +135,21 @@ func _run() -> void:
 			corin.talk()
 			await _frames(3)
 		_check(reg.dialogue.is_open(), "the world's interact handler opens a conversation")
+		# Corin's first two lines are unvoiced scene-setting. Advance to a NAMED
+		# speaker so this frame actually exercises the nameplate and the drawn
+		# 32px portrait — the old capture photographed an empty portrait frame.
+		var named_steps := 0
+		while reg.dialogue.is_open() and reg.dialogue.name_lbl.text == "" \
+				and named_steps < 16:
+			reg.dialogue._advance()      # finish the page that is being typed
+			await _frames(2)
+			if reg.dialogue.is_open() and reg.dialogue.name_lbl.text == "":
+				reg.dialogue._advance()  # step to the next line
+				await _frames(2)
+			named_steps += 1
+		_check(reg.dialogue.is_open() and reg.dialogue.name_lbl.text != "",
+			"a named speaker reaches the box")
+		await _frames(8)
 		await _shot("03_dialogue")
 		# A 2x nearest upscale of the SAME framebuffer, so the Chinese glyphs,
 		# the nameplate and the portrait can actually be inspected by eye at

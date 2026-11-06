@@ -101,11 +101,8 @@ jobs:
             echo "::warning::python3 unavailable, static checks skipped"
             exit 0
           fi
-          # check_faces reads the committed PNGs and regenerates them in memory
-          # to prove determinism; both need Pillow. The visual job already
-          # installs it on this same runner image. Do not silently skip a gate
-          # if the wheel is missing — a broken face check must go red.
-          python3 -m pip install --quiet pillow || true
+          # check_faces is deliberately stdlib-only: the lint container has no
+          # pip, and a gate that cannot run in CI must not be skipped silently.
           : > static.txt
           for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces; do
             echo "===== $T =====" >> static.txt
@@ -415,6 +412,8 @@ jobs:
       # reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
+        env:
+          WIC_NP: 14
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
           # Quantising to 48 colours keeps it a real, readable pixel frame at
@@ -445,63 +444,77 @@ jobs:
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
-          NP = 14
+          NP = int(os.environ.get("WIC_NP", "14"))
           buckets = [[] for _ in range(NP)]
           for i, line in enumerate(lines):
               buckets[i % NP].append(line)
           for i, b in enumerate(buckets):
               open("build/ann/part_%d.txt" % i, "w").write("\n".join(b) + ("\n" if b else ""))
           print("prepared %d chunk(s) in %d parts for %d frame(s)" % (len(lines), NP, len(files)))
+          PUB = 0
+          NEEDLE = "name: Publish frame" + " chunks"
+          for line in open(".github/workflows/build-web.yml", encoding="utf-8"):
+              PUB += line.count(NEEDLE)
+          if PUB < NP:
+              raise SystemExit("only %d publish steps for NP=%d — parts would be lost" % (PUB, NP))
           PY
 
-      - name: Publish frame chunks 1/12
+      - name: Publish frame chunks 1/14
         if: always()
         run: |
           [ -f build/ann/part_0.txt ] && cat build/ann/part_0.txt || true
-      - name: Publish frame chunks 2/12
+      - name: Publish frame chunks 2/14
         if: always()
         run: |
           [ -f build/ann/part_1.txt ] && cat build/ann/part_1.txt || true
-      - name: Publish frame chunks 3/12
+      - name: Publish frame chunks 3/14
         if: always()
         run: |
           [ -f build/ann/part_2.txt ] && cat build/ann/part_2.txt || true
-      - name: Publish frame chunks 4/12
+      - name: Publish frame chunks 4/14
         if: always()
         run: |
           [ -f build/ann/part_3.txt ] && cat build/ann/part_3.txt || true
-      - name: Publish frame chunks 5/12
+      - name: Publish frame chunks 5/14
         if: always()
         run: |
           [ -f build/ann/part_4.txt ] && cat build/ann/part_4.txt || true
-      - name: Publish frame chunks 6/12
+      - name: Publish frame chunks 6/14
         if: always()
         run: |
           [ -f build/ann/part_5.txt ] && cat build/ann/part_5.txt || true
-      - name: Publish frame chunks 7/12
+      - name: Publish frame chunks 7/14
         if: always()
         run: |
           [ -f build/ann/part_6.txt ] && cat build/ann/part_6.txt || true
-      - name: Publish frame chunks 8/12
+      - name: Publish frame chunks 8/14
         if: always()
         run: |
           [ -f build/ann/part_7.txt ] && cat build/ann/part_7.txt || true
-      - name: Publish frame chunks 9/12
+      - name: Publish frame chunks 9/14
         if: always()
         run: |
           [ -f build/ann/part_8.txt ] && cat build/ann/part_8.txt || true
-      - name: Publish frame chunks 10/12
+      - name: Publish frame chunks 10/14
         if: always()
         run: |
           [ -f build/ann/part_9.txt ] && cat build/ann/part_9.txt || true
-      - name: Publish frame chunks 11/12
+      - name: Publish frame chunks 11/14
         if: always()
         run: |
           [ -f build/ann/part_10.txt ] && cat build/ann/part_10.txt || true
-      - name: Publish frame chunks 12/12
+      - name: Publish frame chunks 12/14
         if: always()
         run: |
           [ -f build/ann/part_11.txt ] && cat build/ann/part_11.txt || true
+      - name: Publish frame chunks 13/14
+        if: always()
+        run: |
+          [ -f build/ann/part_12.txt ] && cat build/ann/part_12.txt || true
+      - name: Publish frame chunks 14/14
+        if: always()
+        run: |
+          [ -f build/ann/part_13.txt ] && cat build/ann/part_13.txt || true
 
       - uses: actions/upload-artifact@v4
         if: always()
