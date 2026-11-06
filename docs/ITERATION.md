@@ -410,3 +410,120 @@ GL, not a native-speaker or handset judgement.
   verdict. They are promoted only after the frames are inspected by eye.
 
 _(Section 8 is updated as this pass proceeds.)_
+
+---
+
+## 9. PREMIUM ART + CLIMAX — the pass after the merge (2026-11-06)
+
+The merged LIVING WORLD pass (§8) was green and deployed, but it had two
+honest blind spots: the twelve captured frames never showed the Goliath duel
+or the valley after it, and every face in a conversation was a 16×16 walking
+sprite stretched into a portrait frame. This pass worked the same
+`INSPECT → PLAN → IMPLEMENT → BUILD → TEST → CAPTURE → REVIEW → CRITIQUE →
+IMPROVE → RETEST` loop again, on the **David chapter only**. No second chapter
+was started and the architecture was not replaced.
+
+### A. Asset research was done against actual assets, not descriptions
+
+Six sources were opened and their real files inspected: `pixel-boy/NinjaAdventure`
+(no root licence/readme), `Tiddybub/2d-assets` (1101 assets, CC0 claim with
+per-pack credit), `series-ai/jam-ready-assets` (380 packs, one candidate PNG
+was a 129-byte LFS pointer), `TMHSDigital/Free-Game-Dev-Assets` (link-only
+catalog), Kenney Roguelike RPG pack (CC0, cool dungeon palette) and Kenney
+Roguelike Characters (CC0, near-monochrome 16px tokens). Representative PNGs
+were downloaded and viewed. None fit the warm, outlined, already-shipped house
+palette, and two had licensing or retrieval problems. **Decision: no new
+third-party pack.** The base Ninja Adventure CC0 tiles stay; everything new is
+project-specific generated art. `assets/LICENSES.md` records each source and
+rejection, and `docs/ART-COMPARISON.png` shows before / improved / rejected /
+chosen in one reviewed sheet.
+
+### B. What actually changed in the playable game
+
+- **18 drawn 32×32 portraits** (`tools/artgen/faces.py`) for every named actor,
+  deterministic and locked to the house palette. `DialogueBox.FACES` uses
+  static `preload()` for all of them — a computed `load()` path is invisible to
+  Godot's export dependency scanner and could have shipped a web build with no
+  faces. The 16px sprite remains a fallback for an actor not yet drawn.
+- **Distinct silhouettes** in `tools/artgen/chars.py`: David's mantle, satchel
+  and sling; Goliath's bronze crest; soldiers' spears; cloaks for Samuel,
+  Jesse and Saul. 30 character PNGs regenerated; `check_chars` unchanged.
+- **The duel is a drawn scene, not an upscaled map sprite.**
+  `tools/artgen/duel.py` produces a 64px Goliath and a 32px David;
+  `GoliathFight.gd` places them over six sky bands, a horizon glow, two
+  ridgelines, both armies' spear silhouettes, a textured floor and contact
+  shadows. Goliath rotates around his own centre as he falls. The real sling /
+  dodge / aim setpiece is unchanged (`HITS_TO_WIN 3`, `STONES 5`).
+- **The valley after the fall agrees with the story.** `Main._on_win()` now
+  calls `Region.set_giant_down()`; `_spawn_goliath()` returns early on the
+  `goliath_down` flag, so the standing champion no longer contradicts the
+  aftermath (BUG-053).
+- **The dialogue UI is opaque and its words sit on a plate.** The panel,
+  portrait frame and choice rows are fully opaque; the HUD has one flat dark
+  plate with a gold hairline; the place caption has its own fading strip. All
+  1px offset shadows were removed from 8–9px CJK rows (BUG-058/059/060).
+- **The capture harness grew from 12 to 14 states.** `13_duel` stages the real
+  shipped setpiece at a near-frozen clock and draws nothing itself;
+  `14_aftermath` shows the empty ridge. `tests/deep.gd` grew from 134 to 141
+  checks, including portrait sizes, duel texture sizes and the empty ridge.
+
+### C. Verification chain — every red run is listed
+
+| Run | Commit | Result |
+|---|---|---|
+| `42155243253` | `3933917` | **red** — `lint` failed on `ModuleNotFoundError: No module named 'PIL'`: the new art gate assumed Pillow, which the Godot CI container does not have. Runtime suites, export and deploy were skipped. `visual` was green but published only 12 chunks for 14 rendered states, so `05_bethlehem`, `09_chinese_2x` and `14_aftermath` decoded incomplete. |
+| `42156354692` | `a8b8e21` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 141 checks hold`, all 14 frames complete from 14 publish steps, `check_faces` clean without Pillow. lint ✅ · visual ✅ · export-web ✅ · deploy skipped (working branch). |
+| `42156888674` | `660ee7a` | **green** — 14 complete frames. Review confirmed the opaque dialogue box, but found the new HUD gradient was banding (BUG-060). |
+| `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 complete frames, flat HUD plate verified. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. Review of `05_bethlehem` then found the caption-fade nondeterminism (BUG-061). |
+
+`smoke.gd` is a **full-chapter slice**, not a smoke of one screen: it drives
+the brook, the shepherd flock, the armour, the five stones, three duel hits
+through `Phase.DONE`, the aftermath, the six ending lines (it asserts the words
+「四块石子」 and 「往南的路」 actually reached the box), `act_id() == "done"`,
+the `chapter_one` seal, `completed: elah`, the save file, and the Elah ↔
+Bethlehem road. That is an automated completion proof; it is not proof that a
+human enjoyed it.
+
+### D. Defects found by looking at PNGs, not by reading a diff
+
+BUG-052 (frozen chatter bubble over an open conversation), BUG-054 (Pillow in
+CI), BUG-055 (12 publish steps for 14 frames), BUG-056 (the gold aim band and
+the incoming spear drawn *behind* Goliath's pixels), BUG-057 (7px CJK garble
+and a harness shot of an empty portrait frame), BUG-058 (ghost tents through an
+80%-opaque dialogue panel), BUG-059 (offset shadows welded to CJK strokes) and
+BUG-060 (gradient banding) are all in `docs/BUG_TRACKER.md` with the frame or
+run that exposed each one. Three of them were found only after a **green** run,
+by decoding and enlarging its frames. Nothing was fixed by relaxing a check:
+`check_faces.py` became stricter in the sense that it no longer depends on an
+optional package, and `decode_frames.py` gained a guard that fails if the
+workflow has fewer publish steps than frames.
+
+### E. Chinese in rendered context
+
+`09_chinese_2x` is a 640×360 nearest upscale of the real framebuffer. With the
+named speaker reached and the panel opaque it shows the framed 32px portrait,
+the 「柯林」 nameplate, the 「」 quotation marks and two lines of 9px Chinese
+with no tofu, no ghost world and no clipped glyph bottoms. `04_journal` and
+`12_journal_before` distinguish Scripture with an explicit `1 Samuel 17:45` /
+【经文】撒母耳记上 citation from invented dialogue; `check_font` maps 826
+codepoints. `13_duel` shows the bilingual objective, the 「现在 —— 放手！」
+timing hint, the aim band, the gold hit dots and the 「石子 5 块」 pouch
+counter. This is a rendered reading of software GL, **not** a native-speaker
+or handset judgement.
+
+### F. What this pass did **not** establish
+
+- **No browser execution.** `export-web` produces and size-checks the WebGL
+  build; no browser binary exists here or in CI, so nothing opened the
+  exported game. No real phone, no two-device aspect/tactile pass.
+- **No audio was heard.** 16 WAVs and 3 beds are checksum- and level-checked
+  only. No sound card.
+- **No native-speaker Chinese review and no human playtest.** Automated tests
+  prove the chapter can be finished, not that it is moving to play.
+- All 14 frames are software GL under Xvfb + llvmpipe. 9–10px Chinese read in
+  an upscaled PNG is not a phone legibility result.
+- `tests/frames/baseline_*.png` are coarse wrong-scene detectors, never an
+  art-quality verdict. They are promoted only after the decoded PNGs are
+  inspected by eye.
+
+_(Section 9 is updated as this pass proceeds.)_

@@ -333,6 +333,10 @@ func _run() -> void:
 			await _frames(20)
 			await _drain_all()
 			await _frames(4)
+			# The caption is a tween; pin it so this frame is the same on every
+			# runner instead of catching an arbitrary point in the fade.
+			if main.card != null:
+				main.card.pin_visible()
 			await _shot("05_bethlehem")
 
 	# 9. A SECOND aspect ratio. The web build keeps canvas_items stretching, so

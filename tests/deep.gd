@@ -871,6 +871,7 @@ func _check_place_card_language() -> void:
 			% str(main.card.title_lbl.text))
 	# The card is a tween with a 2.4s hold: put it away rather than letting it
 	# hold the screen for the rest of the suite.
+	main.card.pin_visible()   # kill the tween so the reset below actually sticks
 	main.card.title_lbl.modulate.a = 0.0
 	main.card.sub_lbl.modulate.a = 0.0
 	main.card._scrim.modulate.a = 0.0

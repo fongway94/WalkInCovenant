@@ -19,6 +19,7 @@ var _scrim: ColorRect = null
 var title_lbl: Label = null
 var sub_lbl: Label = null
 var _busy := false
+var _tw: Tween = null
 ## Kept, not just printed: the card is on screen for three seconds, and the
 ## language switch is on the HUD the whole time (BUG-031).
 var _name: Dictionary = {}
@@ -102,6 +103,20 @@ func _line(box: VBoxContainer, size: int, col: Color) -> Label:
 	return l
 
 
+## Staging hook for the visual harness. A tween's alpha at a fixed frame
+## count is runner-dependent, so `05_bethlehem` used to catch the caption
+## mid-fade — sometimes bright, sometimes almost invisible. Pin it to the
+## state a player actually reads before taking a screenshot.
+func pin_visible() -> void:
+	if _tw != null and _tw.is_valid():
+		_tw.kill()
+	_tw = null
+	_busy = false
+	title_lbl.modulate.a = 1.0
+	sub_lbl.modulate.a = 1.0
+	_scrim.modulate.a = 1.0
+
+
 func is_busy() -> bool:
 	return _busy
 
@@ -120,7 +135,10 @@ func show_card(display_name: Dictionary, sub: Dictionary) -> void:
 	_sub = sub
 	title_lbl.text = t
 	sub_lbl.text = s
-	var tw := create_tween()
+	if _tw != null and _tw.is_valid():
+		_tw.kill()
+	_tw = create_tween()
+	var tw := _tw
 	tw.set_parallel(true)
 	tw.tween_property(_scrim, "modulate:a", 1.0, IN_T)
 	tw.tween_property(title_lbl, "modulate:a", 1.0, IN_T)
