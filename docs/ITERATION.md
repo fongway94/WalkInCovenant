@@ -475,6 +475,7 @@ chosen in one reviewed sheet.
 | `42156354692` | `a8b8e21` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 141 checks hold`, all 14 frames complete from 14 publish steps, `check_faces` clean without Pillow. lint ✅ · visual ✅ · export-web ✅ · deploy skipped (working branch). |
 | `42156888674` | `660ee7a` | **green** — 14 complete frames. Review confirmed the opaque dialogue box, but found the new HUD gradient was banding (BUG-060). |
 | `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 complete frames, flat HUD plate verified. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. Review of `05_bethlehem` then found the caption-fade nondeterminism (BUG-061). |
+| `42160624028` | `6f6b5e9` | **green** — 141 checks, 14 complete frames, deterministic bright caption. Its sheet showed the pinned caption leaking into later frames, so `hide_now()` was added. |
 
 `smoke.gd` is a **full-chapter slice**, not a smoke of one screen: it drives
 the brook, the shepherd flock, the armour, the five stones, three duel hits

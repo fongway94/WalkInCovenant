@@ -117,6 +117,18 @@ func pin_visible() -> void:
 	_scrim.modulate.a = 1.0
 
 
+## The counterpart to pin_visible(): the harness must not leave a pinned
+## caption on screen for the ten frames that follow the Bethlehem shot.
+func hide_now() -> void:
+	if _tw != null and _tw.is_valid():
+		_tw.kill()
+	_tw = null
+	_busy = false
+	title_lbl.modulate.a = 0.0
+	sub_lbl.modulate.a = 0.0
+	_scrim.modulate.a = 0.0
+
+
 func is_busy() -> bool:
 	return _busy
 

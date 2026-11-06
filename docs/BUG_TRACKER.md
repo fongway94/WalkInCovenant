@@ -86,7 +86,7 @@ result for a run that has not finished.
 
 | BUG-060 | **P2** | The first HUD scrim was drawn as 24 discrete alpha strips. At 320×180 each strip snapped to its own pixel row, so the top of every world frame showed horizontal banding instead of a smooth fade. | Frame `01_boot_world` / `09_chinese_2x` of `42156888674`, inspected at 3×; the unscrimmed `42156354692` frames have no stripes. | **Verified** — `01_boot_world` / `09_chinese_2x` of `42160227100` show one clean plate, no stripes. |
 
-| BUG-061 | **P3** | The place caption is a tween, and `tests/visual.gd` captured it after a fixed number of frames. Depending on runner timing the `05_bethlehem` frame caught the caption mid-fade — bright in `42156888674`, almost invisible in `42160227100`. Promoting either as a baseline would make a stable frame look like a regression. | Comparing decoded `05_bethlehem` PNGs from two green runs. | **Fixed** — `PlaceCard.pin_visible()` kills the tween and pins all three alphas to 1.0; the harness calls it before the shot, and `deep.gd` uses it so its reset sticks. Re-render pending. |
+| BUG-061 | **P3** | The place caption is a tween, and `tests/visual.gd` captured it after a fixed number of frames. Depending on runner timing the `05_bethlehem` frame caught the caption mid-fade — bright in `42156888674`, almost invisible in `42160227100`. Promoting either as a baseline would make a stable frame look like a regression. | Comparing decoded `05_bethlehem` PNGs from two green runs. | **Fixed** — `PlaceCard.pin_visible()` / `hide_now()` kill the tween and set all three alphas; the harness pins before the shot and hides immediately after so the caption does not stick to the following ten frames. `deep.gd` uses `hide_now()` too. Re-render pending. |
 
 ## Found and deliberately not fixed
 
@@ -123,6 +123,7 @@ result for a run that has not finished.
 | `42156354692` | `a8b8e21` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 141 checks hold`, all 14 frames decoded complete from 14 publish steps; `check_faces` clean on a runner with no Pillow. lint ✅ · visual ✅ · export-web ✅ · deploy skipped (working branch). |
 | `42156888674` | `660ee7a` | **green** — lint ✅ · visual ✅ · export-web ✅ · deploy skipped; 14 frames complete. Review confirmed BUG-058 closed and exposed BUG-060. |
 | `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; flat HUD plate verified, no banding. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42160624028` | `6f6b5e9` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; `05_bethlehem` caption pinned and bright. lint ✅ · visual ✅ · export-web ⏳ · deploy skipped. |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

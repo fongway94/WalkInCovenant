@@ -338,6 +338,8 @@ func _run() -> void:
 			if main.card != null:
 				main.card.pin_visible()
 			await _shot("05_bethlehem")
+			if main.card != null:
+				main.card.hide_now()
 
 	# 9. A SECOND aspect ratio. The web build keeps canvas_items stretching, so
 	# a 640x480 window gives a 320x240 root viewport: 4:3 instead of 16:9.

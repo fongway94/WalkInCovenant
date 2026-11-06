@@ -147,7 +147,22 @@ frames close the biggest blind spot in the old suite:
 | `14_aftermath` | after `goliath_down` the ridge is empty, the HUD role has changed back and the chapter aftermath objective is on screen |
 
 `13_duel` also asserts the giant's texture is larger than 16 px, so a silent
-reversion to the old 8×-upscaled map sprite fails the render job. The two new
-frames plus the twelve reviewed baselines are re-promoted together once their
-PNGs have been decoded and looked at by eye. The camp close-up, real handset,
-browser execution and every sound remain unverified.
+reversion to the old 8×-upscaled map sprite fails the render job.
+
+Two staging details matter for reproducible frames:
+
+- `03_dialogue` / `09_chinese_2x` advance to a **named** speaker. The first two
+  lines of Corin's conversation are unvoiced narration, which used to
+  photograph an empty portrait frame. The harness asserts a nameplate is on
+  screen before it captures.
+- `05_bethlehem` calls `PlaceCard.pin_visible()`. The caption is a tween, so a
+  fixed frame count caught it mid-fade on some runners (bright on one green
+  run, almost invisible on the next — BUG-061). Pinning it kills the tween and
+  sets the caption, subtitle and scrim to full opacity.
+
+All fourteen frames are decoded with `tools/decode_frames.py <run-id>`, reviewed
+as a sheet and as 3×/4× zooms, then promoted together with
+`PYTHONPATH=/home/user/.cache/pillow_check python3 tools/visual_diff.py
+--write-bases`. A plain `tools/visual_diff.py` must then be clean, and the next
+CI run proves the in-engine comparisons pass with the baselines active. The camp
+close-up, real handset, browser execution and every sound remain unverified.
