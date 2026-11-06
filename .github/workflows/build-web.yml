@@ -22,9 +22,9 @@ on:
     # `main` is the published game. `arena/**` is a working branch off it — the
     # automatic tooling gives each session a fresh branch name, so listing one
     # name meant the audit's own pushes ran no build at all and every gate in
-    # docs/BUGS.md would have been reported from a commit CI never saw. The
-    # deploy job publishes whatever it built, branch included, exactly as the
-    # previous session branches did: the live URL is how the game is playtested.
+    # docs/BUGS.md would have been reported from a commit CI never saw. Every
+    # branch builds; `main` and the preview branch listed in the `deploy` job
+    # also publish. The live URL is how the game is playtested before a merge.
     branches: [main, 'arena/**']
   workflow_dispatch:
 
@@ -695,11 +695,19 @@ jobs:
   # the game is playable locally in the meantime.
   deploy:
     needs: export-web
-    # Pages has an environment protection rule that lets only `main` deploy, so
-    # every working-branch push used to end in a red deploy job after a fully
-    # green lint and export — a build that had nothing wrong with it reported as
-    # a failure. A branch is checked, not published: its artifact is the build.
-    if: github.ref == 'refs/heads/main'
+    # `main` is the release. The named working branch is an opt-in PREVIEW: the
+    # repo's `github-pages` environment has a custom deployment-branch policy
+    # that lists it, so `actions/deploy-pages` is accepted from this ref.
+    # There is ONE Pages site per repo, so a preview deploy temporarily replaces
+    # the live URL with the branch build; the next `main` push (or the merge)
+    # republishes main. Any other branch added here must also be added to that
+    # environment policy, or its deploy job will fail.
+    #
+    # Never switch Source to "Deploy from a branch" to get a preview: that makes
+    # Pages Jekyll-build the repository ROOT and serve README.md instead of the
+    # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
+    # artifact check below exists. `build_type` must stay `workflow`.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/46955931-walkincovenant'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -709,6 +717,25 @@ jobs:
         with:
           name: web
           path: build/web
+
+      - name: Verify the artifact is the game, not repository text
+        run: |
+          if [ ! -f build/web/index.html ]; then
+            echo "::error::web artifact has no index.html — refusing to publish repository text"
+            exit 1
+          fi
+          if ! grep -q "serviceWorker" build/web/index.html; then
+            echo "::error::web artifact index.html is not the PWA-injected Godot build"
+            exit 1
+          fi
+          echo "web artifact verified: index.html with a registered service worker"
+
+      - name: Report the publish target
+        env:
+          WIC_REF: ${{ github.ref_name }}
+          WIC_SHA: ${{ github.sha }}
+        run: |
+          echo "::notice::Publishing $WIC_REF @ $WIC_SHA to https://fongway94.github.io/WalkInCovenant/ . A push to main republishes main."
 
       - id: pages
         name: Configure Pages

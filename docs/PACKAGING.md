@@ -150,6 +150,35 @@ gh api repos/fongway94/WalkInCovenant/pages/deployments --jq '.[0].status'
 Until that reads `workflow`, the `deploy` job stays green, publishes nothing, and
 prints the instruction as an annotation.
 
+**2026-11-06 — the trap fired anyway.** A Pages build was requested from the
+working branch root (`pages/builds/1345363804`, commit `0da2053`), and
+`https://fongway94.github.io/WalkInCovenant/` began serving the Jekyll-rendered
+`README.md` instead of the game. The setting had to be restored to
+`build_type: workflow` and the correct `web` artifact republished with
+`actions/deploy-pages`. Two guards now exist: the `deploy` job refuses to
+publish an artifact whose `index.html` has no registered service worker, and it
+prints the exact ref/SHA it is publishing.
+
+### Playing a working branch before merging (preview deploy)
+
+There is **one** Pages site per repository, so a branch preview is not a second
+URL: it replaces the live site with the branch build until the next `main` push
+(or the merge) republishes `main`. The `deploy` job allows `main` plus the
+explicitly named preview branch in `.github/workflows/build-web.yml`. GitHub
+also gates deployments by environment: Settings → Environments →
+`github-pages` → Deployment branches must list that branch. The current policy
+lists `main`, `arena/46955931-walkincovenant` and
+`arena/b60cd21d-walkincovenant`; adding a branch to the workflow without adding
+it to that policy makes its deploy job fail. Verify after any preview deploy:
+
+```bash
+gh api repos/fongway94/WalkInCovenant/pages --jq '.build_type'   # → workflow
+gh api "repos/fongway94/WalkInCovenant/deployments?environment=github-pages&per_page=1" \
+  --jq '.[0] | {ref, sha, created_at}'
+```
+
+Then open the URL and confirm it is the Godot loader, not repository text.
+
 **Playing it without Pages at all:** the CI run uploads a `web` artifact containing
 the complete build. Download it, unzip, and serve it — never double-click `index.html` (§1):
 
