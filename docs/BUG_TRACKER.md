@@ -124,7 +124,8 @@ result for a run that has not finished.
 | `42156888674` | `660ee7a` | **green** — lint ✅ · visual ✅ · export-web ✅ · deploy skipped; 14 frames complete. Review confirmed BUG-058 closed and exposed BUG-060. |
 | `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; flat HUD plate verified, no banding. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
 | `42160624028` | `6f6b5e9` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; `05_bethlehem` caption pinned and bright. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
-| `42160894115` | `a9c9901` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete and reviewed; all 14 promoted as baselines, local `visual_diff: clean` at 0.0000. lint ✅ · visual ✅ · export-web ⏳ · deploy skipped. Final in-engine baseline run follows. |
+| `42160894115` | `a9c9901` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete and reviewed; all 14 promoted as baselines, local `visual_diff: clean` at 0.0000. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42161167868` | `0e677bc` | **green with all 14 baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, `visual` ✅ with all 14 in-engine baseline comparisons inside the 0.18 limit; `export-web` ✅, `deploy` skipped (working branch). |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

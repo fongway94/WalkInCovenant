@@ -477,6 +477,7 @@ chosen in one reviewed sheet.
 | `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 complete frames, flat HUD plate verified. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. Review of `05_bethlehem` then found the caption-fade nondeterminism (BUG-061). |
 | `42160624028` | `6f6b5e9` | **green** — 141 checks, 14 complete frames, deterministic bright caption. Its sheet showed the pinned caption leaking into later frames, so `hide_now()` was added. |
 | `42160894115` | `a9c9901` | **green** — 141 checks, 14 complete frames, no caption leak. All 14 PNGs decoded, reviewed as a sheet and 3× zooms, and promoted with `visual_diff.py --write-bases`; a plain run reports `diff 0.0000` for all 14. |
+| `42161167868` | `0e677bc` | **green with all 14 baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, `visual` ✅ (all 14 in-engine baseline comparisons pass), `export-web` ✅, `deploy` skipped. Final RETEST of this pass. |
 
 `smoke.gd` is a **full-chapter slice**, not a smoke of one screen: it drives
 the brook, the shepherd flock, the armour, the five stones, three duel hits
@@ -533,8 +534,8 @@ or handset judgement.
 The twelve coarse baselines from §8 were replaced and two added:
 `tests/frames/baseline_01_boot_world.png` … `baseline_14_aftermath.png`, all
 from `42160894115`. They are wrong-scene detectors, not an art-quality verdict;
-the art review above is the evidence for the visual changes. The next CI run
-compares all fourteen in-engine with the same 0.18 limit, which is the last
+the art review above is the evidence for the visual changes. `42161167868`
+compared all fourteen in-engine with the same 0.18 limit and passed: the last
 RETEST of this pass.
 
 _(Section 9 is updated as this pass proceeds.)_
