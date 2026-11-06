@@ -15,6 +15,7 @@ const IN_T := 0.45
 const OUT_T := 0.6
 
 var _box: VBoxContainer = null
+var _scrim: ColorRect = null
 var title_lbl: Label = null
 var sub_lbl: Label = null
 var _busy := false
@@ -53,9 +54,23 @@ func _apply_layout() -> void:
 	_box.anchor_bottom = lower
 	_box.offset_top = 0
 	_box.offset_bottom = clampf(vs.y * 0.22, 24.0, 56.0)
+	_scrim.anchor_left = 0.0; _scrim.anchor_right = 1.0
+	_scrim.anchor_top = lower; _scrim.anchor_bottom = lower
+	_scrim.offset_left = 0.0; _scrim.offset_right = 0.0
+	_scrim.offset_top = -4.0
+	_scrim.offset_bottom = _box.offset_bottom + 4.0
 
 
 func _build() -> void:
+	# The caption is over the world, not on a card. A soft opaque strip gives
+	# the two lines a ground to sit on without a 1px shadow welded to every
+	# Chinese stroke.
+	_scrim = ColorRect.new()
+	_scrim.color = Color(0.03, 0.05, 0.06, 0.80)
+	_scrim.modulate.a = 0.0
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_scrim)
+
 	_box = VBoxContainer.new()
 	var box := _box
 	box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -71,7 +86,7 @@ func _build() -> void:
 	add_child(box)
 
 	title_lbl = _line(box, 15, Color(0.98, 0.92, 0.76))
-	sub_lbl = _line(box, 8, Color(0.86, 0.80, 0.64))
+	sub_lbl = _line(box, 9, Color(0.92, 0.86, 0.70))
 	title_lbl.modulate.a = 0.0
 	sub_lbl.modulate.a = 0.0
 
@@ -82,9 +97,6 @@ func _line(box: VBoxContainer, size: int, col: Color) -> Label:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("shadow_offset_x", 1)
-	l.add_theme_constant_override("shadow_offset_y", 1)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(l)
 	return l
@@ -110,11 +122,13 @@ func show_card(display_name: Dictionary, sub: Dictionary) -> void:
 	sub_lbl.text = s
 	var tw := create_tween()
 	tw.set_parallel(true)
+	tw.tween_property(_scrim, "modulate:a", 1.0, IN_T)
 	tw.tween_property(title_lbl, "modulate:a", 1.0, IN_T)
 	tw.tween_property(sub_lbl, "modulate:a", 1.0, IN_T * 1.6)
 	tw.set_parallel(false)
 	tw.tween_interval(HOLD)
 	tw.set_parallel(true)
+	tw.tween_property(_scrim, "modulate:a", 0.0, OUT_T)
 	tw.tween_property(title_lbl, "modulate:a", 0.0, OUT_T)
 	tw.tween_property(sub_lbl, "modulate:a", 0.0, OUT_T)
 	tw.set_parallel(false)

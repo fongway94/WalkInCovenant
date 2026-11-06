@@ -114,7 +114,7 @@ func _build_ui() -> void:
 	var sb := StyleBoxFlat.new()
 	# 80%, not 93%: the world has to stay legible behind a conversation — the
 	# whole point of a conversation in this game is that you are looking at it.
-	sb.bg_color = Color(0.04, 0.07, 0.10, 0.80)
+	sb.bg_color = Color(0.04, 0.07, 0.10, 1.0)
 	sb.border_color = Color(0.79, 0.64, 0.36, 0.70)
 	sb.set_border_width_all(1)
 	sb.set_content_margin_all(5)
@@ -135,7 +135,7 @@ func _build_ui() -> void:
 	# ── portrait, framed ──────────────────────────────────────────────────
 	var frame := PanelContainer.new()
 	var fsb := StyleBoxFlat.new()
-	fsb.bg_color = Color(0.02, 0.04, 0.06, 0.85)
+	fsb.bg_color = Color(0.02, 0.04, 0.06, 1.0)
 	fsb.border_color = Color(0.60, 0.49, 0.28, 0.75)
 	fsb.set_border_width_all(1)
 	fsb.set_content_margin_all(1)
@@ -727,7 +727,7 @@ func _move_choice(step: int) -> void:
 ## broke. They now match the panel: dark, gold-edge, flat.
 func _choice_style(alpha: float) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.10, 0.14, 0.17, 0.92)
+	s.bg_color = Color(0.10, 0.14, 0.17, 1.0)
 	s.border_color = Color(0.79, 0.64, 0.36, alpha)
 	s.set_border_width_all(1)
 	s.set_corner_radius_all(2)

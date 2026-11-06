@@ -65,6 +65,23 @@ run, not by reading the diff. **Open: none.** Full reasoning in
 | BUG-050 | **P2** | The journal panel was 0.97 opaque, so the HUD and any dialogue box still on screen showed through as grey ghost text behind 9 px rows. | CI frames `04_journal` and `12_journal_before` of `42018457660`, inspected by eye. | **Fixed** — the background is fully opaque. |
 | BUG-051 | **P2** | The 112×22 chatter bubble was shorter than the bundled CJK font's 24 px minimum line height, so the bottom of every glyph was clipped. The bubble label also carried a solid 1 px black shadow that read as a blotch at 8 px. | `tests/deep.gd::_check_bubbles()` printed `label 104x24 at 4,3` against a 22 px frame in CI `42018457660`. | **Fixed** — 112×28 frame, label at (4,2) with a 24 px line, no shadow, and an opaque background so a sheep behind it no longer shows through the words; the check now asserts the configured geometry and prints what it measured. |
 
+## Premium art + climax pass (2026-11-06)
+
+These came from actually looking at decoded PNGs and from a red CI run, not
+from reading a diff. `42155243253` (`3933917`) is recorded as **red**: the
+`visual` job succeeded, `lint` failed before any runtime suite could run, so
+`export-web` and `deploy` were skipped. Nothing in this table claims a green
+result for a run that has not finished.
+
+| ID | Sev | What | Check / frame that exposed it | State |
+|---|---|---|---|---|
+| BUG-052 | **P2** | An ambient chatter bubble stayed frozen over an open conversation: `Npc._process()` hit the world-pause guard and returned before hiding the bubble. | Frame `03_dialogue` of the previous pass; fixed in `Npc.gd` by hiding chatter *before* the pause guard when `dialogue.is_open()`. | **Verified** — the decoded `03_dialogue` of `42155243253` shows no bubble slab. |
+| BUG-053 | **P1** | The standing overworld Goliath sprite remained on the ridge after the duel, so the valley told two contradictory stories at once. | Code audit; `Region.set_giant_down()` called from `Main._on_win()` and an early return in `_spawn_goliath()`. | **Fixed** — `tests/deep.gd::_check_giant_down()` and frame `14_aftermath` exist, but `42155243253` skipped the runtime suites. Engine proof pending. |
+| BUG-054 | **P1** | `tools/check_faces.py` imported Pillow, which the Godot CI container does not have. `lint` died with `ModuleNotFoundError: No module named 'PIL'` before `gd_lint`, the runtime suites or the export ran. | CI `42155243253`, check-run `127687726625`. | **Fixed** in `a8b8e21` — the gate is stdlib-only: `char_variants.read_png()`, a regex parse of `palette.py`, and `data/art_hashes.json` (2 generators + 20 PNG hashes). Pillow regeneration is optional and used only when locally available. CI verification pending. |
+| BUG-055 | **P1** | The harness rendered 14 states but the workflow still published only 12 frame chunks (`parts_01…12`). Parts 12 and 13 were never emitted, so `05_bethlehem` (1/3), `09_chinese_2x` (3/5) and `14_aftermath` (1/3) decoded incomplete. | `tools/decode_frames.py 42155243253` and the visual job's 12 publish steps; 29 `WICFRAME` notices. | **Fixed** in `a8b8e21` — steps 13/14 added, `WIC_NP: 14`, `NP = int(os.environ.get("WIC_NP","14"))`, and a guard that fails the decode if the workflow has fewer publish steps than frames. CI verification pending. |
+| BUG-056 | **P1** | The duel drew its backdrop **and** its timing cues on one `Control` that was the *first* child, behind both `TextureRect` figures. The gold aim band — the one thing the player times a throw against — the incoming red spear and the telegraph warning were all hidden by Goliath's opaque pixels. | Frame `13_duel` of `42155243253`, inspected at 4×: the AIM hint said 「现在 —— 放手！」 but no band was visible on the forehead. | **Fixed** in `a8b8e21` — a separate backdrop layer behind the figures and a foreground layer above them (`MOUSE_FILTER_IGNORE` on both non-interactive layers so `_layer.gui_input` still owns the screen). CI re-render pending. |
+| BUG-057 | **P2** | The duel objective line used a 7 px CJK font size, which garbled into overlapping glyph strokes at 320×180; the `03_dialogue` harness shot also captured an *unvoiced* narration line, so it photographed an empty portrait frame rather than the new 32 px face. | Frame `13_duel` top-left crop and frame `03_dialogue` of `42155243253`. | **Fixed** in `a8b8e21` — both duel counters and `SlingPractice`'s counter use 9 px; the harness advances to a named speaker before capturing, with an assertion that a nameplate is present. CI re-render pending. |
+
 ## Found and deliberately not fixed
 
 | ID | Sev | What | Why it stays open |
@@ -96,6 +113,7 @@ run, not by reading the diff. **Open: none.** Full reasoning in
 | `42019344693` | `2fe704a` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames` |
 | `42019960134` | `2bf8dc4` | **green** — opaque bubble; 134 checks, 12 reviewed frames promoted as baselines, `visual_diff: clean` |
 | `42020598313` | `f1e67c3` | **green with baselines active** — 134 checks, 12 frames; all twelve in-engine baseline comparisons passed |
+| `42155243253` | `3933917` | **red** — `visual` ✅ (14 states rendered, but only 12 chunks published: BUG-055), `lint` ❌ (Pillow import: BUG-054), `export-web`/`deploy` skipped. Decoded frames exposed BUG-056 and BUG-057. |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

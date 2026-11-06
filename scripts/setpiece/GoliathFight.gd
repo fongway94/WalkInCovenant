@@ -610,7 +610,7 @@ func _redraw() -> void:
 		# 9 px, not 7: the project's CJK font is authored for 9-10 px and at 7
 		# Godot's rasteriser advances glyphs into each other. At 320x180 that
 		# reads as garbled Chinese (frame 13_duel, this pass).
-		_layer.draw_string(font, Vector2(e + 4, e + 16), objective_text,
+		_layer.draw_string(font, Vector2(e + 4, e + 24), objective_text,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(0.72, 0.76, 0.74, 0.9))
 
 	var hint := ""
@@ -636,10 +636,10 @@ func _redraw() -> void:
 				hint = I18n.t({"en": "Wait for the gold band, then press", "zh": "等白线进到框里，再按"})
 				hint_col = Color(0.98, 0.88, 0.62, 1.0)
 	if hint != "":
-		_layer.draw_multiline_string(font, Vector2(e + 4, e + 32), hint,
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 40), hint,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2, hint_col)
 	if _msg != "" and _msg_t > 0.0:
-		_layer.draw_multiline_string(font, Vector2(e + 4, e + 58), _msg,
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 66), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2,
 			Color(0.97, 0.87, 0.65, 0.95))
 

@@ -27,6 +27,7 @@ const TOAST_Y := 43.0
 const PROMPT_H := 12.0
 
 var bar: HBoxContainer = null
+var band_ctl: Control = null
 var name_lbl: Label = null
 var place_lbl: Label = null
 var verses_lbl: Label = null
@@ -83,6 +84,15 @@ func bind(r: Region) -> void:
 
 # ── construction ─────────────────────────────────────────────────────────
 func _build() -> void:
+	# A gradient scrim behind the two HUD rows. Text with a drop shadow was
+	# still losing against busy water, grass and tents; a soft dark band makes
+	# the UI read as one deliberate element on every scene instead of labels
+	# pasted onto the world. It fades out before the toast band.
+	band_ctl = Control.new()
+	band_ctl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band_ctl.draw.connect(_draw_band)
+	add_child(band_ctl)
+
 	bar = HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 6)
 	add_child(bar)
@@ -130,10 +140,10 @@ func _build() -> void:
 	objective_lbl = Label.new()
 	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_lbl.add_theme_font_size_override("font_size", 8)
-	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
-	objective_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
-	objective_lbl.add_theme_constant_override("shadow_offset_x", 1)
-	objective_lbl.add_theme_constant_override("shadow_offset_y", 1)
+	objective_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
+	# No 1px offset shadow here. At 8 px a shadow merges into the CJK strokes
+	# and reads as doubled glyphs (BUG-051 found the same thing in the chatter
+	# bubbles). The gradient scrim behind this row supplies the contrast.
 	add_child(objective_lbl)
 
 	# The book. Top-left, small — a thing to open when you are lost, not a thing
@@ -181,6 +191,13 @@ func _build() -> void:
 func _apply_layout() -> void:
 	var vs := _view_size()
 	var e := ScreenFit.edge(vs)
+
+	band_ctl.anchor_left = 0.0; band_ctl.anchor_right = 1.0
+	band_ctl.anchor_top = 0.0; band_ctl.anchor_bottom = 0.0
+	band_ctl.offset_left = 0.0; band_ctl.offset_right = 0.0
+	band_ctl.offset_top = 0.0
+	band_ctl.offset_bottom = ROW2_Y + 1.0 + OBJECTIVE_H
+	band_ctl.queue_redraw()
 
 	# top bar (full width, inset)
 	bar.anchor_left = 0.0; bar.anchor_right = 1.0
@@ -230,6 +247,22 @@ func _apply_layout() -> void:
 	prompt_lbl.offset_right = minf(120.0, vs.x * 0.4)
 	prompt_lbl.offset_top = -(ScreenFit.thumb_strip(vs) * 0.55 + PROMPT_H)
 	prompt_lbl.offset_bottom = -(ScreenFit.thumb_strip(vs) * 0.55)
+
+
+func _draw_band() -> void:
+	var w := band_ctl.size.x
+	var h := band_ctl.size.y
+	if w <= 0.0 or h <= 0.0:
+		return
+	var steps := 24
+	var step := h / float(steps)
+	for i in range(steps):
+		var t := float(i) / float(steps)
+		var a := 0.86 * (1.0 - t) + 0.04
+		band_ctl.draw_rect(Rect2(0.0, float(i) * step, w, step + 1.0),
+			Color(0.03, 0.05, 0.07, a))
+	band_ctl.draw_rect(Rect2(0.0, h - 1.0, w, 1.0),
+		Color(0.79, 0.64, 0.36, 0.30))
 
 
 func _view_size() -> Vector2:

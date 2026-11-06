@@ -873,6 +873,7 @@ func _check_place_card_language() -> void:
 	# hold the screen for the rest of the suite.
 	main.card.title_lbl.modulate.a = 0.0
 	main.card.sub_lbl.modulate.a = 0.0
+	main.card._scrim.modulate.a = 0.0
 	main.card._busy = false
 	I18n.set_lang(before)
 

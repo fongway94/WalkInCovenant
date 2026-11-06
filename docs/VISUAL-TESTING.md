@@ -125,6 +125,8 @@ limit.
 | `10_layout_4x3` | a taller *logical* 4:3 viewport, not a stretched picture |
 | `11_transition` | a real `ScreenFade` caught mid-fade |
 | `12_journal_before` | 「来路」 / "How you came here" is reachable by scrolling |
+| `13_duel` | the shipped `GoliathFight` renders its own drawn 64px Goliath and 32px David, the directed dusk valley, the gold aim band and the timing marker |
+| `14_aftermath` | after `goliath_down` the ridge is empty, the HUD role has changed back and the chapter aftermath objective is on screen |
 
 These are **wrong-scene detectors, not an art-quality verdict.** Three of the
 five defects listed in `docs/ITERATION.md` §8 were invisible to this grid diff
@@ -132,7 +134,11 @@ and were found only by looking at upscaled PNGs.
 
 ## Premium-art / climax pass (2026-11-06)
 
-`tests/visual.gd` grew from twelve to **fourteen** rendered states. Two new
+`tests/visual.gd` grew from twelve to **fourteen** rendered states, and the
+workflow now publishes **fourteen** frame chunks (`WIC_NP: 14`) with a guard in
+`tools/decode_frames.py` that refuses to decode if the workflow has fewer
+publish steps than `NP`. In `42155243253` the harness produced 14 PNGs but only
+12 chunks were published; three frames decoded incomplete (BUG-055). Two new
 frames close the biggest blind spot in the old suite:
 
 | Frame | What it proves |
