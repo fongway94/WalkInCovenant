@@ -66,7 +66,7 @@ func _build() -> void:
 	# the two lines a ground to sit on without a 1px shadow welded to every
 	# Chinese stroke.
 	_scrim = ColorRect.new()
-	_scrim.color = Color(0.03, 0.05, 0.06, 0.80)
+	_scrim.color = Color(0.03, 0.05, 0.06, 1.0)
 	_scrim.modulate.a = 0.0
 	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_scrim)

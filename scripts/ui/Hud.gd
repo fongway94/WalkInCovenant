@@ -250,19 +250,17 @@ func _apply_layout() -> void:
 
 
 func _draw_band() -> void:
+	# One flat plate. A 24-step alpha ramp looked like horizontal stripes at
+	# 320x180 — each strip snapped to its own pixel row (BUG-060). A single
+	# deliberate panel with a hairline reads as a HUD, not a rendering fault.
 	var w := band_ctl.size.x
 	var h := band_ctl.size.y
 	if w <= 0.0 or h <= 0.0:
 		return
-	var steps := 24
-	var step := h / float(steps)
-	for i in range(steps):
-		var t := float(i) / float(steps)
-		var a := 0.86 * (1.0 - t) + 0.04
-		band_ctl.draw_rect(Rect2(0.0, float(i) * step, w, step + 1.0),
-			Color(0.03, 0.05, 0.07, a))
+	band_ctl.draw_rect(Rect2(0.0, 0.0, w, h - 1.0),
+		Color(0.03, 0.05, 0.07, 0.74))
 	band_ctl.draw_rect(Rect2(0.0, h - 1.0, w, 1.0),
-		Color(0.79, 0.64, 0.36, 0.30))
+		Color(0.79, 0.64, 0.36, 0.34))
 
 
 func _view_size() -> Vector2:
