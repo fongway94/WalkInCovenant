@@ -153,11 +153,18 @@ prints the instruction as an annotation.
 **2026-11-06 — the trap fired anyway.** A Pages build was requested from the
 working branch root (`pages/builds/1345363804`, commit `0da2053`), and
 `https://fongway94.github.io/WalkInCovenant/` began serving the Jekyll-rendered
-`README.md` instead of the game. The setting had to be restored to
-`build_type: workflow` and the correct `web` artifact republished with
-`actions/deploy-pages`. Two guards now exist: the `deploy` job refuses to
-publish an artifact whose `index.html` has no registered service worker, and it
-prints the exact ref/SHA it is publishing.
+`README.md` instead of the game. `build_type` was still `workflow` throughout —
+Source was never the problem; the fix was to republish the correct `web`
+artifact with `actions/deploy-pages` from the working branch. Two guards now
+exist: the `deploy` job refuses to publish an artifact whose `index.html` has no
+registered service worker, and it prints the exact ref/SHA it is publishing.
+
+Verified on 2026-11-06: run `42171648194` (`dceac57`) had `deploy` ✅ (not
+skipped), deployment `7593585234` from `arena/46955931-walkincovenant` reached
+`state: success`, and the URL then served the Godot loader (「请横屏游戏」 /
+canvas fallback) plus `index.manifest.json`, not repository text. A browser that
+cached the old page may need a hard refresh or cleared site data; the service
+worker is stamped with the commit SHA so it busts its own cache on update.
 
 ### Playing a working branch before merging (preview deploy)
 
