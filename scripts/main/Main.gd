@@ -1584,6 +1584,10 @@ func _after_return() -> void:
 	GameState.grant_seal("chapter_one")
 	GameState.complete_chapter("elah")
 	_story_flag("goliath_down")
+	# The ridge has to reflect what just happened: no standing champion in the
+	# valley the player is about to walk through.
+	if region != null and is_instance_valid(region):
+		region.set_giant_down()
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
 	# The chapter has an ENDING, and it is played, not implied. This used to drop

@@ -171,8 +171,16 @@ func emote(text: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if _bubble != null and _bubble.visible and Time.get_ticks_msec() >= _bubble_until:
-		_bubble.visible = false
+	# BEFORE the pause guard. Opening a conversation pauses the world, and the
+	# old early return left the last ambient chatter bubble frozen over the
+	# dialogue box for the whole beat (seen in rendered frame 03_dialogue,
+	# BUG-052). Two kinds of speech on one screen is not a scene.
+	if _bubble != null and _bubble.visible:
+		if Time.get_ticks_msec() >= _bubble_until:
+			_bubble.visible = false
+		elif dialogue != null and dialogue.is_open():
+			_bubble.visible = false
+			_bubble_until = 0
 	if world_paused or model == null or player == null or dialogue == null:
 		return
 	if dialogue.is_open() or talk_state != Talk.READY:

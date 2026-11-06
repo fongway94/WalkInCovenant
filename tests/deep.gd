@@ -91,6 +91,8 @@ func _run() -> void:
 	_check_bubbles()
 	_check_living_flock()
 	_check_flock_resume()
+	_check_portraits()
+	_check_giant_down()
 	_finish()
 
 
@@ -649,6 +651,12 @@ func _check_fight_input() -> void:
 
 	_check(f._layer.is_connected("gui_input", Callable(f, "_on_layer_gui")),
 		"the duel's screen listens for clicks on its own layer")
+	# The climax used to stretch a 16x16 map sprite to ~128px. Assert the real
+	# drawn sheets are what the shipped setpiece put on screen.
+	_check(f._gol.texture != null and f._gol.texture.get_size().x >= 64.0,
+		"the duel draws Goliath from the 64px duel sheet")
+	_check(f._david.texture != null and f._david.texture.get_size().x >= 32.0,
+		"and David from the 32px duel sheet")
 	_check(int(f.phase) == int(GoliathFight.Phase.TELEGRAPH), "the duel opens by winding up")
 
 	# (1) a press while he winds up is ANSWERED, not swallowed
@@ -1300,6 +1308,33 @@ func _find(region, id: String) -> Npc:
 		if n.npc_id() == id:
 			return n
 	return null
+
+
+## The dialogue box used to show a 16x16 walking sprite blown up to 30px. A
+## drawn 32x32 face must now be preferred, with the old sprite only as a
+## fallback, and the frame must be empty for a line with no speaker.
+func _check_portraits() -> void:
+	var d: DialogueBox = main.region.dialogue
+	d._set_portrait("corin")
+	_check(d.portrait.visible and d.portrait.texture != null,
+		"a named speaker has a portrait in the box")
+	_check(d.portrait.texture != null and d.portrait.texture.get_size().x >= 32.0,
+		"and it is the 32px drawn face, not the 16px walking sprite")
+	d._set_portrait("")
+	_check(not d.portrait.visible, "a narrator leaves the portrait frame empty")
+
+
+## After the third stone the standing champion must leave the ridge. This is a
+## story contradiction a player can see from anywhere in the valley, not just
+## a HUD flag. Restore the sprite so the rest of the suite keeps its world.
+func _check_giant_down() -> void:
+	var g: Sprite2D = main.region.goliath_sprite
+	_check(g != null, "the ridge has a champion before the fall")
+	if g == null:
+		return
+	main.region.set_giant_down()
+	_check(not g.visible, "the ridge empties when the champion falls")
+	g.visible = true
 
 
 func _finish() -> void:

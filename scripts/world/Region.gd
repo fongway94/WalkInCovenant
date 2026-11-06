@@ -174,6 +174,11 @@ func _spawn_props() -> void:
 func _spawn_goliath() -> void:
 	if model.goliath == Vector2i.ZERO:
 		return
+	# Once he has fallen, the ridge is empty. Leaving the standing sprite there
+	# after the duel was a story contradiction a player could see from anywhere
+	# in the valley (found while staging the aftermath frame).
+	if bool(GameState.flag("goliath_down")):
+		return
 	var tex := load("res://art/characters/goliath_idle.png")
 	if tex == null:
 		return
@@ -195,6 +200,14 @@ func _spawn_goliath() -> void:
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_ys.add_child(s)
 	goliath_sprite = s
+
+
+## The duel's result reaches the WORLD, not just the HUD and the save. Called
+## from Main._after_return(); also safe on a reload (the sprite is never
+## spawned at all when the flag is already set).
+func set_giant_down() -> void:
+	if goliath_sprite != null and is_instance_valid(goliath_sprite):
+		goliath_sprite.visible = false
 
 
 func _spawn_player() -> void:

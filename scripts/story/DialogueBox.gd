@@ -37,6 +37,31 @@ signal closed
 signal opened
 
 var panel: PanelContainer = null
+## Statically preloaded: a computed load() path is invisible to Godot's
+## dependency scanner, so the web export could ship a
+## dialogue box with no faces in it. Every actor named in data/regions/*.json
+## is here; tools/check_faces.py fails if the two lists ever drift.
+const FACES := {
+	"boy": preload("res://art/facesets/boy.png"),
+	"corin": preload("res://art/facesets/corin.png"),
+	"david": preload("res://art/facesets/david.png"),
+	"elder": preload("res://art/facesets/elder.png"),
+	"eliab": preload("res://art/facesets/eliab.png"),
+	"goliath": preload("res://art/facesets/goliath.png"),
+	"jesse": preload("res://art/facesets/jesse.png"),
+	"king": preload("res://art/facesets/king.png"),
+	"pharisee": preload("res://art/facesets/pharisee.png"),
+	"pilgrim": preload("res://art/facesets/pilgrim.png"),
+	"priest": preload("res://art/facesets/priest.png"),
+	"samuel": preload("res://art/facesets/samuel.png"),
+	"shepherd": preload("res://art/facesets/shepherd.png"),
+	"soldier": preload("res://art/facesets/soldier.png"),
+	"villager_a": preload("res://art/facesets/villager_a.png"),
+	"villager_b": preload("res://art/facesets/villager_b.png"),
+	"villager_c": preload("res://art/facesets/villager_c.png"),
+	"woman": preload("res://art/facesets/woman.png"),
+}
+
 var portrait: TextureRect = null
 var name_lbl: Label = null
 var text_lbl: Label = null
@@ -121,7 +146,10 @@ func _build_ui() -> void:
 	hbox.add_child(frame)
 
 	portrait = TextureRect.new()
-	portrait.custom_minimum_size = Vector2(30, 30)
+	# 32x32 native: the face is a drawn portrait, not a scaled overworld sprite.
+	# ScreenFit.dialogue() already reserves 32 px for it, so this is the size
+	# the text column was always measured against.
+	portrait.custom_minimum_size = Vector2(32, 32)
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	# Nearest, so a 16x16 face stays crisp when the box scales it up. This
@@ -378,6 +406,15 @@ func _render_line() -> void:
 func _set_portrait(actor: String) -> void:
 	if actor == "":
 		portrait.visible = false
+		return
+	# A 32x32 drawn portrait first. The old code stretched the 16x16 walking
+	# sprite into this frame: three pixels of face, no expression, no light.
+	# Both the face and the sprite use the same palette ramps, so the fallback
+	# (for an actor added to the data before its portrait is drawn) still looks
+	# like the same person rather than a different game.
+	if FACES.has(actor):
+		portrait.texture = FACES[actor]
+		portrait.visible = true
 		return
 	var tex := load("res://art/characters/%s_idle.png" % actor)
 	if tex == null:

@@ -240,6 +240,44 @@ func _run() -> void:
 	await _shot("08_quest_update")
 	_check(main.sheep_home >= 1, "a stray came home and the HUD moved (%d/3)" % main.sheep_home)
 
+	# 13. THE DUEL. The chapter's climax had never been rendered or reviewed:
+	# the previous twelve frames stopped at the shepherd fields. This uses the
+	# shipped GoliathFight — the harness stages it, the setpiece draws itself.
+	# A near-frozen engine clock holds the timing marker still long enough to
+	# photograph the gold band without the fight racing through its phases.
+	Engine.time_scale = 0.08
+	main._spawn_fight()
+	var duel = main.fight
+	await _frames(8)
+	if duel != null and is_instance_valid(duel):
+		duel.phase = 2                    # GoliathFight.Phase.AIM
+		duel._marker = 0.0
+		duel._band = 0.26
+		await _frames(5)
+		_check(duel._gol.texture != null and duel._gol.texture.get_size().x > 16.0,
+			"the giant is the drawn 64px duel figure, not an 8x map sprite")
+		await _shot("13_duel")
+	Engine.time_scale = 6.0
+	if main.fight != null:
+		main.fight.queue_free()
+		main.fight = null
+	await _frames(4)
+
+	# 14. THE AFTERMATH. He is down, so the ridge must be empty, the HUD must
+	# have changed its role, and the chapter's own aftermath objective must be
+	# on screen. Before this frame there was no picture at all of the valley
+	# after the last stone — the single biggest blind spot in the old suite.
+	GameState.set_flag("goliath_down", true)
+	main.act = main.ACT_NAMES.find("aftermath")
+	main.hud.set_role(I18n.t({"en": "pilgrim", "zh": "朝圣者"}),
+		int(GameState.data.get("level", 1)))
+	main.hud.set_objective(I18n.t(main.region.model.objectives.get("aftermath", {})))
+	main.region.set_giant_down()
+	await _frames(6)
+	_check(main.region.goliath_sprite == null or not main.region.goliath_sprite.visible,
+		"the ridge is empty once the champion has fallen")
+	await _shot("14_aftermath")
+
 	# 5. A second region, entered by walking onto its exit and pressing the one
 	# button. The flag the road wants is read from the region's own data, so
 	# this frame survives a change to the chapter's chronology.

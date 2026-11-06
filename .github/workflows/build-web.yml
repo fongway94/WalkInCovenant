@@ -91,7 +91,7 @@ jobs:
       # was only in the raw log, which this project's authoring sandbox cannot
       # reach — so a failure in CI was undiagnosable. One annotation of 3000
       # characters cannot be crowded out by GitHub's ~10-per-run cap.
-      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, pack_art)
+      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, check_faces, pack_art)
         id: static
         continue-on-error: true
         env:
@@ -101,14 +101,20 @@ jobs:
             echo "::warning::python3 unavailable, static checks skipped"
             exit 0
           fi
+          # check_faces reads the committed PNGs and regenerates them in memory
+          # to prove determinism; both need Pillow. The visual job already
+          # installs it on this same runner image. Do not silently skip a gate
+          # if the wheel is missing — a broken face check must go red.
+          python3 -m pip install --quiet pillow || true
           : > static.txt
-          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars; do
+          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces; do
             echo "===== $T =====" >> static.txt
             python3 "tools/$T.py" >> static.txt 2>&1
             echo "exit=$?" >> static.txt
           done
-          # pack_art needs Pillow, which the runner does not ship — try, and
-          # report clearly rather than failing the build on a missing wheel.
+          # pack_art also needs Pillow. It is installed above for check_faces;
+          # keep the explicit guard so a worker without a wheel reports WHY
+          # instead of failing the whole lint job with a traceback.
           echo "===== pack_art =====" >> static.txt
           if python3 -c "import PIL" 2>/dev/null; then
             python3 tools/pack_art.py --check >> static.txt 2>&1
@@ -399,11 +405,14 @@ jobs:
 
       # GitHub TRUNCATES an annotation message at 4096 characters and allows
       # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
-      # each frame is cut into 3800-char chunks, spread round-robin over twelve
-      # short steps. Twelve (rather than the original eight) keeps the per-step
-      # count low now that the harness captures twelve states — boot control,
-      # a 2x Chinese-text review, sheep interaction, quest update, 4:3 layout
-      # and a real fade. tools/decode_frames.py reassembles by name/index.
+      # each frame is cut into 3800-char chunks, spread round-robin over
+      # fourteen short steps. Fourteen keeps the per-step count low now that the
+      # harness captures fourteen states — boot control, a 2x Chinese-text
+      # review, sheep interaction, quest update, the Goliath duel, the valley
+      # after the fall, 4:3 layout and a real fade. ~43 chunks + the notices
+      # stays under GitHub's ~50-annotation/check-run cap (verified at 12
+      # frames = 37 chunks; the two new frames add ~6). tools/decode_frames.py
+      # reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
         run: |
@@ -436,7 +445,7 @@ jobs:
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
-          NP = 12
+          NP = 14
           buckets = [[] for _ in range(NP)]
           for i, line in enumerate(lines):
               buckets[i % NP].append(line)

@@ -2,9 +2,8 @@
 # The imported-asset cache. Regenerated on every open; never commit it.
 .godot/
 
-# NOTE: *.import metadata files ARE committed — they hold import settings
-# (nearest filtering, mipmaps off, etc.) and losing them silently re-blurs
-# every sprite in the project.
+# No .import files are committed: CI runs `godot --headless --import` before
+# every suite and export, which regenerates them from the committed PNGs.
 
 # Android export build directory
 /android/
@@ -30,6 +29,9 @@ assets/_eval/          # scratch scenes from the ART.md §4 evaluation protocol
 # Keep the provenance + credits even though the packs themselves are ignored.
 !assets/LICENSES.md
 !assets/**/CREDITS.md
+
+# Web research downloads (image_search) are scratch, never shipped art.
+image-search/
 
 # Review scratch: nearest-neighbour upscales used to judge art by eye.
 # The SHIPPED art (art/tiles, art/characters, art/props) is committed, matching

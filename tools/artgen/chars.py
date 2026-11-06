@@ -248,6 +248,46 @@ def _figure(dir_, frame, s):
         cv.px(sx - 2, BY, c("linen", 5))
         cv.px(sx - 2, BY + 4, c("linen", 5))
 
+    # ── silhouette ────────────────────────────────────────────────────────
+    # A cast is not a palette swap. At 16 px the readable differences are
+    # SHAPE: what hangs off the shoulder, what is carried, and where the hem
+    # falls. These four marks are drawn after the robe so they change the
+    # outline, not just the colour — that is what stops David, Jesse, Samuel,
+    # Saul, a soldier and Goliath from being the same little man.
+    if s.get("mantle"):
+        mr = s["mantle"] if isinstance(s["mantle"], str) else "wool"
+        def M(i): return c(mr, i)
+        # a cloak over BOTH shoulders with a broken, woolly hem, plus one
+        # diagonal fold down the lit side
+        cv.hline(sx - 1, BY - 1, span + 2, M(1))    # dark yoke, not a bright bar
+        cv.hline(sx - 1, BY, 3, M(2))
+        cv.hline(sx + span - 2, BY, 3, M(0))
+        cv.vline(sx - 1, BY + 1, 2, M(1))           # cape hangs off both arms
+        cv.vline(sx + span, BY + 1, 2, M(0))
+        cv.px(sx - 1, BY + 3, M(0))                 # broken, woolly hem
+        cv.px(sx + span, BY + 3, M(0))
+        cv.line(sx + 1, BY + 1, sx + 4, BY + 3, M(2))
+        cv.px(sx + 2, BY - 1, M(3))                 # the clasp catches light
+    if s.get("satchel"):
+        # David's shepherd bag (1 Sam 17:40): strap, flap, and a stone showing
+        bx = sx + span
+        cv.line(sx + 2, BY + 1, bx + 1, BY + 4, c("wood", 2))
+        cv.rect(bx, BY + 3, 3, 3, c("wool", 2))
+        cv.hline(bx, BY + 3, 3, c("wool", 3))
+        cv.px(bx + 1, BY + 4, c("stone", 3))
+    if s.get("spear"):
+        stx = sx + span + 2
+        cv.vline(stx, hy - 1, CHAR_H - hy, c("wood", 2))
+        cv.tri(stx - 1, hy - 1, stx + 1, hy - 1, stx, hy + 3, c("iron", 4))
+        cv.px(stx, hy - 1, c("iron", 5))
+        cv.hline(stx - 1, BY + 3, 3, c("iron", 2))
+    if s.get("crest") and helm:
+        # the champion's helm crest: three short plumes above the bowl
+        for dx in (-2, 0, 2):
+            cv.px(hx + hw + dx, hy - 2, c("blood", 2))
+            cv.px(hx + hw + dx, hy - 1, c("blood", 3))
+        cv.hline(hx + hw - 3, hy - 1, 7, c("bronze", 2))
+
     cv.outline()
     return cv
 
@@ -266,28 +306,29 @@ CHARS = {
     "corin":   dict(robe="robe_scribe", skin="skin", hair="hair_dark",
                     trim="gold", hood=False, scroll=True),
     "soldier": dict(robe="robe_soldier", skin="skin", hair="hair_dark",
-                    trim="iron", helm=True),
+                    trim="iron", helm=True, spear=True),
     "woman":   dict(robe="robe_woman", skin="skin", hair="hair_dark",
                     trim="gold", veil=True),
     "david":   dict(robe="robe_david", skin="skin", hair="hair_red",
-                    trim="gold", sling=True),
+                    trim="gold", sling=True, mantle="wool", satchel=True),
     "elder":   dict(robe="robe_elder", skin="skin", hair="hair_grey",
-                    trim="gold", beard=True),
+                    trim="gold", beard=True, mantle="wool"),
     "priest":  dict(robe="robe_priest", skin="skin", hair="hair_dark",
-                    trim="gold", headcloth=True),
+                    trim="gold", headcloth=True, mantle="linen"),
     "pharisee": dict(robe="robe_pharisee", skin="skin", hair="hair_dark",
                      trim="linen", headcloth=True, beard=True),
     "goliath": dict(robe="robe_giant", skin="skin", hair="hair_dark",
-                    trim="bronze", helm=True, big=True, beard=True),
+                    trim="bronze", helm=True, big=True, beard=True,
+                    spear=True, crest=True, mantle="bronze"),
     "boy":     dict(robe="robe_soldier", skin="skin", hair="hair_dark",
                     trim="iron"),
     "villager_a": dict(robe="robe_david", skin="skin", hair="hair_dark", trim="wool"),
     "villager_b": dict(robe="robe_woman", skin="skin", hair="hair_grey", trim="wool", veil=True),
     "villager_c": dict(robe="robe_elder", skin="skin", hair="hair_grey", trim="wool", beard=True),
     "shepherd": dict(robe="robe_pilgrim", skin="skin", hair="hair_dark",
-                    trim="wool", staff=True, headcloth=True),
+                    trim="wool", staff=True, headcloth=True, mantle="wool"),
     "king":    dict(robe="robe_king", skin="skin", hair="hair_grey",
-                    trim="gold", beard=True, crown=True),
+                    trim="gold", beard=True, crown=True, mantle="blood"),
     # NOTE: Bethlehem's household — jesse, eliab, samuel — is NOT drawn here.
     # Those three are variations of the rigs above, made by tools/char_variants.py,
     # so one body and one palette stay in use across the whole cast. Adding them
