@@ -568,3 +568,39 @@ by the current generator, and no external asset pack was vendored.
 > first-pass original craft whose world value separation measurably recovered.
 > It remains one reversible opt-in scene. No PR, no merge to `main`, no deploy;
 > live Pages still serves `5d1c5ff`.
+
+### 12.6 User art-preference signal (2026-11-10) — NOT yet a direction change
+
+The user attached `docs/art-reset/user_selected_reference.png` (a 681×348 crop
+of the **Direction B "Rich Cinematic"** concept source,
+`prototypes/B_cinematic_source.png`) and said: *"this particular graphic image
+... is impressive for me. if i am the player i will be attracted to this."*
+They asked whether the current upgraded graphic is on par with it.
+
+**Answer given: no.** The comparison sheet is
+`diagnosis/12_user_reference_vs_current.png`. Measured at a common 320×180:
+
+| | reference B | current real frame 16 |
+|---|---|---|
+| distinct RGB colours (native) | 135,490 | 48 (CI transport; shipped atlas ≈70) |
+| edge density | 0.445 | 0.203 |
+| world value spread | 22.2 | 17.8 |
+| kind | painted golden-hour illustration, no UI, no tile grid, no animation | 320×180 pixel-art game frame with HUD + dialogue panel |
+
+The reference has long directional cast shadows, a winding stone path,
+dry-stone walls, individually rendered grass clumps and leaf masses, foreground
+occlusion, atmospheric haze and volumetric figures. The current frame has
+16px geometric silhouettes, a 49-cell tile atlas and translucent value planes.
+The gap is **original manual art**, not a colour or lighting tweak.
+
+Two honest caveats were stated with the answer:
+
+1. The reference is a **painterly illustration, not pixel art**. Matching it
+   exactly would move away from the brief's Nintendo DS-era pixel-art benchmark
+   (consistent 16px grid, animation frames, tile seams). It can be a lighting /
+   composition / richness target, but it cannot be dropped into the game as an
+   asset.
+2. Direction C was **assistant-selected** in this report. This is the first
+   explicit user preference for a different concept. **No direction change has
+   been made** — the classic default, the opt-in C scene, all baselines and all
+   CI gates are unchanged pending the user's decision.
