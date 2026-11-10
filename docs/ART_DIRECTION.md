@@ -170,9 +170,10 @@ Direction B is implemented for the **same one opt-in scene only**
 indices, every walk/idle/sway/water/prop animation frame and every timer. B adds
 a warm 49-cell terrain atlas, 13 props, 4 character sheets, a dusk-slate/gold
 UI skin, camera-relative golden-hour ground light, long cast shadows and an
-animated upper-left rim light on moving figures. Real CI `42798442187` is green:
-16 frames, `deep 143`, browser 30/0, deploy skipped; the reviewed frame 16 was
-promoted as `baseline_16_shepherd_cinematic.png`.
+animated upper-left rim light on moving figures. Real CI `42798442187` is green
+on all game jobs; final all-green `42803804441` also carries the browser-harness
+jitter fix: 16 frames, `deep 143`, browser 30/0, deploy skipped. The reviewed
+frame 16 was promoted as `baseline_16_shepherd_cinematic.png`.
 
 This file remains the **contract for the shipped classic art**. The default
 atlas, gameplay, state, collision, input, quests, save format, every other

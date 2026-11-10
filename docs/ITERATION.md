@@ -691,13 +691,17 @@ What changed, in one reversible opt-in scene only:
 - The first B CI (`42793930036`) failed the visual gate (0.257 stale-baseline
   diff) and lost one frame chunk to GitHub's 50-annotation cap. Fixed by
   removing the stale baseline, 24-colour undithered transport and 4000-char
-  chunks. `42798442187` is green: lint / visual / export-web / browser success,
-  deploy skipped; `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS —
-  143 checks hold`, browser `30/0` with no console or page errors.
-- All 16 frames decoded; `visual_diff.py` clean; reviewed real frame 16
-  promoted to `baseline_16_shepherd_cinematic.png`.
-- Measured B v2 world value spread **20.5** (first B 16.1, C 17.7, classic
-  20.4, B concept 22.6) and world luma **68.0** (first B 58.0, concept 86.6).
+  chunks. `42798442187` was green on all game jobs. A docs-only run
+  (`42800296661`) then exposed a browser-harness resonance (143 presses, no
+  win); `tests/browser/validate.cjs` gained ±200 ms jitter. Final all-green
+  `42803804441`: lint / visual / export-web / browser success, deploy skipped;
+  `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143 checks hold`,
+  browser `30/0` with no console or page errors, `DUEL presses=37 won=True`.
+- All 16 frames decoded from the final run; `visual_diff.py` clean (frame 16
+  0.0016); reviewed real frame 16 promoted to
+  `baseline_16_shepherd_cinematic.png`.
+- Measured B v2 world value spread **20.4** (first B 16.1, C 17.7, classic
+  20.3, B concept 22.6) and world luma **67.9** (first B 58.0, concept 86.6).
   Edge density remains 0.20 vs the concept's 0.45; the concept has 135,490
   distinct RGB colours. These are real-frame measurements, not a claim of
   parity or beauty.

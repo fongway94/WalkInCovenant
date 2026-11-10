@@ -692,46 +692,57 @@ copied, downloaded or viewed.
 
 #### 12.7.1 Real CI verification of Direction B v2 (2026-11-10)
 
-**CI `42798442187` at `1f2ed32`** — the first B attempt (`42793930036` at
-`2011067`) failed the visual gate with a deliberate 0.257 baseline diff and hit
-GitHub's 50-annotation cap, losing one frame chunk. Both were fixed: the stale
-C baseline was removed until the B frame was reviewed, and the transport was
-changed to 24 undithered colours / 4000-char chunks. The v2 run is green:
+**Final all-green CI `42803804441` at `03ccb81`** (code CI `42798442187` at
+`1f2ed32` was already green on all game jobs). The first B attempt
+(`42793930036` at `2011067`) failed the visual gate with a deliberate 0.257
+baseline diff and hit GitHub's 50-annotation cap, losing one frame chunk. Both
+were fixed: the stale C baseline was removed until the B frame was reviewed,
+and the transport changed to 24 undithered colours / 4000-char chunks. A
+docs-only commit then exposed a **browser-harness flake**, not a game
+regression: run `42800296661` reported `DUEL presses=143 won=False` because a
+fixed 840 ms `Space` cadence resonated with the duel's 0.80/0.55/1.29 s phase
+and marker periods. `tests/browser/validate.cjs` now adds ±200 ms jitter and a
+180 s ceiling; the same hard check (real IDBFS save must report
+`goliath_down=true`) passes in `42803804441` with
+`DUEL presses=37 won=True`. Jobs:
 
 | Job | Result |
 |---|---|
 | `lint` | success — `gd_lint`, `api_check`, `check_art_reset`, `check_craft_props`, `check_cinematic_art`, `pack_art --check` and the other stdlib gates pass. |
 | `visual` | success — 16 real Godot frames, all base64 chunks decoded (no incomplete frames). |
 | `export-web` | success. |
-| `browser` | success — `chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0 pageErrors=0`; duel won, save rewritten, mute and audio telemetry checked. |
+| `browser` | success — `chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0 pageErrors=0`; `DUEL presses=37 won=True`, save rewritten, mute and audio telemetry checked. |
 | `deploy` | skipped by design. |
 
 Annotations from the lint job still read `run_all: ALL CHECKS PASSED`,
 `smoke: PASS — the slice played start to finish`, `deep: PASS — 143 checks hold`.
 No console or page errors. `PYTHONPATH=/tmp/wic_pil python3 tools/visual_diff.py`
-reports all 16 frames clean (limit 0.18); frame 15 diff 0.0240, frame 16 diff
-0.0000 after promoting the reviewed real frame to
+reports all 16 frames clean against the final decoded run (limit 0.18);
+frame 15 diff 0.0241, frame 16 diff 0.0016 against the reviewed real baseline
+promoted earlier from `42798442187` to
 `tests/frames/baseline_16_shepherd_cinematic.png`.
 
-**Measured v2 result** (`comparison/real_engine_metrics.json`, 320×180):
+**Measured v2 result** (`comparison/real_engine_metrics.json`, final decoded
+run `42803804441`, 320×180; the ±0.1 variation from `42798442187` is the
+24-colour CI transport, not a code change):
 
 | | classic frame 15 | Direction C final | Direction B v2 | B concept, fitted |
 |---|---|---|---|---|
-| world luma mean | 77.7 | 72.2 | **68.0** (first B: 58.0) | 86.6 |
-| world value spread | 20.4 | 17.7 | **20.5** (first B: 16.1) | 22.6 |
-| global luma std | 40.5 | 68.1 | 34.1 | 37.4 |
+| world luma mean | 77.7 | 72.2 | **67.9** (first B: 58.0) | 86.6 |
+| world value spread | 20.3 | 17.7 | **20.4** (first B: 16.1) | 22.6 |
+| global luma std | 40.6 | 68.1 | 34.3 | 37.4 |
 | edge density | 0.20 | 0.20 | 0.20 | 0.45 |
 | distinct RGB colours | 48 (transport) | 48 (transport) | ≈70 shipped atlas | 135,490 |
 
-B v2 recovers the world value hierarchy from the first B attempt and slightly
-exceeds the classic proxy, but it is still **18.6 luma darker** and roughly
-**half as edge-dense** as the painterly concept. The classic 20.4 spread is
+B v2 recovers the world value hierarchy from the first B attempt and matches
+the classic proxy, but it is still **18.7 luma darker** and roughly
+**half as edge-dense** as the painterly concept. The classic 20.3 spread is
 inflated by its dark HUD scrim bleeding into world rows 24–40; C's 68.1 global
 luma std comes mostly from its bright parchment UI, not world depth. No number
 here proves beauty.
 
-**Reviewed by eye** at 3× nearest (`/tmp/16_B_v2_3x.png`), native, 1280×720
-desktop and 844×390 mobile sizes, plus grayscale:
+**Reviewed by eye** at 3× nearest, native, 1280×720 desktop and 844×390 mobile
+sizes, plus grayscale:
 `diagnosis/16_B_engine_vs_reference.png`,
 `diagnosis/17_B_engine_vs_reference_grayscale.png`,
 `diagnosis/15_direction_progression_2x.png`,
