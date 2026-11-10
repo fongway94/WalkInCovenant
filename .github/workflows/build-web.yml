@@ -27,6 +27,11 @@ on:
     # also publish. The live URL is how the game is playtested before a merge.
     branches: [main, 'arena/**']
   workflow_dispatch:
+    inputs:
+      publish_preview:
+        description: 'Publish the working-branch build to GitHub Pages (requires explicit approval)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -685,6 +690,149 @@ jobs:
           name: web
           path: build/web
 
+  # ── real browser validation ──────────────────────────────────────────────
+  # Godot headless tests do not prove the exported WASM game boots. This job
+  # serves the ACTUAL web artifact over a local HTTP server and opens it in a
+  # real Chromium (Playwright), driving keyboard, mouse and touch, reading the
+  # IndexedDB save, checking WebGL/WebAudio and photographing five layouts.
+  # Screenshots and the structured log come back as check-run annotations so
+  # the authoring sandbox — which cannot reach the artifact host — can review
+  # them with tools/decode_browser_frames.py.
+  browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIC_NB: 12
+      WIC_STRICT: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+          node -e "console.log('playwright', require('/tmp/wicpw/node_modules/playwright/package.json').version)"
+
+      - name: Serve the export and open it in Chromium
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          WIC_OUT: build/browser
+          WIC_URL: http://127.0.0.1:8080/index.html
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory build/web > build/browser-server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/index.html > /dev/null && break
+            sleep 1
+          done
+          node tests/browser/validate.cjs
+
+      - name: Prepare evidence annotations
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import base64, glob, json, os
+          from PIL import Image
+          os.makedirs("build/browser/ann", exist_ok=True)
+          CH = 3800
+          lines = []
+          files = sorted(glob.glob("build/browser/shots/*.png"))
+          if not files:
+              print("::warning::browser job produced no screenshots")
+          for f in files:
+              name = os.path.basename(f)[:-4]
+              im = Image.open(f).convert("RGB")
+              im.thumbnail((640, 640), Image.LANCZOS)
+              im.quantize(colors=48).save("build/browser/ann/" + name + ".png", optimize=True)
+              raw = base64.b64encode(open("build/browser/ann/" + name + ".png", "rb").read()).decode()
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              for i, part in enumerate(parts):
+                  lines.append("::notice::WICBROWSER|%s|%d|%d|%s" % (name, i, len(parts), part))
+          lp = "build/browser/log.json"
+          if os.path.isfile(lp):
+              raw = base64.b64encode(open(lp, "rb").read()).decode()
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              for i, part in enumerate(parts):
+                  lines.append("::notice::WICBROWSERLOG|%d|%d|%s" % (i, len(parts), part))
+              try:
+                  d = json.load(open(lp))
+                  s = d.get("summary", {})
+                  lines.append("::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
+                               (d.get("chromium"), s.get("checks"), s.get("failedChecks"),
+                                s.get("consoleErrors"), s.get("pageErrors")))
+                  for c in d.get("checks", []):
+                      if not c.get("ok"):
+                          lines.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
+                  for t in d.get("notes", []):
+                      lines.append("::notice::WICBROWSERTEXT|NOTE %s" % t[:300])
+              except Exception as e:
+                  lines.append("::notice::WICBROWSERTEXT|log parse failed: %s" % e)
+          NB = int(os.environ.get("WIC_NB", "12"))
+          buckets = [[] for _ in range(NB)]
+          for i, line in enumerate(lines):
+              buckets[i % NB].append(line)
+          for i, b in enumerate(buckets):
+              open("build/browser/ann/part_%d.txt" % i, "w").write("\n".join(b) + ("\n" if b else ""))
+          print("prepared %d chunk(s) in %d parts for %d screenshot(s)" % (len(lines), NB, len(files)))
+          PUB = 0
+          NEEDLE = "name: Publish browser" + " chunk"
+          for line in open(".github/workflows/build-web.yml", encoding="utf-8"):
+              PUB += line.count(NEEDLE)
+          if PUB < NB:
+              raise SystemExit("only %d publish steps for NB=%d - evidence would be lost" % (PUB, NB))
+          PY
+
+      - name: Publish browser chunk 1/12
+        if: always()
+        run: '[ -f build/browser/ann/part_0.txt ] && cat build/browser/ann/part_0.txt || true'
+      - name: Publish browser chunk 2/12
+        if: always()
+        run: '[ -f build/browser/ann/part_1.txt ] && cat build/browser/ann/part_1.txt || true'
+      - name: Publish browser chunk 3/12
+        if: always()
+        run: '[ -f build/browser/ann/part_2.txt ] && cat build/browser/ann/part_2.txt || true'
+      - name: Publish browser chunk 4/12
+        if: always()
+        run: '[ -f build/browser/ann/part_3.txt ] && cat build/browser/ann/part_3.txt || true'
+      - name: Publish browser chunk 5/12
+        if: always()
+        run: '[ -f build/browser/ann/part_4.txt ] && cat build/browser/ann/part_4.txt || true'
+      - name: Publish browser chunk 6/12
+        if: always()
+        run: '[ -f build/browser/ann/part_5.txt ] && cat build/browser/ann/part_5.txt || true'
+      - name: Publish browser chunk 7/12
+        if: always()
+        run: '[ -f build/browser/ann/part_6.txt ] && cat build/browser/ann/part_6.txt || true'
+      - name: Publish browser chunk 8/12
+        if: always()
+        run: '[ -f build/browser/ann/part_7.txt ] && cat build/browser/ann/part_7.txt || true'
+      - name: Publish browser chunk 9/12
+        if: always()
+        run: '[ -f build/browser/ann/part_8.txt ] && cat build/browser/ann/part_8.txt || true'
+      - name: Publish browser chunk 10/12
+        if: always()
+        run: '[ -f build/browser/ann/part_9.txt ] && cat build/browser/ann/part_9.txt || true'
+      - name: Publish browser chunk 11/12
+        if: always()
+        run: '[ -f build/browser/ann/part_10.txt ] && cat build/browser/ann/part_10.txt || true'
+      - name: Publish browser chunk 12/12
+        if: always()
+        run: '[ -f build/browser/ann/part_11.txt ] && cat build/browser/ann/part_11.txt || true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-evidence
+          path: build/browser
+
   # ── publish to GitHub Pages ──────────────────────────────────────────────
   # Creating a Pages site requires repository admin, which neither this
   # workflow's GITHUB_TOKEN nor an automated agent token is granted:
@@ -707,7 +855,11 @@ jobs:
     # Pages Jekyll-build the repository ROOT and serve README.md instead of the
     # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
     # artifact check below exists. `build_type` must stay `workflow`.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/46955931-walkincovenant'
+    # `main` publishes automatically. A working branch publishes ONLY when a
+    # human explicitly asks for it via workflow_dispatch with publish_preview
+    # checked. Every ordinary push (including the validation pushes for this
+    # milestone) builds and browser-tests without touching the live Pages site.
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:
       name: github-pages

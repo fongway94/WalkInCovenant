@@ -170,12 +170,17 @@ worker is stamped with the commit SHA so it busts its own cache on update.
 
 There is **one** Pages site per repository, so a branch preview is not a second
 URL: it replaces the live site with the branch build until the next `main` push
-(or the merge) republishes `main`. The `deploy` job allows `main` plus the
-explicitly named preview branch in `.github/workflows/build-web.yml`. GitHub
-also gates deployments by environment: Settings → Environments →
+(or the merge) republishes `main`. `main` publishes on push; a working branch
+publishes **only** when a human runs the workflow manually with
+`publish_preview` checked (`gh workflow run build-web.yml --ref <branch> -f
+publish_preview=true`). Every ordinary branch push builds and browser-validates
+without republishing Pages — this is deliberate: during the final-validation
+milestone no further deploy is authorised. GitHub also gates deployments by
+environment: Settings → Environments →
 `github-pages` → Deployment branches must list that branch. The current policy
 lists `main`, `arena/46955931-walkincovenant` and
-`arena/b60cd21d-walkincovenant`; adding a branch to the workflow without adding
+`arena/b60cd21d-walkincovenant`; a manual preview still needs the branch in that
+policy, so adding a branch to the workflow without adding
 it to that policy makes its deploy job fail. Verify after any preview deploy:
 
 ```bash
