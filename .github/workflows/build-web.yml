@@ -1067,5 +1067,12 @@ jobs:
         if: steps.pages.outcome == 'success'
         # v4 targets Node20 and is force-run on Node24 on current runners;
         # its status polling timed out on the 2026-11-10 preview deployment.
-        # v5.0.1 is native Node24 with backoff/jitter status polling.
+        # v5.0.1 is native Node24 with backoff/jitter status polling. Run
+        # 42837952729 still hit the action's DEFAULT ten-minute timeout while
+        # the Pages service had this deployment `in_progress`; give the service
+        # 20 minutes and poll less aggressively before declaring a failure.
         uses: actions/deploy-pages@v5.0.1
+        with:
+          timeout: 1200000
+          error_count: 20
+          reporting_interval: 10000
