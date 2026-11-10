@@ -596,19 +596,23 @@ async function waitBoot(page, label) {
   await sp.waitForTimeout(1400);
   await shot(sp, 'goliath_02_duel');
 
-  // One press per 0.84 s. The marker takes 1.29 s for a full sweep, so each
-  // round's first press lands at a different point on the forehead band; over
-  // the five stones plus the brook resupply three hits land. Presses also
-  // advance the intro, victory and ending dialogue. Poll the real save for the
-  // win flag rather than trusting a screenshot to mean "won".
+  // Roughly one press per 0.84 s. A FIXED 840 ms cadence can resonate with
+  // the duel's 0.80/0.55/1.29 s phase/marker periods: on a slow runner the
+  // first AIM press repeated at the same miss point forever (browser run
+  // 42800296661, 143 presses, goliath_down=false). A +/-200 ms jitter breaks
+  // that lockstep without weakening the check — the real save still has to
+  // report three landed stones. Presses also advance the intro, victory and
+  // ending dialogue. Poll the real save rather than trusting a screenshot.
   let won = false, presses = 0;
   const fightStart = Date.now();
-  const fightMs = parseInt(process.env.WIC_FIGHT_MS || '150000', 10);
+  const fightMs = parseInt(process.env.WIC_FIGHT_MS || '180000', 10);
   const cadence = 840;
+  const jitter = 400;
   while (Date.now() - fightStart < fightMs && !won) {
     await sp.keyboard.press('Space');
     presses++;
-    await sp.waitForTimeout(cadence);
+    const delay = Math.max(200, cadence + (Math.random() - 0.5) * jitter);
+    await sp.waitForTimeout(delay);
     const s = await readSave(sp);
     if (s && s.flags && s.flags.goliath_down === true) won = true;
     if (presses === 8) await shot(sp, 'goliath_02_duel');
