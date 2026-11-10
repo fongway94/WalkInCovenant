@@ -96,7 +96,7 @@ jobs:
       # was only in the raw log, which this project's authoring sandbox cannot
       # reach — so a failure in CI was undiagnosable. One annotation of 3000
       # characters cannot be crowded out by GitHub's ~10-per-run cap.
-      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, check_faces, pack_art)
+      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, check_faces, check_art_reset, check_craft_props, pack_art)
         id: static
         continue-on-error: true
         env:
@@ -109,7 +109,7 @@ jobs:
           # check_faces is deliberately stdlib-only: the lint container has no
           # pip, and a gate that cannot run in CI must not be skipped silently.
           : > static.txt
-          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset; do
+          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset check_craft_props; do
             echo "===== $T =====" >> static.txt
             python3 "tools/$T.py" >> static.txt 2>&1
             echo "exit=$?" >> static.txt

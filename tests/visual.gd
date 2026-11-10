@@ -259,9 +259,12 @@ func _run() -> void:
 
 			# 6c. THE SAME FRAME IN THE SELECTED ART DIRECTION. Nothing moves:
 			# the camera, the flock, the NPC, the open dialogue page and the
-			# Chinese text are identical. Only the opt-in terrain palette and
-			# the UI skin change, so this is a true before/after rendered by
-			# the shipped engine, not a mock-up (docs/ART-RESET.md §7).
+			# Chinese text are identical. The opt-in theme swaps the terrain
+			# atlas, the UI skin, hand-authored prop/character silhouettes, one
+			# shared contact-shadow light and far/middle/near value planes.
+			# Everything is still rendered by the shipped engine, not a mock-up
+			# (docs/ART-RESET.md §7 and §9). The classic theme is restored
+			# immediately afterwards, so frames 07-14 are unchanged.
 			if main.has_method("apply_art_theme"):
 				main.call("apply_art_theme", "storybook")
 				await _frames(8)

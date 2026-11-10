@@ -164,7 +164,7 @@ LINE2 = "你去把它们带回来。」"
 
 def hexrgb(h: str):
     h = h.lstrip("#")
-    return (int(h[0:2], 16), int(h[1:3], 16), int(h[3:5], 16))
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
 def palette_image(colors):

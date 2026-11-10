@@ -44,6 +44,10 @@ var dialogue: DialogueBox = null
 var goliath_sprite: Sprite2D = null
 
 var _ys: Node2D = null
+var _shadow_layer: Node2D = null
+## {sprite: Sprite2D, key: String} — kept so the opt-in art direction can swap
+## prop textures without rebuilding the world (which would drop quest state).
+var _prop_sprites: Array = []
 var _mod: CanvasModulate = null
 var _props_meta: Dictionary = {}
 var _tiles_meta: Dictionary = {}
@@ -104,6 +108,12 @@ func _build() -> void:
 	terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	add_child(terrain)
 
+	# Ground shade belongs BETWEEN the tiles and the y-sorted sprites. It is
+	# disabled in the classic build; apply_art_theme() enables it for the one
+	# integrated scene (docs/ART-RESET.md §6).
+	_shadow_layer = load("res://scripts/world/ContactShadowLayer.gd").new()
+	add_child(_shadow_layer)
+
 	# Before anything that talks. Npc.setup() is handed the dialogue box by
 	# reference, and it used to be built after _spawn_npcs() — so every person in
 	# the valley held null, talk() hit its guard and returned, and pressing A
@@ -155,6 +165,8 @@ func _spawn_props() -> void:
 		s.position = Vector2(cx, cy - h * 0.5)
 		s.z_index = 0
 		_ys.add_child(s)
+		_prop_sprites.append({"sprite": s, "key": key})
+		_shadow_layer.call("add_target", s, w * 0.42, 2.6)
 		if SWAY_KEYS.has(key):
 			_swayers.append({"sprite": s, "x": cx, "y": cy - h * 0.5,
 				"phase": float(tx) * 0.37 + float(ty) * 0.19})
@@ -216,6 +228,7 @@ func _spawn_player() -> void:
 	player.global_position = Vector2(sp.x * TILE + TILE * 0.5, (sp.y + 1) * TILE - 2)
 	player.setup(model, "pilgrim")
 	_ys.add_child(player)
+	_shadow_layer.call("add_target", player, 12.0, 2.4)
 
 
 func _spawn_npcs() -> void:
@@ -226,6 +239,7 @@ func _spawn_npcs() -> void:
 		n.setup(model, nd, player, dialogue, set_paused)
 		_ys.add_child(n)
 		npcs.append(n)
+		_shadow_layer.call("add_target", n, 12.0, 2.4)
 
 
 ## Add one person after load. Saul is not standing in the camp when the chapter
@@ -236,6 +250,7 @@ func spawn_npc(d: Dictionary) -> Npc:
 	n.setup(model, d, player, dialogue, set_paused)
 	_ys.add_child(n)
 	npcs.append(n)
+	_shadow_layer.call("add_target", n, 12.0, 2.4)
 	return n
 
 
@@ -283,12 +298,13 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 			sp.scale = Vector2(0.85, 0.85)
 			node.add_child(sp)
 	_ys.add_child(node)
+	_shadow_layer.call("add_target", node, 10.0, 2.0)
 	var catch_range := PICK_RANGE
 	if kind == "flock":
 		catch_range = FLOCK_PICK_RANGE
 	pickups.append({"id": id, "kind": kind, "node": node, "got": false,
-		"guided": false, "range": catch_range,
-		"ref": extra.get("ref", ""), "data": extra})
+			"guided": false, "range": catch_range, "sprite_key": sprite,
+			"ref": extra.get("ref", ""), "data": extra})
 
 
 func _on_sheep_reacted(id: String, mood: int) -> void:
@@ -646,19 +662,68 @@ func set_act(a: String) -> void:
 		npc.act_name = a
 
 
-## Opt-in terrain theme for the ART DIRECTION RESET prototype. The classic atlas
-## stays the default. The storybook atlas has the SAME 16px cells, the SAME 49
-## indices and the SAME data/tiles.json, so collision, footstep surfaces, the
-## water animation and every save file are untouched by the swap.
+## Opt-in art direction for the ART DIRECTION RESET prototype. The classic atlas
+## AND the classic props/sprites stay the default. The storybook atlas has the
+## SAME 16px cells, the SAME 49 indices and the SAME data/tiles.json, so
+## collision, footstep surfaces, the water animation and every save file are
+## untouched by the swap. Everything below is a TEXTURE / DRAW layer only.
+##
+## §6 of docs/ART-RESET.md demanded real craft, not another palette: the second
+## pass adds hand-authored silhouettes, one shared contact-shadow light, and
+## far/middle/near value planes drawn inside the terrain canvas.
 func apply_art_theme(theme: String) -> void:
 	if terrain == null or model == null:
 		return
+	var story := theme == "storybook"
 	var path := "res://art/tiles/terrain.png"
-	if theme == "storybook":
+	if story:
 		path = "res://art/tiles/terrain_storybook.png"
 	var tex := load(path) as Texture2D
 	if tex != null:
 		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
+	terrain.set_storybook_depth(story)
+	# Crafted props are OPT-IN per key: anything without a crafted variant keeps
+	# its classic sprite, so no prop ever disappears and no footprint changes.
+	for p in _prop_sprites:
+		var d: Dictionary = p
+		var s: Sprite2D = d["sprite"]
+		var key: String = d["key"]
+		var classic := "res://art/props/%s.png" % key
+		var crafted := "res://art/props_storybook/%s.png" % key
+		var chosen := classic
+		if story and ResourceLoader.exists(crafted):
+			chosen = crafted
+		var pt := load(chosen) as Texture2D
+		if pt != null:
+			s.texture = pt
+	# The two actors in this scene have crafted 16px sheets. Other actors keep
+	# their classic sheets (their own apply_art_theme checks for both files).
+	if player != null and is_instance_valid(player):
+		player.apply_art_theme(theme)
+	for n in npcs:
+		var npc: Npc = n
+		npc.apply_art_theme(theme)
+	# The three live sheep and any uncollected ground items are part of the
+	# same picture; swap their textures too, without touching their state.
+	for it in pickups:
+		var p: Dictionary = it
+		var node: Node2D = p.get("node")
+		if node == null or not is_instance_valid(node):
+			continue
+		if node.has_method("apply_art_theme"):
+			node.call("apply_art_theme", theme)
+		else:
+			var key := str(p.get("sprite_key", "rock"))
+			var chosen := "res://art/props/%s.png" % key
+			var crafted := "res://art/props_storybook/%s.png" % key
+			if story and ResourceLoader.exists(crafted):
+				chosen = crafted
+			for c in node.get_children():
+				if c is Sprite2D:
+					var sp: Sprite2D = c
+					sp.texture = load(chosen)
+	if _shadow_layer != null:
+		_shadow_layer.call("set_enabled", story)
 
 
 func is_paused() -> bool:

@@ -51,6 +51,10 @@ var _cool_until := 0
 const TALK_COOLDOWN_MS := 500
 
 var sprite: Sprite2D = null
+## Sheet directory. The crafted sheets are opt-in per actor (see
+## apply_art_theme); an actor without both crafted sheets keeps classic art.
+var art_dir := "res://art/characters"
+var actor_id := "villager_a"
 var facing := Vector2i(0, 1)
 var _path := PackedVector2Array()
 var _path_i := 0
@@ -104,11 +108,11 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 	player = p
 	dialogue = dlg
 	pause_fn = pause
-	var actor: String = d.get("actor", "villager_a")
+	actor_id = str(d.get("actor", "villager_a"))
 	sprite = Sprite2D.new()
 	sprite.centered = true
 	sprite.offset = Vector2(0, -8)
-	sprite.texture = load("res://art/characters/%s_idle.png" % actor)
+	sprite.texture = load("%s/%s_idle.png" % [art_dir, actor_id])
 	sprite.hframes = 2
 	sprite.vframes = 4
 	add_child(sprite)
@@ -124,6 +128,20 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 	# id, because Bethlehem has an elder as well.
 	if bool(GameState.flag(_talked_key())):
 		_talked = true
+
+
+## The crafted sheet swap is per actor and reversible. Nothing about patrol,
+## dialogue, flags or save data is involved.
+func apply_art_theme(theme: String) -> void:
+	var d := "res://art/characters"
+	if theme == "storybook" \
+			and ResourceLoader.exists("res://art/characters_storybook/%s_idle.png" % actor_id) \
+			and ResourceLoader.exists("res://art/characters_storybook/%s_walk.png" % actor_id):
+		d = "res://art/characters_storybook"
+	art_dir = d
+	if sprite != null:
+		sprite.texture = load("%s/%s_idle.png" % [d, actor_id])
+		sprite.hframes = 2
 
 
 func npc_id() -> String:
@@ -525,14 +543,14 @@ func _update_anim(delta: float) -> void:
 	var row := _dir_row()
 	if _moving:
 		var base: Texture2D = sprite.texture
-		var walk_path := "res://art/characters/%s_walk.png" % data.get("actor", "villager_a")
+		var walk_path := "%s/%s_walk.png" % [art_dir, actor_id]
 		if base == null or base.resource_path != walk_path:
 			sprite.texture = load(walk_path)
 			sprite.hframes = 4
 		_frame += delta * 6.0
 		sprite.frame = int(row * 4 + int(_frame) % 4)
 	else:
-		var idle_path := "res://art/characters/%s_idle.png" % data.get("actor", "villager_a")
+		var idle_path := "%s/%s_idle.png" % [art_dir, actor_id]
 		if sprite.texture == null or sprite.texture.resource_path != idle_path:
 			sprite.texture = load(idle_path)
 			sprite.hframes = 2

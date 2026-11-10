@@ -89,6 +89,28 @@ func setup(id: String, at: Array, fold_at: Array, temper_name: String,
 	add_child(_sprite)
 
 
+## Crafted wool poses are opt-in with the rest of the selected art direction;
+## the animal's behaviour, collision and save flags are untouched.
+func apply_art_theme(theme: String) -> void:
+	var d := "res://art/props"
+	if theme == "storybook" \
+			and ResourceLoader.exists("res://art/props_storybook/sheep.png") \
+			and ResourceLoader.exists("res://art/props_storybook/sheep_graze.png") \
+			and ResourceLoader.exists("res://art/props_storybook/sheep_alert.png"):
+		d = "res://art/props_storybook"
+	_up_tex = load("%s/sheep.png" % d)
+	_graze_tex = load("%s/sheep_graze.png" % d)
+	_alert_tex = load("%s/sheep_alert.png" % d)
+	if _sprite != null and _sprite.texture != null:
+		var cur := _sprite.texture.resource_path
+		if cur.ends_with("sheep_graze.png"):
+			_sprite.texture = _graze_tex
+		elif cur.ends_with("sheep_alert.png"):
+			_sprite.texture = _alert_tex
+		else:
+			_sprite.texture = _up_tex
+
+
 func mood_name() -> String:
 	match mood:
 		Mood.ALERT: return "alert"
