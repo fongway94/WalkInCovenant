@@ -35,8 +35,10 @@ hook). Serve: `python3 -m http.server 8080 --directory build/web`. Browser:
 
 ## 1. Phase 1 — real execution
 
-Run `42754753831` (`b2951a4`), Chromium **158.0.8127.18**, from the actual
-`build/web` produced by `export-web`.
+Evidence run `42754753831` (`b2951a4`) and final re-verification
+`42756324054` (`dae8827`, after the BUG-062 fix), Chromium **158.0.8127.18**,
+from the actual `build/web` produced by `export-web`. Both runs are green; the
+committed PNGs and `log.json` are from the final run.
 
 | Check | Result |
 |---|---|
@@ -147,13 +149,16 @@ Scene-by-scene, from the 14 in-engine frames, the browser frames, and the data:
 | Goliath confrontation | Dodges the spear, times three throws. | **`goliath_02_duel.png`**, browser win | Real browser input reached the setpiece and won. No change. |
 | Aftermath / conclusion | Corin hears it; the ending lines play; free roam. | `goliath_06_corin_talk.png`, `14_aftermath.png` | **One verified defect found and fixed — see BUG-062.** |
 
-**BUG-062 (High, fixed).** The browser's post-ending screenshot showed the HUD
-still saying 「跟着柯林走。他带你去找少年兵。」 — the witness escort chain —
-*after* `elah_ended` had been written. A finished chapter must not point at one
-more NPC. `Main._update_guidance()` now short-circuits on `Act.DONE` /
-`elah_ended` to the `done` objective, with no arrow and no prompt. A regression
-check (`tests/deep.gd::_check_ending_objective`) was added; it fails against
-the old code. No new mechanic was introduced.
+**BUG-062 (P1, found → fixed → verified).** The browser's post-ending
+screenshot showed the HUD still saying 「跟着柯林走。他带你去找少年兵。」 —
+the witness escort chain — *after* `elah_ended` had been written. A finished
+chapter must not point at one more NPC. `Main._update_guidance()` now
+short-circuits on `Act.DONE` / `elah_ended` to the `done` objective, with no
+arrow and no prompt. A regression check
+(`tests/deep.gd::_check_ending_objective`) was added; it fails against the old
+code, `deep: PASS — 143 checks hold` in `42756324054`, and that run's
+`goliath_05_ending.png` now reads 「本章完成 · 山谷安静了」. No new mechanic
+was introduced.
 
 No other pacing, exposition or control weakness was verified in the captured
 frames, so no speculative changes were made.
@@ -205,7 +210,11 @@ with invented dialogue punctuation.
 
 CI (`42754753831`) additionally had `lint`, `visual`, `export-web` and
 `browser` green; `deploy` skipped by design. The BUG-062 fix and its new deep
-check are verified by the run recorded in `docs/BUG_TRACKER.md`.
+check were re-verified in full CI `42756324054` (`dae8827`): `lint`, `visual`,
+`export-web`, `browser` all green, `deploy` skipped; `run_all: ALL CHECKS
+PASSED`, `smoke: PASS`, `deep: PASS — 143 checks hold`, browser 30/30 checks,
+and the corrected post-ending HUD screenshot. The run-by-run trail is in
+`docs/BUG_TRACKER.md`.
 
 ### Release conditions
 

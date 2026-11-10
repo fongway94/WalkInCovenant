@@ -562,14 +562,17 @@ harness is `tests/browser/validate.cjs` and the CI job `browser`.
   HUD. `Main._update_guidance()` short-circuits on `Act.DONE` / `elah_ended`;
   `tests/deep.gd::_check_ending_objective()` is the regression check.
 
-**What the green run `42754753831` (`b2951a4`) proved**
+**What the green runs `42754753831` (`b2951a4`) and `42756324054`
+(`dae8827`) proved**
 
 Chromium 158.0.8127.18 · WebGL2 drawing · 30/30 checks · 0 console errors ·
 0 page errors · 0 failed requests · WebAudio running with 5 buffer starts ·
 mute persisted to `save.json` · save survived a full page reload · five live
 viewport resizes plus portrait guidance · **Goliath duel won in the browser**
 (`goliath_down=true`) · **Corin's after_win conversation and the chapter ending
-played in the browser** (`talked:elah:corin=true`, `elah_ended=true`).
+played in the browser** (`talked:elah:corin=true`, `elah_ended=true`). The final
+run also has `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143
+checks hold`, and the corrected 「本章完成 · 山谷安静了」 HUD.
 
 The late-chapter states were reached by rewriting Godot's own IDBFS record and
 reloading, so the engine's real save loader and mission runner did the work.

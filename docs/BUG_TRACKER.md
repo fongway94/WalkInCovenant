@@ -92,7 +92,7 @@ result for a run that has not finished.
 
 | ID | Sev | What | Check that failed before the fix | State |
 |---|---|---|---|---|
-| BUG-062 | **P1** | After the chapter ending wrote `elah_ended`, `Main._update_guidance()` still fell through to the witness escort branch and the HUD said 「跟着柯林走。他带你去找少年兵。」 The conclusion looked like one more task. Found in the real browser's post-ending frame (`goliath_05_ending.png`, run `42754753831`). | `tests/deep.gd::_check_ending_objective()` sets `act = DONE` / `elah_ended` and asserts the `done` objective plus an empty prompt; it fails against the old code. | **Fixed** — code + regression check; CI verification recorded in the run table below. |
+| BUG-062 | **P1** | After the chapter ending wrote `elah_ended`, `Main._update_guidance()` still fell through to the witness escort branch and the HUD said 「跟着柯林走。他带你去找少年兵。」 The conclusion looked like one more task. Found in the real browser's post-ending frame (`goliath_05_ending.png`, run `42754753831`). | `tests/deep.gd::_check_ending_objective()` sets `act = DONE` / `elah_ended` and asserts the `done` objective plus an empty prompt; it fails against the old code. | **Verified** (`42756324054`) — `deep: PASS — 143 checks hold`; browser ending frame now reads 「本章完成 · 山谷安静了」. |
 
 Two further defects were in the **browser harness**, not the game, and are
 documented in `docs/BROWSER-VALIDATION.md` §1: seeding IDBFS before Godot
@@ -148,6 +148,7 @@ Both were fixed before the green browser run.
 | `42751307541` | `1b0b264` | **red** — `TypeError: e2.timestamp.getTime is not a function` ×2 (wrong IDBFS record shape); duel rendered but win could not be read. |
 | `42752385202` | `5b0bccf` | **red** — IDBFS shape fixed, **duel won in browser** (`goliath_down=true`), but the long walk back to Corin was intercepted by other NPCs. |
 | `42754753831` | `b2951a4` | **green — real browser milestone**: lint ✅ · visual ✅ · export-web ✅ · **browser ✅ 30/30 checks, 0 console/page errors, duel won, Corin + ending reached** · `deploy` skipped by design. Exposed BUG-062. |
+| `42756324054` | `dae8827` | **green — final re-verification**: `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143 checks hold` (BUG-062's two new checks), all 14 visual baselines ✅, `export-web` ✅, **browser ✅ 30/30 checks**, 0 console/page errors, duel won, Corin + ending reached, corrected finished-chapter HUD. `deploy` skipped by design. |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues
