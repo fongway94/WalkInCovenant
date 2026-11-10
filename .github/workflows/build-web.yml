@@ -741,40 +741,65 @@ jobs:
           python3 - <<'PY'
           import base64, glob, json, os
           from PIL import Image
+          # GitHub keeps only 50 annotations per check run. Small quantised
+          # thumbnails + a compact log keep the whole evidence set under it.
           os.makedirs("build/browser/ann", exist_ok=True)
           CH = 3800
           lines = []
-          files = sorted(glob.glob("build/browser/shots/*.png"))
+          files = sorted(glob.glob("build/browser/shots/*.png"))[:16]
           if not files:
               print("::warning::browser job produced no screenshots")
           for f in files:
               name = os.path.basename(f)[:-4]
               im = Image.open(f).convert("RGB")
-              im.thumbnail((640, 640), Image.LANCZOS)
-              im.quantize(colors=48).save("build/browser/ann/" + name + ".png", optimize=True)
+              im.thumbnail((400, 400), Image.LANCZOS)
+              im.quantize(colors=32).save("build/browser/ann/" + name + ".png", optimize=True)
               raw = base64.b64encode(open("build/browser/ann/" + name + ".png", "rb").read()).decode()
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICBROWSER|%s|%d|%d|%s" % (name, i, len(parts), part))
           lp = "build/browser/log.json"
           if os.path.isfile(lp):
-              raw = base64.b64encode(open(lp, "rb").read()).decode()
+              try:
+                  d = json.load(open(lp))
+              except Exception as e:
+                  print("::warning::browser log.json was unreadable: %s" % e)
+                  d = {"fatal": "log.json unreadable: %s" % e}
+              compact = {
+                  "chromium": d.get("chromium"), "started": d.get("started"),
+                  "summary": d.get("summary"), "audio": d.get("audio"),
+                  "fatal": (d.get("fatal") or "")[:1500],
+                  "checks": [{k: c.get(k) for k in ("name", "ok", "detail")} for c in d.get("checks", [])],
+                  "console": d.get("console", [])[:20],
+                  "pageErrors": d.get("pageErrors", [])[:10],
+                  "requests": d.get("requests", [])[:10],
+                  "notes": [str(t)[:300] for t in d.get("notes", [])],
+                  "views": [{"tag": v.get("tag"), "canvas": v.get("state", {}).get("canvas"),
+                             "rotationOverlay": v.get("state", {}).get("rotationOverlay"),
+                             "draws": (v.get("state", {}).get("wic") or {}).get("draws")}
+                            for v in d.get("views", [])],
+                  "saves": {k: {"databases": v.get("databases"), "files": [x.get("key") for x in v.get("files", [])]}
+                            for k, v in d.get("saves", {}).items()},
+              }
+              blob = json.dumps(compact, separators=(",", ":"), ensure_ascii=False).encode()
+              open("build/browser/ann/compact-log.json", "wb").write(blob)
+              raw = base64.b64encode(blob).decode()
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICBROWSERLOG|%d|%d|%s" % (i, len(parts), part))
-              try:
-                  d = json.load(open(lp))
-                  s = d.get("summary", {})
-                  lines.append("::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
-                               (d.get("chromium"), s.get("checks"), s.get("failedChecks"),
-                                s.get("consoleErrors"), s.get("pageErrors")))
-                  for c in d.get("checks", []):
-                      if not c.get("ok"):
-                          lines.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
-                  for t in d.get("notes", []):
-                      lines.append("::notice::WICBROWSERTEXT|NOTE %s" % t[:300])
-              except Exception as e:
-                  lines.append("::notice::WICBROWSERTEXT|log parse failed: %s" % e)
+              s = compact.get("summary") or {}
+              lines.append("::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
+                           (compact.get("chromium"), s.get("checks"), s.get("failedChecks"),
+                            s.get("consoleErrors"), s.get("pageErrors")))
+              if compact.get("fatal"):
+                  lines.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
+              for c in compact["checks"]:
+                  if not c.get("ok"):
+                      lines.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
+              for c in compact["console"][:6]:
+                  lines.append("::notice::WICBROWSERTEXT|CONSOLE %s %s" % (c.get("type"), str(c.get("text"))[:220]))
+              for t in compact["notes"][:6]:
+                  lines.append("::notice::WICBROWSERTEXT|NOTE %s" % t)
           NB = int(os.environ.get("WIC_NB", "12"))
           buckets = [[] for _ in range(NB)]
           for i, line in enumerate(lines):
