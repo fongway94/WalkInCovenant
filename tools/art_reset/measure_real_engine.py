@@ -10,7 +10,7 @@ in grayscale.
 
 Inputs (all REAL 320x180 framebuffer captures):
     frames/15_shepherd_dialogue.png        classic, same camera & dialogue
-    frames/16_shepherd_storybook.png       opt-in integrated scene
+    frames/16_shepherd_cinematic.png       opt-in integrated scene
     docs/art-reset/comparison/16_palette_only.png   previous CI frame, optional
 
 Outputs:
@@ -70,12 +70,12 @@ def sheet(panels, path, scale=2):
 
 def main():
     before = load(FRAMES / "15_shepherd_dialogue.png")
-    after = load(FRAMES / "16_shepherd_storybook.png")
+    after = load(FRAMES / "16_shepherd_cinematic.png")
     assert before.size == after.size == (320, 180), (before.size, after.size)
 
     report = {
         "15_shepherd_dialogue": metrics(before),
-        "16_shepherd_storybook": metrics(after),
+        "16_shepherd_cinematic": metrics(after),
     }
     panels = [
         ("BEFORE — classic art, real engine frame 15", before),
@@ -123,6 +123,49 @@ def main():
             ("CRAFT v3 — stronger values but a hard horizontal stripe (17.1)", s),
             ("CRAFT v4 — same values, graded band and organic edges", after),
         ], DIAG / "11_craft_iteration3.png")
+    # The last Direction-C frame, before the user overrode the direction.
+    cfinal = COMP / "16_storybook_final.png"
+    if cfinal.exists():
+        cf = load(cfinal)
+        report["16_storybook_final"] = metrics(cf)
+        sheet([
+            ("DIRECTION C — assistant's selection, final craft pass", cf),
+            ("DIRECTION B — user-selected cinematic, current CI frame 16", after),
+        ], DIAG / "14_direction_override.png")
+
+    # The user-selected direction must be reviewed at the same display sizes
+    # and in grayscale as the original four-way comparison, not just measured.
+    review = {
+        "native": after,
+        "desktop": after.resize((1280, 720), Image.NEAREST),
+    }
+    mob = Image.new("RGB", (844, 390), (18, 20, 26))
+    mw, mh = 694, 390
+    mob.paste(after.resize((mw, mh), Image.NEAREST), ((844 - mw) // 2, 0))
+    review["mobile"] = mob
+    for key, im in review.items():
+        im.save(COMP / f"B_engine_{key}.png")
+        ImageOps.grayscale(im).convert("RGB").save(
+            COMP / f"B_engine_grayscale_{key}.png")
+    # 2x2 progression sheet: classic -> C -> B real -> B concept reference.
+    ref = ROOT / "docs/art-reset/user_selected_reference.png"
+    classic = load(FRAMES / "15_shepherd_dialogue.png")
+    panels4 = [
+        ("CLASSIC (frame 15)", classic),
+        ("DIRECTION C (assistant-selected)", cf if cfinal.exists() else classic),
+        ("DIRECTION B (user-selected, REAL ENGINE)", after),
+        ("DIRECTION B CONCEPT (painted reference)",
+         load(ref).resize((320, 180), Image.LANCZOS) if ref.exists() else classic),
+    ]
+    grid = Image.new("RGB", (2 * 640 + 30, 2 * (360 + 26) + 20), (24, 26, 32))
+    gd = ImageDraw.Draw(grid)
+    ff = font(12)
+    for i, (label, im) in enumerate(panels4):
+        x = 10 + (i % 2) * 650
+        y = 10 + (i // 2) * 386
+        gd.text((x + 2, y), label, font=ff, fill=(238, 232, 210))
+        grid.paste(im.resize((640, 360), Image.NEAREST), (x, y + 22))
+    grid.save(DIAG / "15_direction_progression_2x.png")
 
     out = COMP / "real_engine_metrics.json"
     out.write_text(json.dumps(report, indent=2) + "\n")
@@ -131,7 +174,7 @@ def main():
     print("world_value_spread: classic",
           report["15_shepherd_dialogue"]["world_value_spread"],
           "-> integrated",
-          report["16_shepherd_storybook"]["world_value_spread"])
+          report["16_shepherd_cinematic"]["world_value_spread"])
 
 
 if __name__ == "__main__":

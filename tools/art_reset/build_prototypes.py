@@ -540,7 +540,14 @@ def main():
     for k, im in panels.items():
         report["panels"][k] = metrics(im)
     report["panels"]["C_refined"] = metrics(refined)
-    report["selected"] = "C_storybook"
+    report["selected"] = "C_storybook"          # assistant's 2026-11-05 choice
+    # The user overrode that choice on 2026-11-10 after reviewing the concept
+    # sources: they want Direction B's golden-hour outcome, with the existing
+    # animation system preserved. History is kept, not rewritten.
+    report["user_final_direction"] = "B_cinematic"
+    report["selection_note"] = (
+        "C was assistant-selected (identity/cohesion); B was user-selected "
+        "2026-11-10 for player appeal. See docs/ART-RESET.md sections 4, 12.6, 12.7.")
     (OUT / "metrics.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report["panels"], indent=2))
     print("wrote", len(list(OUT.glob('*.png'))), "PNG(s) to", OUT.relative_to(ROOT))

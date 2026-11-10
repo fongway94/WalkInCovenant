@@ -93,11 +93,12 @@ func setup(id: String, at: Array, fold_at: Array, temper_name: String,
 ## the animal's behaviour, collision and save flags are untouched.
 func apply_art_theme(theme: String) -> void:
 	var d := "res://art/props"
-	if theme == "storybook" \
-			and ResourceLoader.exists("res://art/props_storybook/sheep.png") \
-			and ResourceLoader.exists("res://art/props_storybook/sheep_graze.png") \
-			and ResourceLoader.exists("res://art/props_storybook/sheep_alert.png"):
-		d = "res://art/props_storybook"
+	var alt := "res://art/props_%s" % theme
+	if (theme == "storybook" or theme == "cinematic") \
+			and ResourceLoader.exists("%s/sheep.png" % alt) \
+			and ResourceLoader.exists("%s/sheep_graze.png" % alt) \
+			and ResourceLoader.exists("%s/sheep_alert.png" % alt):
+		d = alt
 	_up_tex = load("%s/sheep.png" % d)
 	_graze_tex = load("%s/sheep_graze.png" % d)
 	_alert_tex = load("%s/sheep_alert.png" % d)

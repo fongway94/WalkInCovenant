@@ -77,6 +77,19 @@ const SKINS := {
 		"objective": Color(0.98, 0.94, 0.84),
 		"prompt": Color(0.97, 0.92, 0.80),
 	},
+	# Direction B: a dusk-slate plate with a thin gold rule, so the warm
+	# golden-hour world stays the brightest thing on screen.
+	"cinematic": {
+		"band_bg": Color(0.08, 0.11, 0.14, 0.82),
+		"band_rule": Color(0.85, 0.68, 0.34, 0.55),
+		"name": Color(0.98, 0.91, 0.72),
+		"place": Color(0.80, 0.84, 0.82),
+		"verses": Color(0.93, 0.76, 0.42),
+		"stones": Color(0.72, 0.84, 0.86),
+		"time": Color(0.70, 0.72, 0.68),
+		"objective": Color(0.98, 0.94, 0.82),
+		"prompt": Color(0.98, 0.88, 0.60),
+	},
 }
 
 

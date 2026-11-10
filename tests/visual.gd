@@ -257,18 +257,21 @@ func _run() -> void:
 			await _frames(6)
 			await _shot("15_shepherd_dialogue")
 
-			# 6c. THE SAME FRAME IN THE SELECTED ART DIRECTION. Nothing moves:
-			# the camera, the flock, the NPC, the open dialogue page and the
-			# Chinese text are identical. The opt-in theme swaps the terrain
-			# atlas, the UI skin, hand-authored prop/character silhouettes, one
-			# shared contact-shadow light and far/middle/near value planes.
-			# Everything is still rendered by the shipped engine, not a mock-up
-			# (docs/ART-RESET.md §7 and §9). The classic theme is restored
-			# immediately afterwards, so frames 07-14 are unchanged.
+			# 6c. THE SAME FRAME IN THE USER-SELECTED ART DIRECTION. Nothing
+			# moves: the camera, the flock, the NPC, the open dialogue page and
+			# the Chinese text are identical. Direction B ("cinematic") was
+			# chosen by the user on 2026-11-10 over the assistant's C (see
+			# docs/ART-RESET.md §12.7). The opt-in theme swaps the golden-hour
+			# terrain atlas, the dusk-slate UI skin, hand-authored B-palette
+			# prop/character silhouettes, long cast shadows and layered
+			# environmental light. Frame counts, walk cycles, sway, water
+			# animation and every timer are UNCHANGED. Everything is rendered
+			# by the shipped engine, not a mock-up. The classic theme is
+			# restored immediately afterwards, so frames 07-14 are unchanged.
 			if main.has_method("apply_art_theme"):
-				main.call("apply_art_theme", "storybook")
+				main.call("apply_art_theme", "cinematic")
 				await _frames(8)
-				await _shot("16_shepherd_storybook")
+				await _shot("16_shepherd_cinematic")
 				main.call("apply_art_theme", "classic")
 				await _frames(4)
 			await _drain_all()

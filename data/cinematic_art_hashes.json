@@ -1,0 +1,19 @@
+{
+  "boulder": "33x31:33:f33b4f5b31cb5b13:6de6d0f8",
+  "bush": "35x29:35:22aefe1657d0f805:20bc7d9d",
+  "fig_tree": "16x24:16:922cb07dff66102a:28d8cd02",
+  "fold": "16x12:16:7de78fc27281f346:cba63d26",
+  "house": "66x83:66:9fb2cf538ed99c4c:bae8c4a9",
+  "olive_tree": "65x49:65:1dde4f2be327d5ab:7c2c8a6b",
+  "palm_tree": "16x28:16:5ea5bcd775ad723b:31f5ee69",
+  "pilgrim_idle": "32x64:32:4194f85143b22a93:6284e5b8",
+  "pilgrim_walk": "64x64:64:c5ae0ffc1224136f:bfcb9e4f",
+  "rock": "34x33:34:fe89a991e74bb3fc:e8e6a290",
+  "sheep": "14x12:14:3bdc96686b22300b:07b51f1c",
+  "sheep_alert": "14x12:14:821d4015457d1510:8874b940",
+  "sheep_graze": "14x12:14:d87e8870a5dbe535:64de6417",
+  "shepherd_idle": "32x64:32:c1b78c5c64d00668:97a50d78",
+  "shepherd_walk": "64x64:64:8a2b4aa798e1e18b:3f962fad",
+  "tent": "26x18:26:82d0c0c6535bcd4e:6b85260f",
+  "well": "16x16:16:65d2f362a930c56b:c3c6ffe1"
+}

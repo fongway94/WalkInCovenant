@@ -105,6 +105,18 @@ const SKINS := {
 		"text": Color(0.23, 0.16, 0.11),
 		"foot": Color(0.48, 0.23, 0.19),
 	},
+	# Direction B: deep dusk-slate panel, gold rule, cream ink. Matches the
+	# four-way B concept UI without imitating any proprietary interface.
+	"cinematic": {
+		"panel_bg": Color(0.09, 0.14, 0.20, 1.0),
+		"panel_edge": Color(0.80, 0.65, 0.35, 0.90),
+		"frame_bg": Color(0.14, 0.19, 0.24, 1.0),
+		"frame_edge": Color(0.70, 0.56, 0.30, 0.90),
+		"name": Color(0.98, 0.88, 0.62),
+		"rule": Color(0.78, 0.63, 0.34, 0.55),
+		"text": Color(0.94, 0.93, 0.86),
+		"foot": Color(0.90, 0.76, 0.42),
+	},
 }
 
 var _lines: Array = []

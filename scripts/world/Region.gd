@@ -674,14 +674,14 @@ func set_act(a: String) -> void:
 func apply_art_theme(theme: String) -> void:
 	if terrain == null or model == null:
 		return
-	var story := theme == "storybook"
+	var themed := theme == "storybook" or theme == "cinematic"
 	var path := "res://art/tiles/terrain.png"
-	if story:
-		path = "res://art/tiles/terrain_storybook.png"
+	if themed:
+		path = "res://art/tiles/terrain_%s.png" % theme
 	var tex := load(path) as Texture2D
 	if tex != null:
 		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
-	terrain.set_storybook_depth(story)
+	terrain.set_depth_mode(theme if themed else "none")
 	# Crafted props are OPT-IN per key: anything without a crafted variant keeps
 	# its classic sprite, so no prop ever disappears and no footprint changes.
 	for p in _prop_sprites:
@@ -689,9 +689,9 @@ func apply_art_theme(theme: String) -> void:
 		var s: Sprite2D = d["sprite"]
 		var key: String = d["key"]
 		var classic := "res://art/props/%s.png" % key
-		var crafted := "res://art/props_storybook/%s.png" % key
+		var crafted := "res://art/props_%s/%s.png" % [theme, key]
 		var chosen := classic
-		if story and ResourceLoader.exists(crafted):
+		if themed and ResourceLoader.exists(crafted):
 			chosen = crafted
 		var pt := load(chosen) as Texture2D
 		if pt != null:
@@ -715,15 +715,16 @@ func apply_art_theme(theme: String) -> void:
 		else:
 			var key := str(p.get("sprite_key", "rock"))
 			var chosen := "res://art/props/%s.png" % key
-			var crafted := "res://art/props_storybook/%s.png" % key
-			if story and ResourceLoader.exists(crafted):
+			var crafted := "res://art/props_%s/%s.png" % [theme, key]
+			if themed and ResourceLoader.exists(crafted):
 				chosen = crafted
 			for c in node.get_children():
 				if c is Sprite2D:
 					var sp: Sprite2D = c
 					sp.texture = load(chosen)
 	if _shadow_layer != null:
-		_shadow_layer.call("set_enabled", story)
+		_shadow_layer.call("set_enabled", themed)
+		_shadow_layer.call("set_mode", theme if themed else "storybook")
 
 
 func is_paused() -> bool:

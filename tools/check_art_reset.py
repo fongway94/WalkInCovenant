@@ -32,6 +32,7 @@ import char_variants  # noqa: E402  — stdlib PNG reader
 
 CLASSIC = ROOT / "art/tiles/terrain.png"
 STORYBOOK = ROOT / "art/tiles/terrain_storybook.png"
+CINEMATIC = ROOT / "art/tiles/terrain_cinematic.png"   # user-selected Direction B
 COMPARISON = ROOT / "docs/art-reset/comparison"
 
 errors = []
@@ -52,7 +53,7 @@ def opaque_rgb(path):
 
 
 def main():
-    for p in (CLASSIC, STORYBOOK):
+    for p in (CLASSIC, STORYBOOK, CINEMATIC):
         if not p.exists():
             fail("missing atlas %s" % p.relative_to(ROOT))
     if errors:
@@ -60,6 +61,29 @@ def main():
 
     cw, ch, cp = opaque_rgb(CLASSIC)
     sw, sh, sp = opaque_rgb(STORYBOOK)
+    bw, bh, bp = opaque_rgb(CINEMATIC)
+    if (bw, bh) != (cw, ch) or len(bp) != len(cp):
+        fail("cinematic atlas does not share the classic 256x64 layout")
+
+    bcol = set(bp)
+    if not (30 <= len(bcol) <= 160):
+        fail("cinematic palette is not controlled: %d distinct colours" % len(bcol))
+    if any(c == (0, 0, 0) for c in bcol) or any(c == (255, 255, 255) for c in bcol):
+        fail("cinematic atlas contains pure black or pure white")
+    bchanged = sum(1 for a, b in zip(cp, bp) if a != b) / max(1, len(cp))
+    if bchanged < 0.60:
+        fail("cinematic atlas differs from classic on only %.1f%% of pixels"
+             % (bchanged * 100.0))
+    bluma = lambda c: 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+    bvals = sorted(bluma(c) for c in bcol)
+    blo = bvals[: len(bvals) // 4]
+    bhi = bvals[-len(bvals) // 4:]
+    if not (sum(bhi) / len(bhi) - sum(blo) / len(blo) > 45.0):
+        fail("cinematic ramps have no real shadow-to-highlight separation")
+    # B and C must be genuinely different colour systems, not two names for
+    # one recoloured file.
+    if sum(1 for a, b in zip(sp, bp) if a != b) / max(1, len(sp)) < 0.60:
+        fail("cinematic and storybook atlases are nearly identical")
     if (cw, ch) != (256, 64) or (sw, sh) != (cw, ch):
         fail("atlas must be 256x64 (49 16px cells); got classic %dx%d, storybook %dx%d"
              % (cw, ch, sw, sh))
@@ -104,6 +128,8 @@ def main():
             for key in ("current", "A_vibrant", "B_cinematic", "C_storybook"):
                 if key not in panels or "luma_std" not in panels[key]:
                     fail("metrics.json has no measurement for %s" % key)
+            if m.get("user_final_direction") != "B_cinematic":
+                fail("metrics.json does not record the user's Direction B override")
         except Exception as e:
             fail("metrics.json unreadable: %s" % e)
 
@@ -116,8 +142,9 @@ def report():
             print("  FAIL  " + e)
         print("check_art_reset: %d problem(s)" % len(errors))
         return 1
-    print("check_art_reset: clean — opt-in storybook atlas shares the classic "
-          "layout, uses a controlled palette, and has four-way review evidence")
+    print("check_art_reset: clean — both opt-in atlases share the classic "
+          "layout, use distinct controlled palettes, and have four-way "
+          "review evidence; Direction B override recorded")
     return 0
 
 

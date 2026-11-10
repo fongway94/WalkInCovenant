@@ -134,10 +134,11 @@ func setup(m: RegionModel, d: Dictionary, p: Player, dlg: DialogueBox,
 ## dialogue, flags or save data is involved.
 func apply_art_theme(theme: String) -> void:
 	var d := "res://art/characters"
-	if theme == "storybook" \
-			and ResourceLoader.exists("res://art/characters_storybook/%s_idle.png" % actor_id) \
-			and ResourceLoader.exists("res://art/characters_storybook/%s_walk.png" % actor_id):
-		d = "res://art/characters_storybook"
+	var alt := "res://art/characters_%s" % theme
+	if (theme == "storybook" or theme == "cinematic") \
+			and ResourceLoader.exists("%s/%s_idle.png" % [alt, actor_id]) \
+			and ResourceLoader.exists("%s/%s_walk.png" % [alt, actor_id]):
+		d = alt
 	art_dir = d
 	if sprite != null:
 		sprite.texture = load("%s/%s_idle.png" % [d, actor_id])

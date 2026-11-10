@@ -312,10 +312,11 @@ func _draw() -> void:
 ## always the fallback, so no other chapter or save can lose a character.
 func apply_art_theme(theme: String) -> void:
 	var d := "res://art/characters"
-	if theme == "storybook" \
-			and ResourceLoader.exists("res://art/characters_storybook/%s_idle.png" % char_id) \
-			and ResourceLoader.exists("res://art/characters_storybook/%s_walk.png" % char_id):
-		d = "res://art/characters_storybook"
+	var alt := "res://art/characters_%s" % theme
+	if (theme == "storybook" or theme == "cinematic") \
+			and ResourceLoader.exists("%s/%s_idle.png" % [alt, char_id]) \
+			and ResourceLoader.exists("%s/%s_walk.png" % [alt, char_id]):
+		d = alt
 	art_dir = d
 	external_shadow = d != "res://art/characters"
 	walk_tex = load("%s/%s_walk.png" % [d, char_id])
