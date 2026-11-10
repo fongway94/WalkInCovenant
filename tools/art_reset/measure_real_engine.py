@@ -94,6 +94,16 @@ def main():
             ("PALETTE + UI ONLY — CI 42772672515 (world value spread 10.6)", p),
             ("+ HAND-AUTHORED ART, SHADOWS, DEPTH — current CI frame 16", after),
         ], DIAG / "08_palette_vs_craft.png")
+    # The first craft attempt put its value planes outside the visible world
+    # band and measured WORSE (8.0). Keep it so the iteration is auditable.
+    v1 = COMP / "16_craft_v1.png"
+    if v1.exists():
+        q = load(v1)
+        report["16_craft_v1"] = metrics(q)
+        sheet([
+            ("CRAFT v1 — depth planes outside the visible world (spread 8.0)", q),
+            ("CRAFT v2 — three value planes inside the visible world", after),
+        ], DIAG / "09_craft_iteration.png")
 
     out = COMP / "real_engine_metrics.json"
     out.write_text(json.dumps(report, indent=2) + "\n")

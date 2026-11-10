@@ -114,33 +114,38 @@ func _draw_depth() -> void:
 	var right := left + float(_view.size.x) * TILE
 	var bottom := top + float(_view.size.y) * TILE
 	var w := right - left
-	# Far ridge: an irregular silhouette along the top edge, in cool shade.
+	# The shipped dialogue panel covers screen rows 116-176, so the VISIBLE
+	# world is only rows 24-112. All three planes must fall inside that band:
+	# an earlier attempt put the ridge at 0-26 and the near shade at 146-180,
+	# leaving one uniform wash in the middle. Real CI measurement caught it
+	# (world value spread 10.6 -> 8.0) and this is the correction.
+	# Far ridge: cool shade down to an irregular hill line at ~row 60.
 	var far := PackedVector2Array()
 	far.append(Vector2(left, top))
 	for i in range(13):
 		var fx := left + w * float(i) / 12.0
-		var fy := top + 26.0 + sin(float(i) * 0.83 + 1.1) * 6.0 \
-				+ cos(float(i) * 0.39) * 3.0
+		var fy := top + 58.0 + sin(float(i) * 0.83 + 1.1) * 7.0 \
+				+ cos(float(i) * 0.39) * 4.0
 		far.append(Vector2(fx, fy))
 	far.append(Vector2(right, top))
-	draw_colored_polygon(far, Color(0.17, 0.20, 0.16, 0.30))
+	draw_colored_polygon(far, Color(0.15, 0.19, 0.16, 0.38))
 	# Middle ground: a warm sunlit band where the player and the flock stand.
-	draw_rect(Rect2(left, top + 34.0, w, 42.0),
-			Color(0.99, 0.89, 0.69, 0.10))
+	draw_rect(Rect2(left, top + 56.0, w, 44.0),
+			Color(0.99, 0.90, 0.70, 0.16))
 	# A single long cast shadow across the warm band, from the upper-right sun.
 	var cast := PackedVector2Array()
-	cast.append(Vector2(left + w * 0.18, top + 74.0))
-	cast.append(Vector2(left + w * 0.52, top + 74.0))
-	cast.append(Vector2(left + w * 0.34, top + 90.0))
-	cast.append(Vector2(left - w * 0.02, top + 90.0))
-	draw_colored_polygon(cast, Color(0.23, 0.16, 0.11, 0.14))
-	# Near edge: the foreground returns to shade so the picture has a front.
+	cast.append(Vector2(left + w * 0.18, top + 88.0))
+	cast.append(Vector2(left + w * 0.52, top + 88.0))
+	cast.append(Vector2(left + w * 0.34, top + 102.0))
+	cast.append(Vector2(left - w * 0.02, top + 102.0))
+	draw_colored_polygon(cast, Color(0.21, 0.15, 0.10, 0.20))
+	# Near edge: the foreground returns to shade just above the dialogue panel.
 	var near := PackedVector2Array()
 	near.append(Vector2(left, bottom))
 	for i in range(13):
 		var nx := left + w * float(i) / 12.0
-		var ny := bottom - 34.0 + sin(float(i) * 0.71 + 0.4) * 6.0 \
+		var ny := top + 100.0 + sin(float(i) * 0.71 + 0.4) * 6.0 \
 				+ cos(float(i) * 0.31) * 3.0
 		near.append(Vector2(nx, ny))
 	near.append(Vector2(right, bottom))
-	draw_colored_polygon(near, Color(0.20, 0.14, 0.10, 0.26))
+	draw_colored_polygon(near, Color(0.18, 0.13, 0.09, 0.34))
