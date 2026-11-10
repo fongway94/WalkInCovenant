@@ -627,3 +627,40 @@ hold`, `browser` 30/30, `deploy` skipped. No PR, no merge to `main`, no deploy.
 Colour is not depth. Hand-authored sprites, tiles, contact shadows and layered
 environments are still required; §6 of the report names them. Automated visual
 diffs and a green CI are not evidence of artistic quality.
+
+---
+
+## 12. CRAFT PASS after the art-reset verdict (2026-11-10)
+
+The verdict in §11 said the world's value spread fell 20.1 → 10.6 and named the
+missing work. That work was started **without** a full rebuild, PR, merge or
+deploy:
+
+- 13 hand-authored opt-in props and 4 hand-authored 16px character sheets
+  (David + hired boy, idle/walk × 4 facings), with ink outlines, 4–11 value
+  planes and no single-pixel noise; classic files restored and left as default.
+- One shared `ContactShadowLayer` under every prop, item, animal, NPC and the
+  player; three far/middle/near value planes inside `TerrainLayer._draw_depth()`.
+- A stdlib CI gate (`check_craft_props.py`) and a reproducible real-frame
+  measurement tool (`measure_real_engine.py`).
+- Five real CI runs (`42780526864`, `42781811086`, `42783550955`,
+  `42784090190`) decoded and measured. The first attempt made things worse
+  (8.0); reviewing the rendered frame found the depth planes were outside the
+  visible world band. The final frame measures **17.7**, up from the
+  palette-only **10.6** but still below the classic's **20.1** (which is
+  inflated by its dark HUD scrim bleeding into world rows 24–40).
+- v3 was rejected visually for a hard horizontal stripe despite a good number;
+  v4 replaced the rectangular wash with a graded band. Metric chasing alone is
+  explicitly refused.
+
+Final CI `42784090190`: lint / visual / export-web / browser success, deploy
+skipped; `visual` 16 frames, `run_all: ALL CHECKS PASSED`, `smoke: PASS`,
+`deep: PASS — 143 checks hold`, browser `30/0` with no console or page errors.
+`visual_diff.py` clean; baseline 16 promoted from the real CI frame.
+
+**Still NOT complete and not release-ready.** One opt-in scene, mixed classic /
+crafted actors, no new Bethlehem / court / valley environments, journal and
+menus untouched, no parallax, no location-specific lighting, no human playtest,
+no perceptual audio, no native-speaker Chinese, no real-device pass. See
+`docs/ART-RESET.md` §12 for the full critique and the external manual pixel
+art that would be required to reach the requested benchmark.

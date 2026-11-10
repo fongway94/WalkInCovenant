@@ -17,6 +17,9 @@ Outputs:
     docs/art-reset/diagnosis/04_before_after_real_engine.png
     docs/art-reset/diagnosis/05_before_after_grayscale.png
     docs/art-reset/diagnosis/08_palette_vs_craft.png
+    docs/art-reset/diagnosis/09_craft_iteration.png
+    docs/art-reset/diagnosis/10_craft_iteration2.png
+    docs/art-reset/diagnosis/11_craft_iteration3.png
     docs/art-reset/comparison/real_engine_metrics.json
 """
 from __future__ import annotations

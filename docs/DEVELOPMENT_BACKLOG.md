@@ -70,11 +70,11 @@ tests survive; the table above is the current truth.
 | 16 | Native-speaker / author Simplified Chinese pass, including the 石子 / 石头 register split and the aphorisms. Scripture stays verbatim. | M |
 | 17 | Real-device pass: tactile thumb reach, OS rotation, notch/safe area, legibility on an actual handset. Browser emulation is not this. | M |
 | 18 | Hide or fade the touch A/RUN circles for keyboard-only desktop play — only after a device says which input mix to prefer, and with 14 baselines regenerated. | S |
-| 19 | **Hand-author the shepherd-field tile set and the David / hired-boy / sheep sprites** (16×24 or 16×32 walk cycles, 1px outlines, clothing folds, contact shadows). The selected Direction C is integrated as colour only; the shapes are unchanged. See `docs/ART-RESET.md` §6. | L |
-| 20 | Re-run the `15`/`16` before/after capture and require **world value spread to rise**, not fall. The current opt-in palette dropped it 20.1 → 10.6. | M |
+| 19 | **PARTIAL (one scene, 2026-11-10).** 13 hand-authored opt-in props and 4 character sheets (`pilgrim`, `shepherd`, idle/walk × 4 facings) now exist in `art/props_storybook/` and `art/characters_storybook/`, with ink outlines, clothing folds and a shared contact shadow. **Still required:** hand-pixel-edited 16×24 / 16×32 cycles for every other actor, hand-tiled terrain with seam testing, and a manual art-director pass. The current files are program-authored primitives, not professional illustration. See `docs/ART-RESET.md` §12.4. | L |
+| 20 | **DONE for the opt-in scene.** `15`/`16` were re-captured across four CI runs; world value spread recovered **10.6 → 17.7** (`42784090190`). **Still open:** it remains below classic 20.1, and that classic number is inflated by its HUD scrim — see §12.3. Raise it further only with real layered geometry, not stronger overlays. | M |
 | 21 | Give Bethlehem, Saul's court and the valley distinct rendered environments and location-specific atmospheric palettes. Samuel's anointing and Saul's court currently have **no world at all** — they are dialogue over the same two maps. | L |
-| 22 | Layer foreground / middle ground / background with cast shadows, building volume and natural landmarks; restyle the journal, menus and transitions to the chosen skin. | L |
-| 23 | Only AFTER 19–22: replace the default atlas, regenerate all 16 baselines, and re-run the browser + human playtest gates. Keep every checkpoint reversible. | M |
+| 22 | **PARTIAL (one scene).** `TerrainLayer._draw_depth()` now draws far/middle/near value planes, a sunlit crest, one cast wedge and irregular hill/near edges; `ContactShadowLayer` grounds every figure. **Still required:** real geometry/parallax, building volume, natural landmarks, and restyling the journal, menus and transitions. | L |
+| 23 | Only AFTER 19–22: replace the default atlas, regenerate all 16 baselines, and re-run the browser + human playtest gates. Keep every checkpoint reversible. **Only `baseline_16` was regenerated**, from real CI `42784090190`; the default atlas has NOT been replaced. | M |
 
 ## Standing rules for every item
 

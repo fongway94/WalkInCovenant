@@ -131,3 +131,28 @@ tile shapes and layered lighting. The manual art work required is listed in
 
 Nothing here is superseded or deleted. When the hand-authored assets exist, this
 contract will be extended rather than rewritten.
+
+### §8 update — craft pass (2026-11-10)
+
+The report's own negative result has been acted on, in **one reversible scene
+only**. See `docs/ART-RESET.md` §12 for the full evidence. Summary:
+
+* 13 hand-authored opt-in props (`art/props_storybook/`) and 4 hand-authored
+  16px character sheets (`art/characters_storybook/`) replace geometric circles
+  and peg figures with ink-outlined, multi-plane silhouettes. Classic assets are
+  untouched and are the default.
+* `scripts/world/ContactShadowLayer.gd` gives props, animals, NPCs and the
+  player one shared ground shade; `TerrainLayer._draw_depth()` adds far/middle/
+  near value planes with a graded warm band and irregular hill edges.
+* Four successive real CI frames measured world value spread
+  **8.0 → 12.3 → 17.1 → 17.7** (palette-only was 10.6; classic 20.1, inflated
+  by its HUD scrim). CI `42784090190` is green: 16 frames, `deep 143`,
+  browser 30/0, deploy skipped.
+* `tools/check_craft_props.py` is a stdlib lint gate; `measure_real_engine.py`
+  is the reproducible measurement.
+
+This file remains the **contract for the shipped classic art**. The overhaul is
+still NOT complete: one opt-in scene, two actors, no new maps for Bethlehem /
+court / valley, journal and menus untouched, no parallax or per-location light,
+and no professional-grade manual pixel editing. Backlog #19–23 still stands,
+with #19/#20 now partially done for one scene only.

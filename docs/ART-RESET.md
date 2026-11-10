@@ -162,11 +162,18 @@ device pass is still outstanding.
 
 | Panel | colours | luma mean / std | sat | edge density | world luma | **value spread** | HUD / UI | world↔UI sep |
 |---|---|---|---|---|---|---|---|---|
-| Current | 48 | 56.6 / 41.6 | 0.559 | 0.206 | 77.3 | 20.1 | 39.5 / 32.2 | 45.0 |
-| A | 52 | 118.2 / **70.7** | **0.668** | 0.209 | 165.2 | **31.6** | 54.8 / 63.1 | 102.1 |
-| B | 66 | 85.0 / 47.6 | 0.330 | 0.263 | 111.8 | 22.4 | 38.0 / 59.0 | 52.8 |
-| C | 67 | 139.7 / 51.6 | 0.485 | **0.292** | 128.9 | **18.7** | 67.5 / 182.4 | 53.5 |
-| C+ refined | 67 | 139.1 / 52.9 | 0.494 | 0.311 | 127.8 | 21.1 | 67.5 / 182.4 | 54.6 |
+| Current | 48 | 57.1 / 41.5 | 0.560 | 0.205 | 77.7 | 20.3 | 39.4 / 32.1 | 45.6 |
+| A | 59 | 116.7 / **72.4** | **0.632** | 0.210 | 165.1 | **31.5** | 52.1 / 59.5 | 105.6 |
+| B | 76 | 84.9 / 48.0 | 0.403 | 0.264 | 111.8 | 22.4 | 39.9 / 58.0 | 53.8 |
+| C | 77 | 144.2 / 56.4 | 0.417 | **0.317** | 128.9 | **18.7** | 68.9 / 195.5 | 66.6 |
+| C+ refined | 77 | 143.6 / 57.8 | 0.427 | 0.334 | 127.8 | 21.2 | 68.9 / 195.5 | 67.8 |
+
+> **Correction (2026-11-10).** `build_prototypes.py::hexrgb()` sliced the wrong
+> bytes (`h[1:3]` instead of `h[2:4]`), so the prototype UI accent colours were
+> quantised from garbled values. The 35 sheets and this table were regenerated
+> with the fix. The selection and its critique are unchanged; the earlier
+> numbers printed in the first version of this report are superseded. This is
+> recorded rather than quietly patched.
 
 ### Honest critique (1–5, 5 best)
 
@@ -187,17 +194,18 @@ Specific failings, not generic praise:
   largely from a **bright blue sky strip that breaks the orthographic top-down
   map**. It is a generic fantasy meadow: no Levantine architecture, no biblical
   dress, saturation 0.668 pushes it toward candy. Its trees are still soft
-  painted masses, not pixel clusters.
+  painted masses, not pixel clusters. Its saturation 0.632 is the highest of
+  the four and pushes it toward candy.
 - **B** has the best real depth — long shadows, atmospheric haze, a clear focal
   path — but it is **too dark and too desaturated for a morning shepherd field**
-  (sat 0.330), its near-silhouette foreground occludes walkable ground, and the
+  (sat 0.403), its near-silhouette foreground occludes walkable ground, and the
   characters are small dark dots. Its mood belongs to the confrontation in the
   valley, not to the flock.
-- **C** is the most detailed (edge 0.292) and the most coherent, but its detail is
+- **C** is the most detailed (edge 0.317) and the most coherent, but its detail is
   a weakness: **busy stone/grass texture with the weakest large-scale value
   hierarchy (18.7)**, so the player and the sheep are hard to find. Its parchment
   UI is the only one that belongs to the world, yet it is bright enough to
-  compete with the ground (UI luma 182.4).
+  compete with the ground (UI luma 195.5).
 - **Current** is not merely dark: its world is a single value plane with two
   black UI holes, geometric props and 16px figures with no readable clothing.
 
@@ -217,7 +225,7 @@ is a combination, not a fourth style:
    the `C+` refinement (`comparison/selected_refinement_native.png`): atmospheric
    darkening at the far edge, a brighter focal middle ground, a darker near edge,
    mild contrast S-curve, re-snapped to the same palette. Value spread improves
-   **18.7 → 21.1** with no new detail.
+   **18.7 → 21.2** with no new detail.
 2. **A's clean, high-contrast silhouettes and consistent 1px outline** for the
    player and interactables — to be applied by hand-authored sprites (section 6).
 3. **Background texture suppression** around the player, so readability comes
@@ -263,6 +271,10 @@ This is the most important negative result in the whole milestone: **a better
 palette and a better UI do not create depth.** They made the world more uniform
 in value. Colour cannot substitute for hand-authored shapes, contact shadows and
 layered geometry. That is why section 9 does not claim success.
+
+> This table is the **palette-only checkpoint** (CI `42771321630`), preserved as
+> the baseline that the craft pass had to beat. Section 12 reports the later
+> real-engine frames and the measured recovery.
 
 ---
 
@@ -350,14 +362,14 @@ made.
 
 | Criterion | State | Evidence / reason |
 |---|---|---|
-| Character silhouettes distinctive | ❌ **NOT MET** | Sprites unchanged; 16px boxy figures still read as pegs. |
-| Important objects readable | ⚠️ **PARTIAL** | UI text and nameplate improved; sheep still read as pebbles. |
-| Colour and value hierarchy intentional | ⚠️ **PARTIAL** | Global hierarchy and UI separation improved; world value spread **fell** 20.1 → 10.6. |
-| Environments have convincing depth | ❌ **NOT MET** | No foreground/middle/background layers, no cast shadows, no building volume. |
-| Pixel-art proportions consistent | ✅ **MET** | 16px grid preserved; no stretched or blurry scaling introduced. |
+| Character silhouettes distinctive | ⚠️ **PARTIAL (was NOT MET)** | 13 hand-authored props + 4 character sheets in the opt-in scene; other actors and every classic scene keep the original peg silhouettes. |
+| Important objects readable | ⚠️ **PARTIAL** | Sheep now have legs, head, ear and wool planes; ink outlines separate them from the ground. Still only 14×12 px. |
+| Colour and value hierarchy intentional | ⚠️ **PARTIAL (improved)** | World value spread recovered **10.6 → 17.7** across four measured CI frames; still below the classic 20.1, and that classic number is inflated by its own dark HUD scrim. |
+| Environments have convincing depth | ⚠️ **PARTIAL (was NOT MET)** | Far/middle/near value planes, one shared contact-shadow light and a cast wedge now exist in one scene. No real geometry, parallax or per-location palette yet. |
+| Pixel-art proportions consistent | ✅ **MET** | 16px grid, sheet dimensions and frame counts preserved; no stretched or blurry scaling. |
 | Major scenes share one coherent identity | ❌ **NOT MET** | One opt-in scene only; three of eight scenes have no rendered world. |
 | UI feels visually integrated | ✅ **MET (one skin)** | Parchment/brown skin in one scene; journal, menus, transitions untouched. |
-| Meaningfully more polished than previous build | ⚠️ **PARTIAL** | One scene, colour + UI only. |
+| Meaningfully more polished than previous build | ⚠️ **PARTIAL** | One scene, colour + UI + first-pass craft. Not a full rebuild. |
 | Browser performance acceptable | ✅ **MET** | One extra 256×64 PNG; green browser job, no new runtime cost. |
 | No important gameplay regression | ✅ **MET** | `deep 143`, `smoke`, `browser 30/30`, save format untouched. |
 | Automated visual diffs are insufficient evidence | ✅ **ACKNOWLEDGED** | This report is an evidence-based critique, not a CI result. |
@@ -390,6 +402,10 @@ palettes; (4) restyle the journal, menus and transitions; (5) only then replace
 the default atlas and regenerate all 16 baselines. Each step keeps the current
 checkpoint playable and reversible.
 
+**Update (2026-11-10):** checkpoints (1) and (2) are now **done for one scene
+only**, as a reversible opt-in prototype — see section 12. Checkpoints (3)–(5)
+are unchanged and still outstanding.
+
 ---
 
 ## 11. File index
@@ -401,17 +417,154 @@ docs/art-reset/diagnosis/
   01_browser_contact_2x.png                  real Chromium contact sheet
   02_browser_frames_2x.png                   real browser frames, 2×
   03_shepherd_dialogue_3x.png                real "before" frame, 3×
-  04_before_after_real_engine.png            REAL engine before/after (CI 42771321630)
+  04_before_after_real_engine.png            REAL engine before/after (latest CI)
   05_before_after_grayscale.png              value-separation check
+  06_crafted_props_3x.png                    hand-authored prop silhouettes
+  07_crafted_characters_6x.png               hand-authored 16px sheets
+  08_palette_vs_craft.png                    palette-only vs current frame
+  09/10/11_craft_iteration*.png              the three measured craft passes
   10_tiles_4x.png  11_assets_4x.png          source terrain / sprites / portraits
 docs/art-reset/prototypes/                   reference + 3 original concept sources
 docs/art-reset/comparison/                   4-way sheets ×3 sizes, grayscale,
-                                            details, metrics.json, C+ refinement
+                                            details, metrics.json, C+ refinement,
+                                            real_engine_metrics.json,
+                                            16_palette_only/v1/v2/v3.png
 docs/art-reset/storybook_tiles_4x.png        selected real atlas preview
 art/tiles/terrain_storybook.png              selected opt-in atlas (shippable)
+art/props_storybook/*.png                   13 opt-in crafted props
+art/characters_storybook/*.png              4 opt-in crafted character sheets
+scripts/world/ContactShadowLayer.gd          one shared ground shade
+scripts/world/TerrainLayer.gd::_draw_depth   far/middle/near value planes
+tools/artgen/craft_props.py                  reproducible crafted prop generator
+tools/artgen/craft_characters.py             reproducible crafted sheet generator
 tools/art_reset/build_prototypes.py          reproducible comparison pipeline
 tools/art_reset/build_storybook_atlas.py     reproducible real atlas generator
+tools/art_reset/measure_real_engine.py       real-frame metrics + evidence sheets
 tools/check_art_reset.py                     stdlib CI gate (wired into lint)
+tools/check_craft_props.py                   stdlib crafted-art CI gate
 tests/frames/baseline_15_shepherd_dialogue.png
 tests/frames/baseline_16_shepherd_storybook.png
 ```
+
+---
+
+## 12. Craft pass (2026-11-10) — real-engine iteration after the negative result
+
+Section 5 ended with a measured failure: the palette/UI integration made the
+world's large-scale value spread **fall 20.1 → 10.6**. This section is the
+answer to that number. It is deliberately **not** another full graphical
+rebuild: the classic atlas, all 16 baselines, every gameplay script, all story
+data and the save format are untouched. Everything below is opt-in behind the
+same `Main.apply_art_theme("storybook")` switch.
+
+### 12.1 What was actually made
+
+| Artefact | Content | Integration |
+|---|---|---|
+| `art/props_storybook/*.png` (13) | Hand-drawn irregular silhouettes on the exact original dimensions: olive/fig/palm trees with trunks and branches, bush, faceted rock and boulder, three sheep poses with legs/head/ear/wool planes, fold, tent, house with wall courses + roof faces + door + window, well. Warm-brown ink outlines, 4–11 value planes per material, one upper-right light, no baked shadow, no single-pixel noise. | Swapped per prop key by `Region.apply_art_theme()`; classic is the fallback. |
+| `art/characters_storybook/*.png` (4) | `pilgrim` (David) and `shepherd` (hired boy), idle 32×64 (2 frames × 4 facings) and walk 64×64 (4 × 4). Head, hair, face, shoulder line, tunic with folds, belt + sash, legs, sandals, staff. Same grid and frame counts as the classic sheets. | `Player.apply_art_theme()` / `Npc.apply_art_theme()` check that BOTH sheets exist, else keep classic. |
+| `scripts/world/ContactShadowLayer.gd` | One warm translucent ground oval under every prop, item, animal, NPC and the player, drawn between terrain and the y-sorted sprites. Live node references, so walking figures keep their shadow. | Enabled only in the opt-in scene; `Player._draw()` suppresses its old rectangle to avoid double shadows. |
+| `TerrainLayer._draw_depth()` | A cool irregular far ridge with a sunlit crest, a **graded** warm middle ground (12 strips, sine alpha envelope), one long cast wedge, and a shaded near edge with an irregular boundary. All three planes fall inside the visible world band (rows 24–112). | `set_storybook_depth()` called only by the opt-in theme. Characters and UI are drawn on top, so they are never dimmed. |
+| `tools/check_craft_props.py` | stdlib-only CI gate: exact dimensions/frame counts, shared Direction-C ramps only, ink outline present, ≥4 value planes, no detached 1–2 px specks, irregular silhouette, hash manifest in `data/craft_props_hashes.json`. | Wired into the lint job. |
+| `tools/art_reset/measure_real_engine.py` | Measures real decoded CI frames with the same metric as the four-way comparison and builds the before/after, grayscale and iteration sheets. | Reproducible evidence, not a beauty claim. |
+
+Evidence sheets: `diagnosis/06_crafted_props_3x.png`,
+`diagnosis/07_crafted_characters_6x.png`,
+`diagnosis/04_before_after_real_engine.png`, `05_before_after_grayscale.png`,
+`08_palette_vs_craft.png`, `09_craft_iteration.png`,
+`10_craft_iteration2.png`, `11_craft_iteration3.png`.
+
+### 12.2 The iteration, measured from REAL CI frames
+
+`tools/decode_frames.py <run-id>` decoded each frame; `measure_real_engine.py`
+computed `world_value_spread` (std of 11×8 large blocks over world rows 24–112).
+
+| Pass | CI run | What changed | World value spread |
+|---|---|---|---|
+| Classic `15` | `42784090190` | shipped default | **20.1** |
+| Palette + UI only | `42772672515` | storybook atlas + parchment skin | **10.6** |
+| Craft v1 | `42780526864` | crafted props/sheets/shadows + depth planes at rows 0–26 / 146–180 | **8.0** ← worse |
+| Craft v2 | `42781811086` | all three planes moved into rows 24–112, weak alphas | **12.3** |
+| Craft v3 | `42783550955` | stronger planes + crest line | **17.1** |
+| **Craft v4 (current)** | **`42784090190`** | v3 values, graded band, irregular hill/near edges | **17.7** |
+
+v1 is preserved on purpose. It failed because the dialogue panel covers rows
+116–176: the far ridge and near shade were both *outside* the visible world, so
+the only plane inside it was one uniform wash. A local simulation predicted the
+v2/v3 recovery, but **only the decoded CI frames were used as evidence**.
+
+Final frame `16_shepherd_storybook` vs classic `15`: global luma std 41.6 →
+68.1, world↔UI separation 45.0 → 118.3, UI mean 32.2 → 190.5, world value
+spread 20.1 → 17.7. `docs/art-reset/comparison/real_engine_metrics.json`
+holds all six checkpoints.
+
+### 12.3 Why 17.7 is not "beating" 20.1, and why that is not the whole story
+
+Reviewing `15_shepherd_dialogue` at 3× shows the classic's first two world rows
+(24–40, luma 41.7 / 31.7) are dark because the **HUD gradient scrim bleeds down
+into the world**, while rows 40–112 are one flat bright olive plane (≈86). That
+is a UI artefact, not foreground/middle/background depth. The metric rewards a
+hard dark band and a flat field.
+
+The craft frame instead has three intentional zones (far ≈66, middle ≈95,
+near ≈58) with irregular boundaries, plus contact shadows and ink-outlined
+silhouettes. It is genuinely more layered, but it is **still dimmer and flatter
+than the craft benchmark** and its world spread remains below the classic's
+inflated number. It is not being marketed as a win over the classic; it is a
+measured recovery from the palette-only regression plus a real craft pass.
+
+v3 was rejected visually even though it measured 17.1: the middle ground was a
+hard-edged rectangle and the 3× frame showed a straight horizontal stripe —
+exactly the mechanical shape the brief forbids. v4 removes the seam. This is
+the reason automated metrics alone are insufficient evidence.
+
+### 12.4 Honest remaining gaps (still NOT complete)
+
+* **Professional-level quality is not achieved.** These sprites are
+  program-authored geometric primitives with deliberate ramps, not
+  hand-pixel-edited art by a skilled illustrator. At 16px the faces, cloth folds
+  and wool are still schematic. Trees read as clusters, not as individual
+  leaves and branches. The concept sources are painterly and were never sliced
+  into animation-consistent tiles.
+* **Only two actors and 13 props are crafted.** Every other NPC in the opt-in
+  scene still wears a classic sheet, so the scene mixes two art languages.
+  Bethlehem, Saul's court, Samuel's anointing and the main menu have no new
+  world art at all. The duel setpiece is untouched.
+* **Depth is value planes, not geometry.** There is no parallax, no per-location
+  atmospheric palette, no interior/dusk lighting, no environmental animation
+  beyond the existing sway, and no building occlusion.
+* **The UI skin covers HUD and dialogue only.** Journal, menus, transitions and
+  interaction prompts are unchanged. Chinese legibility at real handset size,
+  a native-speaker pass and a device pass remain unverified.
+* **No subjective completion.** No human playtest, no perceptual audio check,
+  no real-device tactile/rotation/safe-area pass, no enjoyment assessment.
+
+To reach the requested benchmark, the remaining work is **original art created
+outside this pipeline**: manually pixel-edited 16×24/16×32 walk cycles with
+real cloth and anatomy, hand-tiled terrain with seam/autotile testing, distinct
+hand-composed maps for Bethlehem / court / valley, a full UI illustration set,
+and a human art-director review at native resolution. Those cannot be produced
+by the current generator, and no external asset pack was vendored.
+
+### 12.5 Invariants and verification
+
+* Default build **still uses classic art**; `apply_art_theme()` is called only
+  by `tests/visual.gd` for one frame, then restored to `classic`.
+* No gameplay, story, quest, input, collision, footprint or `SAVE_VERSION`
+  change. `data/props.json` and `data/tiles.json` are byte-identical.
+* CI `42784090190`: `lint`, `visual`, `export-web`, `browser` all success;
+  `deploy` skipped. `visual` 16 frames, `run_all: ALL CHECKS PASSED`,
+  `smoke: PASS`, `deep: PASS — 143 checks hold`, browser `30/0` with
+  `consoleErrors=0 pageErrors=0`. `visual_diff.py` clean (frame 16 diff 0.0359
+  against the promoted real baseline, limit 0.18).
+* Mobile (`four_way_mobile.png`) and 4× detail (`four_way_details_4x.png`)
+  sheets were reviewed: C's parchment panel gives the best Chinese legibility
+  of the four, A has the cleanest silhouettes, B the strongest depth. This
+  confirms the original selection reasoning; it does not make the concept
+  composites shippable.
+
+> **Verdict unchanged: the visual overhaul is NOT complete.** The comparison
+> gate is passed, the direction is selected, and one scene now contains
+> first-pass original craft whose world value separation measurably recovered.
+> It remains one reversible opt-in scene. No PR, no merge to `main`, no deploy;
+> live Pages still serves `5d1c5ff`.
