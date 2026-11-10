@@ -811,9 +811,13 @@ jobs:
                             for v in d.get("views", [])],
                   "saves": {k: {"databases": v.get("databases"),
                                 "files": [{"db": x.get("db"), "store": x.get("store"), "key": x.get("key"),
-                                           "shape": x.get("shape"), "raw": (x.get("raw") or "")[:600]}
+                                           "shape": x.get("shape"), "raw": (x.get("raw") or "")[:300]}
                                           for x in v.get("files", [])]}
                             for k, v in d.get("saves", {}).items()},
+                  "goliath": (lambda g: {"presses": g.get("presses"), "won": g.get("won"),
+                                         "ended": g.get("ended"), "fallbackEnded": g.get("fallbackEnded"),
+                                         "finalProgress": (g.get("finalSave") or {}).get("progress"),
+                                         "finalFlags": (g.get("finalSave") or {}).get("flags")} if g else None)(d.get("goliath")),
               }
               blob = json.dumps(compact, separators=(",", ":"), ensure_ascii=False).encode()
               open("build/browser/ann/compact-log.json", "wb").write(blob)
@@ -827,6 +831,10 @@ jobs:
                         s.get("consoleErrors"), s.get("pageErrors"))]
               if compact.get("fatal"):
                   texts.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
+              g = compact.get("goliath") or {}
+              texts.append("::notice::WICBROWSERTEXT|DUEL presses=%s won=%s ended=%s fallback=%s finalAct=%s" %
+                           (g.get("presses"), g.get("won"), g.get("ended"), g.get("fallbackEnded"),
+                            (g.get("finalProgress") or {}).get("act")))
               for c in [x for x in compact["checks"] if not x.get("ok")][:4]:
                   texts.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
               for c in compact["console"][:3]:

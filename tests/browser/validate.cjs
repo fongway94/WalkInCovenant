@@ -26,17 +26,9 @@ const { chromium } = require('playwright');
 
 const OUT = process.env.WIC_OUT || 'build/browser';
 const SHOTS = path.join(OUT, 'shots');
-const WEB_DIR = process.env.WIC_WEB_DIR || 'build/web';
 const URL = process.env.WIC_URL || 'http://127.0.0.1:8080/index.html';
-const SEED_URL = URL.replace(/[^/]*$/, 'wic-seed.html');
 const STRICT = process.env.WIC_STRICT === '1';
 fs.mkdirSync(SHOTS, { recursive: true });
-// A same-origin blank page lets us write Godot's IDBFS save BEFORE the engine
-// boots. It is generated here, never committed, and served by the CI job's
-// local HTTP server.
-fs.mkdirSync(WEB_DIR, { recursive: true });
-fs.writeFileSync(path.join(WEB_DIR, 'wic-seed.html'),
-  '<!doctype html><meta charset="utf-8"><title>WIC validation seed</title>');
 
 const result = {
   url: URL,
@@ -248,23 +240,37 @@ function parseSave(dump) {
 
 const SAVE_KEY = '/userfs/godot/app_userdata/WalkInCovenant/save.json';
 
-/* Godot 4 Web stores user:// in Emscripten's IDBFS: database /userfs, store
- * FILE_DATA, one record per path with {timestamp, mode, contents}. Writing it
- * directly is how a browser test can resume a chapter without playing forty
- * minutes of walking; the game then does everything else itself. */
-async function seedSave(page, save) {
+/* Rewriting an existing IDBFS record is more reliable than creating the DB
+ * ourselves: Godot/Emscripten decides the version, store shape, mode and
+ * timestamp, and we only replace the file bytes. The page is then reloaded so
+ * the engine's own startup sync reads them. */
+async function rewriteSave(page, save) {
   return page.evaluate(async (payload) => {
     const key = payload.key;
-    const db = await new Promise((res, rej) => {
-      const q = indexedDB.open('/userfs', 21);
+    const dbs = await indexedDB.databases();
+    const info = dbs.find(x => x.name === '/userfs');
+    const ver = info ? info.version : 21;
+    const openDb = (v, create) => new Promise((res, rej) => {
+      const q = indexedDB.open('/userfs', v);
       q.onupgradeneeded = () => {
-        if (!q.result.objectStoreNames.contains('FILE_DATA')) q.result.createObjectStore('FILE_DATA');
+        if (create && !q.result.objectStoreNames.contains('FILE_DATA')) q.result.createObjectStore('FILE_DATA');
       };
       q.onsuccess = () => res(q.result);
       q.onerror = () => rej(q.error);
     });
-    const bytes = new TextEncoder().encode(payload.text);
-    const value = { timestamp: Date.now(), mode: 33206, contents: bytes };
+    let db = await openDb(ver, false);
+    if (!db.objectStoreNames.contains('FILE_DATA')) {
+      db.close();
+      db = await openDb(ver + 1, true);
+    }
+    const old = await new Promise(res => {
+      const q = db.transaction('FILE_DATA', 'readonly').objectStore('FILE_DATA').get(key);
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => res(null);
+    });
+    const contents = new TextEncoder().encode(payload.text);
+    const value = old ? Object.assign({}, old, { contents, timestamp: Date.now() })
+      : { timestamp: Date.now(), mode: 33206, contents };
     await new Promise((res, rej) => {
       const t = db.transaction('FILE_DATA', 'readwrite');
       t.objectStore('FILE_DATA').put(value, key);
@@ -273,7 +279,8 @@ async function seedSave(page, save) {
       t.onerror = () => rej(t.error);
     });
     db.close();
-    return { key, bytes: bytes.length };
+    return { hadOld: !!old, mode: value.mode, bytes: contents.length,
+             oldContents: old ? Object.prototype.toString.call(old.contents) : 'new' };
   }, { key: SAVE_KEY, text: JSON.stringify(save, null, '\t') });
 }
 
@@ -281,10 +288,11 @@ async function seedSave(page, save) {
 async function readSave(page) {
   return page.evaluate(async (key) => {
     const db = await new Promise((res, rej) => {
-      const q = indexedDB.open('/userfs', 21);
+      const q = indexedDB.open('/userfs');
       q.onsuccess = () => res(q.result);
       q.onerror = () => rej(q.error);
     });
+    if (!db.objectStoreNames.contains('FILE_DATA')) { db.close(); return null; }
     let v = null;
     try {
       v = await new Promise(res => {
@@ -331,8 +339,8 @@ function fightSave() {
       goliath_down: false, elah_ended: false
     },
     words: ['fear', 'name', 'look', 'shepherd'], quests: {},
-    region: 'elah', campaign: 'elah', pos: [16, 13],
-    progress: { act: 'ready', stones: 5, provisions: 3, brothers: true, pos: [16, 13] },
+    region: 'elah', campaign: 'elah', pos: [16, 10],
+    progress: { act: 'ready', stones: 5, provisions: 3, brothers: true, pos: [16, 10] },
     day: 1, time_of_day: 'morning',
     settings: { clean_mode: true, sound: true, music: true, reduce_motion: false }
   };
@@ -542,15 +550,33 @@ async function waitBoot(page, label) {
   await seeded.addInitScript(INIT);
   const sp = await seeded.newPage();
   wire(sp, 'seeded_fight');
-  await sp.goto(SEED_URL, { waitUntil: 'load', timeout: 30000 });
-  const seedInfo = await seedSave(sp, fightSave());
-  note('seeded GameState save ' + JSON.stringify(seedInfo));
-  const sfs = await waitBoot(sp, 'seeded_fight');
+  // Boot once so Godot creates its own IDBFS database, then rewrite save.json
+  // with the late-chapter state and reload. The second boot is the one under
+  // test; it goes through the engine's real save loader.
+  await sp.goto(URL, { waitUntil: 'load', timeout: 120000 });
+  await sp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+  await sp.waitForTimeout(1600);
+  const seedInfo = await rewriteSave(sp, fightSave());
+  note('rewrote GameState save ' + JSON.stringify(seedInfo));
+  await sp.reload({ waitUntil: 'load', timeout: 120000 });
+  await sp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+  await sp.waitForTimeout(1600);
+  const sfs = await wicState(sp);
+  check('seeded_fight: canvas exists', !!sfs.canvas, JSON.stringify(sfs.canvas));
+  check('seeded_fight: WebGL is drawing', sfs.wic && sfs.wic.draws > 40, 'draw calls=' + (sfs.wic && sfs.wic.draws));
   await shot(sp, 'goliath_01_ready');
+  // A HUD sound click forces GameState.save_game(), so reading the save after
+  // it proves what the ENGINE has in memory, not just what we wrote to IDBFS.
+  const sx2 = sfs.canvas.cssW / 320, sy2 = sfs.canvas.cssH / 180;
+  await sp.mouse.click(sfs.canvas.x + 305 * sx2, sfs.canvas.y + 10 * sy2);
+  await sp.waitForTimeout(1200);
   const readySave = await readSave(sp);
-  check('seeded save resumes at the line (act=ready)',
-    !!readySave && readySave.progress && readySave.progress.act === 'ready',
-    'progress=' + JSON.stringify(readySave && readySave.progress).slice(0, 200));
+  check('game loaded the seeded save (engine wrote it back)',
+    !!readySave && !!readySave.flags && readySave.flags.beth_anointed === true
+      && readySave.progress && readySave.progress.act !== 'witness',
+    'progress=' + JSON.stringify(readySave && readySave.progress).slice(0, 220)
+      + ' flags=' + JSON.stringify(readySave && readySave.flags).slice(0, 220));
+  await shot(sp, 'goliath_01_ready');
 
   // North across challenge row 11. The region is paused for the battle intro,
   // so a short hold is enough to fire the trigger.
@@ -560,17 +586,19 @@ async function waitBoot(page, label) {
   await sp.waitForTimeout(1400);
   await shot(sp, 'goliath_02_duel');
 
-  // One press per ~1.29 s (the marker's full sweep). Each round the press
-  // lands at a different point on the forehead band; across the five stones
-  // plus the brook resupply three hits land. Presses also advance the intro,
-  // victory and ending dialogue. Poll the real save for the win flag.
+  // One press per 0.84 s. The marker takes 1.29 s for a full sweep, so each
+  // round's first press lands at a different point on the forehead band; over
+  // the five stones plus the brook resupply three hits land. Presses also
+  // advance the intro, victory and ending dialogue. Poll the real save for the
+  // win flag rather than trusting a screenshot to mean "won".
   let won = false, presses = 0;
   const fightStart = Date.now();
-  const fightMs = parseInt(process.env.WIC_FIGHT_MS || '105000', 10);
+  const fightMs = parseInt(process.env.WIC_FIGHT_MS || '150000', 10);
+  const cadence = 840;
   while (Date.now() - fightStart < fightMs && !won) {
     await sp.keyboard.press('Space');
     presses++;
-    await sp.waitForTimeout(1290);
+    await sp.waitForTimeout(cadence);
     const s = await readSave(sp);
     if (s && s.flags && s.flags.goliath_down === true) won = true;
     if (presses === 8) await shot(sp, 'goliath_02_duel');
@@ -582,6 +610,9 @@ async function waitBoot(page, label) {
 
   let ended = false;
   if (won) {
+    // Main's dead-pause guard unpauses the valley 6 s after the victory beat.
+    // Moving before that is a no-op, so let the game let go first.
+    await sp.waitForTimeout(6900);
     // Walk back down the valley to Corin (row 44), then interact. Small nudges
     // cover the last tile so the approach is real movement, not teleporting.
     await sp.keyboard.down('ShiftLeft');
@@ -625,9 +656,20 @@ async function waitBoot(page, label) {
     await post.addInitScript(INIT);
     const pp = await post.newPage();
     wire(pp, 'post_win');
-    await pp.goto(SEED_URL, { waitUntil: 'load', timeout: 30000 });
-    await seedSave(pp, postWinSave());
-    await waitBoot(pp, 'post_win');
+    await pp.goto(URL, { waitUntil: 'load', timeout: 120000 });
+    await pp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+    await pp.waitForTimeout(1600);
+    await rewriteSave(pp, postWinSave());
+    await pp.reload({ waitUntil: 'load', timeout: 120000 });
+    await pp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+    await pp.waitForTimeout(1600);
+    const pst = await wicState(pp);
+    await pp.mouse.click(pst.canvas.x + 305 * (pst.canvas.cssW / 320), pst.canvas.y + 10 * (pst.canvas.cssH / 180));
+    await pp.waitForTimeout(1100);
+    const postLoaded = await readSave(pp);
+    check('post-victory save was loaded by the engine',
+      !!postLoaded && !!postLoaded.flags && postLoaded.flags.goliath_down === true,
+      'flags=' + JSON.stringify(postLoaded && postLoaded.flags).slice(0, 220));
     await shot(pp, 'goliath_05_ending');
     let postEnded = false;
     for (let i = 0; i < 10 && !postEnded; i++) {
@@ -641,6 +683,11 @@ async function waitBoot(page, label) {
       await pp.waitForTimeout(320);
       const s = await readSave(pp);
       if (s && s.flags && s.flags.elah_ended === true) postEnded = true;
+    }
+    await pp.waitForTimeout(2200);
+    if (!postEnded) {
+      const s = await readSave(pp);
+      postEnded = !!(s && s.flags && s.flags.elah_ended === true);
     }
     await shot(pp, 'goliath_05_ending');
     note('post-victory ending: elah_ended=' + postEnded);
