@@ -174,7 +174,9 @@ async function dumpSave(page, tag) {
     let dbs = [];
     try { dbs = await indexedDB.databases(); } catch (e) { out.error = String(e); return out; }
     const bytes = x => {
-      if (x instanceof Uint8Array || x instanceof ArrayBuffer) return new TextDecoder().decode(x);
+      if (ArrayBuffer.isView(x) || x instanceof ArrayBuffer) {
+        return new TextDecoder().decode(new Uint8Array(x.buffer || x, x.byteOffset || 0, x.byteLength));
+      }
       if (Array.isArray(x) && x.length && x.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) {
         return new TextDecoder().decode(new Uint8Array(x));
       }
@@ -268,9 +270,14 @@ async function rewriteSave(page, save) {
       q.onsuccess = () => res(q.result);
       q.onerror = () => res(null);
     });
-    const contents = new TextEncoder().encode(payload.text);
-    const value = old ? Object.assign({}, old, { contents, timestamp: Date.now() })
-      : { timestamp: Date.now(), mode: 33206, contents };
+    const u8 = new TextEncoder().encode(payload.text);
+    // Emscripten's IDBFS uses Int8Array for file contents and a Date for
+    // timestamp; replacing the timestamp with a number makes its sync throw
+    // "timestamp.getTime is not a function" and the engine never loads the
+    // save. Preserve both facts from Godot's own record.
+    const contents = new Int8Array(u8.buffer, u8.byteOffset, u8.byteLength);
+    const value = old ? Object.assign({}, old, { contents })
+      : { timestamp: new Date(), mode: 33206, contents };
     await new Promise((res, rej) => {
       const t = db.transaction('FILE_DATA', 'readwrite');
       t.objectStore('FILE_DATA').put(value, key);
@@ -304,8 +311,9 @@ async function readSave(page) {
     if (!v) return null;
     let text = null;
     const c = v.contents;
-    if (c instanceof Uint8Array || c instanceof ArrayBuffer) text = new TextDecoder().decode(c);
-    else if (Array.isArray(c)) text = new TextDecoder().decode(new Uint8Array(c));
+    if (ArrayBuffer.isView(c) || c instanceof ArrayBuffer) {
+      text = new TextDecoder().decode(new Uint8Array(c.buffer || c, c.byteOffset || 0, c.byteLength));
+    } else if (Array.isArray(c)) text = new TextDecoder().decode(new Uint8Array(c));
     else if (typeof v === 'string') text = v;
     if (text == null) return null;
     try { return JSON.parse(text); } catch (e) { return null; }
