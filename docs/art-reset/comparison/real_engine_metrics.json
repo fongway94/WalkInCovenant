@@ -1,33 +1,33 @@
 {
   "15_shepherd_dialogue": {
     "unique_colors": 48,
-    "luma_mean": 56.8,
-    "luma_std": 41.3,
+    "luma_mean": 56.6,
+    "luma_std": 41.6,
     "luma_p10": 16.4,
-    "luma_p50": 35.1,
-    "luma_p90": 97.9,
-    "saturation_mean": 0.56,
-    "edge_density": 0.199,
-    "world_luma_mean": 77.6,
-    "world_value_spread": 20.3,
+    "luma_p50": 32.4,
+    "luma_p90": 92.8,
+    "saturation_mean": 0.559,
+    "edge_density": 0.205,
+    "world_luma_mean": 77.2,
+    "world_value_spread": 20.1,
     "hud_luma_mean": 39.5,
-    "ui_luma_mean": 31.4,
-    "world_ui_separation": 46.2
+    "ui_luma_mean": 32.2,
+    "world_ui_separation": 45.0
   },
   "16_shepherd_storybook": {
     "unique_colors": 48,
-    "luma_mean": 115.0,
-    "luma_std": 65.5,
-    "luma_p10": 59.8,
-    "luma_p50": 78.3,
+    "luma_mean": 112.2,
+    "luma_std": 67.7,
+    "luma_p10": 55.0,
+    "luma_p50": 73.3,
     "luma_p90": 209.7,
-    "saturation_mean": 0.421,
-    "edge_density": 0.254,
-    "world_luma_mean": 75.7,
-    "world_value_spread": 8.0,
-    "hud_luma_mean": 68.2,
-    "ui_luma_mean": 191.0,
-    "world_ui_separation": 115.3
+    "saturation_mean": 0.427,
+    "edge_density": 0.198,
+    "world_luma_mean": 71.3,
+    "world_value_spread": 12.3,
+    "hud_luma_mean": 65.0,
+    "ui_luma_mean": 190.8,
+    "world_ui_separation": 119.6
   },
   "16_palette_only": {
     "unique_colors": 48,
@@ -43,5 +43,20 @@
     "hud_luma_mean": 67.9,
     "ui_luma_mean": 191.1,
     "world_ui_separation": 112.2
+  },
+  "16_craft_v1": {
+    "unique_colors": 48,
+    "luma_mean": 115.0,
+    "luma_std": 65.5,
+    "luma_p10": 59.8,
+    "luma_p50": 78.3,
+    "luma_p90": 209.7,
+    "saturation_mean": 0.421,
+    "edge_density": 0.254,
+    "world_luma_mean": 75.7,
+    "world_value_spread": 8.0,
+    "hud_luma_mean": 68.2,
+    "ui_luma_mean": 191.0,
+    "world_ui_separation": 115.3
   }
 }

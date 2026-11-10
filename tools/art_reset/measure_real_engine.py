@@ -102,8 +102,16 @@ def main():
         report["16_craft_v1"] = metrics(q)
         sheet([
             ("CRAFT v1 — depth planes outside the visible world (spread 8.0)", q),
-            ("CRAFT v2 — three value planes inside the visible world", after),
+            ("CRAFT v3 — final value planes, real CI frame 16", after),
         ], DIAG / "09_craft_iteration.png")
+    v2 = COMP / "16_craft_v2.png"
+    if v2.exists():
+        r = load(v2)
+        report["16_craft_v2"] = metrics(r)
+        sheet([
+            ("CRAFT v2 — three planes correctly placed, too weak (spread 12.3)", r),
+            ("CRAFT v3 — strengthened planes + sunlit crest (current CI)", after),
+        ], DIAG / "10_craft_iteration2.png")
 
     out = COMP / "real_engine_metrics.json"
     out.write_text(json.dumps(report, indent=2) + "\n")
