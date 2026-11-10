@@ -1,10 +1,10 @@
 # ART DIRECTION RESET — real diagnosis, three prototypes, one honest verdict
 
 > **Status: comparison produced, direction retargeted to the user's Direction B,
-> ONE scene integrated as a reversible opt-in prototype with animation intact,
-> and that working branch is LIVE for human playtest. B v3 is materially closer
-> to the golden-hour reference (§12.9), but the visual overhaul is NOT complete
-> and exact parity with a painterly concept is NOT claimed.**
+> the working branch is LIVE for human playtest, and B v4 — quiet ground, a
+> lighter HUD and B-skinned setpieces — is shipping there (§12.11). The visual
+> overhaul is NOT complete and exact parity with a painterly concept is NOT
+> claimed. All 16px-grid animation, collision, gameplay and save format hold.**
 >
 > This file is the evidence for the user's explicit gate: *"START WITH THE
 > EXISTING SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION
@@ -870,7 +870,7 @@ frames are transported at 48 colours from a separate job / one step per frame;
 the 15 control frames use 24 colours. Frame 17 is a new UI-free review capture
 (the dialogue box is closed by the game's own input; the HUD is still shipped).
 
-| Measured on 320×180 real frames | classic f15 | B v2 f16 | B v3 f16 | B v3 quiet f17 | B concept, fitted |
+| Measured on 320×180 real frames (B v3, superseded by §12.11) | classic f15 | B v2 f16 | B v3 f16 | B v3 quiet f17 | B concept, fitted |
 |---|---:|---:|---:|---:|---:|
 | whole-frame luma mean | 56.4 | 56.6 | **71.5** | **85.7** | 79.4 |
 | world luma mean (rows 24–112) | 77.3 | 67.9 | **93.8** | **94.5** | 86.6 |
@@ -930,10 +930,10 @@ are untouched, and setting the constant back to `"classic"` restores the old
 look exactly. Gameplay, collision, animation, quests and save format are not
 changed.
 
-**Still partial.** The B theme covers Region terrain, crafted props/actors,
-HUD and dialogue. Dedicated setpiece screens (`GoliathFight`, `SlingPractice`,
-`StoneChoice`) and the journal/menu/transition surfaces do not yet have B
-skins, so this is not a whole-game art replacement or a parity claim. Human
+**Superseded by §12.11.** B v4 now skins `GoliathFight`, `SlingPractice` and
+`StoneChoice` too, ships B-palette duel figures and adds real frame 18. The
+journal/menu/transition surfaces are still not B-skinned, so this remains a
+preview rather than a whole-game art replacement or a parity claim. Human
 playtest is still required. Because this is a PWA, a browser that already
 cached an older build may need one hard refresh / clear-site-data before the
 new sha-stamped service worker takes over; the deployed worker's cache name
@@ -952,3 +952,69 @@ one hard refresh / clear-site-data. This corrects the "why still same" report:
 the live Web preview now starts in Direction B, while desktop/headless/visual
 CI and the classic asset files remain unchanged. No PR, merge, release or
 parity claim.
+
+### 12.11 Direction B v4 — after the user's second live screenshot
+
+The user opened the live preview after §12.10 and sent three real phone
+screenshots. B **was** finally visible in the overworld, but the honest reading
+was: (1) the field was covered in uniform cream confetti, (2) hard translucent
+triangular light wedges crossed the ground, and (3) the Goliath duel was still
+the dark classic setpiece. Those are defects in the B v3 implementation, not a
+reason to change direction. B v4 fixes them on the same working branch.
+
+**What changed.** The 49-cell B atlas still uses the same `data/tiles.json`,
+16px cells, water variants and 84 controlled colours, but per-cell grass,
+blossom, pebble and dust marks are now RARE and clustered; the global
+four-pixel sprinkle is gone. `TerrainLayer` uses five low-alpha cast bands
+instead of seven high-alpha wedges, softer sun shafts and one foreground blade
+per five tiles. The B HUD plate is lighter and warmer. A new
+`scripts/systems/ArtDirection.gd` gives one shared Web-only theme decision, so
+late-created setpieces no longer fall back to classic:
+
+* `GoliathFight` gets B-palette 32×32 / 64×64 David and Goliath figures (exact
+  geometry, alpha, forehead aim band and fall animation), a warm ochre valley
+  with a low upper-left sun, honey ridges, olive army silhouettes, long cool
+  casts and B cream/gold UI colours.
+* `SlingPractice` and `StoneChoice` get warm dusk backdrops, clay/limestone
+  props and B text colours. The drill's timing, the nine stones, input and
+  every setpiece animation are untouched.
+* `tests/visual.gd` captures a real **frame 18_duel_cinematic**; the workflow
+  publishes it as a third one-frame-per-step 48-colour transport. Desktop,
+  headless and Xvfb still return `"classic"`; the 15 control frames stay at 24
+  colours and all reviewed baselines remain valid.
+
+**Final real evidence.** Push `97642f6` / run **`42850057966`** is all green —
+lint, visual, publish-b-frames, export-web, browser, deploy. Deployment
+**`7687190157` = success**; the live `index.service.worker.js` carries cache
+stamp `97642f615821fe108c35baa52b0b1814136daa84`. Browser telemetry:
+`chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0 pageErrors=0`,
+`DUEL presses=32 won=True`. **18/18** frames decoded complete;
+`visual_diff.py` is clean after promoting reviewed
+`baseline_16_shepherd_cinematic.png`,
+`baseline_17_shepherd_cinematic_quiet.png` and new
+`baseline_18_duel_cinematic.png`.
+
+| Measured on 320×180 real v4 frames | classic f15 | B v4 f16 | B v4 quiet f17 | B v4 duel f18 | B concept, fitted |
+|---|---:|---:|---:|---:|---:|
+| whole-frame luma mean | 56.8 | **75.9** | **91.2** | **79.6** | 79.4 |
+| world luma mean (rows 24–112) | 77.8 | **99.4** | **100.2** | **80.7** | 86.6 |
+| world value spread | 20.4 | **26.3** | **26.4** | 18.2 | 22.6 |
+| edge density | 0.217 | **0.355** | **0.478** | 0.130 | 0.454 |
+| distinct transport colours | 24 | **48** | **48** | **48** | 45,109 |
+
+The quiet frame now has **less** v3 confetti but still more measured edge
+density (0.478) and value spread (26.4) than the fitted concept (0.454 / 22.6);
+the duel frame is a different scene with its own flatter composition (edge
+0.130). See `diagnosis/18_B_quiet_vs_reference.png` and new
+`diagnosis/19_B_duel_vs_reference.png`. These are coarse statistics, not a
+beauty score, and the 48-colour number is CI annotation transport — the live
+Web build uses the full 84-colour atlas and the shared B palette JSON.
+
+**Still not parity.** The concept is a 681×348 painterly, UI-free,
+animation-free illustration with 135,490 native colours. The game remains a
+320×180 16px-grid pixel scene with a HUD, dialogue panel, rectangular tile
+transitions and live sprites. Tree volume, atmospheric haze and the path still
+read differently; the journal/menu/transition surfaces are not B-skinned. Human
+playtest and art-director review remain open. No completion, parity, default
+asset replacement, PR, merge to `main` or release claim is made. A browser
+holding an older PWA cache may need one hard refresh / clear-site-data.

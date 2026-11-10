@@ -796,3 +796,29 @@ including deploy, deployment `7686202899` = `success`, browser `30/0`, and the
 live service worker stamp is `02e5d34...`. The working-branch Web preview now
 starts in B at boot; classic desktop/headless/visual CI stays unchanged. A PWA
 hard refresh may be needed once. No release or parity claim.
+
+## 16. Direction B v4 — user screenshot feedback, quiet ground, B duel
+
+After the live Web theme fix, the user sent three real screenshots: B was
+visible, but the field had cream confetti, hard light wedges, and the duel was
+still classic. `97642f6` fixes all three:
+
+* rare, clustered atlas marks and no global pixel sprinkle; five low-alpha cast
+  bands, softer shafts, one foreground blade per five tiles; lighter B HUD;
+* one shared `ArtDirection.gd` Web-only decision; B-palette 32/64px duel
+  figures and warm golden-hour valley in `GoliathFight`; B skins for
+  `SlingPractice` and `StoneChoice`; no gameplay, timing, fall, save or
+  animation change;
+* real frame 18_duel_cinematic, third one-frame-per-step 48-colour transport,
+  third promoted baseline.
+
+Final run `42850057966` is all green including deploy (`7687190157` success);
+browser `checks=30 failed=0`, `DUEL presses=32 won=True`, 18/18 frames decoded,
+`visual_diff.py` clean. Live service-worker stamp is `97642f6…`. Final v4 quiet
+metrics: luma 91.2, world 100.2, spread 26.4, edge 0.478 vs fitted concept
+79.4 / 86.6 / 22.6 / 0.454. See `docs/ART-RESET.md` §12.11 and
+`diagnosis/19_B_duel_vs_reference.png`.
+
+This is still **not parity** with the painterly, UI-free, animation-free
+reference; the journal/menu/transition surfaces are not B-skinned and human
+playtest remains open. No PR, merge to `main`, default replacement or release.

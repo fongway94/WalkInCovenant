@@ -230,3 +230,32 @@ art-director pass are still required. Classic is still the default in source,
 desktop, headless tests and visual CI; the live Web preview now applies B at
 runtime (§12.10 of `ART-RESET.md`). No PR, merge to `main`, default asset
 replacement or release claim is made.
+
+### §12 — B v4: quiet ground and a golden-hour duel (2026-11-10)
+
+The user's second live screenshot set showed B in the overworld but three
+visible defects: cream confetti across every tile, hard triangular light
+wedges, and a still-classic Goliath duel. B v4 addresses those without
+changing the DS-era contract.
+
+* Atlas marks are rare and clustered; `TerrainLayer` lowers cast-band and shaft
+  alpha, cuts foreground blades, and the B HUD plate is lighter.
+* `ArtDirection.gd` gives one Web-only theme decision. `GoliathFight`,
+  `SlingPractice` and `StoneChoice` now agree with the overworld; the duel has
+  B-palette figures, a warm one-light valley, long casts and gold UI. The
+  figures keep their 32×32 / 64×64 alpha, forehead band and fall rotation.
+* Real CI frame 18 proves the duel in the shipped engine. Final all-green run
+  `42850057966` (`97642f6`) decoded 18/18 frames, browser `30/0`, and deployed
+  `7687190157` = success. `visual_diff.py` is clean with three B baselines.
+
+Final v4 quiet-frame metrics: luma **91.2**, world luma **100.2**, spread
+**26.4**, edge density **0.478**; fitted concept **79.4 / 86.6 / 22.6 / 0.454**.
+B v4 duel: luma **79.6**, edge **0.130**. See `docs/ART-RESET.md` §12.11,
+`diagnosis/18_B_quiet_vs_reference.png`, `diagnosis/19_B_duel_vs_reference.png`
+and `docs/art-reset/cinematic_duel_4x.png`.
+
+Closer is not parity: the painterly concept has 45,109 fitted colours, no UI
+and no animation; the game has a HUD, 16px tiles, rectangular terrain
+transitions and live sprites. Human playtest remains open. Classic source
+assets, desktop/headless/visual CI, `SAVE_VERSION`, collision and animation are
+unchanged. No PR, merge, default replacement or release claim.

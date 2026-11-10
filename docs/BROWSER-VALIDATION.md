@@ -286,3 +286,11 @@ deploy: `chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0
 pageErrors=0`, `DUEL presses=32 won=True`. Deployment `7686202899` succeeded.
 The live Web runtime now applies B at boot; a hard refresh may be needed once
 to replace an older PWA cache. Still **Release candidate, not release**.
+
+**Final B v4 run.** `42850057966` (`97642f6`) is all green including deploy:
+`chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0 pageErrors=0`,
+`DUEL presses=32 won=True ending=True corin=True`. Deployment `7687190157`
+succeeded and the live service worker is stamped `97642f6…`. The Web runtime
+now applies B to the overworld AND the duel/drill/brook setpieces; Xvfb/headless
+remain classic. 18/18 visual frames decoded and `visual_diff.py` is clean. A
+PWA hard refresh may be needed once. Still **Release candidate, not release**.

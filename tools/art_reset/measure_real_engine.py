@@ -12,6 +12,7 @@ Inputs (REAL 320x180 framebuffer captures unless noted):
     frames/15_shepherd_dialogue.png        classic, same camera & dialogue
     frames/16_shepherd_cinematic.png       user-selected Direction B scene
     frames/17_shepherd_cinematic_quiet.png B scene with dialogue closed
+    frames/18_duel_cinematic.png            B duel setpiece, real engine
     docs/art-reset/comparison/16_storybook_final.png  Direction C final
     docs/art-reset/user_selected_reference.png        B concept, 681x348
     docs/art-reset/comparison/16_palette_only.png      previous CI frame, optional
@@ -28,6 +29,7 @@ Outputs:
     docs/art-reset/diagnosis/16_B_engine_vs_reference.png
     docs/art-reset/diagnosis/17_B_engine_vs_reference_grayscale.png
     docs/art-reset/diagnosis/18_B_quiet_vs_reference.png
+    docs/art-reset/diagnosis/19_B_duel_vs_reference.png
     docs/art-reset/comparison/B_engine_{native,desktop,mobile}.png
     docs/art-reset/comparison/B_engine_grayscale_{native,desktop,mobile}.png
     docs/art-reset/comparison/real_engine_metrics.json
@@ -91,9 +93,13 @@ def main():
     quiet = load(quiet_path) if quiet_path.exists() else after
     if quiet_path.exists():
         report["17_shepherd_cinematic_quiet"] = metrics(quiet)
+    duel_path = FRAMES / "18_duel_cinematic.png"
+    duel = load(duel_path) if duel_path.exists() else after
+    if duel_path.exists():
+        report["18_duel_cinematic"] = metrics(duel)
     panels = [
         ("BEFORE — classic art, real engine frame 15", before),
-        ("AFTER — Direction B v3 integrated, real engine frame 16", after),
+        ("AFTER — Direction B v4 integrated, real engine frame 16", after),
     ]
     sheet(panels, DIAG / "04_before_after_real_engine.png")
     sheet([(label, ImageOps.grayscale(im).convert("RGB"))
@@ -180,15 +186,23 @@ def main():
     # this is a review capture with the box closed, not a removed UI.
     sheet([
         ("USER REFERENCE — Direction B concept, painted, 681x348", ref_fit),
-        ("REAL ENGINE — B v3 with dialogue closed, 320x180", quiet),
+        ("REAL ENGINE — B v4 with dialogue closed, 320x180", quiet),
     ], DIAG / "18_B_quiet_vs_reference.png")
+    # The duel used to stay classic while the overworld was golden hour. This
+    # sheet is the real-engine proof that the setpiece now shares the same
+    # light, while keeping its own scene composition and live animation.
+    if duel_path.exists():
+        sheet([
+            ("USER REFERENCE — Direction B concept, painted, 681x348", ref_fit),
+            ("REAL ENGINE — B v4 duel setpiece, 320x180", duel),
+        ], DIAG / "19_B_duel_vs_reference.png")
 
     # 2x2 progression sheet: classic -> C -> B real -> B concept reference.
     classic = load(FRAMES / "15_shepherd_dialogue.png")
     panels4 = [
         ("CLASSIC (frame 15)", classic),
         ("DIRECTION C (assistant-selected)", cf if cfinal.exists() else classic),
-        ("DIRECTION B v3 (user-selected, REAL ENGINE, UI closed)", quiet),
+        ("DIRECTION B v4 (user-selected, REAL ENGINE, UI closed)", quiet),
         ("DIRECTION B CONCEPT (painted reference)", ref_fit),
     ]
     grid = Image.new("RGB", (2 * 640 + 30, 2 * (360 + 26) + 20), (24, 26, 32))
@@ -210,10 +224,13 @@ def main():
           "-> integrated",
           report["16_shepherd_cinematic"]["world_value_spread"])
     if "17_shepherd_cinematic_quiet" in report:
-        print("quiet B v3 world luma",
+        print("quiet B v4 world luma",
               report["17_shepherd_cinematic_quiet"]["world_luma_mean"],
               "spread",
               report["17_shepherd_cinematic_quiet"]["world_value_spread"])
+    if "18_duel_cinematic" in report:
+        print("B v4 duel luma", report["18_duel_cinematic"]["luma_mean"],
+              "edge", report["18_duel_cinematic"]["edge_density"])
 
 
 if __name__ == "__main__":

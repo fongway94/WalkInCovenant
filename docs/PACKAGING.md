@@ -379,3 +379,9 @@ CI baselines are unchanged.
 green including deploy (`7686202899` = success), and the live service worker
 cache stamp is `02e5d34dc6ce926a1f51a9ea6b33f60077f29612`. Hard-refresh once if
 an older PWA cache is still active.
+
+**Final B v4 deployment.** `97642f6` / run `42850057966` is all green including
+deploy; deployment `7687190157` = success and the live service worker stamp is
+`97642f615821fe108c35baa52b0b1814136daa84`. The third 48-colour B frame is
+published by its own `publish-b-frames` step. Hard-refresh once if an older PWA
+cache is still active. This is a working-branch preview, not a release or merge.
