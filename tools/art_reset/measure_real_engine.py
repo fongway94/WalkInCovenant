@@ -110,8 +110,16 @@ def main():
         report["16_craft_v2"] = metrics(r)
         sheet([
             ("CRAFT v2 — three planes correctly placed, too weak (spread 12.3)", r),
-            ("CRAFT v3 — strengthened planes + sunlit crest (current CI)", after),
+            ("CRAFT v4 — graded band, irregular edges (current CI)", after),
         ], DIAG / "10_craft_iteration2.png")
+    v3 = COMP / "16_craft_v3.png"
+    if v3.exists():
+        s = load(v3)
+        report["16_craft_v3"] = metrics(s)
+        sheet([
+            ("CRAFT v3 — stronger values but a hard horizontal stripe (17.1)", s),
+            ("CRAFT v4 — same values, graded band and organic edges", after),
+        ], DIAG / "11_craft_iteration3.png")
 
     out = COMP / "real_engine_metrics.json"
     out.write_text(json.dumps(report, indent=2) + "\n")
