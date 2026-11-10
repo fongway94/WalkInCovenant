@@ -746,14 +746,21 @@ jobs:
           os.makedirs("build/browser/ann", exist_ok=True)
           CH = 3800
           lines = []
-          files = sorted(glob.glob("build/browser/shots/*.png"))[:16]
+          # Nine representative frames: boot, input, dialogue, mute, reload,
+          # 4:3, mobile landscape, touch, portrait guidance. The rest stay in
+          # the browser-evidence artifact.
+          WANT = ["01_boot_desktop", "04_after_interact", "06_dialogue_advance_2",
+                  "09_after_mute_click", "10_after_reload", "vp_fourthree_1024x768",
+                  "vp_mobile_landscape_844x390", "touch_02_after_taps", "touch_03_portrait"]
+          allfiles = {os.path.basename(f)[:-4]: f for f in glob.glob("build/browser/shots/*.png")}
+          files = [allfiles[n] for n in WANT if n in allfiles]
           if not files:
               print("::warning::browser job produced no screenshots")
           for f in files:
               name = os.path.basename(f)[:-4]
               im = Image.open(f).convert("RGB")
-              im.thumbnail((400, 400), Image.LANCZOS)
-              im.quantize(colors=32).save("build/browser/ann/" + name + ".png", optimize=True)
+              im.thumbnail((320, 320), Image.LANCZOS)
+              im.quantize(colors=16).save("build/browser/ann/" + name + ".png", optimize=True)
               raw = base64.b64encode(open("build/browser/ann/" + name + ".png", "rb").read()).decode()
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
@@ -778,7 +785,10 @@ jobs:
                              "rotationOverlay": v.get("state", {}).get("rotationOverlay"),
                              "draws": (v.get("state", {}).get("wic") or {}).get("draws")}
                             for v in d.get("views", [])],
-                  "saves": {k: {"databases": v.get("databases"), "files": [x.get("key") for x in v.get("files", [])]}
+                  "saves": {k: {"databases": v.get("databases"),
+                                "files": [{"db": x.get("db"), "store": x.get("store"), "key": x.get("key"),
+                                           "shape": x.get("shape"), "raw": (x.get("raw") or "")[:600]}
+                                          for x in v.get("files", [])]}
                             for k, v in d.get("saves", {}).items()},
               }
               blob = json.dumps(compact, separators=(",", ":"), ensure_ascii=False).encode()
@@ -788,18 +798,24 @@ jobs:
               for i, part in enumerate(parts):
                   lines.append("::notice::WICBROWSERLOG|%d|%d|%s" % (i, len(parts), part))
               s = compact.get("summary") or {}
-              lines.append("::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
-                           (compact.get("chromium"), s.get("checks"), s.get("failedChecks"),
-                            s.get("consoleErrors"), s.get("pageErrors")))
+              texts = ["::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
+                       (compact.get("chromium"), s.get("checks"), s.get("failedChecks"),
+                        s.get("consoleErrors"), s.get("pageErrors"))]
               if compact.get("fatal"):
-                  lines.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
-              for c in compact["checks"]:
-                  if not c.get("ok"):
-                      lines.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
-              for c in compact["console"][:6]:
-                  lines.append("::notice::WICBROWSERTEXT|CONSOLE %s %s" % (c.get("type"), str(c.get("text"))[:220]))
-              for t in compact["notes"][:6]:
-                  lines.append("::notice::WICBROWSERTEXT|NOTE %s" % t)
+                  texts.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
+              for c in [x for x in compact["checks"] if not x.get("ok")][:4]:
+                  texts.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
+              for c in compact["console"][:3]:
+                  texts.append("::notice::WICBROWSERTEXT|CONSOLE %s %s" % (c.get("type"), str(c.get("text"))[:220]))
+              for t in compact["notes"][:3]:
+                  texts.append("::notice::WICBROWSERTEXT|NOTE %s" % t)
+          else:
+              texts = []
+          # 50 annotations per check run. Keep all image/log chunks, spend the
+          # remainder on short text lines.
+          head_count = len(lines)
+          lines += texts[:max(0, 49 - head_count)]
+          print("evidence: %d image/log chunks + %d text lines (cap 49)" % (head_count, len(lines) - head_count))
           NB = int(os.environ.get("WIC_NB", "12"))
           buckets = [[] for _ in range(NB)]
           for i, line in enumerate(lines):

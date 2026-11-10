@@ -173,13 +173,31 @@ async function dumpSave(page, tag) {
     const out = { databases: [], files: [] };
     let dbs = [];
     try { dbs = await indexedDB.databases(); } catch (e) { out.error = String(e); return out; }
+    const bytes = x => {
+      if (x instanceof Uint8Array || x instanceof ArrayBuffer) return new TextDecoder().decode(x);
+      if (Array.isArray(x) && x.length && x.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) {
+        return new TextDecoder().decode(new Uint8Array(x));
+      }
+      if (x && typeof x === 'object') {
+        for (const k of ['contents', 'data', 'buffer', 'bytes']) {
+          if (x[k] != null) { const s = bytes(x[k]); if (s != null) return s; }
+        }
+      }
+      return null;
+    };
     const decode = v => {
       try {
-        if (v instanceof Uint8Array || v instanceof ArrayBuffer) return new TextDecoder().decode(v);
-        if (v && (v.contents instanceof Uint8Array || v.contents instanceof ArrayBuffer)) return new TextDecoder().decode(v.contents);
+        const b = bytes(v);
+        if (b != null) return b;
         if (typeof v === 'string') return v;
         return JSON.stringify(v);
       } catch (e) { return '<binary>'; }
+    };
+    const shape = v => {
+      if (v == null) return String(v);
+      const kind = Object.prototype.toString.call(v);
+      const keys = (v && typeof v === 'object') ? Object.keys(v).slice(0, 8).join(',') : '';
+      return kind + (keys ? '[' + keys + ']' : '') + ' len=' + (v && v.length !== undefined ? v.length : '-');
     };
     for (const d of dbs) {
       out.databases.push({ name: d.name, version: d.version });
@@ -198,7 +216,8 @@ async function dumpSave(page, tag) {
           try {
             v = await new Promise(res => { const q = db.transaction(s, 'readonly').objectStore(s).get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
           } catch (e) { continue; }
-          out.files.push({ db: d.name, store: s, key: String(k), text: decode(v).slice(0, 12000) });
+          const text = decode(v);
+          out.files.push({ db: d.name, store: s, key: String(k), text: text.slice(0, 12000), shape: shape(v), raw: text.slice(0, 700) });
         }
       }
       db.close();
@@ -353,8 +372,10 @@ async function waitBoot(page, label) {
   check('save survives a full page reload', !!saveReload && !!baseline,
     'before=' + !!baseline + ' afterReload=' + !!saveReload);
   if (saveReload && baseline) {
-    check('reload preserves the chapter/act', JSON.stringify(saveReload.progress) === JSON.stringify(baseline.progress),
-      'progress=' + JSON.stringify(saveReload.progress).slice(0, 220));
+    const p0 = baseline.progress == null ? '' : JSON.stringify(baseline.progress);
+    const p1 = saveReload.progress == null ? '' : JSON.stringify(saveReload.progress);
+    check('reload preserves the chapter/act', p0 !== '' && p0 === p1,
+      'progress=' + p1.slice(0, 220));
   }
 
   /* ── 2. RESPONSIVE: LIVE resize of the same running game ──────────────

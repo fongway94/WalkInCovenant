@@ -89,10 +89,12 @@ def main():
             print("  wrote log.json (%d bytes)" % len(blob))
             try:
                 d = json.loads(blob)
-                s = d.get("summary", {})
+                s = d.get("summary") or {}
                 print("  chromium: %s  checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
                       (d.get("chromium"), s.get("checks"), s.get("failedChecks"),
                        s.get("consoleErrors"), s.get("pageErrors")))
+                if d.get("fatal"):
+                    print("  FATAL " + d["fatal"].replace("\n", " ")[:600])
                 for c in d.get("checks", []):
                     if not c.get("ok"):
                         print("    FAILED %s — %s" % (c.get("name"), c.get("detail")))
