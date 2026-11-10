@@ -971,10 +971,13 @@ jobs:
 
       - id: pages
         name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6.0.0
         continue-on-error: true
         with:
-          enablement: true
+          # The site already exists; `enablement: true` needs a token with
+          # administration:write and can fail with the workflow GITHUB_TOKEN.
+          # Reading the existing workflow site is enough here.
+          enablement: false
 
       - name: Report that Pages needs a one-time switch
         if: steps.pages.outcome != 'success'
@@ -985,11 +988,14 @@ jobs:
 
       - name: Upload Pages artifact
         if: steps.pages.outcome == 'success'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: build/web
 
       - id: deployment
         name: Deploy to GitHub Pages
         if: steps.pages.outcome == 'success'
-        uses: actions/deploy-pages@v4
+        # v4 targets Node20 and is force-run on Node24 on current runners;
+        # its status polling timed out on the 2026-11-10 preview deployment.
+        # v5.0.1 is native Node24 with backoff/jitter status polling.
+        uses: actions/deploy-pages@v5.0.1
