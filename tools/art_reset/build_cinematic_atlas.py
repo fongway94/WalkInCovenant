@@ -14,6 +14,15 @@ long to the lower right; highlights go warm honey / gold. Path and stone are
 sunlit ochre; olive foliage is deep green with a warm rim. No pure black or
 white.
 
+Direction B v3 (2026-11-10, after the user asked to "make in on par"): the v2
+real engine frame measured world luma 67.9 against the concept's 86.6, and the
+field had roughly half the concept's edge density. The ramps are lifted and the
+generator now adds directional, deterministic micro-detail — grass blades,
+flower clusters, lit pebbles, warm dust and lower-right cast shadows — to each
+16px cell. These are SHAPES on the pixel grid, not a painted background,
+photographic texture or global blur. The 49 cells and all four animated water
+variants keep their geometry and indices.
+
     PYTHONPATH=<pillow-cache> python3 tools/art_reset/build_cinematic_atlas.py
 
 Outputs
@@ -23,7 +32,9 @@ Outputs
 from __future__ import annotations
 
 import pathlib
+import random
 import sys
+import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -34,41 +45,56 @@ from tools.artgen import terrain as T          # noqa: E402
 from tools.artgen.canvas import atlas          # noqa: E402
 
 # dark → light; index 0 is ambient occlusion, last is the golden rim light.
+# v3 lifts the sunlit mid-tones while keeping cool deep shadow. The reference
+# is a golden-hour meadow, not a uniformly bright field, so the low ramps stay.
 CINEMATIC = {
-    # Direction B v2: the low sun actually reaches the grass. The first B atlas
-    # measured world luma 58.0 against the concept's 84.6, so the dark green
-    # ramps were lifted toward warm olive/gold while the shadows stay cool.
-    "grass":       ["#24361f", "#3a5127", "#557337", "#7a9345", "#a8ad55", "#d0bb6b", "#f2d68a"],
-    "dry":         ["#3a2b19", "#533d24", "#725433", "#946f43", "#b89057", "#d8b375", "#efd19a"],
-    "path":        ["#4a3420", "#6a4a29", "#8d6535", "#b28544", "#d5a757", "#efc775", "#ffe4a0"],
-    "sand":        ["#544128", "#755934", "#967544", "#b89458", "#d5b074", "#e9ca90", "#f7e2b4"],
-    "wheat":       ["#4e3a1c", "#6d5322", "#8e6c2c", "#ad883a", "#cba54d", "#e4c26c", "#f5dd97"],
-    "mud":         ["#2c2418", "#423322", "#5a4430", "#755840", "#926f52", "#ac8968", "#c5a480"],
-    "stone":       ["#2b2a24", "#3e3c33", "#545045", "#6d685a", "#898272", "#a89f88", "#cbc1a3", "#e6dabb"],
-    "cliff":       ["#23231c", "#35342b", "#4a473a", "#615c4b", "#7c7660"],
+    "grass":       ["#263a20", "#405a29", "#5f7f3b", "#849e4b", "#b0b65f", "#d8c477", "#f4dc95"],
+    "dry":         ["#3e2e1b", "#5a4227", "#7b5a36", "#9f7747", "#c29a5d", "#dfba7c", "#f4d9a2"],
+    "path":        ["#4e3620", "#71502c", "#986d39", "#bd8e49", "#dcae5e", "#f4cf7f", "#ffe9aa"],
+    "sand":        ["#594329", "#7b5d37", "#9d7947", "#bf985b", "#dcb677", "#eed0a0", "#f9e7bb"],
+    "wheat":       ["#503c1d", "#715624", "#93702e", "#b38c3e", "#d0a951", "#e8c670", "#f8e09d"],
+    "mud":         ["#2e2619", "#463622", "#5f4831", "#795b42", "#967252", "#b18c6b", "#c9a783"],
+    "stone":       ["#302f28", "#454237", "#5c584b", "#77705f", "#958b76", "#b4a88d", "#d3c7a8", "#ecdfbd"],
+    "cliff":       ["#25251d", "#38372c", "#4d4a3c", "#64604e", "#807a63"],
     "water":       ["#173036", "#24464a", "#356165", "#4a7e7d", "#6b9e94", "#93bdaa", "#c2d9bd"],
     "foam":        ["#5f8c86", "#86ada0", "#b1cbb6", "#dce8cf"],
-    "olive":       ["#1d3020", "#2f4a28", "#496631", "#6b8440", "#93a253", "#c1ba69", "#e6d08a"],
-    "palm":        ["#223826", "#355133", "#4d7040", "#6a8d50", "#8fae63"],
-    "dark_leaf":   ["#1b2e20", "#29412c", "#3b5736", "#516e42"],
-    "wood":        ["#241810", "#382415", "#50331d", "#6c4728", "#8a5e36", "#a87b4b", "#c79b66"],
-    "linen":       ["#3a352a", "#53493a", "#6e6049", "#8a7a5e", "#a89675", "#c7b492", "#e4d1ae", "#f6e8c8"],
-    "wool":        ["#33291e", "#4a3a2a", "#63503a", "#7e684a", "#9c805c"],
-    "skin":        ["#3e2818", "#5c3b22", "#7d5330", "#a07043", "#c28f5e", "#dfb17f", "#f2d3a6"],
-    "gold":        ["#4d3410", "#6d4d1a", "#916724", "#b88731", "#d8a94c", "#eec773", "#fbe2a1"],
-    "bronze":      ["#2c1e0e", "#432e15", "#5d4220", "#7a592b", "#9a753c"],
-    "iron":        ["#171b1c", "#252b2c", "#363d3e", "#4a5251", "#636b66"],
-    "blood":       ["#24100c", "#3c1913", "#572318", "#753024"],
-    "holy":        ["#3a3214", "#73612a", "#a98f42", "#d8bb68", "#f6e2a4", "#fff4cf"],
-    "spirit":      ["#1d3031", "#315254", "#4d7773", "#79a49a", "#b3cfc0", "#dcebd8"],
-    "hair_dark":   ["#1b1510", "#291f17", "#382b1f", "#493929"],
-    "hair_grey":   ["#464237", "#5e594b", "#7a7362", "#97907d"],
-    "hair_red":    ["#3d1e10", "#542a16", "#6d3a1f", "#874a29"],
+    "olive":       ["#203520", "#34502b", "#52703a", "#77904a", "#a2ad5c", "#cdc477", "#ecd799"],
+    "palm":        ["#243a27", "#385535", "#527440", "#709253", "#96b167"],
+    "dark_leaf":   ["#1c3021", "#2b432e", "#3d5a38", "#537044"],
+    "wood":        ["#261a11", "#3b2616", "#52351e", "#6f4929", "#8d6037", "#ab7e4c", "#ca9e69"],
+    "linen":       ["#3c372b", "#554b3c", "#70624b", "#8d7c60", "#aa9877", "#c9b694", "#e6d3b0", "#f7eaca"],
+    "wool":        ["#352b1f", "#4c3c2b", "#65523b", "#806a4c", "#9e825e"],
+    "skin":        ["#402a19", "#5e3d23", "#7f5531", "#a27245", "#c39160", "#e1b381", "#f3d5a8"],
+    "gold":        ["#4f3611", "#704f1b", "#946926", "#bb8a33", "#daac4e", "#f0c975", "#fce3a3"],
+    "bronze":      ["#2e2010", "#453016", "#5f4421", "#7c5b2d", "#9c773e"],
+    "iron":        ["#191c1d", "#272d2e", "#383f40", "#4c5453", "#656d68"],
+    "blood":       ["#26110d", "#3e1a14", "#592419", "#773125"],
+    "holy":        ["#3c3416", "#75632c", "#ab9144", "#dabd6a", "#f7e3a6", "#fff5d0"],
+    "spirit":      ["#1e3232", "#335554", "#4f7975", "#7ba69c", "#b5d1c2", "#deedd9"],
+    "hair_dark":   ["#1c1611", "#2a2018", "#392c20", "#4a3a2a"],
+    "hair_grey":   ["#484337", "#605b4d", "#7c7564", "#999280"],
+    "hair_red":    ["#3f1f11", "#562b17", "#6f3c20", "#894c2b"],
 }
 
 OUTLINE = "#1b1710"      # dark warm brown ink, never pure black
 SHADOW = "#221d16"       # cool-warm ambient occlusion
 HIGHLIGHT = "#ffe6a3"    # low golden sun rim light
+
+# A SMALL, fixed set of detail colours. Using one fixed palette stops the
+# embellishment pass from exploding into hundreds of near-duplicate shades;
+# check_art_reset.py still proves the shipped atlas is palette-controlled.
+SUN_DUST = ["#d8c477", "#f4dc95", "#f4cf7f", "#ffe9aa"]
+COOL_DUST = ["#263a20", "#34502b", "#2b432e", "#454237"]
+GRASS_STEM = ["#405a29", "#5f7f3b", "#34502b", "#3d5a38"]
+FLOWER = ["#f4dc95", "#f7eaca", "#fce3a3", "#d8c477"]
+FLOWER_CORE = ["#bb8a33", "#daac4e"]
+STONE_LIT = ["#d3c7a8", "#ecdfbd", "#dfba7c"]
+STONE_DARK = ["#302f28", "#454237", "#3e2e1b"]
+
+MEADOW = {"grass", "dark_grass", "dry", "rocky", "wheat", "flowers", "reeds"}
+EARTH = {"path", "sand", "mud"}
+HARD = {"stone_floor", "cliff"}
+WATER = {"water", "shallow"}
 
 
 def build_ramp_map():
@@ -76,6 +102,111 @@ def build_ramp_map():
     for key, value in CINEMATIC.items():
         ramps[key] = list(value)
     return ramps
+
+
+def _seed(key: str, variant: int, salt: int = 0) -> int:
+    return zlib.crc32(("%s:%d:%d" % (key, variant, salt)).encode("utf-8"))
+
+
+def _tuft(cv, rnd, x, y):
+    """Three-pixel grass blade with a warm upper-left tip and a cool cast."""
+    cv.px(x + 1, y + 1, rnd.choice(COOL_DUST))
+    cv.px(x, y, rnd.choice(GRASS_STEM))
+    cv.px(x, y - 1, rnd.choice(GRASS_STEM))
+    cv.px(x - 1, y - 1, rnd.choice(SUN_DUST))
+    if rnd.random() < 0.55:
+        cv.px(x - 1, y - 2, rnd.choice(SUN_DUST))
+    if rnd.random() < 0.35:
+        cv.px(x + 1, y - 1, rnd.choice(GRASS_STEM))
+
+
+def _flower(cv, rnd, x, y):
+    """A tiny 2x2 blossom, not a detached one-pixel dot."""
+    petal = rnd.choice(FLOWER)
+    cv.px(x, y, petal)
+    cv.px(x - 1, y, petal)
+    cv.px(x, y - 1, rnd.choice(FLOWER_CORE))
+    cv.px(x + 1, y, rnd.choice(COOL_DUST))
+    cv.px(x, y + 1, rnd.choice(GRASS_STEM))
+
+
+def _pebble(cv, rnd, x, y):
+    """A lit upper-left face and a shadowed lower-right face."""
+    cv.px(x, y, rnd.choice(STONE_LIT))
+    cv.px(x - 1, y, rnd.choice(STONE_LIT))
+    cv.px(x, y + 1, rnd.choice(STONE_DARK))
+    cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
+
+
+def _diagonal_shadow(cv, rnd, x, y):
+    """Short lower-right cast from a blade or stone — one light direction."""
+    tone = rnd.choice(COOL_DUST)
+    for i in range(4):
+        cv.px(x + i, y + int(i * 0.65), tone)
+    cv.px(x + 2, y + 2, rnd.choice(STONE_DARK))
+
+
+def embellish(key: str, variant: int, cv):
+    """Add deterministic directional detail to one 16x16 cell.
+
+    Details are CLUSTERED, not scattered: the first embellishment pass used
+    independent random dots and the 4x atlas review read as confetti. A small
+    number of tuft groups, each with its own cast shadow, gives the meadow the
+    high-frequency edge density of the reference while keeping quiet ground
+    between clusters. Every mark is on the integer pixel grid and is derived
+    from a stable CRC32 seed; the basic factories still own the macro-structure.
+    """
+    rnd = random.Random(_seed(key, variant))
+    if key in MEADOW:
+        # Two clumps of connected blades, one lit blossom, one small stone and
+        # one short lower-right cast per 16px cell. Rare detail reads as detail.
+        for _ in range(2):
+            cx, cy = rnd.randrange(3, 12), rnd.randrange(4, 13)
+            for _ in range(2):
+                _tuft(cv, rnd, cx + rnd.randrange(-1, 2), cy + rnd.randrange(-1, 2))
+        if variant % 2 == 0:
+            _flower(cv, rnd, rnd.randrange(3, 12), rnd.randrange(3, 12))
+        _pebble(cv, rnd, rnd.randrange(3, 12), rnd.randrange(4, 12))
+        _diagonal_shadow(cv, rnd, rnd.randrange(1, 8), rnd.randrange(6, 11))
+    elif key in EARTH:
+        # Paired warm/cool pixels read as volume; a few short strokes read as
+        # a trodden road. No uniform sprinkle across the whole 16x16 cell.
+        for _ in range(5):
+            x, y = rnd.randrange(1, 14), rnd.randrange(1, 14)
+            cv.px(x, y, rnd.choice(SUN_DUST[:2]))
+            cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
+        for _ in range(2):
+            x, y = rnd.randrange(1, 12), rnd.randrange(2, 13)
+            cv.px(x, y, rnd.choice(STONE_LIT))
+            cv.px(x + 1, y, rnd.choice(STONE_LIT))
+            cv.px(x + 2, y + 1, rnd.choice(STONE_DARK))
+        x, y = rnd.randrange(1, 11), rnd.randrange(2, 13)
+        cv.px(x, y, rnd.choice(COOL_DUST))
+        cv.px(x + 1, y, rnd.choice(COOL_DUST))
+        cv.px(x + 2, y, rnd.choice(COOL_DUST))
+    elif key in HARD:
+        # Stone chips catch the sun on their upper-left face only.
+        for _ in range(3):
+            x, y = rnd.randrange(2, 13), rnd.randrange(2, 13)
+            cv.px(x, y, rnd.choice(STONE_LIT))
+            cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
+    elif key in WATER:
+        # One short gold reflection dash on the animated water frames; the four
+        # frames still differ from one another exactly as the classic atlas does.
+        x, y = rnd.randrange(1, 11), rnd.randrange(3, 12)
+        cv.px(x, y, rnd.choice(SUN_DUST[:2]))
+        cv.px(x + 1, y, rnd.choice(SUN_DUST[:2]))
+        cv.px(x + 2, y + 1, rnd.choice(COOL_DUST))
+    # A very small amount of diagonal light/dark inside each cell. Only four
+    # pixels, never a full-cell gradient: the sun remains a direction, not a
+    # repeated 16px checkerboard.
+    for _ in range(4):
+        x, y = rnd.randrange(16), rnd.randrange(16)
+        if x + y < 12:
+            cv.px(x, y, rnd.choice(SUN_DUST[:2]))
+        elif x + y > 20:
+            cv.px(x, y, rnd.choice(COOL_DUST))
+    return cv
 
 
 def main():
@@ -89,7 +220,9 @@ def main():
     T.SHADOW = SHADOW
 
     tiles = T.build_tiles()
-    cells = [cv for (_k, _v, cv, _w) in tiles]
+    cells = []
+    for key, variant, cv, _walkable in tiles:
+        cells.append(embellish(key, variant, cv))
     sheet = atlas(cells, T.ATLAS_COLS, 16, 16)
 
     out = ROOT / "art/tiles/terrain_cinematic.png"

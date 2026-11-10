@@ -251,3 +251,12 @@ listen to it, read the Chinese as a native speaker, and hold it on a real phone.
 No PR has been opened and no merge to `main` has been performed for this
 milestone. A working-branch **preview deploy** was later explicitly authorised
 by the user; that is not a release deployment of `main`.
+
+## 2026-11-10 — working-branch preview is live
+
+The user authorised a live branch preview. After one Node20 deploy-action
+timeout, run `42809032972` (`ab27e54`) published this branch successfully:
+deployment `7681093165` = `success`, Pages `build_type` = `workflow`. The URL
+https://fongway94.github.io/WalkInCovenant/ returns the Godot loader and
+`index.manifest.json`. This is a preview for the user's playtest, not a release
+or a merge to `main`; the release-candidate caveats above still apply.

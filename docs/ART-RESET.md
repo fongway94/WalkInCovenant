@@ -808,6 +808,17 @@ volumetric lighting within those constraints**, and reports the remaining gap
 honestly. Verification is by real CI frames, metrics and human review, not by
 asserting that a number reached the concept.
 
-**Deployment evidence:** recorded in the subsection below once the preview run
-completes. No PR, no merge to `main`, no default-asset replacement, no release
-claim.
+**Deployment evidence (2026-11-10).** The first push, `7a9908e`, ran
+`42806534702`: lint / visual / export-web / browser all green and the Pages
+artifact uploaded, but `actions/deploy-pages@v4` (Node20 forced onto Node24)
+timed out after ten minutes; deployment `7680718045` ended `failure`.
+`ab27e54` switched `configure-pages` to v6.0.0 with `enablement: false`,
+`upload-pages-artifact` to v5.0.0 and `deploy-pages` to v5.0.1 (native Node24).
+Run `42809032972` is **all green including `deploy`**, and deployment
+`7681093165` (`arena/46955931-walkincovenant` @ `ab27e54`) is `success`.
+The URL https://fongway94.github.io/WalkInCovenant/ serves the Godot loader
+(`WalkInCovenant`, landscape rotation hint, canvas fallback) and
+`index.manifest.json` names the same PWA — not repository text. The Pages API
+still reports `build_type: workflow` and source branch
+`arena/46955931-walkincovenant`. This is a working-branch preview, not a
+release: no PR, no merge to `main`, no default-asset replacement.

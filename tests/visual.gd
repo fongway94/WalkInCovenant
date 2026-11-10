@@ -273,6 +273,13 @@ func _run() -> void:
 				main.call("apply_art_theme", "cinematic")
 				await _frames(8)
 				await _shot("16_shepherd_cinematic")
+				# A second, UI-free B frame lets the human review the WHOLE
+				# golden-hour world against the attached concept, not only the
+				# 60px band above the shipped dialogue panel. It is still a real
+				# engine capture at the same camera and game state.
+				await _drain_all()
+				await _frames(4)
+				await _shot("17_shepherd_cinematic_quiet")
 				main.call("apply_art_theme", "classic")
 				await _frames(4)
 			await _drain_all()

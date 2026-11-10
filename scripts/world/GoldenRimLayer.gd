@@ -57,9 +57,9 @@ func _draw() -> void:
 			var a: float = PI + (TAU * 0.25) * float(i) / 8.0
 			arc.append(Vector2(p.x + cos(a) * rx,
 					p.y - 1.0 + sin(a) * ry))
-		draw_polyline(arc, Color(1.0, 0.86, 0.52, 0.42), 1.0)
+		draw_polyline(arc, Color(1.0, 0.86, 0.52, 0.58), 1.4)
 		# A shorter, brighter crest where the light actually hits.
 		var crest := PackedVector2Array()
 		crest.append(Vector2(p.x - rx * 0.75, p.y - 1.0 - ry * 0.35))
 		crest.append(Vector2(p.x - rx * 0.20, p.y - 1.0 - ry * 0.85))
-		draw_polyline(crest, Color(1.0, 0.94, 0.70, 0.55), 1.0)
+		draw_polyline(crest, Color(1.0, 0.94, 0.70, 0.72), 1.5)

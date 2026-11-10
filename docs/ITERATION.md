@@ -737,3 +737,12 @@ not achievable while keeping the 16px grid and the existing animation system.
 
 No PR, no merge to `main`, no default-asset replacement, no release claim.
 `docs/BROWSER-VALIDATION.md` remains **Release candidate, not release**.
+
+**Preview deployment evidence.** `7a9908e` enabled the branch publish but its
+`deploy` job timed out in the Node20 `deploy-pages@v4` action (run
+`42806534702`, deployment `7680718045` = failure). `ab27e54` moved the three
+Pages actions to their native-Node24 releases. Run `42809032972` is all green —
+lint, visual, export-web, browser, **deploy** — and deployment `7681093165` is
+`success`. The live URL serves the game loader and PWA manifest. This is the
+user-requested working-branch preview at
+**https://fongway94.github.io/WalkInCovenant/**, not a `main` release.

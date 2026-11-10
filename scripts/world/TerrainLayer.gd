@@ -196,6 +196,13 @@ func _draw_depth() -> void:
 ## wash, wall, winding path, cast bands and foreground leaves all live there.
 ## The camera origin is read live, so the composition follows the player without
 ## sliding away in world space.
+func _cinematic_hash(x: int, y: int) -> int:
+	# Stable integer hash for world-anchored micro-detail. No random() call:
+	# random details would crawl every time the terrain canvas redraws.
+	var n: float = absf(float(x * 73 + y * 151 + x * y * 17))
+	return int(fmod(n, 997.0))
+
+
 func _draw_cinematic_depth() -> void:
 	var cam := get_viewport().get_camera_2d()
 	if cam == null:
@@ -223,13 +230,25 @@ func _draw_cinematic_depth() -> void:
 		for i in range(cols):
 			var tx := float(i) / float(cols - 1)
 			var fall := 1.0 - tx
-			var a := 0.34 * env * fall * fall
+			var a := 0.38 * env * fall * fall
 			var sx := left + w * float(i) / float(cols)
 			draw_rect(Rect2(sx, by, w / float(cols) + 1.0,
 					84.0 / float(rows) + 1.0),
 					Color(1.0, 0.82, 0.42, a))
 	draw_rect(Rect2(left, top + 34.0, w, 84.0),
-			Color(1.0, 0.84, 0.50, 0.08))
+			Color(1.0, 0.84, 0.50, 0.10))
+	# Four soft diagonal sun shafts. They share ONE upper-left light direction
+	# with the cast shadows, rather than acting as a global brightness filter.
+	for i in range(4):
+		var ox := left + w * (0.02 + float(i) * 0.23)
+		var oy := top + 30.0 + float(i) * 7.0
+		var shaft := PackedVector2Array()
+		shaft.append(Vector2(ox, oy))
+		shaft.append(Vector2(ox + 20.0, oy - 5.0))
+		shaft.append(Vector2(ox + 158.0, oy + 67.0))
+		shaft.append(Vector2(ox + 124.0, oy + 76.0))
+		draw_colored_polygon(shaft,
+				Color(1.0, 0.86, 0.52, 0.10 + float(i) * 0.012))
 
 	# 2. Cool shade under the trees on the right third; irregular, not a rect.
 	var cool := PackedVector2Array()
@@ -237,30 +256,35 @@ func _draw_cinematic_depth() -> void:
 	cool.append(Vector2(right, top + 26.0))
 	cool.append(Vector2(right, bottom))
 	cool.append(Vector2(left + w * 0.54, bottom))
-	draw_colored_polygon(cool, Color(0.10, 0.17, 0.14, 0.20))
+	draw_colored_polygon(cool, Color(0.10, 0.17, 0.14, 0.24))
 
-	# 3. Dry-stone wall along the far edge — a real landmark, lit top face,
-	#    dark mortar, irregular block sizes, no repeated stamp.
-	var wx := left
-	var wi := 0
-	while wx < right:
-		var bw := 10.0 + fmod(float(wi) * 7.3, 9.0)
-		var bh := 5.0 + fmod(float(wi) * 3.1, 3.0)
-		var wy := top + 40.0 + sin(float(wi) * 0.7) * 2.0
-		draw_rect(Rect2(wx, wy, bw, bh), Color(0.20, 0.20, 0.16, 0.70))
-		draw_rect(Rect2(wx + 1.0, wy + 1.0, bw - 2.0, 2.0),
-				Color(0.78, 0.70, 0.50, 0.65))
-		wx += bw + 1.0
-		wi += 1
+	# 3. Dry-stone wall along the far edge — two irregular courses, lit top
+	#    faces and dark mortar; no repeated stamp. It stays inside the world
+	#    band under the HUD, like the concept's enclosing pasture wall.
+	for row in range(2):
+		var wx := left + (7.0 if row == 1 else 0.0)
+		var wi := 0
+		while wx < right:
+			var bw := 9.0 + fmod(float(wi) * 7.3 + float(row) * 4.1, 10.0)
+			var bh := 4.0 + fmod(float(wi) * 3.1, 3.0)
+			var wy := top + 37.0 + float(row) * 6.0 + sin(float(wi) * 0.7) * 2.0
+			draw_rect(Rect2(wx, wy, bw, bh), Color(0.20, 0.20, 0.16, 0.66))
+			draw_rect(Rect2(wx + 1.0, wy + 1.0, bw - 2.0, 2.0),
+					Color(0.84, 0.75, 0.53, 0.58))
+			wx += bw + 1.0
+			wi += 1
 
-	# 4. Winding sunlit path: wide in the foreground, tapering to the horizon,
-	#    with an irregular spine. Two nested polygons + one bright edge give it
-	#    volume without leaving the 16px tile grid.
+	# 4. Winding sunlit path: wide in the foreground, tapering to the horizon.
+	#    v3 keeps the shape but cuts the flat orange wash and adds ruts, lit
+	#    stones and shadowed gravel, so the road is pixel detail rather than a
+	#    translucent polygon laid over the meadow.
 	var spine := [0.52, 0.48, 0.43, 0.39, 0.36, 0.34, 0.33, 0.32, 0.31, 0.30]
 	var halfw := [0.14, 0.12, 0.10, 0.085, 0.07, 0.058, 0.048, 0.038, 0.030, 0.024]
 	var outer := PackedVector2Array()
 	var inner := PackedVector2Array()
 	var edge := PackedVector2Array()
+	var rut_l := PackedVector2Array()
+	var rut_r := PackedVector2Array()
 	for i in range(10):
 		var t := float(i) / 9.0
 		var py := top + 116.0 - t * 74.0
@@ -269,6 +293,8 @@ func _draw_cinematic_depth() -> void:
 		outer.append(Vector2(px - hw, py))
 		inner.append(Vector2(px - hw * 0.55, py))
 		edge.append(Vector2(px - hw, py))
+		rut_l.append(Vector2(px - hw * 0.42, py))
+		rut_r.append(Vector2(px + hw * 0.42, py))
 	for i in range(9, -1, -1):
 		var t := float(i) / 9.0
 		var py := top + 116.0 - t * 74.0
@@ -276,44 +302,96 @@ func _draw_cinematic_depth() -> void:
 		var hw := w * float(halfw[i])
 		outer.append(Vector2(px + hw, py))
 		inner.append(Vector2(px + hw * 0.55, py))
-	draw_colored_polygon(outer, Color(1.0, 0.76, 0.34, 0.44))
-	draw_colored_polygon(inner, Color(1.0, 0.90, 0.60, 0.30))
-	draw_polyline(edge, Color(1.0, 0.95, 0.70, 0.45), 1.0)
-	# A few warm stone flecks ON the path, not random confetti.
+	draw_colored_polygon(outer, Color(1.0, 0.76, 0.34, 0.24))
+	draw_colored_polygon(inner, Color(1.0, 0.90, 0.60, 0.16))
+	draw_polyline(edge, Color(1.0, 0.95, 0.70, 0.62), 1.0)
+	draw_polyline(rut_l, Color(0.32, 0.19, 0.09, 0.42), 1.0)
+	draw_polyline(rut_r, Color(0.32, 0.19, 0.09, 0.36), 1.0)
+	# Lit stones with a lower-right shadow, anchored to the winding spine.
 	for i in range(10):
 		var t := float(i) / 9.0
 		var py := top + 116.0 - t * 74.0
 		var px := left + w * float(spine[i]) + sin(float(i) * 2.3) * w * 0.03
-		draw_rect(Rect2(px, py, 2.0, 1.0), Color(1.0, 0.92, 0.66, 0.38))
+		draw_rect(Rect2(px, py, 2.0, 1.0), Color(1.0, 0.92, 0.66, 0.58))
+		draw_rect(Rect2(px + 2.0, py + 1.0, 2.0, 1.0),
+				Color(0.30, 0.20, 0.10, 0.34))
+		var px2 := px + 7.0 + fmod(float(i) * 5.0, 11.0)
+		draw_rect(Rect2(px2, py + 2.0, 2.0, 1.0),
+				Color(0.95, 0.79, 0.45, 0.44))
+		draw_rect(Rect2(px2 + 2.0, py + 3.0, 1.0, 1.0),
+				Color(0.25, 0.18, 0.10, 0.36))
 
-	# 5. Long diagonal cast-shadow bands from off-screen trees (upper-left sun
-	#    -> lower-right shadows). Tapered, irregular, no black.
-	for i in range(5):
-		var oy := top + 52.0 + float(i) * 14.0
-		var ox := left + w * (0.08 + float(i) * 0.13)
+	# 5. Long diagonal cast-shadow bands from off-screen trees. Seven bands
+	#    are longer, cooler and more varied than v2's five short quads.
+	for i in range(7):
+		var oy := top + 48.0 + float(i) * 11.0
+		var ox := left + w * (0.05 + float(i) * 0.115)
+		var reach := 98.0 + fmod(float(i) * 13.0, 38.0)
 		var band := PackedVector2Array()
 		band.append(Vector2(ox, oy))
-		band.append(Vector2(ox + 18.0, oy - 4.0))
-		band.append(Vector2(ox + 92.0, oy + 20.0))
-		band.append(Vector2(ox + 62.0, oy + 24.0))
-		draw_colored_polygon(band, Color(0.08, 0.12, 0.08, 0.26))
+		band.append(Vector2(ox + 16.0 + float(i % 3) * 4.0, oy - 4.0))
+		band.append(Vector2(ox + reach, oy + 23.0))
+		band.append(Vector2(ox + reach - 30.0, oy + 29.0))
+		draw_colored_polygon(band, Color(0.08, 0.12, 0.08, 0.28))
 
-	# 6. Foreground leaf silhouettes frame the two lower corners just above the
+	# 6. World-anchored foreground grass and flower tufts. The hash uses TILE
+	#    coordinates, so these details stay attached to the world as the camera
+	#    follows the player. They are drawn behind the y-sorted sprites.
+	var gx0 := int(floor(left / TILE)) - 1
+	var gx1 := int(ceil(right / TILE)) + 1
+	var gy := int(floor(top / TILE)) + 6
+	for gx in range(gx0, gx1):
+		var hv := _cinematic_hash(gx, gy)
+		if hv % 3 == 0:
+			continue
+		var wx := float(gx * TILE) + float(hv % 13)
+		var blade_row := int(floor(float(hv) / 7.0)) % 30
+		var wy := top + 86.0 + float(blade_row)
+		# The path occupies the centre-left; keep tall foreground blades in the
+		# meadow on the right and along the left frame, as in the concept.
+		if wx > left + w * 0.38 and wx < left + w * 0.57:
+			continue
+		var blade := PackedVector2Array()
+		blade.append(Vector2(wx - 2.0, wy + 2.0))
+		blade.append(Vector2(wx, wy - 1.0))
+		blade.append(Vector2(wx + 2.0, wy + 2.0))
+		draw_polyline(blade, Color(0.12, 0.19, 0.10, 0.62), 1.0)
+		draw_line(Vector2(wx - 1.0, wy), Vector2(wx, wy - 3.0),
+				Color(0.96, 0.79, 0.39, 0.62), 1.0)
+		if hv % 5 == 0:
+			draw_rect(Rect2(wx + 3.0, wy - 1.0, 2.0, 2.0),
+					Color(0.98, 0.88, 0.56, 0.68))
+			draw_rect(Rect2(wx + 5.0, wy + 1.0, 1.0, 1.0),
+					Color(0.16, 0.20, 0.11, 0.52))
+
+	# 7. Foreground leaf silhouettes frame the two lower corners just above the
 	#    dialogue panel. Drawn behind the sprites, so they never hide a path.
 	var near_bottom := top + 130.0
 	var near := PackedVector2Array()
 	near.append(Vector2(left, near_bottom))
-	near.append(Vector2(left, top + 96.0))
+	near.append(Vector2(left, top + 92.0))
 	near.append(Vector2(left + 22.0, top + 100.0))
-	near.append(Vector2(left + 36.0, top + 94.0))
+	near.append(Vector2(left + 36.0, top + 92.0))
 	near.append(Vector2(left + 52.0, top + 104.0))
 	near.append(Vector2(left + 62.0, near_bottom))
-	draw_colored_polygon(near, Color(0.08, 0.12, 0.08, 0.24))
+	draw_colored_polygon(near, Color(0.07, 0.11, 0.07, 0.42))
 	var near_r := PackedVector2Array()
 	near_r.append(Vector2(right, near_bottom))
-	near_r.append(Vector2(right, top + 92.0))
+	near_r.append(Vector2(right, top + 88.0))
 	near_r.append(Vector2(right - 26.0, top + 98.0))
-	near_r.append(Vector2(right - 42.0, top + 92.0))
+	near_r.append(Vector2(right - 42.0, top + 90.0))
 	near_r.append(Vector2(right - 58.0, top + 106.0))
 	near_r.append(Vector2(right - 70.0, near_bottom))
-	draw_colored_polygon(near_r, Color(0.08, 0.12, 0.08, 0.22))
+	draw_colored_polygon(near_r, Color(0.07, 0.11, 0.07, 0.38))
+	# A few individual leaves with a single warm sunlit tip, not a black bar.
+	for i in range(5):
+		var lx := left + 5.0 + float(i) * 11.0
+		var ly := top + 96.0 + sin(float(i) * 1.7) * 7.0
+		var leaf := PackedVector2Array()
+		leaf.append(Vector2(lx, ly))
+		leaf.append(Vector2(lx + 7.0, ly - 4.0))
+		leaf.append(Vector2(lx + 11.0, ly + 2.0))
+		leaf.append(Vector2(lx + 4.0, ly + 5.0))
+		draw_colored_polygon(leaf, Color(0.07, 0.11, 0.07, 0.54))
+		draw_line(Vector2(lx + 7.0, ly - 4.0), Vector2(lx + 11.0, ly + 2.0),
+				Color(0.82, 0.68, 0.34, 0.34), 1.0)

@@ -346,3 +346,14 @@ publish the `web` artifact to **https://fongway94.github.io/WalkInCovenant/**.
 allows the branch, and the artifact guard still refuses anything without the
 PWA-injected `index.html`. This is a temporary branch preview, not a release:
 the next `main` push republishes `main`. No merge to `main` is implied.
+
+**Verified result.** `7a9908e` / run `42806534702` exposed a Node20 deploy-pages
+timeout: deployment `7680718045` failed after ten minutes even though all four
+build/test jobs were green. `ab27e54` moved to the native-Node24
+`configure-pages@v6.0.0` (with `enablement: false`, because the site already
+exists and `GITHUB_TOKEN` lacks `administration:write`),
+`upload-pages-artifact@v5.0.0` and `deploy-pages@v5.0.1`. Run `42809032972` is
+all green including `deploy`; deployment `7681093165` succeeded at
+2026-11-10 11:41:36 UTC. The live URL serves the Godot loader and
+`index.manifest.json`. Keep `build_type: workflow` and the artifact guard; the
+next `main` push republishes `main`.

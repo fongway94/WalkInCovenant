@@ -407,25 +407,23 @@ jobs:
 
       # GitHub TRUNCATES an annotation message at 4096 characters and allows
       # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
-      # each frame is cut into 3800-char chunks, spread round-robin over
-      # fourteen short steps. Fourteen keeps the per-step count low now that the
-      # harness captures fourteen states — boot control, a 2x Chinese-text
-      # review, sheep interaction, quest update, the Goliath duel, the valley
-      # after the fall, 4:3 layout and a real fade. ~43 chunks + the notices
-      # stays under GitHub's ~50-annotation/check-run cap (verified at 12
-      # frames = 37 chunks; 16 frames = 46 chunks). tools/decode_frames.py
-      # reassembles by name/index.
+      # each frame is cut into 4000-char chunks, spread round-robin over
+      # sixteen short steps. Sixteen keeps the per-step count low now that the
+      # richer Direction B scene and its extra quiet frame add more colours;
+      # 48-colour transport preserves the new warm/cool pixel detail better
+      # than the old 24-colour transport. tools/decode_frames.py reassembles
+      # by name/index.
       - name: Prepare base64 frame chunks
         if: always()
         env:
-          WIC_NP: 14
+          WIC_NP: 16
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
-          # Quantising to 24 colours with NO dithering keeps the pixel frame
-          # readable while leaving several chunks of headroom under GitHub's
-          # 50-annotation/check-run cap (the B frame is more detailed than C).
-          # Pillow is a transport detail only; the engine's own Image class
-          # does the in-run regression comparison.
+          # Quantising to 48 colours with NO dithering now preserves B v3's
+          # richer warm/cool detail. Sixteen round-robin publish steps leave
+          # headroom under GitHub's ~50-annotation/check-run cap. Pillow is a
+          # transport detail only; the engine's own Image class does the
+          # in-run regression comparison.
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           import base64, glob, os
@@ -442,7 +440,7 @@ jobs:
               src = f
               if Image is not None:
                   small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(colors=24, dither=0).save(small, optimize=True)
+                  Image.open(f).convert("RGB").quantize(colors=48, dither=0).save(small, optimize=True)
                   src = small
               raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
@@ -451,7 +449,7 @@ jobs:
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
-          NP = int(os.environ.get("WIC_NP", "14"))
+          NP = int(os.environ.get("WIC_NP", "16"))
           buckets = [[] for _ in range(NP)]
           for i, line in enumerate(lines):
               buckets[i % NP].append(line)
@@ -466,62 +464,70 @@ jobs:
               raise SystemExit("only %d publish steps for NP=%d — parts would be lost" % (PUB, NP))
           PY
 
-      - name: Publish frame chunks 1/14
+      - name: Publish frame chunks 1/16
         if: always()
         run: |
           [ -f build/ann/part_0.txt ] && cat build/ann/part_0.txt || true
-      - name: Publish frame chunks 2/14
+      - name: Publish frame chunks 2/16
         if: always()
         run: |
           [ -f build/ann/part_1.txt ] && cat build/ann/part_1.txt || true
-      - name: Publish frame chunks 3/14
+      - name: Publish frame chunks 3/16
         if: always()
         run: |
           [ -f build/ann/part_2.txt ] && cat build/ann/part_2.txt || true
-      - name: Publish frame chunks 4/14
+      - name: Publish frame chunks 4/16
         if: always()
         run: |
           [ -f build/ann/part_3.txt ] && cat build/ann/part_3.txt || true
-      - name: Publish frame chunks 5/14
+      - name: Publish frame chunks 5/16
         if: always()
         run: |
           [ -f build/ann/part_4.txt ] && cat build/ann/part_4.txt || true
-      - name: Publish frame chunks 6/14
+      - name: Publish frame chunks 6/16
         if: always()
         run: |
           [ -f build/ann/part_5.txt ] && cat build/ann/part_5.txt || true
-      - name: Publish frame chunks 7/14
+      - name: Publish frame chunks 7/16
         if: always()
         run: |
           [ -f build/ann/part_6.txt ] && cat build/ann/part_6.txt || true
-      - name: Publish frame chunks 8/14
+      - name: Publish frame chunks 8/16
         if: always()
         run: |
           [ -f build/ann/part_7.txt ] && cat build/ann/part_7.txt || true
-      - name: Publish frame chunks 9/14
+      - name: Publish frame chunks 9/16
         if: always()
         run: |
           [ -f build/ann/part_8.txt ] && cat build/ann/part_8.txt || true
-      - name: Publish frame chunks 10/14
+      - name: Publish frame chunks 10/16
         if: always()
         run: |
           [ -f build/ann/part_9.txt ] && cat build/ann/part_9.txt || true
-      - name: Publish frame chunks 11/14
+      - name: Publish frame chunks 11/16
         if: always()
         run: |
           [ -f build/ann/part_10.txt ] && cat build/ann/part_10.txt || true
-      - name: Publish frame chunks 12/14
+      - name: Publish frame chunks 12/16
         if: always()
         run: |
           [ -f build/ann/part_11.txt ] && cat build/ann/part_11.txt || true
-      - name: Publish frame chunks 13/14
+      - name: Publish frame chunks 13/16
         if: always()
         run: |
           [ -f build/ann/part_12.txt ] && cat build/ann/part_12.txt || true
-      - name: Publish frame chunks 14/14
+      - name: Publish frame chunks 14/16
         if: always()
         run: |
           [ -f build/ann/part_13.txt ] && cat build/ann/part_13.txt || true
+      - name: Publish frame chunks 15/16
+        if: always()
+        run: |
+          [ -f build/ann/part_14.txt ] && cat build/ann/part_14.txt || true
+      - name: Publish frame chunks 16/16
+        if: always()
+        run: |
+          [ -f build/ann/part_15.txt ] && cat build/ann/part_15.txt || true
 
       - uses: actions/upload-artifact@v4
         if: always()

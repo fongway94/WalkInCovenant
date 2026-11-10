@@ -65,19 +65,27 @@ func _draw() -> void:
 			# shadows run to the lower right. Length scales with the object so
 			# a tree casts farther than a sheep, and the shape is a tapered
 			# quad rather than a black oval.
-			var length := 6.0 + float(d["w"]) * 0.55
+			var length := 8.0 + float(d["w"]) * 0.78
 			var cast := PackedVector2Array()
 			cast.append(Vector2(p.x - rx * 0.8, p.y - 1.0))
 			cast.append(Vector2(p.x + rx * 0.8, p.y - 1.0))
 			cast.append(Vector2(p.x + rx * 0.45 + length, p.y + ry + 3.5))
 			cast.append(Vector2(p.x - rx * 0.45 + length, p.y + ry + 3.5))
-			draw_colored_polygon(cast, Color(0.09, 0.12, 0.08, 0.30))
+			draw_colored_polygon(cast, Color(0.08, 0.11, 0.07, 0.38))
+			# A second, shorter band gives the cast a soft core and a readable
+			# ground contact instead of one flat triangle.
+			var core := PackedVector2Array()
+			core.append(Vector2(p.x - rx * 0.45, p.y))
+			core.append(Vector2(p.x + rx * 0.45, p.y))
+			core.append(Vector2(p.x + rx * 0.25 + length * 0.62, p.y + ry))
+			core.append(Vector2(p.x - rx * 0.25 + length * 0.62, p.y + ry))
+			draw_colored_polygon(core, Color(0.07, 0.10, 0.06, 0.20))
 		var pts := PackedVector2Array()
 		for i in range(RING):
 			var a := TAU * float(i) / float(RING)
 			pts.append(Vector2(p.x + cos(a) * rx + 1.0,
 					p.y - 1.0 + sin(a) * ry))
 		if mode == "cinematic":
-			draw_colored_polygon(pts, Color(0.10, 0.09, 0.06, 0.42))
+			draw_colored_polygon(pts, Color(0.10, 0.09, 0.06, 0.50))
 		else:
 			draw_colored_polygon(pts, Color(0.20, 0.13, 0.08, 0.34))
