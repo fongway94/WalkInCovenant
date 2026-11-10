@@ -228,6 +228,37 @@ func _run() -> void:
 	_check(bool(main._flock_active), "the fold has its three strays on the ground")
 	await _shot("06_flock")
 
+	# 6b. THE SAME FIELD, IN CONVERSATION. The art-direction comparison needs
+	# one honest "before" frame containing every element at once: David, the
+	# flock, the vegetation, the terrain, an NPC and the shipped dialogue box
+	# with its nameplate and 32px portrait. This is the game's own UI over the
+	# game's own world — nothing is drawn for the review.
+	var flock_reg = main.region
+	if flock_reg != null and flock_reg.npcs.size() > 0:
+		var flock_npc = _find_npc(flock_reg, "hired_boy")
+		if flock_npc == null:
+			flock_npc = _find_npc(flock_reg, "corin")
+		if flock_npc != null:
+			flock_npc.talk()
+			var named_flock := 0
+			while flock_reg.dialogue.is_open() \
+					and flock_reg.dialogue.name_lbl.text == "" \
+					and named_flock < 20:
+				flock_reg.dialogue._advance()
+				await _frames(2)
+				if flock_reg.dialogue.is_open() \
+						and flock_reg.dialogue.name_lbl.text == "":
+					flock_reg.dialogue._advance()
+					await _frames(2)
+				named_flock += 1
+			_check(flock_reg.dialogue.is_open() \
+					and flock_reg.dialogue.name_lbl.text != "",
+					"the shepherd field carries a named speaker in its box")
+			await _frames(6)
+			await _shot("15_shepherd_dialogue")
+			await _drain_all()
+			await _frames(4)
+
 	# 7. A sheep that has NOTICED the player. Stand on the far side of the fold
 	# so the animal turns toward home: the alert pose, the pale wool marker and
 	# the objective counter are all in this frame. This is a real game state,

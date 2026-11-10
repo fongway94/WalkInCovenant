@@ -413,7 +413,7 @@ jobs:
       # review, sheep interaction, quest update, the Goliath duel, the valley
       # after the fall, 4:3 layout and a real fade. ~43 chunks + the notices
       # stays under GitHub's ~50-annotation/check-run cap (verified at 12
-      # frames = 37 chunks; the two new frames add ~6). tools/decode_frames.py
+      # frames = 37 chunks; 15 frames = 43 chunks). tools/decode_frames.py
       # reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
