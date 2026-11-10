@@ -932,11 +932,14 @@ jobs:
     # Pages Jekyll-build the repository ROOT and serve README.md instead of the
     # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
     # artifact check below exists. `build_type` must stay `workflow`.
-    # `main` publishes automatically. A working branch publishes ONLY when a
-    # human explicitly asks for it via workflow_dispatch with publish_preview
-    # checked. Every ordinary push (including the validation pushes for this
-    # milestone) builds and browser-tests without touching the live Pages site.
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
+    # `main` publishes automatically. On 2026-11-10 the user explicitly asked to
+    # "serve this branch to live for me to feel", so this named working branch
+    # also publishes on every push while that live-preview authorisation is in
+    # effect. Any OTHER branch still needs workflow_dispatch + publish_preview
+    # AND must be listed in the github-pages environment branch policy. This is
+    # a preview, not a release: it temporarily replaces the one Pages URL, and
+    # the next `main` push republishes main. No merge to `main` is implied.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/46955931-walkincovenant' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:
       name: github-pages

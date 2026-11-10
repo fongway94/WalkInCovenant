@@ -172,14 +172,35 @@ a warm 49-cell terrain atlas, 13 props, 4 character sheets, a dusk-slate/gold
 UI skin, camera-relative golden-hour ground light, long cast shadows and an
 animated upper-left rim light on moving figures. Real CI `42798442187` is green
 on all game jobs; final all-green `42803804441` also carries the browser-harness
-jitter fix: 16 frames, `deep 143`, browser 30/0, deploy skipped. The reviewed
-frame 16 was promoted as `baseline_16_shepherd_cinematic.png`.
+jitter fix: 16 frames, `deep 143`, browser 30/0, deploy skipped at that time.
+The reviewed frame 16 was promoted as `baseline_16_shepherd_cinematic.png`.
+A working-branch live preview was later explicitly authorised — §10.
 
 This file remains the **contract for the shipped classic art**. The default
 atlas, gameplay, state, collision, input, quests, save format, every other
-scene, every other baseline, PR/merge/deploy status and live Pages are
-unchanged. The visual overhaul is still NOT complete: the painterly B concept
+scene, every other baseline and PR/merge status are unchanged. The user later
+authorised a working-branch live preview (§10); this is not a release. The visual overhaul is still NOT complete: the painterly B concept
 is not a shippable pixel asset, the real frame is not on par with it, and the
 remaining manual environments, UI skins, parallax, human art-director review,
 device/audio/Chinese/playtest gates are listed in `docs/DEVELOPMENT_BACKLOG.md`
 #19–23. No release claim is made.
+
+### §10 update — live branch preview authorised (2026-11-10)
+
+The user explicitly asked to *"serve this branch to live for me to feel. then
+make in on par"*. That authorises a **working-branch preview deployment**, not
+a merge to `main`, a default-asset replacement, or a release. Because the
+sandbox token cannot create a `workflow_dispatch` event, the named branch's
+push-deploy condition (used successfully for the earlier `dceac57` / `5d1c5ff`
+preview) is restored. `build_type` remains `workflow`; the `github-pages`
+environment already allows this branch. The live URL is
+https://fongway94.github.io/WalkInCovenant/ and every subsequent push to
+`arena/46955931-walkincovenant` updates it. The next `main` push republishes
+`main`.
+
+The "on par" instruction is being pursued as richer original pixel art within
+the existing 16px / animation constraints, not by dropping the painterly
+concept into the engine. Exact parity with a 681×348 illustration containing
+135,490 colours, no UI and no tile grid is not a shippable game frame. This
+file remains the contract for the shipped classic art; no release claim is
+made.

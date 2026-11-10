@@ -8,7 +8,8 @@
 > EXISTING SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION
 > COMPARISON BEFORE UNDERTAKING ANOTHER FULL GRAPHICAL REBUILD."* No existing
 > asset was replaced in the default build. No new chapter, no PR, no merge to
-> `main`, no deploy.
+> `main`. On 2026-11-10 the user explicitly authorised a **working-branch live
+> preview** (§12.8); that is a preview deployment, not a release or a merge.
 >
 > Benchmark: the **craftsmanship and readability** of Pokémon HeartGold /
 > SoulSilver, Black / White and Black 2 / White 2 — palette discipline, character
@@ -400,8 +401,9 @@ made.
   slicing, no seam testing, no in-engine render of the prototypes.** They prove
   direction, not shippability.
 * The real-engine "after" frame uses the *existing* tile and sprite shapes.
-* Live Pages still serves `5d1c5ff`; working-branch deploy is opt-in and was not
-  run. No PR, no merge to `main`.
+* At this checkpoint live Pages still served `5d1c5ff` and no working-branch
+  deploy had been run. The user later explicitly requested a live preview; see
+  §12.8. No PR, no merge to `main`.
 
 Next checkpoints, in order: (1) hand-author the shepherd-field tile set and the
 David / hired-boy / sheep sprites; (2) re-run the same `15`/`16` before/after
@@ -597,8 +599,9 @@ by the current generator, and no external asset pack was vendored.
 > gate is passed, C was the assistant-selected direction at this point (later
 > superseded by the user's B choice — §12.7), and one scene now contains
 > first-pass original craft whose world value separation measurably recovered.
-> It remains one reversible opt-in scene. No PR, no merge to `main`, no deploy;
-> live Pages still serves `5d1c5ff`.
+> It remains one reversible opt-in scene. No PR, no merge to `main`; at this
+> checkpoint live Pages still served `5d1c5ff`. The user later authorised a
+> working-branch live preview — §12.8.
 
 ### 12.6 User art-preference signal (2026-11-10) — historical; superseded by §12.7
 
@@ -652,7 +655,9 @@ and required the existing animation to stay. C remains in the repository as a
 reversible opt-in theme and as a comparison baseline; B is now the active
 target for the **same one scene**. The classic art, gameplay, state, collision,
 input, quests, `SAVE_VERSION`, all other scenes and all other baselines are
-untouched. No default atlas replacement, PR, merge or deploy is authorised.
+untouched. No default atlas replacement, PR or merge to `main` is authorised.
+A working-branch **live preview** was later explicitly authorised by the user
+on 2026-11-10 (§12.8); it is not a release or a default-asset replacement.
 
 **What B actually is here** — a shippable pixel-art interpretation, not a
 painted background dropped into the engine:
@@ -767,5 +772,42 @@ for one scene, #23 is still baseline-only.
 **Scope unchanged:** B is the active target for the one reversible opt-in
 scene. Classic is still the default; animation, gameplay, state, collision,
 input, quests, `SAVE_VERSION`, other scenes and other baselines are untouched.
-No PR, no merge to `main`, no deploy; live Pages still serves `5d1c5ff`.
-`docs/BROWSER-VALIDATION.md` remains **Release candidate, not release**.
+No PR, no merge to `main`; the user later authorised a working-branch live
+preview (§12.8), which is **not** a release. `docs/BROWSER-VALIDATION.md`
+remains **Release candidate, not release**.
+
+### 12.8 User-authorised live branch preview and the "make it on par" push (2026-11-10)
+
+After reviewing the B v2 evidence, the user said: *"serve this branch to live
+for me to feel. then make in on par"*. This is an explicit deployment
+authorisation for **this working branch only**, and an explicit instruction to
+keep improving the B outcome toward the attached concept. It is **not** a
+request to merge to `main`, replace the default classic assets, or declare a
+release.
+
+**Deployment change.** `.github/workflows/build-web.yml` had been tightened so
+that only `main` or a `workflow_dispatch` with `publish_preview` could publish.
+The sandbox's GitHub token cannot create a workflow-dispatch event
+(`403 Resource not accessible by integration`), so the named branch condition
+used successfully for the earlier preview (`dceac57` / `5d1c5ff`) is restored:
+`arena/46955931-walkincovenant` pushes now publish the built `web` artifact to
+the one Pages URL. `build_type` stays `workflow`, the `github-pages`
+environment branch policy already lists this branch, and the deploy job still
+refuses an artifact without the PWA `index.html`. Every subsequent improvement
+pushed to this branch therefore becomes playable at
+**https://fongway94.github.io/WalkInCovenant/** for the user to feel. The next
+`main` push republishes `main`; this is a temporary preview, not a release.
+
+**"On par" is a direction, not a claim.** The concept is a 681×348 painterly
+illustration with 135,490 colours, no UI, no tile grid and no animation. The
+shipped scene is 320×180 pixel art on a 16px grid with 49 atlas cells, a HUD,
+a dialogue panel and animated sprites. Exact visual parity is not achievable
+without abandoning the user's earlier DS-era pixel-art / animation constraints.
+The work below therefore raises **richness, edge density, atmospheric depth and
+volumetric lighting within those constraints**, and reports the remaining gap
+honestly. Verification is by real CI frames, metrics and human review, not by
+asserting that a number reached the concept.
+
+**Deployment evidence:** recorded in the subsection below once the preview run
+completes. No PR, no merge to `main`, no default-asset replacement, no release
+claim.

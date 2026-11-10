@@ -241,12 +241,13 @@ and the corrected post-ending HUD screenshot. The run-by-run trail is in
 | **Low** | Touch A/RUN circles drawn during desktop keyboard play; cosmetic, deliberately unchanged to protect 14 baselines. |
 | **Low** | Post-duel valley walk back to Corin is not automated end-to-end; the ending was played from a seeded post-victory save adjacent to Corin. All transitions after that point are real browser input. |
 | **Low** | `docs/browser-evidence/` holds 320 px / 16-colour transport thumbnails; full-resolution shots are in the CI artifact only. |
-| **Low** | The live Pages site still serves `5d1c5ff` until a new deploy is explicitly approved; working-branch deploys are now opt-in via `workflow_dispatch: publish_preview`. |
+| **Low** | On 2026-11-10 the user explicitly authorised a working-branch live preview; `arena/46955931-walkincovenant` now publishes to the one Pages URL on push. It is a preview, not a release; the next `main` push republishes `main`. |
 
 ### Verdict
 
 **Release candidate, not release.** All eight technical conditions are met,
 but the project is **not** marked complete: a human being still has to play it,
 listen to it, read the Chinese as a native speaker, and hold it on a real phone.
-No PR has been opened and no merge or deploy has been performed for this
-milestone.
+No PR has been opened and no merge to `main` has been performed for this
+milestone. A working-branch **preview deploy** was later explicitly authorised
+by the user; that is not a release deployment of `main`.

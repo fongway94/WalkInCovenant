@@ -590,7 +590,8 @@ the test, not in the game.
 
 `docs/BROWSER-VALIDATION.md` §6 classifies every remaining issue
 Critical/High/Medium/Low and states the release conditions. This is a **release
-candidate**, not a release: no PR, no merge into `main`, no deploy.
+candidate**, not a release: no PR, no merge into `main`; a working-branch
+preview deploy was later explicitly authorised (§14).
 
 ---
 
@@ -621,7 +622,8 @@ Starting from the existing shepherd-field screenshot, this pass:
   switch, with a true before/after pair from the shipped engine.
 
 CI `42771321630`: all jobs green, `visual` 16 frames, `deep: PASS — 143 checks
-hold`, `browser` 30/30, `deploy` skipped. No PR, no merge to `main`, no deploy.
+hold`, `browser` 30/30, `deploy` skipped. No PR, no merge to `main`; the
+user later authorised a working-branch live preview (§14).
 
 **Not complete.** The UI separation improved 45.0 → 112.2 and global luma std
 41.6 → 64.9, but the world's large-scale value spread **fell 20.1 → 10.6**.
@@ -711,5 +713,27 @@ environments for Bethlehem / court / valley / anointing, no journal or menu
 skin, no parallax, no per-location light, no human art-director playtest, no
 perceptual audio, no native-speaker Chinese, no real-device pass. Classic
 remains the default; gameplay, state, collision, input, quests, `SAVE_VERSION`,
-other baselines, PR/merge/deploy and live Pages unchanged. See
+other baselines and PR/merge status unchanged; the user later authorised a
+working-branch live preview (§14). See
 `docs/ART-RESET.md` §12.7 and backlog #19–23.
+
+## 14. Live branch preview and "on par" push (2026-11-10)
+
+The user reviewed the Direction B v2 evidence and said: *"serve this branch to
+live for me to feel. then make in on par"*. This is explicit authorisation to
+publish **this working branch** to the single GitHub Pages URL, and to keep
+improving the B scene toward the attached concept. It is not a request to merge
+to `main`, replace the classic default, or declare a release.
+
+The sandbox token cannot create a workflow-dispatch event, so the previously
+successful named-branch push-deploy condition is restored in
+`.github/workflows/build-web.yml`. The `github-pages` environment policy already
+lists `arena/46955931-walkincovenant`; `build_type` stays `workflow`; the
+artifact guard still requires the PWA `index.html`. Live URL:
+**https://fongway94.github.io/WalkInCovenant/**. A push to `main` later
+republishes `main`. See `docs/ART-RESET.md` §12.8 for the parity plan and the
+honest limits: exact parity with a painterly, UI-free, animation-free concept is
+not achievable while keeping the 16px grid and the existing animation system.
+
+No PR, no merge to `main`, no default-asset replacement, no release claim.
+`docs/BROWSER-VALIDATION.md` remains **Release candidate, not release**.

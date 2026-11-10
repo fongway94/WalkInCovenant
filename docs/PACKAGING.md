@@ -334,3 +334,15 @@ answer from the glyphs *shaped so far* — one run knew `谷` (it appears in the
 briefing) yet denied `石` (not yet drawn anywhere) — so the smoke test asserts
 the char table only when `get_supported_chars()` returns the whole table, and
 prints a diagnostic either way.
+
+## 2026-11-10 — working-branch live preview re-enabled
+
+The user explicitly asked to *"serve this branch to live for me to feel"*.
+Because the sandbox's GitHub token cannot create a `workflow_dispatch` event,
+the named-branch push-deploy condition used for the earlier `dceac57` /
+`5d1c5ff` preview is restored. `arena/46955931-walkincovenant` pushes now
+publish the `web` artifact to **https://fongway94.github.io/WalkInCovenant/**.
+`build_type` remains `workflow`, the `github-pages` environment policy already
+allows the branch, and the artifact guard still refuses anything without the
+PWA-injected `index.html`. This is a temporary branch preview, not a release:
+the next `main` push republishes `main`. No merge to `main` is implied.
