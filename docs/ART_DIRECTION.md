@@ -108,3 +108,26 @@ replaced by a second style.
 No external pack was vendored in this pass. The existing Ninja Adventure CC0
 tiles stay where they are; see `assets/LICENSES.md` for the exact licence
 evidence and the attribution wording for a future credits screen.
+
+---
+
+## 8. Art direction reset (2026-11-05) — comparison first
+
+This file remains the **contract for the shipped classic art**. A new milestone
+started a separate investigation: **`docs/ART-RESET.md`**. It contains a real
+diagnosis of all eight major scenes, three original art-direction prototypes,
+a four-way comparison at native / desktop / mobile sizes with grayscale review,
+measured colour and value metrics, and a selection.
+
+**Selected: Direction C — Biblical Storybook RPG**, with B's value hierarchy and
+A's silhouette clarity borrowed as mandatory corrections. One reversible,
+opt-in prototype was integrated into the shepherd-field scene
+(`art/tiles/terrain_storybook.png`, `Main.apply_art_theme()`); the default atlas
+and every baseline were left in place. The report explicitly does **not** claim
+the overhaul is complete: the measured world value spread fell 20.1 → 10.6,
+which proves a better palette is not a substitute for hand-authored sprites,
+tile shapes and layered lighting. The manual art work required is listed in
+`docs/ART-RESET.md` §6 and queued in `docs/DEVELOPMENT_BACKLOG.md` #19–23.
+
+Nothing here is superseded or deleted. When the hand-authored assets exist, this
+contract will be extended rather than rewritten.

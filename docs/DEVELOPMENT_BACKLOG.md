@@ -70,6 +70,11 @@ tests survive; the table above is the current truth.
 | 16 | Native-speaker / author Simplified Chinese pass, including the 石子 / 石头 register split and the aphorisms. Scripture stays verbatim. | M |
 | 17 | Real-device pass: tactile thumb reach, OS rotation, notch/safe area, legibility on an actual handset. Browser emulation is not this. | M |
 | 18 | Hide or fade the touch A/RUN circles for keyboard-only desktop play — only after a device says which input mix to prefer, and with 14 baselines regenerated. | S |
+| 19 | **Hand-author the shepherd-field tile set and the David / hired-boy / sheep sprites** (16×24 or 16×32 walk cycles, 1px outlines, clothing folds, contact shadows). The selected Direction C is integrated as colour only; the shapes are unchanged. See `docs/ART-RESET.md` §6. | L |
+| 20 | Re-run the `15`/`16` before/after capture and require **world value spread to rise**, not fall. The current opt-in palette dropped it 20.1 → 10.6. | M |
+| 21 | Give Bethlehem, Saul's court and the valley distinct rendered environments and location-specific atmospheric palettes. Samuel's anointing and Saul's court currently have **no world at all** — they are dialogue over the same two maps. | L |
+| 22 | Layer foreground / middle ground / background with cast shadows, building volume and natural landmarks; restyle the journal, menus and transitions to the chosen skin. | L |
+| 23 | Only AFTER 19–22: replace the default atlas, regenerate all 16 baselines, and re-run the browser + human playtest gates. Keep every checkpoint reversible. | M |
 
 ## Standing rules for every item
 

@@ -591,3 +591,39 @@ the test, not in the game.
 `docs/BROWSER-VALIDATION.md` §6 classifies every remaining issue
 Critical/High/Medium/Low and states the release conditions. This is a **release
 candidate**, not a release: no PR, no merge into `main`, no deploy.
+
+---
+
+## 11. ART DIRECTION RESET — comparison before rebuild
+
+Full record: **`docs/ART-RESET.md`**. Evidence: `docs/art-reset/`.
+
+Starting from the existing shepherd-field screenshot, this pass:
+
+- diagnosed eight rendered scenes with specific, measured weaknesses (one flat
+  value plane, geometric procedural props, 16px unreadable characters, two
+  black UI masses, and **three of eight major scenes having no rendered world
+  at all** — Samuel's anointing, Saul's court and a main menu);
+- captured a new real frame `15_shepherd_dialogue` with sheep, NPC, terrain,
+  vegetation and the shipped dialogue UI, and its twin
+  `16_shepherd_storybook`;
+- produced three genuinely different original concept directions, converted
+  them to 320×180 with controlled 64-colour palettes and direction-specific
+  pixel UI, and reviewed all four panels at native, 1280×720 desktop and
+  844×390 mobile sizes plus grayscale (`docs/art-reset/comparison/`);
+- selected **Direction C (Biblical Storybook RPG)** — not the brightest and not
+  the most detailed — with B's lighting logic and A's silhouette clarity as
+  corrections; a `C+` refinement raises world value spread 18.7 → 21.1;
+- rebuilt the colour system as a real atlas (`art/tiles/terrain_storybook.png`,
+  70 colours, warm-brown outline, no pure black/white) and a stdlib CI gate;
+- integrated it into **one playable representative scene** behind an opt-in
+  switch, with a true before/after pair from the shipped engine.
+
+CI `42771321630`: all jobs green, `visual` 16 frames, `deep: PASS — 143 checks
+hold`, `browser` 30/30, `deploy` skipped. No PR, no merge to `main`, no deploy.
+
+**Not complete.** The UI separation improved 45.0 → 112.2 and global luma std
+41.6 → 64.9, but the world's large-scale value spread **fell 20.1 → 10.6**.
+Colour is not depth. Hand-authored sprites, tiles, contact shadows and layered
+environments are still required; §6 of the report names them. Automated visual
+diffs and a green CI are not evidence of artistic quality.

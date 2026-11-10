@@ -1,0 +1,30 @@
+{
+  "15_shepherd_dialogue": {
+    "luma_mean": 56.6,
+    "luma_std": 41.6,
+    "p10": 16.4,
+    "p90": 92.8,
+    "sat_mean": 0.559,
+    "edge_density": 0.206,
+    "world_luma": 77.3,
+    "world_value_spread": 20.1,
+    "ui_luma": 32.2,
+    "hud_luma": 39.5,
+    "world_ui_sep": 45.0,
+    "unique_colors": 48
+  },
+  "16_shepherd_storybook": {
+    "luma_mean": 116.7,
+    "luma_std": 64.9,
+    "p10": 60.0,
+    "p90": 209.7,
+    "sat_mean": 0.432,
+    "edge_density": 0.25,
+    "world_luma": 78.9,
+    "world_value_spread": 10.6,
+    "ui_luma": 191.1,
+    "hud_luma": 67.9,
+    "world_ui_sep": 112.2,
+    "unique_colors": 48
+  }
+}

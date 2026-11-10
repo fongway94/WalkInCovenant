@@ -2,18 +2,18 @@
   "panels": {
     "current": {
       "unique_colors": 48,
-      "luma_mean": 57.1,
-      "luma_std": 41.5,
+      "luma_mean": 56.6,
+      "luma_std": 41.6,
       "luma_p10": 16.4,
-      "luma_p50": 34.8,
-      "luma_p90": 92.9,
-      "saturation_mean": 0.56,
-      "edge_density": 0.204,
-      "world_luma_mean": 77.7,
-      "world_value_spread": 20.4,
-      "hud_luma_mean": 39.7,
-      "ui_luma_mean": 32.0,
-      "world_ui_separation": 45.7
+      "luma_p50": 32.4,
+      "luma_p90": 92.8,
+      "saturation_mean": 0.559,
+      "edge_density": 0.206,
+      "world_luma_mean": 77.3,
+      "world_value_spread": 20.1,
+      "hud_luma_mean": 39.5,
+      "ui_luma_mean": 32.2,
+      "world_ui_separation": 45.0
     },
     "A_vibrant": {
       "unique_colors": 52,
@@ -59,6 +59,21 @@
       "hud_luma_mean": 67.5,
       "ui_luma_mean": 182.4,
       "world_ui_separation": 53.5
+    },
+    "C_refined": {
+      "unique_colors": 67,
+      "luma_mean": 139.1,
+      "luma_std": 52.9,
+      "luma_p10": 55.9,
+      "luma_p50": 135.1,
+      "luma_p90": 199.2,
+      "saturation_mean": 0.494,
+      "edge_density": 0.311,
+      "world_luma_mean": 127.8,
+      "world_value_spread": 21.1,
+      "hud_luma_mean": 67.5,
+      "ui_luma_mean": 182.4,
+      "world_ui_separation": 54.6
     }
   },
   "sizes": {
@@ -74,5 +89,6 @@
       "colour": "four_way_mobile.png",
       "grayscale": "four_way_grayscale_mobile.png"
     }
-  }
+  },
+  "selected": "C_storybook"
 }

@@ -414,12 +414,41 @@ def labelled_grid(panels, title, labels, cellw, cellh, scale=1):
     return sheet
 
 
+def refine_selected(panel: Image.Image) -> Image.Image:
+    """Direction C won, but its measured weakness was a flat value hierarchy
+    (world_value_spread 16.9 vs B's 26.6). Borrow B's LIGHTING LOGIC, not its
+    palette: atmospheric darkening toward the far edge, a brighter focal band
+    in the middle ground, a darker near edge, and a mild contrast S-curve.
+    Re-snap to the SAME palette so colour discipline is unchanged.
+    """
+    a = np.asarray(panel.convert("RGB"), dtype=np.float32)
+    band = a[24:112].copy()
+    h = band.shape[0]
+    yy = np.linspace(0.0, 1.0, h, dtype=np.float32)[:, None, None]
+    g = 0.84 + 0.26 * np.sin(np.pi * yy)
+    mean = float(band.mean())
+    band = (band - mean) * 1.12 + mean
+    band = np.clip(band * g, 0, 255)
+    a[24:112] = band
+    raw = Image.fromarray(a.astype(np.uint8), "RGB")
+    cols = [tuple(c) for c in np.unique(
+        np.asarray(panel.convert("RGB")).reshape(-1, 3), axis=0)]
+    return raw.quantize(palette=palette_image(cols),
+                        dither=Image.Dither.NONE).convert("RGB")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     portrait = Image.open(PORTRAIT).convert("RGB").resize((32, 32), Image.NEAREST)
 
-    current = Image.open(ROOT / "frames/15_shepherd_dialogue.png").convert("RGB")
+    # Prefer a freshly decoded CI frame; fall back to the committed baseline so
+    # the comparison is reproducible from a clean clone (frames/ is gitignored).
+    frame = ROOT / "frames/15_shepherd_dialogue.png"
+    if not frame.exists():
+        frame = ROOT / "tests/frames/baseline_15_shepherd_dialogue.png"
+    current = Image.open(frame).convert("RGB")
     assert current.size == (W, H), current.size
+    print("before frame:", frame.relative_to(ROOT))
 
     panels = {"current": current}
     for key in ("A_vibrant", "B_cinematic", "C_storybook"):
@@ -489,8 +518,29 @@ def main():
                           "details", labels, cw, ch)
     sheet.save(OUT / "four_way_details_4x.png")
 
+    # ── Selected-direction refinement ─────────────────────────────────────
+    # Not a fourth alternative: the SAME Direction C with the lighting logic
+    # borrowed from B. Proves the chosen direction's one measured weakness is
+    # fixable by colour strategy rather than by adding more detail.
+    refined = refine_selected(panels["C_storybook"])
+    refined.save(OUT / "C_selected_refined_native.png")
+    refined.resize(SIZES["desktop"], Image.NEAREST).save(
+        OUT / "C_selected_refined_desktop.png")
+    Image.fromarray((0.299 * np.asarray(refined)[..., 0]
+                     + 0.587 * np.asarray(refined)[..., 1]
+                     + 0.114 * np.asarray(refined)[..., 2]).astype(np.uint8)
+                    ).convert("RGB").save(OUT / "C_selected_refined_grayscale_native.png")
+    pairs = [("C_storybook", panels["C_storybook"]), ("C_refined", refined)]
+    sheet = labelled_grid(pairs, "refinement",
+                          {"C_storybook": "SELECTED C — as prototyped",
+                           "C_refined": "SELECTED C+ — value hierarchy from B"},
+                          W, H)
+    sheet.save(OUT / "selected_refinement_native.png")
+
     for k, im in panels.items():
         report["panels"][k] = metrics(im)
+    report["panels"]["C_refined"] = metrics(refined)
+    report["selected"] = "C_storybook"
     (OUT / "metrics.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report["panels"], indent=2))
     print("wrote", len(list(OUT.glob('*.png'))), "PNG(s) to", OUT.relative_to(ROOT))
