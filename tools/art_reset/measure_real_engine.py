@@ -11,6 +11,7 @@ in grayscale.
 Inputs (REAL 320x180 framebuffer captures unless noted):
     frames/15_shepherd_dialogue.png        classic, same camera & dialogue
     frames/16_shepherd_cinematic.png       user-selected Direction B scene
+    frames/17_shepherd_cinematic_quiet.png B scene with dialogue closed
     docs/art-reset/comparison/16_storybook_final.png  Direction C final
     docs/art-reset/user_selected_reference.png        B concept, 681x348
     docs/art-reset/comparison/16_palette_only.png      previous CI frame, optional
@@ -26,6 +27,7 @@ Outputs:
     docs/art-reset/diagnosis/15_direction_progression_2x.png
     docs/art-reset/diagnosis/16_B_engine_vs_reference.png
     docs/art-reset/diagnosis/17_B_engine_vs_reference_grayscale.png
+    docs/art-reset/diagnosis/18_B_quiet_vs_reference.png
     docs/art-reset/comparison/B_engine_{native,desktop,mobile}.png
     docs/art-reset/comparison/B_engine_grayscale_{native,desktop,mobile}.png
     docs/art-reset/comparison/real_engine_metrics.json
@@ -85,9 +87,13 @@ def main():
         "15_shepherd_dialogue": metrics(before),
         "16_shepherd_cinematic": metrics(after),
     }
+    quiet_path = FRAMES / "17_shepherd_cinematic_quiet.png"
+    quiet = load(quiet_path) if quiet_path.exists() else after
+    if quiet_path.exists():
+        report["17_shepherd_cinematic_quiet"] = metrics(quiet)
     panels = [
         ("BEFORE — classic art, real engine frame 15", before),
-        ("AFTER — Direction C integrated, real engine frame 16", after),
+        ("AFTER — Direction B v3 integrated, real engine frame 16", after),
     ]
     sheet(panels, DIAG / "04_before_after_real_engine.png")
     sheet([(label, ImageOps.grayscale(im).convert("RGB"))
@@ -169,13 +175,20 @@ def main():
     ImageOps.grayscale(
         Image.open(DIAG / "16_B_engine_vs_reference.png").convert("RGB")
     ).save(DIAG / "17_B_engine_vs_reference_grayscale.png")
+    # The UI-free B frame is the fairest whole-world comparison with the
+    # painterly concept. The shipped game still has its HUD and dialogue box;
+    # this is a review capture with the box closed, not a removed UI.
+    sheet([
+        ("USER REFERENCE — Direction B concept, painted, 681x348", ref_fit),
+        ("REAL ENGINE — B v3 with dialogue closed, 320x180", quiet),
+    ], DIAG / "18_B_quiet_vs_reference.png")
 
     # 2x2 progression sheet: classic -> C -> B real -> B concept reference.
     classic = load(FRAMES / "15_shepherd_dialogue.png")
     panels4 = [
         ("CLASSIC (frame 15)", classic),
         ("DIRECTION C (assistant-selected)", cf if cfinal.exists() else classic),
-        ("DIRECTION B (user-selected, REAL ENGINE)", after),
+        ("DIRECTION B v3 (user-selected, REAL ENGINE, UI closed)", quiet),
         ("DIRECTION B CONCEPT (painted reference)", ref_fit),
     ]
     grid = Image.new("RGB", (2 * 640 + 30, 2 * (360 + 26) + 20), (24, 26, 32))
@@ -196,6 +209,11 @@ def main():
           report["15_shepherd_dialogue"]["world_value_spread"],
           "-> integrated",
           report["16_shepherd_cinematic"]["world_value_spread"])
+    if "17_shepherd_cinematic_quiet" in report:
+        print("quiet B v3 world luma",
+              report["17_shepherd_cinematic_quiet"]["world_luma_mean"],
+              "spread",
+              report["17_shepherd_cinematic_quiet"]["world_value_spread"])
 
 
 if __name__ == "__main__":

@@ -408,22 +408,22 @@ jobs:
       # GitHub TRUNCATES an annotation message at 4096 characters and allows
       # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
       # each frame is cut into 4000-char chunks, spread round-robin over
-      # sixteen short steps. Sixteen keeps the per-step count low now that the
-      # richer Direction B scene and its extra quiet frame add more colours;
-      # 48-colour transport preserves the new warm/cool pixel detail better
-      # than the old 24-colour transport. tools/decode_frames.py reassembles
-      # by name/index.
+      # sixteen short steps. Sixteen keeps the per-step count low. The two
+      # richer Direction B review frames are published from a SEPARATE job so
+      # their 48-colour transport gets its own annotation budget; the fifteen
+      # classic/control frames stay at 24 colours. tools/decode_frames.py scans
+      # every job and reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
         env:
           WIC_NP: 16
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
-          # Quantising to 48 colours with NO dithering now preserves B v3's
-          # richer warm/cool detail. Sixteen round-robin publish steps leave
-          # headroom under GitHub's ~50-annotation/check-run cap. Pillow is a
-          # transport detail only; the engine's own Image class does the
-          # in-run regression comparison.
+          # Quantising to 24 colours with NO dithering keeps the fifteen
+          # control frames under the ~50-annotation/check-run cap. The two B
+          # frames are republished at 48 colours by the publish-b-frames job.
+          # Pillow is a transport detail only; the engine's own Image class
+          # does the in-run regression comparison.
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           import base64, glob, os
@@ -433,14 +433,17 @@ jobs:
           except ImportError:
               Image = None
           lines = []
-          files = sorted(glob.glob("build/frames/*.png"))
+          B_FRAMES = ("16_shepherd_cinematic.png",
+                      "17_shepherd_cinematic_quiet.png")
+          files = [f for f in sorted(glob.glob("build/frames/*.png"))
+                   if os.path.basename(f) not in B_FRAMES]
           if not files:
               print("::warning::visual job produced no frames")
           for f in files:
               src = f
               if Image is not None:
                   small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(colors=48, dither=0).save(small, optimize=True)
+                  Image.open(f).convert("RGB").quantize(colors=24, dither=0).save(small, optimize=True)
                   src = small
               raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
@@ -541,6 +544,50 @@ jobs:
         run: |
           echo "rendered-frame harness failed; see the annotations above"
           exit 1
+
+  # A separate check-run for the two high-detail B review frames. GitHub caps a
+  # check-run at ~50 annotations; publishing these 48-colour PNGs in the visual
+  # job's own budget dropped chunks from frames 06, 11 and 16 on run 42811998272.
+  # The artifact is still uploaded once by the visual job; this job only reprints
+  # the two PNGs with their own WICFRAME annotations.
+  publish-b-frames:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frames
+          path: build/frames
+      - name: Publish Direction B frames with their own annotation budget
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, glob, os
+          try:
+              from PIL import Image
+          except ImportError:
+              Image = None
+          names = ("16_shepherd_cinematic.png",
+                   "17_shepherd_cinematic_quiet.png")
+          files = [f for f in sorted(glob.glob("build/frames/*.png"))
+                   if os.path.basename(f) in names]
+          for f in files:
+              src = f
+              if Image is not None:
+                  src = "/tmp/" + os.path.basename(f)[:-4] + ".q.png"
+                  Image.open(f).convert("RGB").quantize(
+                      colors=48, dither=0).save(src, optimize=True)
+              raw = base64.b64encode(open(src, "rb").read()).decode()
+              name = os.path.basename(f)[:-4]
+              CH = 4000
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              for i, part in enumerate(parts):
+                  print("::notice::WICFRAME|%s|%d|%d|%s"
+                        % (name, i, len(parts), part))
+          print("published %d high-detail B frame(s)" % len(files))
+          PY
 
   # ── export the web build ─────────────────────────────────────────────────
   export-web:

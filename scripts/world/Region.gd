@@ -50,6 +50,9 @@ var _rim_layer: Node2D = null
 ## prop textures without rebuilding the world (which would drop quest state).
 var _prop_sprites: Array = []
 var _mod: CanvasModulate = null
+## The opt-in B scene gets its own golden-hour daylight tint. GameState's
+## time_of_day, save data and story beats are untouched; this is a visual theme.
+var _art_theme := "classic"
 var _props_meta: Dictionary = {}
 var _tiles_meta: Dictionary = {}
 var _paused := false
@@ -377,6 +380,11 @@ func _apply_time(tod: String) -> void:
 		"noon":    col = Color(1.0, 1.0, 0.98)
 		"dusk":    col = Color(0.80, 0.62, 0.55)
 		"night":   col = Color(0.35, 0.40, 0.55)
+	# The shepherd chapter is literally "before dark", and the classic dusk
+	# modulate (0.80, 0.62, 0.55) made the B meadow read as night. Direction B
+	# keeps the story's dusk but lets the low golden sun reach the field.
+	if _art_theme == "cinematic" and tod == "dusk":
+		col = Color(1.0, 0.90, 0.74)
 	_mod.color = col
 
 
@@ -685,6 +693,11 @@ func set_act(a: String) -> void:
 func apply_art_theme(theme: String) -> void:
 	if terrain == null or model == null:
 		return
+	_art_theme = theme
+	# Re-evaluate the current time-of-day tint under the new theme; classic and
+	# storybook restore their original daylight exactly.
+	if _mod != null:
+		_apply_time(str(GameState.data.get("time_of_day", "morning")))
 	var themed := theme == "storybook" or theme == "cinematic"
 	var path := "res://art/tiles/terrain.png"
 	if themed:
