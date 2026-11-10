@@ -26,9 +26,17 @@ const { chromium } = require('playwright');
 
 const OUT = process.env.WIC_OUT || 'build/browser';
 const SHOTS = path.join(OUT, 'shots');
+const WEB_DIR = process.env.WIC_WEB_DIR || 'build/web';
 const URL = process.env.WIC_URL || 'http://127.0.0.1:8080/index.html';
+const SEED_URL = URL.replace(/[^/]*$/, 'wic-seed.html');
 const STRICT = process.env.WIC_STRICT === '1';
 fs.mkdirSync(SHOTS, { recursive: true });
+// A same-origin blank page lets us write Godot's IDBFS save BEFORE the engine
+// boots. It is generated here, never committed, and served by the CI job's
+// local HTTP server.
+fs.mkdirSync(WEB_DIR, { recursive: true });
+fs.writeFileSync(path.join(WEB_DIR, 'wic-seed.html'),
+  '<!doctype html><meta charset="utf-8"><title>WIC validation seed</title>');
 
 const result = {
   url: URL,
@@ -238,6 +246,98 @@ function parseSave(dump) {
   return null;
 }
 
+const SAVE_KEY = '/userfs/godot/app_userdata/WalkInCovenant/save.json';
+
+/* Godot 4 Web stores user:// in Emscripten's IDBFS: database /userfs, store
+ * FILE_DATA, one record per path with {timestamp, mode, contents}. Writing it
+ * directly is how a browser test can resume a chapter without playing forty
+ * minutes of walking; the game then does everything else itself. */
+async function seedSave(page, save) {
+  return page.evaluate(async (payload) => {
+    const key = payload.key;
+    const db = await new Promise((res, rej) => {
+      const q = indexedDB.open('/userfs', 21);
+      q.onupgradeneeded = () => {
+        if (!q.result.objectStoreNames.contains('FILE_DATA')) q.result.createObjectStore('FILE_DATA');
+      };
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    });
+    const bytes = new TextEncoder().encode(payload.text);
+    const value = { timestamp: Date.now(), mode: 33206, contents: bytes };
+    await new Promise((res, rej) => {
+      const t = db.transaction('FILE_DATA', 'readwrite');
+      t.objectStore('FILE_DATA').put(value, key);
+      t.objectStore('FILE_DATA').put(value, key + '.bak');
+      t.oncomplete = res;
+      t.onerror = () => rej(t.error);
+    });
+    db.close();
+    return { key, bytes: bytes.length };
+  }, { key: SAVE_KEY, text: JSON.stringify(save, null, '\t') });
+}
+
+/* Read one flag out of the live save without disturbing the running game. */
+async function readSave(page) {
+  return page.evaluate(async (key) => {
+    const db = await new Promise((res, rej) => {
+      const q = indexedDB.open('/userfs', 21);
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    });
+    let v = null;
+    try {
+      v = await new Promise(res => {
+        const q = db.transaction('FILE_DATA', 'readonly').objectStore('FILE_DATA').get(key);
+        q.onsuccess = () => res(q.result);
+        q.onerror = () => res(null);
+      });
+    } finally { db.close(); }
+    if (!v) return null;
+    let text = null;
+    const c = v.contents;
+    if (c instanceof Uint8Array || c instanceof ArrayBuffer) text = new TextDecoder().decode(c);
+    else if (Array.isArray(c)) text = new TextDecoder().decode(new Uint8Array(c));
+    else if (typeof v === 'string') text = v;
+    if (text == null) return null;
+    try { return JSON.parse(text); } catch (e) { return null; }
+  }, SAVE_KEY);
+}
+
+/* A late-chapter save. Every mission before `the_line` is marked complete in
+ * the same shape GameState writes, so the exported game resumes itself at the
+ * duel through its OWN save loader, not through a debug hook. */
+function postWinSave() {
+  const s = fightSave();
+  s.flags.goliath_down = true;
+  s.flags.elah_ended = false;
+  s.seals = ['chapter_one'];
+  s.completed = ['elah'];
+  s.pos = [16, 43];
+  s.progress = { act: 'aftermath', stones: 5, provisions: 3, brothers: true, pos: [16, 43] };
+  return s;
+}
+
+function fightSave() {
+  return {
+    version: 2, name: 'pilgrim', calling: 'shepherd', level: 1, xp: 120,
+    stats: { courage: 4, wisdom: 4, compassion: 4, faith: 4 },
+    ways: { step: 1, notice: 1, stay: 1, wait: 1 },
+    hints_used: 0, guidance: 0, relics: [], fruits: [], seals: [], completed: [],
+    flags: {
+      elah_card: true, elah_first_call: true, elah_saw_him: true,
+      elah_met_the_line: true, beth_anointed: true, elah_drill_done: true,
+      elah_brothers_met: true, elah_armour_off: true, elah_stones_chosen: true,
+      goliath_down: false, elah_ended: false
+    },
+    words: ['fear', 'name', 'look', 'shepherd'], quests: {},
+    region: 'elah', campaign: 'elah', pos: [16, 13],
+    progress: { act: 'ready', stones: 5, provisions: 3, brothers: true, pos: [16, 13] },
+    day: 1, time_of_day: 'morning',
+    settings: { clean_mode: true, sound: true, music: true, reduce_motion: false }
+  };
+}
+
 async function waitBoot(page, label) {
   await page.goto(URL, { waitUntil: 'load', timeout: 120000 });
   await page.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
@@ -430,6 +530,125 @@ async function waitBoot(page, label) {
     ps.rotationOverlay && ps.rotationOverlay.on && ps.rotationOverlay.display !== 'none',
     JSON.stringify(ps.rotationOverlay));
   await touch.close();
+
+  /* ── 4. GOLIATH ENCOUNTER → VICTORY → CHAPTER COMPLETION ───────────────
+   * A fresh context is seeded with a real GameState-shaped save at `the_line`.
+   * From there every transition is driven by real keyboard input in the
+   * exported game: crossing the challenge row opens the duel, timed presses
+   * dodge/throw until the giant falls, then the player walks back to Corin and
+   * the ending plays. No GDScript test hook is used; the save is the same file
+   * the game itself writes to IDBFS. */
+  const seeded = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+  await seeded.addInitScript(INIT);
+  const sp = await seeded.newPage();
+  wire(sp, 'seeded_fight');
+  await sp.goto(SEED_URL, { waitUntil: 'load', timeout: 30000 });
+  const seedInfo = await seedSave(sp, fightSave());
+  note('seeded GameState save ' + JSON.stringify(seedInfo));
+  const sfs = await waitBoot(sp, 'seeded_fight');
+  await shot(sp, 'goliath_01_ready');
+  const readySave = await readSave(sp);
+  check('seeded save resumes at the line (act=ready)',
+    !!readySave && readySave.progress && readySave.progress.act === 'ready',
+    'progress=' + JSON.stringify(readySave && readySave.progress).slice(0, 200));
+
+  // North across challenge row 11. The region is paused for the battle intro,
+  // so a short hold is enough to fire the trigger.
+  await sp.keyboard.down('KeyW');
+  await sp.waitForTimeout(1100);
+  await sp.keyboard.up('KeyW');
+  await sp.waitForTimeout(1400);
+  await shot(sp, 'goliath_02_duel');
+
+  // One press per ~1.29 s (the marker's full sweep). Each round the press
+  // lands at a different point on the forehead band; across the five stones
+  // plus the brook resupply three hits land. Presses also advance the intro,
+  // victory and ending dialogue. Poll the real save for the win flag.
+  let won = false, presses = 0;
+  const fightStart = Date.now();
+  const fightMs = parseInt(process.env.WIC_FIGHT_MS || '105000', 10);
+  while (Date.now() - fightStart < fightMs && !won) {
+    await sp.keyboard.press('Space');
+    presses++;
+    await sp.waitForTimeout(1290);
+    const s = await readSave(sp);
+    if (s && s.flags && s.flags.goliath_down === true) won = true;
+    if (presses === 8) await shot(sp, 'goliath_02_duel');
+  }
+  note('duel: ' + presses + ' presses, goliath_down=' + won);
+  check('Goliath duel reaches goliath_down in the browser', won,
+    'presses=' + presses + ' save=' + JSON.stringify((await readSave(sp) || {}).flags).slice(0, 240));
+  await shot(sp, 'goliath_03_win');
+
+  let ended = false;
+  if (won) {
+    // Walk back down the valley to Corin (row 44), then interact. Small nudges
+    // cover the last tile so the approach is real movement, not teleporting.
+    await sp.keyboard.down('ShiftLeft');
+    await sp.keyboard.down('ArrowDown');
+    await sp.waitForTimeout(5000);
+    await sp.keyboard.up('ArrowDown');
+    await sp.keyboard.up('ShiftLeft');
+    await sp.waitForTimeout(300);
+    await shot(sp, 'goliath_04_aftermath');
+    for (let i = 0; i < 12 && !ended; i++) {
+      await sp.keyboard.press('e');
+      await sp.waitForTimeout(420);
+      const s = await readSave(sp);
+      if (s && s.flags && s.flags.elah_ended === true) ended = true;
+      if (!ended) {
+        await sp.keyboard.down('ArrowDown');
+        await sp.waitForTimeout(230);
+        await sp.keyboard.up('ArrowDown');
+      }
+    }
+    // Ending lines + the final choice both advance with Space.
+    for (let i = 0; i < 16; i++) {
+      await sp.keyboard.press('Space');
+      await sp.waitForTimeout(330);
+      const s = await readSave(sp);
+      if (s && s.flags && s.flags.elah_ended === true) { ended = true; break; }
+    }
+    await shot(sp, 'goliath_05_ending');
+  }
+  check('chapter completion reaches elah_ended in the browser', ended,
+    'ended=' + ended + ' save=' + JSON.stringify((await readSave(sp) || {}).flags).slice(0, 240));
+  result.goliath = { seeded: seedInfo, presses, won, ended, finalSave: await readSave(sp) };
+  await seeded.close();
+
+  /* Fallback / independent check of the ENDING path: a post-victory save next
+   * to Corin. If the timed duel automation above did not land three stones,
+   * this still proves the exported game can play its conclusion in a browser.
+   * It is explicitly a seeded state, not a claim that the whole duel was won. */
+  if (!won || !ended) {
+    const post = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    await post.addInitScript(INIT);
+    const pp = await post.newPage();
+    wire(pp, 'post_win');
+    await pp.goto(SEED_URL, { waitUntil: 'load', timeout: 30000 });
+    await seedSave(pp, postWinSave());
+    await waitBoot(pp, 'post_win');
+    await shot(pp, 'goliath_05_ending');
+    let postEnded = false;
+    for (let i = 0; i < 10 && !postEnded; i++) {
+      await pp.keyboard.press('e');
+      await pp.waitForTimeout(420);
+      const s = await readSave(pp);
+      if (s && s.flags && s.flags.elah_ended === true) postEnded = true;
+    }
+    for (let i = 0; i < 20 && !postEnded; i++) {
+      await pp.keyboard.press('Space');
+      await pp.waitForTimeout(320);
+      const s = await readSave(pp);
+      if (s && s.flags && s.flags.elah_ended === true) postEnded = true;
+    }
+    await shot(pp, 'goliath_05_ending');
+    note('post-victory ending: elah_ended=' + postEnded);
+    check('post-victory save reaches the chapter ending in the browser', postEnded,
+      'elah_ended=' + postEnded);
+    result.goliath.fallbackEnded = postEnded;
+    await post.close();
+  }
 
   await browser.close();
 

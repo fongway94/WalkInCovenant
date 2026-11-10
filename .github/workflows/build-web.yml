@@ -746,25 +746,49 @@ jobs:
           os.makedirs("build/browser/ann", exist_ok=True)
           CH = 3800
           lines = []
-          # Nine representative frames: boot, input, dialogue, mute, reload,
-          # 4:3, mobile landscape, touch, portrait guidance. The rest stay in
-          # the browser-evidence artifact.
-          WANT = ["01_boot_desktop", "04_after_interact", "06_dialogue_advance_2",
-                  "09_after_mute_click", "10_after_reload", "vp_fourthree_1024x768",
-                  "vp_mobile_landscape_844x390", "touch_02_after_taps", "touch_03_portrait"]
+          from PIL import ImageDraw
           allfiles = {os.path.basename(f)[:-4]: f for f in glob.glob("build/browser/shots/*.png")}
+          # One contact sheet of EVERY frame, then a few full-size key frames.
+          names = sorted(allfiles)
+          if names:
+              CW, CHH, PAD = 160, 100, 4
+              cols = 4
+              rows = (len(names) + cols - 1) // cols
+              sheet = Image.new("RGB", (cols * (CW + PAD) + PAD, rows * (CHH + PAD) + PAD), (16, 22, 28))
+              dr = ImageDraw.Draw(sheet)
+              for i, n in enumerate(names):
+                  im = Image.open(allfiles[n]).convert("RGB")
+                  im.thumbnail((CW, CHH - 16), Image.LANCZOS)
+                  x = PAD + (i % cols) * (CW + PAD)
+                  y = PAD + (i // cols) * (CHH + PAD)
+                  sheet.paste(im, (x, y + 16))
+                  dr.text((x, y), "%d %s" % (i, n[:26]), fill=(232, 226, 208))
+              sheet.save("build/browser/ann/00_contact_sheet.png", optimize=True)
+              allfiles["00_contact_sheet"] = "build/browser/ann/00_contact_sheet.png"
+          WANT = ["00_contact_sheet", "01_boot_desktop", "06_dialogue_advance_2",
+                  "vp_mobile_landscape_844x390", "touch_03_portrait",
+                  "goliath_02_duel", "goliath_05_ending"]
           files = [allfiles[n] for n in WANT if n in allfiles]
           if not files:
               print("::warning::browser job produced no screenshots")
+          groups = []
           for f in files:
               name = os.path.basename(f)[:-4]
               im = Image.open(f).convert("RGB")
-              im.thumbnail((320, 320), Image.LANCZOS)
+              size = (680, 680) if name == "00_contact_sheet" else (320, 320)
+              im.thumbnail(size, Image.LANCZOS)
               im.quantize(colors=16).save("build/browser/ann/" + name + ".png", optimize=True)
               raw = base64.b64encode(open("build/browser/ann/" + name + ".png", "rb").read()).decode()
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-              for i, part in enumerate(parts):
-                  lines.append("::notice::WICBROWSER|%s|%d|%d|%s" % (name, i, len(parts), part))
+              groups.append((name, ["::notice::WICBROWSER|%s|%d|%d|%s" % (name, i, len(parts), part)
+                                    for i, part in enumerate(parts)]))
+          # Reserve four lines for the compact log and short text notices.
+          budget = 44
+          for name, chunks in groups:
+              if len(lines) + len(chunks) > budget:
+                  print("::warning::dropping %s (%d chunks) to stay under the annotation cap" % (name, len(chunks)))
+                  continue
+              lines += chunks
           lp = "build/browser/log.json"
           if os.path.isfile(lp):
               try:
