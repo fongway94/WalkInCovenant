@@ -17,11 +17,13 @@ white.
 Direction B v3 (2026-11-10, after the user asked to "make in on par"): the v2
 real engine frame measured world luma 67.9 against the concept's 86.6, and the
 field had roughly half the concept's edge density. The ramps are lifted and the
-generator now adds directional, deterministic micro-detail — grass blades,
-flower clusters, lit pebbles, warm dust and lower-right cast shadows — to each
-16px cell. These are SHAPES on the pixel grid, not a painted background,
-photographic texture or global blur. The 49 cells and all four animated water
-variants keep their geometry and indices.
+generator adds directional, deterministic micro-detail — grass blades,
+flower clusters, lit pebbles, warm dust and lower-right cast shadows — to the
+16px cells. **v4**: a live screenshot showed that v3's per-cell marks repeated
+into cream confetti across the whole field; the marks are now RARE and clustered,
+with quiet ground between light pools. These are SHAPES on the pixel grid, not
+a painted background, photographic texture or global blur. The 49 cells and all
+four animated water variants keep their geometry and indices.
 
     PYTHONPATH=<pillow-cache> python3 tools/art_reset/build_cinematic_atlas.py
 
@@ -147,49 +149,48 @@ def _diagonal_shadow(cv, rnd, x, y):
 
 
 def embellish(key: str, variant: int, cv):
-    """Add deterministic directional detail to one 16x16 cell.
+    """Add a FEW deterministic, directional details to one 16x16 cell.
 
-    Details are CLUSTERED, not scattered: the first embellishment pass used
-    independent random dots and the 4x atlas review read as confetti. A small
-    number of tuft groups, each with its own cast shadow, gives the meadow the
-    high-frequency edge density of the reference while keeping quiet ground
-    between clusters. Every mark is on the integer pixel grid and is derived
-    from a stable CRC32 seed; the basic factories still own the macro-structure.
+    The B v3 atlas put ~20 marks in every cell. On a real 320x180 live frame
+    that repeated into a uniform cream confetti (user screenshot
+    2026-11-10-23-33-37). The reference has quiet ground between light pools,
+    so B v4 keeps the same clustered SHAPES but makes them RARE: most cells
+    now carry none, and the four-pixel global sprinkle is gone entirely. The
+    macro-structures still come from the shipped terrain factories, and the
+    marks remain on the integer pixel grid with a single upper-left sun.
     """
     rnd = random.Random(_seed(key, variant))
     if key in MEADOW:
-        # Two clumps of connected blades, one lit blossom, one small stone and
-        # one short lower-right cast per 16px cell. Rare detail reads as detail.
-        for _ in range(2):
+        # One clump at most, and only on one variant in three. A blossom, a
+        # pebble and a cast shadow each get their own rare variant so no cell
+        # accumulates all four. Ground stays quiet between deliberate marks.
+        if variant % 3 == 0:
             cx, cy = rnd.randrange(3, 12), rnd.randrange(4, 13)
-            for _ in range(2):
-                _tuft(cv, rnd, cx + rnd.randrange(-1, 2), cy + rnd.randrange(-1, 2))
-        if variant % 2 == 0:
+            _tuft(cv, rnd, cx, cy)
+            if rnd.random() < 0.45:
+                _tuft(cv, rnd, cx + 1, cy)
+        if variant % 4 == 0:
             _flower(cv, rnd, rnd.randrange(3, 12), rnd.randrange(3, 12))
-        _pebble(cv, rnd, rnd.randrange(3, 12), rnd.randrange(4, 12))
-        _diagonal_shadow(cv, rnd, rnd.randrange(1, 8), rnd.randrange(6, 11))
+        if variant % 3 == 1:
+            _pebble(cv, rnd, rnd.randrange(3, 12), rnd.randrange(4, 12))
+        if variant % 4 == 2:
+            _diagonal_shadow(cv, rnd, rnd.randrange(1, 8), rnd.randrange(6, 11))
     elif key in EARTH:
-        # Paired warm/cool pixels read as volume; a few short strokes read as
-        # a trodden road. No uniform sprinkle across the whole 16x16 cell.
-        for _ in range(5):
+        # Two paired warm/cool pixels and one short trodden stroke, not a
+        # uniform sprinkle across the whole 16x16 cell.
+        for _ in range(2):
             x, y = rnd.randrange(1, 14), rnd.randrange(1, 14)
             cv.px(x, y, rnd.choice(SUN_DUST[:2]))
             cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
-        for _ in range(2):
-            x, y = rnd.randrange(1, 12), rnd.randrange(2, 13)
-            cv.px(x, y, rnd.choice(STONE_LIT))
-            cv.px(x + 1, y, rnd.choice(STONE_LIT))
-            cv.px(x + 2, y + 1, rnd.choice(STONE_DARK))
-        x, y = rnd.randrange(1, 11), rnd.randrange(2, 13)
-        cv.px(x, y, rnd.choice(COOL_DUST))
-        cv.px(x + 1, y, rnd.choice(COOL_DUST))
-        cv.px(x + 2, y, rnd.choice(COOL_DUST))
+        x, y = rnd.randrange(1, 12), rnd.randrange(2, 13)
+        cv.px(x, y, rnd.choice(STONE_LIT))
+        cv.px(x + 1, y, rnd.choice(STONE_LIT))
+        cv.px(x + 2, y + 1, rnd.choice(STONE_DARK))
     elif key in HARD:
-        # Stone chips catch the sun on their upper-left face only.
-        for _ in range(3):
-            x, y = rnd.randrange(2, 13), rnd.randrange(2, 13)
-            cv.px(x, y, rnd.choice(STONE_LIT))
-            cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
+        # One stone chip catches the sun on its upper-left face only.
+        x, y = rnd.randrange(2, 13), rnd.randrange(2, 13)
+        cv.px(x, y, rnd.choice(STONE_LIT))
+        cv.px(x + 1, y + 1, rnd.choice(STONE_DARK))
     elif key in WATER:
         # One short gold reflection dash on the animated water frames; the four
         # frames still differ from one another exactly as the classic atlas does.
@@ -197,17 +198,7 @@ def embellish(key: str, variant: int, cv):
         cv.px(x, y, rnd.choice(SUN_DUST[:2]))
         cv.px(x + 1, y, rnd.choice(SUN_DUST[:2]))
         cv.px(x + 2, y + 1, rnd.choice(COOL_DUST))
-    # A very small amount of diagonal light/dark inside each cell. Only four
-    # pixels, never a full-cell gradient: the sun remains a direction, not a
-    # repeated 16px checkerboard.
-    for _ in range(4):
-        x, y = rnd.randrange(16), rnd.randrange(16)
-        if x + y < 12:
-            cv.px(x, y, rnd.choice(SUN_DUST[:2]))
-        elif x + y > 20:
-            cv.px(x, y, rnd.choice(COOL_DUST))
     return cv
-
 
 def main():
     P.RAMPS = build_ramp_map()

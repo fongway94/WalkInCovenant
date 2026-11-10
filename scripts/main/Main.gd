@@ -6,9 +6,10 @@ extends Node2D
 
 ## Working-branch live Pages preview only: the Web export boots in the
 ## user-selected Direction B theme, while desktop/headless/visual CI stay
-## classic. This is a RUNTIME theme call, not a default asset replacement;
-## setting the constant back to "classic" restores the original look exactly.
-const WEB_PREVIEW_THEME := "cinematic"
+## classic. The one decision lives in scripts/systems/ArtDirection.gd so
+## late-created setpieces agree with the overworld. This is a RUNTIME theme
+## call, not a default asset replacement; setting Web preview back to
+## "classic" there restores the original look exactly.
 
 var region: Region = null
 ## Which region the previous one was, so the new one can put the player by the
@@ -314,12 +315,10 @@ func _update_touch_ownership() -> void:
 ## file is replaced, no frame/save/behaviour moves, and visual.gd still applies
 ## B explicitly for its one comparison frame (docs/ART-RESET.md §12.10).
 func _preview_art_theme() -> String:
-	# A Web export has the "web" feature; the Xvfb visual harness and the
-	# headless test suites do not. This keeps CI frames reproducible while the
-	# branch the user was invited to play shows the direction they chose.
-	if OS.has_feature("web"):
-		return WEB_PREVIEW_THEME
-	return "classic"
+	# One shared decision: Web preview = B, Xvfb/headless/desktop = classic.
+	# Setpieces ask ArtDirection themselves so a late-created duel does not
+	# fall back to classic after Main has already applied B to the region.
+	return ArtDirection.current()
 
 
 func apply_art_theme(theme: String) -> void:

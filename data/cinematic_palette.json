@@ -24,5 +24,7 @@
   "SKIN_L": "#f3d5a8",
   "WATER_D": "#173036",
   "WATER_L": "#6b9e94",
-  "GOLD": "#daac4e"
+  "GOLD": "#daac4e",
+  "BLOOD_D": "#773125",
+  "BLOOD_L": "#a44a35"
 }

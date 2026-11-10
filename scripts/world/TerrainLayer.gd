@@ -239,6 +239,8 @@ func _draw_cinematic_depth() -> void:
 			Color(1.0, 0.84, 0.50, 0.10))
 	# Four soft diagonal sun shafts. They share ONE upper-left light direction
 	# with the cast shadows, rather than acting as a global brightness filter.
+	# B v4 lowers their alpha: at 0.10+ the live screenshot read as hard
+	# translucent wedges rather than volumetric light.
 	for i in range(4):
 		var ox := left + w * (0.02 + float(i) * 0.23)
 		var oy := top + 30.0 + float(i) * 7.0
@@ -248,7 +250,7 @@ func _draw_cinematic_depth() -> void:
 		shaft.append(Vector2(ox + 158.0, oy + 67.0))
 		shaft.append(Vector2(ox + 124.0, oy + 76.0))
 		draw_colored_polygon(shaft,
-				Color(1.0, 0.86, 0.52, 0.10 + float(i) * 0.012))
+				Color(1.0, 0.86, 0.52, 0.045 + float(i) * 0.008))
 
 	# 2. Cool shade under the trees on the right third; irregular, not a rect.
 	var cool := PackedVector2Array()
@@ -256,7 +258,7 @@ func _draw_cinematic_depth() -> void:
 	cool.append(Vector2(right, top + 26.0))
 	cool.append(Vector2(right, bottom))
 	cool.append(Vector2(left + w * 0.54, bottom))
-	draw_colored_polygon(cool, Color(0.10, 0.17, 0.14, 0.24))
+	draw_colored_polygon(cool, Color(0.10, 0.17, 0.14, 0.13))
 
 	# 3. Dry-stone wall along the far edge — two irregular courses, lit top
 	#    faces and dark mortar; no repeated stamp. It stays inside the world
@@ -321,9 +323,10 @@ func _draw_cinematic_depth() -> void:
 		draw_rect(Rect2(px2 + 2.0, py + 3.0, 1.0, 1.0),
 				Color(0.25, 0.18, 0.10, 0.36))
 
-	# 5. Long diagonal cast-shadow bands from off-screen trees. Seven bands
-	#    are longer, cooler and more varied than v2's five short quads.
-	for i in range(7):
+	# 5. Long diagonal cast-shadow bands from off-screen trees. B v4 uses five
+	#    low-alpha bands: seven at 0.28 produced hard triangular wedges in the
+	#    live frame. The shadows still share the upper-left sun direction.
+	for i in range(5):
 		var oy := top + 48.0 + float(i) * 11.0
 		var ox := left + w * (0.05 + float(i) * 0.115)
 		var reach := 98.0 + fmod(float(i) * 13.0, 38.0)
@@ -332,7 +335,7 @@ func _draw_cinematic_depth() -> void:
 		band.append(Vector2(ox + 16.0 + float(i % 3) * 4.0, oy - 4.0))
 		band.append(Vector2(ox + reach, oy + 23.0))
 		band.append(Vector2(ox + reach - 30.0, oy + 29.0))
-		draw_colored_polygon(band, Color(0.08, 0.12, 0.08, 0.28))
+		draw_colored_polygon(band, Color(0.08, 0.12, 0.08, 0.15))
 
 	# 6. World-anchored foreground grass and flower tufts. The hash uses TILE
 	#    coordinates, so these details stay attached to the world as the camera
@@ -342,7 +345,9 @@ func _draw_cinematic_depth() -> void:
 	var gy := int(floor(top / TILE)) + 6
 	for gx in range(gx0, gx1):
 		var hv := _cinematic_hash(gx, gy)
-		if hv % 3 == 0:
+		# B v4: a blade in every visible tile became another cream confetti
+		# layer on top of the atlas marks. Only one tile in five gets one.
+		if hv % 5 != 0:
 			continue
 		var wx := float(gx * TILE) + float(hv % 13)
 		var blade_row := int(floor(float(hv) / 7.0)) % 30
@@ -356,9 +361,10 @@ func _draw_cinematic_depth() -> void:
 		blade.append(Vector2(wx, wy - 1.0))
 		blade.append(Vector2(wx + 2.0, wy + 2.0))
 		draw_polyline(blade, Color(0.12, 0.19, 0.10, 0.62), 1.0)
-		draw_line(Vector2(wx - 1.0, wy), Vector2(wx, wy - 3.0),
-				Color(0.96, 0.79, 0.39, 0.62), 1.0)
-		if hv % 5 == 0:
+		if hv % 7 == 0:
+			draw_line(Vector2(wx - 1.0, wy), Vector2(wx, wy - 3.0),
+					Color(0.96, 0.79, 0.39, 0.55), 1.0)
+		if hv % 11 == 0:
 			draw_rect(Rect2(wx + 3.0, wy - 1.0, 2.0, 2.0),
 					Color(0.98, 0.88, 0.56, 0.68))
 			draw_rect(Rect2(wx + 5.0, wy + 1.0, 1.0, 1.0),

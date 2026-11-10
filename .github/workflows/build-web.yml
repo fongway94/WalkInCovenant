@@ -420,7 +420,7 @@ jobs:
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
           # Quantising to 24 colours with NO dithering keeps the fifteen
-          # control frames under the ~50-annotation/check-run cap. The two B
+          # control frames under the ~50-annotation/check-run cap. The three B
           # frames are republished at 48 colours by the publish-b-frames job.
           # Pillow is a transport detail only; the engine's own Image class
           # does the in-run regression comparison.
@@ -434,7 +434,8 @@ jobs:
               Image = None
           lines = []
           B_FRAMES = ("16_shepherd_cinematic.png",
-                      "17_shepherd_cinematic_quiet.png")
+                      "17_shepherd_cinematic_quiet.png",
+                      "18_duel_cinematic.png")
           files = [f for f in sorted(glob.glob("build/frames/*.png"))
                    if os.path.basename(f) not in B_FRAMES]
           if not files:
@@ -549,7 +550,7 @@ jobs:
   # check-run at ~50 annotations; publishing these 48-colour PNGs in the visual
   # job's own budget dropped chunks from frames 06, 11 and 16 on run 42811998272.
   # The artifact is still uploaded once by the visual job; this job only reprints
-  # the two PNGs with their own WICFRAME annotations.
+  # the three PNGs with their own WICFRAME annotations.
   publish-b-frames:
     needs: visual
     runs-on: ubuntu-latest
@@ -595,6 +596,27 @@ jobs:
           name = os.environ["WIC_B_FRAME"][:-4]
           f = "build/frames/" + os.environ["WIC_B_FRAME"]
           src = "/tmp/" + name + ".q2.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
+          PY
+      - name: Publish B duel frame at 48 colours
+        env:
+          WIC_B_FRAME: 18_duel_cinematic.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q3.png"
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()

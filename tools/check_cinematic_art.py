@@ -26,6 +26,8 @@ B = json.loads((ROOT / "data/cinematic_palette.json").read_text())
 
 PROPS = ROOT / "art/props_cinematic"
 CHARS = ROOT / "art/characters_cinematic"
+DUEL = ROOT / "art/duel_cinematic"
+CLASSIC_DUEL = ROOT / "art/duel"
 HASHES = ROOT / "data/cinematic_art_hashes.json"
 ALLOWED = set(B.values())
 
@@ -33,6 +35,10 @@ KEYS = ["olive_tree", "fig_tree", "palm_tree", "bush", "rock", "boulder",
         "sheep", "sheep_alert", "sheep_graze", "fold", "tent", "house", "well"]
 SHEETS = {"pilgrim_idle": (32, 64), "pilgrim_walk": (64, 64),
           "shepherd_idle": (32, 64), "shepherd_walk": (64, 64)}
+# The setpiece used to stay classic while the overworld wore B. These are the
+# SAME 32x32 / 64x64 figures with only their colour indices remapped, so the
+# forehead aim band, fall rotation and one-frame animation contract hold.
+DUEL_SHEETS = {"david_cinematic": (32, 32), "goliath_cinematic": (64, 64)}
 
 
 def palette_ok(path):
@@ -70,6 +76,17 @@ def main():
         palette_ok(p)
         w, h, _ = C.pixels(p)
         assert (w, h) == size, f"{name}: sheet {w}x{h} != {size}"
+        got[name] = C.digest(p)
+        print(f"  {name:<14} {w}x{h:<3} OK")
+    for name, size in DUEL_SHEETS.items():
+        p = DUEL / (name + ".png")
+        assert p.exists(), f"missing {p}"
+        palette_ok(p)
+        w, h, _ = C.pixels(p)
+        assert (w, h) == size, f"{name}: duel figure {w}x{h} != {size}"
+        classic = CLASSIC_DUEL / (name.replace("_cinematic", "") + ".png")
+        cw, ch, _ = C.pixels(classic)
+        assert (w, h) == (cw, ch), f"{name}: B figure size differs from classic"
         got[name] = C.digest(p)
         print(f"  {name:<14} {w}x{h:<3} OK")
     if write:

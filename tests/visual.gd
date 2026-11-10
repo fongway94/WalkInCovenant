@@ -329,6 +329,18 @@ func _run() -> void:
 		_check(duel._gol.texture != null and duel._gol.texture.get_size().x > 16.0,
 			"the giant is the drawn 64px duel figure, not an 8x map sprite")
 		await _shot("13_duel")
+		# The user's live screenshot showed a golden-hour overworld but a
+		# still-classic duel. Photograph the SAME setpiece in Direction B:
+		# B-palette figures, warm valley, one-light casts and B UI skin. The
+		# classic theme is restored before the fight is freed, so frames 14+
+		# keep their reviewed baselines. This is a real engine capture, not a
+		# mock-up; gameplay, timing and the fall animation are unchanged.
+		if duel.has_method("apply_art_theme"):
+			duel.call("apply_art_theme", "cinematic")
+			await _frames(5)
+			await _shot("18_duel_cinematic")
+			duel.call("apply_art_theme", "classic")
+			await _frames(2)
 	Engine.time_scale = 6.0
 	if main.fight != null:
 		main.fight.queue_free()
