@@ -280,3 +280,9 @@ cinematic theme after every region-ready event on Web only; desktop/headless/
 Xvfb frames remain classic and their baselines stay valid. The PWA cache name
 is stamped with the commit sha, but a browser with an old cached build may need
 one hard refresh / clear-site-data. This is a preview theme, not a release.
+
+**Final Web B-theme run.** `42843225647` (`02e5d34`) is all green including
+deploy: `chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0
+pageErrors=0`, `DUEL presses=32 won=True`. Deployment `7686202899` succeeded.
+The live Web runtime now applies B at boot; a hard refresh may be needed once
+to replace an older PWA cache. Still **Release candidate, not release**.

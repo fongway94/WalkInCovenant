@@ -788,3 +788,11 @@ the Web runtime. The working branch now calls `apply_art_theme("cinematic")`
 from `Main._on_region_ready()` when `OS.has_feature("web")` is true. Desktop,
 headless and Xvfb visual CI stay classic; no default asset file is replaced.
 Setpiece screens are still not B-skinned and human playtest remains open.
+
+**Final live Web theme deploy.** `c5e10c0` exposed a second Pages deploy timeout
+(run `42837952729`, deployment `7685442624`); `02e5d34` raised the
+`deploy-pages` timeout to 20 minutes. Final run `42843225647` is all green
+including deploy, deployment `7686202899` = `success`, browser `30/0`, and the
+live service worker stamp is `02e5d34...`. The working-branch Web preview now
+starts in B at boot; classic desktop/headless/visual CI stays unchanged. A PWA
+hard refresh may be needed once. No release or parity claim.

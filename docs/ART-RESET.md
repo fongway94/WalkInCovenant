@@ -938,3 +938,17 @@ playtest is still required. Because this is a PWA, a browser that already
 cached an older build may need one hard refresh / clear-site-data before the
 new sha-stamped service worker takes over; the deployed worker's cache name
 changes with the commit sha. No PR, no merge to `main`, no release.
+
+**Final deploy of the runtime fix.** `c5e10c0` run `42837952729` was green for
+lint/visual/publish/export/browser but its Pages deployment `7685442624` stayed
+`in_progress` past the deploy action's default ten-minute timeout. `02e5d34`
+raised that action timeout to twenty minutes with gentler polling. Final run
+`42843225647` is **all green including deploy**; deployment `7686202899` is
+`success`, browser `checks=30 failed=0`, `DUEL presses=32 won=True`. The live
+`index.service.worker.js` now carries cache stamp
+`02e5d34dc6ce926a1f51a9ea6b33f60077f29612`, so the published build is the one
+that calls the Web B theme. A browser holding an older PWA cache may still need
+one hard refresh / clear-site-data. This corrects the "why still same" report:
+the live Web preview now starts in Direction B, while desktop/headless/visual
+CI and the classic asset files remain unchanged. No PR, merge, release or
+parity claim.

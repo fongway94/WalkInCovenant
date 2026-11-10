@@ -372,3 +372,10 @@ the Web runtime never called `apply_art_theme()`. `Main.gd` now applies
 is stamped with the commit sha; if a browser still shows the old palette,
 hard-refresh once or clear site data. Classic files, desktop builds and visual
 CI baselines are unchanged.
+
+**Final Web B-theme deployment.** `c5e10c0` / run `42837952729` hit the default
+10-minute `deploy-pages` timeout; `02e5d34` sets `timeout: 1200000`,
+`error_count: 20`, `reporting_interval: 10000`. Final run `42843225647` is all
+green including deploy (`7686202899` = success), and the live service worker
+cache stamp is `02e5d34dc6ce926a1f51a9ea6b33f60077f29612`. Hard-refresh once if
+an older PWA cache is still active.
