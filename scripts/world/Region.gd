@@ -646,6 +646,21 @@ func set_act(a: String) -> void:
 		npc.act_name = a
 
 
+## Opt-in terrain theme for the ART DIRECTION RESET prototype. The classic atlas
+## stays the default. The storybook atlas has the SAME 16px cells, the SAME 49
+## indices and the SAME data/tiles.json, so collision, footstep surfaces, the
+## water animation and every save file are untouched by the swap.
+func apply_art_theme(theme: String) -> void:
+	if terrain == null or model == null:
+		return
+	var path := "res://art/tiles/terrain.png"
+	if theme == "storybook":
+		path = "res://art/tiles/terrain_storybook.png"
+	var tex := load(path) as Texture2D
+	if tex != null:
+		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
+
+
 func is_paused() -> bool:
 	return _paused
 

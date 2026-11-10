@@ -302,6 +302,20 @@ func _update_touch_ownership() -> void:
 ## dismissed, so the valley was a field with five rocks in it. The chain is
 ## deliberately short and always names the NEXT single action:
 ##   Corin → the brook → the line → the fight → the ending.
+## One switch for the ART DIRECTION RESET prototype. The shipped build never
+## calls it with anything but "classic", so no frame, save or behaviour moves;
+## tests/visual.gd uses it to photograph the identical shepherd-field state in
+## the classic and the selected storybook direction (docs/ART-RESET.md §7).
+func apply_art_theme(theme: String) -> void:
+	if region != null and is_instance_valid(region):
+		region.apply_art_theme(theme)
+	if hud != null and is_instance_valid(hud):
+		hud.apply_art_skin(theme)
+	if region != null and is_instance_valid(region) \
+			and region.dialogue != null and is_instance_valid(region.dialogue):
+		region.dialogue.apply_art_skin(theme)
+
+
 func _update_guidance() -> void:
 	if hud == null or region == null or region.player == null:
 		return

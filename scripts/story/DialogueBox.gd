@@ -70,6 +70,42 @@ var page_lbl: Label = null
 var choice_box: VBoxContainer = null
 var skip_btn: Button = null
 var rule: ColorRect = null
+var portrait_frame: PanelContainer = null
+
+## Art-direction skins — see docs/ART-RESET.md §5. The classic values are the
+## shipped palette, byte-for-byte; "storybook" is the selected Direction C:
+## parchment panel, dark brown ink, ochre frame. Geometry and Chinese text are
+## identical in both, so the comparison is about art, not layout.
+var panel_bg := Color(0.04, 0.07, 0.10, 1.0)
+var panel_edge := Color(0.79, 0.64, 0.36, 0.70)
+var frame_bg := Color(0.02, 0.04, 0.06, 1.0)
+var frame_edge := Color(0.60, 0.49, 0.28, 0.75)
+var name_col := Color(0.97, 0.87, 0.65)
+var rule_col := Color(0.79, 0.64, 0.36, 0.35)
+var text_col := Color(0.92, 0.94, 0.95)
+var foot_col := Color(0.79, 0.64, 0.36)
+const SKINS := {
+	"classic": {
+		"panel_bg": Color(0.04, 0.07, 0.10, 1.0),
+		"panel_edge": Color(0.79, 0.64, 0.36, 0.70),
+		"frame_bg": Color(0.02, 0.04, 0.06, 1.0),
+		"frame_edge": Color(0.60, 0.49, 0.28, 0.75),
+		"name": Color(0.97, 0.87, 0.65),
+		"rule": Color(0.79, 0.64, 0.36, 0.35),
+		"text": Color(0.92, 0.94, 0.95),
+		"foot": Color(0.79, 0.64, 0.36),
+	},
+	"storybook": {
+		"panel_bg": Color(0.89, 0.82, 0.66, 1.0),
+		"panel_edge": Color(0.36, 0.27, 0.18, 1.0),
+		"frame_bg": Color(0.96, 0.90, 0.77, 1.0),
+		"frame_edge": Color(0.55, 0.40, 0.25, 1.0),
+		"name": Color(0.35, 0.23, 0.13),
+		"rule": Color(0.65, 0.48, 0.30, 0.70),
+		"text": Color(0.23, 0.16, 0.11),
+		"foot": Color(0.48, 0.23, 0.19),
+	},
+}
 
 var _lines: Array = []
 var _pages: Array = []
@@ -114,8 +150,8 @@ func _build_ui() -> void:
 	var sb := StyleBoxFlat.new()
 	# 80%, not 93%: the world has to stay legible behind a conversation — the
 	# whole point of a conversation in this game is that you are looking at it.
-	sb.bg_color = Color(0.04, 0.07, 0.10, 1.0)
-	sb.border_color = Color(0.79, 0.64, 0.36, 0.70)
+	sb.bg_color = panel_bg
+	sb.border_color = panel_edge
 	sb.set_border_width_all(1)
 	sb.set_content_margin_all(5)
 	sb.set_corner_radius_all(3)
@@ -134,9 +170,10 @@ func _build_ui() -> void:
 
 	# ── portrait, framed ──────────────────────────────────────────────────
 	var frame := PanelContainer.new()
+	portrait_frame = frame
 	var fsb := StyleBoxFlat.new()
-	fsb.bg_color = Color(0.02, 0.04, 0.06, 1.0)
-	fsb.border_color = Color(0.60, 0.49, 0.28, 0.75)
+	fsb.bg_color = frame_bg
+	fsb.border_color = frame_edge
 	fsb.set_border_width_all(1)
 	fsb.set_content_margin_all(1)
 	fsb.set_corner_radius_all(2)
@@ -172,7 +209,7 @@ func _build_ui() -> void:
 
 	name_lbl = Label.new()
 	name_lbl.add_theme_font_size_override("font_size", 9)
-	name_lbl.add_theme_color_override("font_color", Color(0.97, 0.87, 0.65))
+	name_lbl.add_theme_color_override("font_color", name_col)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_lbl)
 
@@ -184,7 +221,7 @@ func _build_ui() -> void:
 	skip_btn.text = "»"
 	skip_btn.flat = true
 	skip_btn.add_theme_font_size_override("font_size", 9)
-	skip_btn.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36, 0.85))
+	skip_btn.add_theme_color_override("font_color", foot_col)
 	skip_btn.custom_minimum_size = Vector2(18, 12)
 	skip_btn.focus_mode = Control.FOCUS_NONE
 	skip_btn.tooltip_text = "skip"
@@ -194,14 +231,14 @@ func _build_ui() -> void:
 	# A hairline under the name: the speaker and the speech are different kinds
 	# of text and used to look like one paragraph.
 	rule = ColorRect.new()
-	rule.color = Color(0.79, 0.64, 0.36, 0.35)
+	rule.color = rule_col
 	rule.custom_minimum_size = Vector2(0, 1)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(rule)
 
 	text_lbl = Label.new()
 	text_lbl.add_theme_font_size_override("font_size", 10)
-	text_lbl.add_theme_color_override("font_color", Color(0.92, 0.94, 0.95))
+	text_lbl.add_theme_color_override("font_color", text_col)
 	text_lbl.add_theme_constant_override("line_spacing", 3)
 	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -223,7 +260,7 @@ func _build_ui() -> void:
 
 	page_lbl = Label.new()
 	page_lbl.add_theme_font_size_override("font_size", 7)
-	page_lbl.add_theme_color_override("font_color", Color(0.62, 0.66, 0.68))
+	page_lbl.add_theme_color_override("font_color", text_col)
 	page_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	foot.add_child(page_lbl)
@@ -231,10 +268,49 @@ func _build_ui() -> void:
 	adv = Label.new()
 	adv.text = "▼"
 	adv.add_theme_font_size_override("font_size", 8)
-	adv.add_theme_color_override("font_color", Color(0.79, 0.64, 0.36))
+	adv.add_theme_color_override("font_color", foot_col)
 	adv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	adv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	foot.add_child(adv)
+
+
+## Recolour the ALREADY-BUILT box in place. The visual harness photographs the
+## same conversation twice — classic and the selected Direction C — so no
+## geometry, story state or Chinese string may move between the two frames.
+func apply_art_skin(skin: String) -> void:
+	var s: Dictionary = SKINS.get(skin, SKINS["classic"])
+	panel_bg = s["panel_bg"]
+	panel_edge = s["panel_edge"]
+	frame_bg = s["frame_bg"]
+	frame_edge = s["frame_edge"]
+	name_col = s["name"]
+	rule_col = s["rule"]
+	text_col = s["text"]
+	foot_col = s["foot"]
+	if panel != null:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = panel_bg
+		sb.border_color = panel_edge
+		sb.set_border_width_all(1)
+		sb.set_content_margin_all(5)
+		sb.set_corner_radius_all(3)
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_size = 3
+		panel.add_theme_stylebox_override("panel", sb)
+	if portrait_frame != null:
+		var fsb := StyleBoxFlat.new()
+		fsb.bg_color = frame_bg
+		fsb.border_color = frame_edge
+		fsb.set_border_width_all(1)
+		fsb.set_content_margin_all(1)
+		fsb.set_corner_radius_all(2)
+		portrait_frame.add_theme_stylebox_override("panel", fsb)
+	name_lbl.add_theme_color_override("font_color", name_col)
+	skip_btn.add_theme_color_override("font_color", foot_col)
+	rule.color = rule_col
+	text_lbl.add_theme_color_override("font_color", text_col)
+	page_lbl.add_theme_color_override("font_color", text_col)
+	adv.add_theme_color_override("font_color", foot_col)
 
 
 ## Everything that depends on the screen size is applied here, once, and again

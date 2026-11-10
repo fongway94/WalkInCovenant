@@ -48,6 +48,37 @@ var _stones_total := 0
 var _objective := ""
 var _prompt := ""
 
+## Art-direction skins. The classic values are EXACTLY the shipped colours;
+## "storybook" is Direction C from docs/ART-RESET.md. Nothing here changes the
+## layout, the font sizes or the Chinese strings — only the palette, so the
+## before/after frames are a fair colour comparison.
+var band_bg := Color(0.03, 0.05, 0.07, 0.74)
+var band_rule := Color(0.79, 0.64, 0.36, 0.34)
+const SKINS := {
+	"classic": {
+		"band_bg": Color(0.03, 0.05, 0.07, 0.74),
+		"band_rule": Color(0.79, 0.64, 0.36, 0.34),
+		"name": Color(0.97, 0.87, 0.65),
+		"place": Color(0.72, 0.78, 0.80),
+		"verses": Color(0.79, 0.64, 0.36),
+		"stones": Color(0.62, 0.74, 0.86),
+		"time": Color(0.55, 0.62, 0.66),
+		"objective": Color(0.97, 0.93, 0.82),
+		"prompt": Color(0.97, 0.87, 0.65),
+	},
+	"storybook": {
+		"band_bg": Color(0.29, 0.21, 0.14, 0.86),
+		"band_rule": Color(0.78, 0.62, 0.38, 0.60),
+		"name": Color(0.97, 0.92, 0.80),
+		"place": Color(0.87, 0.80, 0.66),
+		"verses": Color(0.93, 0.78, 0.45),
+		"stones": Color(0.72, 0.84, 0.82),
+		"time": Color(0.78, 0.72, 0.60),
+		"objective": Color(0.98, 0.94, 0.84),
+		"prompt": Color(0.97, 0.92, 0.80),
+	},
+}
+
 
 func _ready() -> void:
 	layer = 15
@@ -257,10 +288,27 @@ func _draw_band() -> void:
 	var h := band_ctl.size.y
 	if w <= 0.0 or h <= 0.0:
 		return
-	band_ctl.draw_rect(Rect2(0.0, 0.0, w, h - 1.0),
-		Color(0.03, 0.05, 0.07, 0.74))
-	band_ctl.draw_rect(Rect2(0.0, h - 1.0, w, 1.0),
-		Color(0.79, 0.64, 0.36, 0.34))
+	band_ctl.draw_rect(Rect2(0.0, 0.0, w, h - 1.0), band_bg)
+	band_ctl.draw_rect(Rect2(0.0, h - 1.0, w, 1.0), band_rule)
+
+
+## One call recolours the whole HUD without rebuilding a single Control.
+## The visual harness uses it to photograph the SAME game state in the classic
+## and the selected art direction; the default build never calls it.
+func apply_art_skin(skin: String) -> void:
+	var s: Dictionary = SKINS.get(skin, SKINS["classic"])
+	band_bg = s["band_bg"]
+	band_rule = s["band_rule"]
+	name_lbl.add_theme_color_override("font_color", s["name"])
+	place_lbl.add_theme_color_override("font_color", s["place"])
+	verses_lbl.add_theme_color_override("font_color", s["verses"])
+	stones_lbl.add_theme_color_override("font_color", s["stones"])
+	time_lbl.add_theme_color_override("font_color", s["time"])
+	objective_lbl.add_theme_color_override("font_color", s["objective"])
+	prompt_lbl.add_theme_color_override("font_color", s["prompt"])
+	toast_lbl.add_theme_color_override("font_color", s["prompt"])
+	if band_ctl != null:
+		band_ctl.queue_redraw()
 
 
 func _view_size() -> Vector2:

@@ -256,6 +256,18 @@ func _run() -> void:
 					"the shepherd field carries a named speaker in its box")
 			await _frames(6)
 			await _shot("15_shepherd_dialogue")
+
+			# 6c. THE SAME FRAME IN THE SELECTED ART DIRECTION. Nothing moves:
+			# the camera, the flock, the NPC, the open dialogue page and the
+			# Chinese text are identical. Only the opt-in terrain palette and
+			# the UI skin change, so this is a true before/after rendered by
+			# the shipped engine, not a mock-up (docs/ART-RESET.md §7).
+			if main.has_method("apply_art_theme"):
+				main.call("apply_art_theme", "storybook")
+				await _frames(8)
+				await _shot("16_shepherd_storybook")
+				main.call("apply_art_theme", "classic")
+				await _frames(4)
 			await _drain_all()
 			await _frames(4)
 

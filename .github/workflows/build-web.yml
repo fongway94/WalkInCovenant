@@ -109,7 +109,7 @@ jobs:
           # check_faces is deliberately stdlib-only: the lint container has no
           # pip, and a gate that cannot run in CI must not be skipped silently.
           : > static.txt
-          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces; do
+          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset; do
             echo "===== $T =====" >> static.txt
             python3 "tools/$T.py" >> static.txt 2>&1
             echo "exit=$?" >> static.txt
@@ -413,7 +413,7 @@ jobs:
       # review, sheep interaction, quest update, the Goliath duel, the valley
       # after the fall, 4:3 layout and a real fade. ~43 chunks + the notices
       # stays under GitHub's ~50-annotation/check-run cap (verified at 12
-      # frames = 37 chunks; 15 frames = 43 chunks). tools/decode_frames.py
+      # frames = 37 chunks; 16 frames = 46 chunks). tools/decode_frames.py
       # reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
