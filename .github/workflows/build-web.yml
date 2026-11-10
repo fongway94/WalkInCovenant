@@ -816,6 +816,8 @@ jobs:
                             for k, v in d.get("saves", {}).items()},
                   "goliath": (lambda g: {"presses": g.get("presses"), "won": g.get("won"),
                                          "ended": g.get("ended"), "fallbackEnded": g.get("fallbackEnded"),
+                                         "fallbackTalked": g.get("fallbackTalked"),
+                                         "fallbackPresses": g.get("fallbackPresses"),
                                          "finalProgress": (g.get("finalSave") or {}).get("progress"),
                                          "finalFlags": (g.get("finalSave") or {}).get("flags")} if g else None)(d.get("goliath")),
               }
@@ -832,9 +834,9 @@ jobs:
               if compact.get("fatal"):
                   texts.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
               g = compact.get("goliath") or {}
-              texts.append("::notice::WICBROWSERTEXT|DUEL presses=%s won=%s ended=%s fallback=%s finalAct=%s" %
-                           (g.get("presses"), g.get("won"), g.get("ended"), g.get("fallbackEnded"),
-                            (g.get("finalProgress") or {}).get("act")))
+              texts.append("::notice::WICBROWSERTEXT|DUEL presses=%s won=%s ending=%s corin=%s endingPresses=%s finalAct=%s" %
+                           (g.get("presses"), g.get("won"), g.get("fallbackEnded"), g.get("fallbackTalked"),
+                            g.get("fallbackPresses"), (g.get("finalProgress") or {}).get("act")))
               for c in [x for x in compact["checks"] if not x.get("ok")][:4]:
                   texts.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
               for c in compact["console"][:3]:
