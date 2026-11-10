@@ -4,12 +4,14 @@ extends Node2D
 ## Drawn BETWEEN the terrain and the y-sorted sprites, so every tree, rock,
 ## person and animal sits on the same ground instead of floating on it. The
 ## classic build keeps this layer disabled (Player._draw() still draws its own
-## small rectangle). It is enabled only by Region.apply_art_theme("storybook"),
-## the one scene the art-direction reset integrated.
+## small rectangle). Region.apply_art_theme() enables it for the opt-in C and B
+## scenes; only "cinematic" adds the long tapered cast shadow.
 ##
 ## Shapes are deliberately soft irregular ovals, not black circles: a warm
-## brown translucent ground shade that follows the same upper-right light as
-## the crafted prop ramps. Nothing here affects collision or input.
+## brown translucent ground shade that follows the light direction of the
+## crafted prop ramps. Direction B's matching rim light is a separate layer
+## ABOVE the sprites (GoldenRimLayer.gd). Nothing here affects collision or
+## input.
 
 const RING := 12
 

@@ -3,8 +3,9 @@
 
 STANDARD LIBRARY ONLY, deliberately: the lint container has no pip. PNG pixels
 come from tools/char_variants.py's zlib reader, the same one check_faces.py
-uses. This gate is about the ASSET, not about taste — a passing run proves the
-opt-in storybook terrain is:
+uses. This gate is about the ASSET, not about taste — a passing run proves BOTH
+opt-in terrains (Direction C storybook and the user-selected Direction B
+cinematic) are:
 
   * the same 256x64 / 16px-cell atlas layout as the shipped classic terrain
     (so collision, surfaces, water animation and save data are untouched);

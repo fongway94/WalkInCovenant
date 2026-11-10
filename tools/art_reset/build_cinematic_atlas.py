@@ -35,8 +35,11 @@ from tools.artgen.canvas import atlas          # noqa: E402
 
 # dark → light; index 0 is ambient occlusion, last is the golden rim light.
 CINEMATIC = {
-    "grass":       ["#1f3322", "#2e4a2c", "#42633a", "#5c8046", "#7c9d55", "#a8bd70", "#d2dc94"],
-    "dry":         ["#332616", "#4c3823", "#6b4e30", "#8c6840", "#ad8650", "#cda866", "#e6c68a"],
+    # Direction B v2: the low sun actually reaches the grass. The first B atlas
+    # measured world luma 58.0 against the concept's 84.6, so the dark green
+    # ramps were lifted toward warm olive/gold while the shadows stay cool.
+    "grass":       ["#24361f", "#3a5127", "#557337", "#7a9345", "#a8ad55", "#d0bb6b", "#f2d68a"],
+    "dry":         ["#3a2b19", "#533d24", "#725433", "#946f43", "#b89057", "#d8b375", "#efd19a"],
     "path":        ["#4a3420", "#6a4a29", "#8d6535", "#b28544", "#d5a757", "#efc775", "#ffe4a0"],
     "sand":        ["#544128", "#755934", "#967544", "#b89458", "#d5b074", "#e9ca90", "#f7e2b4"],
     "wheat":       ["#4e3a1c", "#6d5322", "#8e6c2c", "#ad883a", "#cba54d", "#e4c26c", "#f5dd97"],
@@ -45,9 +48,9 @@ CINEMATIC = {
     "cliff":       ["#23231c", "#35342b", "#4a473a", "#615c4b", "#7c7660"],
     "water":       ["#173036", "#24464a", "#356165", "#4a7e7d", "#6b9e94", "#93bdaa", "#c2d9bd"],
     "foam":        ["#5f8c86", "#86ada0", "#b1cbb6", "#dce8cf"],
-    "olive":       ["#182c1c", "#274127", "#395730", "#4e7039", "#6a8c46", "#8baa58", "#b4c978", "#dbe49c"],
-    "palm":        ["#1d3524", "#2b4d30", "#3e6840", "#568550", "#74a166"],
-    "dark_leaf":   ["#16271b", "#223826", "#314a31", "#43603e"],
+    "olive":       ["#1d3020", "#2f4a28", "#496631", "#6b8440", "#93a253", "#c1ba69", "#e6d08a"],
+    "palm":        ["#223826", "#355133", "#4d7040", "#6a8d50", "#8fae63"],
+    "dark_leaf":   ["#1b2e20", "#29412c", "#3b5736", "#516e42"],
     "wood":        ["#241810", "#382415", "#50331d", "#6c4728", "#8a5e36", "#a87b4b", "#c79b66"],
     "linen":       ["#3a352a", "#53493a", "#6e6049", "#8a7a5e", "#a89675", "#c7b492", "#e4d1ae", "#f6e8c8"],
     "wool":        ["#33291e", "#4a3a2a", "#63503a", "#7e684a", "#9c805c"],

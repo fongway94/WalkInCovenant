@@ -605,8 +605,9 @@ Starting from the existing shepherd-field screenshot, this pass:
   black UI masses, and **three of eight major scenes having no rendered world
   at all** — Samuel's anointing, Saul's court and a main menu);
 - captured a new real frame `15_shepherd_dialogue` with sheep, NPC, terrain,
-  vegetation and the shipped dialogue UI, and its twin
-  `16_shepherd_storybook`;
+  vegetation and the shipped dialogue UI, and its Direction-C twin
+  `16_shepherd_storybook` (preserved as `comparison/16_storybook_final.png`;
+  frame 16 now renders the user-selected Direction B — see §13);
 - produced three genuinely different original concept directions, converted
   them to 320×180 with controlled 64-colour palettes and direction-specific
   pixel UI, and reviewed all four panels at native, 1280×720 desktop and

@@ -421,10 +421,11 @@ jobs:
           WIC_NP: 14
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
-          # Quantising to 48 colours keeps it a real, readable pixel frame at
-          # ~7 KB, so a whole run fits comfortably inside GitHub's ~50
-          # annotation/check-run cap. Pillow is a transport detail only; the
-          # engine's own Image class does the in-run regression comparison.
+          # Quantising to 24 colours with NO dithering keeps the pixel frame
+          # readable while leaving several chunks of headroom under GitHub's
+          # 50-annotation/check-run cap (the B frame is more detailed than C).
+          # Pillow is a transport detail only; the engine's own Image class
+          # does the in-run regression comparison.
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           import base64, glob, os
@@ -441,11 +442,12 @@ jobs:
               src = f
               if Image is not None:
                   small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(colors=48).save(small, optimize=True)
+                  Image.open(f).convert("RGB").quantize(colors=24, dither=0).save(small, optimize=True)
                   src = small
               raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
-              CH = 3800
+              CH = 4000  # GitHub truncates an annotation at 4096 chars;
+                         # the WICFRAME prefix is ~35, so 4000 is safe.
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))

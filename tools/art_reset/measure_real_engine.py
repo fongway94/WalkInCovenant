@@ -20,6 +20,12 @@ Outputs:
     docs/art-reset/diagnosis/09_craft_iteration.png
     docs/art-reset/diagnosis/10_craft_iteration2.png
     docs/art-reset/diagnosis/11_craft_iteration3.png
+    docs/art-reset/diagnosis/14_direction_override.png
+    docs/art-reset/diagnosis/15_direction_progression_2x.png
+    docs/art-reset/diagnosis/16_B_engine_vs_reference.png
+    docs/art-reset/diagnosis/17_B_engine_vs_reference_grayscale.png
+    docs/art-reset/comparison/B_engine_{native,desktop,mobile}.png
+    docs/art-reset/comparison/B_engine_grayscale_{native,desktop,mobile}.png
     docs/art-reset/comparison/real_engine_metrics.json
 """
 from __future__ import annotations
@@ -135,6 +141,11 @@ def main():
 
     # The user-selected direction must be reviewed at the same display sizes
     # and in grayscale as the original four-way comparison, not just measured.
+    ref = ROOT / "docs/art-reset/user_selected_reference.png"
+    ref_fit = (ImageOps.fit(Image.open(ref).convert("RGB"), (320, 180),
+                            method=Image.LANCZOS) if ref.exists() else after)
+    if ref.exists():
+        report["user_reference_B_concept_fit"] = metrics(ref_fit)
     review = {
         "native": after,
         "desktop": after.resize((1280, 720), Image.NEAREST),
@@ -147,15 +158,23 @@ def main():
         im.save(COMP / f"B_engine_{key}.png")
         ImageOps.grayscale(im).convert("RGB").save(
             COMP / f"B_engine_grayscale_{key}.png")
+    # The user's actual reference, side by side with the real B engine frame.
+    # This is the honest gap check: a painterly concept is NOT a shipped asset.
+    sheet([
+        ("USER REFERENCE — Direction B concept, painted, 681x348", ref_fit),
+        ("REAL ENGINE — Direction B opt-in frame 16, 320x180", after),
+    ], DIAG / "16_B_engine_vs_reference.png")
+    ImageOps.grayscale(
+        Image.open(DIAG / "16_B_engine_vs_reference.png").convert("RGB")
+    ).save(DIAG / "17_B_engine_vs_reference_grayscale.png")
+
     # 2x2 progression sheet: classic -> C -> B real -> B concept reference.
-    ref = ROOT / "docs/art-reset/user_selected_reference.png"
     classic = load(FRAMES / "15_shepherd_dialogue.png")
     panels4 = [
         ("CLASSIC (frame 15)", classic),
         ("DIRECTION C (assistant-selected)", cf if cfinal.exists() else classic),
         ("DIRECTION B (user-selected, REAL ENGINE)", after),
-        ("DIRECTION B CONCEPT (painted reference)",
-         load(ref).resize((320, 180), Image.LANCZOS) if ref.exists() else classic),
+        ("DIRECTION B CONCEPT (painted reference)", ref_fit),
     ]
     grid = Image.new("RGB", (2 * 640 + 30, 2 * (360 + 26) + 20), (24, 26, 32))
     gd = ImageDraw.Draw(grid)

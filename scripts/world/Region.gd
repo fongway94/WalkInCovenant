@@ -45,6 +45,7 @@ var goliath_sprite: Sprite2D = null
 
 var _ys: Node2D = null
 var _shadow_layer: Node2D = null
+var _rim_layer: Node2D = null
 ## {sprite: Sprite2D, key: String} — kept so the opt-in art direction can swap
 ## prop textures without rebuilding the world (which would drop quest state).
 var _prop_sprites: Array = []
@@ -127,6 +128,14 @@ func _build() -> void:
 	_ys = Node2D.new()
 	_ys.y_sort_enabled = true
 	add_child(_ys)
+
+	# Direction B's rim light sits AFTER the y-sorted sprites but BEFORE the
+	# CanvasLayer UI. It shares the shadow layer's live target array, so every
+	# walking figure keeps its highlight and shadow in the same light.
+	_rim_layer = load("res://scripts/world/GoldenRimLayer.gd").new()
+	add_child(_rim_layer)
+	var shadow_targets = _shadow_layer.get("targets")
+	_rim_layer.call("set_targets", shadow_targets)
 
 	_spawn_props()
 	_spawn_goliath()
@@ -663,14 +672,16 @@ func set_act(a: String) -> void:
 
 
 ## Opt-in art direction for the ART DIRECTION RESET prototype. The classic atlas
-## AND the classic props/sprites stay the default. The storybook atlas has the
-## SAME 16px cells, the SAME 49 indices and the SAME data/tiles.json, so
-## collision, footstep surfaces, the water animation and every save file are
-## untouched by the swap. Everything below is a TEXTURE / DRAW layer only.
+## AND the classic props/sprites stay the default. The storybook (Direction C)
+## and cinematic (user-selected Direction B) atlases have the SAME 16px cells,
+## the SAME 49 indices and the SAME data/tiles.json, so collision, footstep
+## surfaces, the water animation and every save file are untouched by the swap.
+## Everything below is a TEXTURE / DRAW layer only.
 ##
 ## §6 of docs/ART-RESET.md demanded real craft, not another palette: the second
 ## pass adds hand-authored silhouettes, one shared contact-shadow light, and
-## far/middle/near value planes drawn inside the terrain canvas.
+## far/middle/near value planes drawn inside the terrain canvas. §12.7 adds B's
+## golden-hour depth, animated rim light and long cast shadows.
 func apply_art_theme(theme: String) -> void:
 	if terrain == null or model == null:
 		return
@@ -725,6 +736,8 @@ func apply_art_theme(theme: String) -> void:
 	if _shadow_layer != null:
 		_shadow_layer.call("set_enabled", themed)
 		_shadow_layer.call("set_mode", theme if themed else "storybook")
+	if _rim_layer != null:
+		_rim_layer.call("set_enabled", theme == "cinematic")
 
 
 func is_paused() -> bool:

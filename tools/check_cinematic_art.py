@@ -25,11 +25,11 @@ import check_craft_props as C    # noqa: E402 — stdlib PNG reader + helpers
 B = {
     "INK":      "#1b1710",
     "WOOD_D":   "#241810", "WOOD_M": "#50331d", "WOOD_L": "#8a5e36", "WOOD_H": "#c79b66",
-    "OLIVE_D":  "#182c1c", "OLIVE_M": "#395730", "OLIVE_L": "#6a8c46", "OLIVE_H": "#dbe49c",
+    "OLIVE_D":  "#1d3020", "OLIVE_M": "#496631", "OLIVE_L": "#93a253", "OLIVE_H": "#e6d08a",
     "STONE_D":  "#2b2a24", "STONE_M": "#545045", "STONE_L": "#a89f88", "STONE_H": "#e6dabb",
-    "CLAY_D":   "#4c3823", "CLAY_M": "#8c6840", "CLAY_L": "#cda866",
+    "CLAY_D":   "#3a2b19", "CLAY_M": "#725433", "CLAY_L": "#b89057",
     "LINEN_D":  "#3a352a", "LINEN_M": "#8a7a5e", "LINEN_L": "#e4d1ae", "LINEN_H": "#f6e8c8",
-    "SKIN_D":   "#3e2818", "SKIN_M": "#7d5330", "SKIN_L": "#dfb17f",
+    "SKIN_D":   "#3e2818", "SKIN_M": "#7d5330", "SKIN_L": "#f2d3a6",
     "WATER_D":  "#173036", "WATER_L": "#6b9e94",
     "GOLD":     "#d8a94c",
 }

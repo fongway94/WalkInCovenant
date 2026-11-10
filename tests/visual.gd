@@ -263,10 +263,11 @@ func _run() -> void:
 			# chosen by the user on 2026-11-10 over the assistant's C (see
 			# docs/ART-RESET.md §12.7). The opt-in theme swaps the golden-hour
 			# terrain atlas, the dusk-slate UI skin, hand-authored B-palette
-			# prop/character silhouettes, long cast shadows and layered
-			# environmental light. Frame counts, walk cycles, sway, water
-			# animation and every timer are UNCHANGED. Everything is rendered
-			# by the shipped engine, not a mock-up. The classic theme is
+			# prop/character silhouettes, long cast shadows, an animated rim
+			# light on every moving figure and layered environmental light.
+			# Frame counts, walk cycles, sway, water animation and every timer
+			# are UNCHANGED. Everything is rendered by the shipped engine, not
+			# a mock-up. The classic theme is
 			# restored immediately afterwards, so frames 07-14 are unchanged.
 			if main.has_method("apply_art_theme"):
 				main.call("apply_art_theme", "cinematic")
