@@ -127,15 +127,56 @@ def _directional_rim(path, light: str, dark: str) -> None:
     out.save(path)
 
 
+def _detail_foliage(path, seed: int) -> None:
+    """Add clumped leaf texture INSIDE the existing canopy silhouette.
+
+    The C-era tree sprites are three flat green blobs. Reference B has many
+    small leaves, but adding a painted bitmap or changing the sprite rectangle
+    would break the 16px-grid / footprint contract. This recolours connected
+    2x2 patches of EXISTING foliage pixels with a warm upper-left tip and a
+    cool lower-right shade; the alpha mask, dimensions and frame count stay
+    byte-for-byte equivalent in shape.
+    """
+    im = Image.open(path).convert("RGBA")
+    src = im.copy()
+    a, b = src.load(), im.load()
+    foliage = {_rgb(B["OLIVE_D"]), _rgb(B["OLIVE_M"]),
+               _rgb(B["OLIVE_L"]), _rgb(B["OLIVE_H"])}
+    lit, mid, dim, gold = (_rgb(B["OLIVE_H"]), _rgb(B["OLIVE_L"]),
+                           _rgb(B["OLIVE_D"]), _rgb(B["GOLD"]))
+    w, h = im.size
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            if a[x, y][3] < 128 or a[x, y][:3] not in foliage:
+                continue
+            hv = (x * 17 + y * 31 + seed * 7) % 97
+            if hv >= 9:
+                continue
+            for dy in (0, 1):
+                for dx in (0, 1):
+                    nx, ny = x + dx, y + dy
+                    if a[nx, ny][3] < 128 or a[nx, ny][:3] not in foliage:
+                        continue
+                    b[nx, ny] = (*(lit if dx == 0 and dy == 0 else dim), 255)
+            if a[x - 1, y][3] >= 128 and a[x - 1, y][:3] in foliage:
+                b[x - 1, y] = (*mid, 255)
+            if hv < 2 and a[x, y - 1][3] >= 128 \
+                    and a[x, y - 1][:3] in foliage:
+                b[x, y - 1] = (*gold, 255)
+    im.save(path)
+
+
 def embellish_assets() -> None:
-    """Add B's single-light rim to the crafted props and actor sheets."""
+    """Add B's single-light rim and clumped leaf texture to the crafted art."""
     foliage = {"olive_tree", "fig_tree", "palm_tree", "bush"}
-    for key in ["olive_tree", "fig_tree", "palm_tree", "bush", "rock",
-                "boulder", "sheep", "sheep_alert", "sheep_graze", "fold",
-                "tent", "house", "well"]:
+    for i, key in enumerate(["olive_tree", "fig_tree", "palm_tree", "bush",
+                             "rock", "boulder", "sheep", "sheep_alert",
+                             "sheep_graze", "fold", "tent", "house", "well"]):
         light = B["OLIVE_L"] if key in foliage else B["STONE_L"]
         dark = B["OLIVE_D"] if key in foliage else B["STONE_D"]
         _directional_rim(CP.PROPS / (key + ".png"), light, dark)
+        if key in foliage:
+            _detail_foliage(CP.PROPS / (key + ".png"), i + 1)
     for name in ["pilgrim_idle", "pilgrim_walk", "shepherd_idle", "shepherd_walk"]:
         _directional_rim(CC.OUT / (name + ".png"), B["LINEN_L"], B["WOOD_D"])
 

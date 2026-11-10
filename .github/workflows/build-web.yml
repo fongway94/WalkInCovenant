@@ -560,33 +560,50 @@ jobs:
         with:
           name: frames
           path: build/frames
-      - name: Publish Direction B frames with their own annotation budget
+      # One step per frame: a single runner step silently keeps only its first
+      # ~10 ::notice:: annotations, so two 48-colour frames in one step lost a
+      # chunk even with a separate job (run 42813312029).
+      - name: Publish B dialogue frame at 48 colours
+        env:
+          WIC_B_FRAME: 16_shepherd_cinematic.png
         run: |
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
-          import base64, glob, os
-          try:
-              from PIL import Image
-          except ImportError:
-              Image = None
-          names = ("16_shepherd_cinematic.png",
-                   "17_shepherd_cinematic_quiet.png")
-          files = [f for f in sorted(glob.glob("build/frames/*.png"))
-                   if os.path.basename(f) in names]
-          for f in files:
-              src = f
-              if Image is not None:
-                  src = "/tmp/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(
-                      colors=48, dither=0).save(src, optimize=True)
-              raw = base64.b64encode(open(src, "rb").read()).decode()
-              name = os.path.basename(f)[:-4]
-              CH = 4000
-              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-              for i, part in enumerate(parts):
-                  print("::notice::WICFRAME|%s|%d|%d|%s"
-                        % (name, i, len(parts), part))
-          print("published %d high-detail B frame(s)" % len(files))
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
+          PY
+      - name: Publish B quiet frame at 48 colours
+        env:
+          WIC_B_FRAME: 17_shepherd_cinematic_quiet.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q2.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
           PY
 
   # ── export the web build ─────────────────────────────────────────────────
