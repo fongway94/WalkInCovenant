@@ -558,29 +558,55 @@ async function waitBoot(page, label) {
    * the game itself writes to IDBFS. */
   const seeded = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   await seeded.addInitScript(INIT);
-  const sp = await seeded.newPage();
-  wire(sp, 'seeded_fight');
-  // Boot once so Godot creates its own IDBFS database, then rewrite save.json
-  // with the late-chapter state and reload. The second boot is the one under
-  // test; it goes through the engine's real save loader.
-  await sp.goto(URL, { waitUntil: 'load', timeout: 120000 });
-  await sp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-  await sp.waitForTimeout(1600);
-  const seedInfo = await rewriteSave(sp, fightSave());
-  note('rewrote GameState save ' + JSON.stringify(seedInfo));
-  await sp.reload({ waitUntil: 'load', timeout: 120000 });
-  await sp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-  await sp.waitForTimeout(1600);
-  const sfs = await wicState(sp);
+  /* Run 42814917855 exposed a real IDBFS race: rewriting save.json on a LIVE
+   * game page and then reloading let the engine flush its old in-memory
+   * new-game state during unload. The second boot then resumed as `witness`,
+   * so the duel was never actually fought. Close the boot page FIRST, rewrite
+   * from a same-origin NON-GAME page (the PWA manifest has no engine script),
+   * then open a fresh game page. Retry the whole seed up to three times; the
+   * save, not the screenshot, decides whether the engine loaded it. No game
+   * state, gameplay constant or save format is changed here. */
+  const seedUrl = URL.replace(/index\.html.*$/, 'index.manifest.json');
+  async function bootSeededFight() {
+    const boot = await seeded.newPage();
+    wire(boot, 'seeded_fight_boot');
+    await boot.goto(URL, { waitUntil: 'load', timeout: 120000 });
+    await boot.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+    await boot.waitForTimeout(1600);
+    await boot.close();
+    const writer = await seeded.newPage();
+    await writer.goto(seedUrl, { waitUntil: 'load', timeout: 120000 });
+    const seedInfo = await rewriteSave(writer, fightSave());
+    await writer.close();
+    const page = await seeded.newPage();
+    wire(page, 'seeded_fight');
+    await page.goto(URL, { waitUntil: 'load', timeout: 120000 });
+    await page.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
+    await page.waitForTimeout(1600);
+    const state = await wicState(page);
+    const sx2 = state.canvas.cssW / 320, sy2 = state.canvas.cssH / 180;
+    await page.mouse.click(state.canvas.x + 305 * sx2, state.canvas.y + 10 * sy2);
+    await page.waitForTimeout(1200);
+    const loaded = await readSave(page);
+    return { page, state, loaded, seedInfo };
+  }
+  let fightBoot = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    fightBoot = await bootSeededFight();
+    const s = fightBoot.loaded;
+    const ok = !!s && !!s.flags && s.flags.beth_anointed === true
+      && s.progress && s.progress.act !== 'witness';
+    note('seeded fight boot attempt ' + attempt + ': ' + (ok ? 'loaded' : 'retry')
+      + ' progress=' + JSON.stringify(s && s.progress).slice(0, 180));
+    if (ok) break;
+    await fightBoot.page.close();
+  }
+  let sp = fightBoot.page;
+  const sfs = fightBoot.state;
+  const seedInfo = fightBoot.seedInfo;
+  const readySave = fightBoot.loaded;
   check('seeded_fight: canvas exists', !!sfs.canvas, JSON.stringify(sfs.canvas));
   check('seeded_fight: WebGL is drawing', sfs.wic && sfs.wic.draws > 40, 'draw calls=' + (sfs.wic && sfs.wic.draws));
-  await shot(sp, 'goliath_01_ready');
-  // A HUD sound click forces GameState.save_game(), so reading the save after
-  // it proves what the ENGINE has in memory, not just what we wrote to IDBFS.
-  const sx2 = sfs.canvas.cssW / 320, sy2 = sfs.canvas.cssH / 180;
-  await sp.mouse.click(sfs.canvas.x + 305 * sx2, sfs.canvas.y + 10 * sy2);
-  await sp.waitForTimeout(1200);
-  const readySave = await readSave(sp);
   check('game loaded the seeded save (engine wrote it back)',
     !!readySave && !!readySave.flags && readySave.flags.beth_anointed === true
       && readySave.progress && readySave.progress.act !== 'witness',
