@@ -357,3 +357,11 @@ all green including `deploy`; deployment `7681093165` succeeded at
 2026-11-10 11:41:36 UTC. The live URL serves the Godot loader and
 `index.manifest.json`. Keep `build_type: workflow` and the artifact guard; the
 next `main` push republishes `main`.
+
+**Final B v3 deployment.** The frame-transport and browser-seed fixes are
+covered by all-green run `42818980822` (`d6f067c`): lint, visual,
+publish-b-frames, export-web, browser and deploy all success. Deployment
+`7682580911` succeeded at 2026-11-10 12:52:25 UTC and the live URL serves the
+Godot loader and PWA manifest. Pages remains `build_type: workflow` on the
+working branch; the next `main` push republishes `main`. This is a preview, not
+a release or a merge.

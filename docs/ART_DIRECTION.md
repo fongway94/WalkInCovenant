@@ -204,3 +204,27 @@ concept into the engine. Exact parity with a 681×348 illustration containing
 135,490 colours, no UI and no tile grid is not a shippable game frame. This
 file remains the contract for the shipped classic art; no release claim is
 made.
+
+### §11 — B v3 live preview and the honest parity gap (2026-11-10)
+
+The user's *"make in on par"* instruction produced Direction B v3 on the same
+opt-in scene. All 49 atlas cells, 13 props, 4 actor sheets, 16px grid, frame
+counts, animation, collision, footstep surfaces, quests and `SAVE_VERSION` are
+unchanged; only original pixel detail, palette, shape-aware lighting and the
+opt-in theme's dusk tint changed. The working branch is **live** at
+https://fongway94.github.io/WalkInCovenant/ for the user to feel.
+
+Final all-green CI `42818980822` (`d6f067c`) decoded 17/17 frames, promoted
+reviewed B v3 baselines, reported browser `checks=30 failed=0`, and deployed
+`7682580911` = `success`. Real quiet-frame metrics are whole-frame luma **85.7**,
+world luma **94.5**, value spread **30.9**, edge density **0.517**, against the
+fitted concept's **79.4 / 86.6 / 22.6 / 0.454**. See `docs/ART-RESET.md` §12.9
+and `diagnosis/18_B_quiet_vs_reference.png`.
+
+Those numbers do **not** prove parity: the concept is a painterly, UI-free,
+animation-free 681×348 image with 135,490 native colours, while the shipped
+frame is a 320×180 16px game with a HUD and live sprites. B v3 is materially
+closer in warmth, light direction, edge density and depth, but tree volume,
+path rendering and atmospheric haze remain different. Human playtest and an
+art-director pass are still required. Classic is still the default; no PR,
+merge to `main`, default replacement or release claim is made.

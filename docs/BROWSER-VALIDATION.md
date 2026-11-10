@@ -260,3 +260,15 @@ deployment `7681093165` = `success`, Pages `build_type` = `workflow`. The URL
 https://fongway94.github.io/WalkInCovenant/ returns the Godot loader and
 `index.manifest.json`. This is a preview for the user's playtest, not a release
 or a merge to `main`; the release-candidate caveats above still apply.
+
+**Final B v3 browser evidence.** Run `42814917855` failed because an IDBFS
+reload race let the engine flush its old new-game state over the seeded duel
+save; the duel context resumed as `witness` and 148 presses could not win.
+`d6f067c` closes the boot page before rewriting `save.json` from a same-origin
+non-game page, then opens a fresh game page and retries up to three times.
+Final run `42818980822` reports **seeded fight loaded on attempt 1**,
+`DUEL presses=41 won=True ending=True corin=True`, `chromium=158.0.8127.18
+checks=30 failed=0 consoleErrors=0 pageErrors=0`. `visual_diff.py` is clean
+for 17/17 frames and deployment `7682580911` succeeded. This remains a working
+branch **Release candidate, not release**; the live URL is a preview for human
+playtest, not a `main` release.

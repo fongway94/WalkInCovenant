@@ -746,3 +746,38 @@ lint, visual, export-web, browser, **deploy** — and deployment `7681093165` is
 `success`. The live URL serves the game loader and PWA manifest. This is the
 user-requested working-branch preview at
 **https://fongway94.github.io/WalkInCovenant/**, not a `main` release.
+
+## 15. Direction B v3 — live preview, richer pixel art, final all-green CI
+
+The user asked to *"serve this branch to live for me to feel. then make in on
+par"*. The working branch is live at
+**https://fongway94.github.io/WalkInCovenant/**; final deployment
+`7682580911` (`d6f067c`) is `success` and Pages stays `build_type: workflow`.
+A push to `main` later republishes `main`.
+
+Direction B v3 keeps the 49-cell atlas, `data/tiles.json`, 16px grid, all 13
+props / 4 actor sheets and every idle, walk, sway, water and Timer frame. It
+adds clustered grass/blossom/pebble detail, an 84-colour controlled B atlas,
+shape-aware silhouette rims, clumped canopy texture, rutted path stones,
+diagonal sun shafts, longer casts, world-anchored foreground blades, a brighter
+opt-in dusk tint and a second UI-free real-engine review frame. No gameplay,
+collision, save format or default classic asset changed.
+
+Final all-green run `42818980822` — lint, visual, publish-b-frames, export-web,
+browser, deploy. 17/17 frames decoded complete; `visual_diff.py` clean with
+reviewed `baseline_16_shepherd_cinematic.png` and new
+`baseline_17_shepherd_cinematic_quiet.png`. Browser telemetry: seeded fight
+loaded on attempt 1, `DUEL presses=41 won=True`, `checks=30 failed=0`,
+`consoleErrors=0`, `pageErrors=0`. Two earlier runs were instructive:
+`42811998272` exceeded the frame-annotation cap; `42814917855` exposed an IDBFS
+reload race in the browser harness. Both are fixed by split frame publishing and
+a non-game-page seed rewrite; no gameplay constant was weakened.
+
+Measured quiet B v3 frame: luma **85.7**, world luma **94.5**, value spread
+**30.9**, edge density **0.517**; fitted concept **79.4 / 86.6 / 22.6 / 0.454**.
+See `docs/ART-RESET.md` §12.9 and
+`docs/art-reset/diagnosis/18_B_quiet_vs_reference.png`. These coarse metrics
+show a materially closer outcome, **not literal parity** with a painterly,
+UI-free, animation-free concept. Human playtest and art-director review remain
+open; the visual overhaul is not complete. No PR, no merge to `main`, no
+release claim.

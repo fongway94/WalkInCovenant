@@ -1,8 +1,10 @@
 # ART DIRECTION RESET — real diagnosis, three prototypes, one honest verdict
 
 > **Status: comparison produced, direction retargeted to the user's Direction B,
-> ONE scene integrated as a reversible opt-in prototype with animation intact.
-> The visual overhaul is NOT complete.**
+> ONE scene integrated as a reversible opt-in prototype with animation intact,
+> and that working branch is LIVE for human playtest. B v3 is materially closer
+> to the golden-hour reference (§12.9), but the visual overhaul is NOT complete
+> and exact parity with a painterly concept is NOT claimed.**
 >
 > This file is the evidence for the user's explicit gate: *"START WITH THE
 > EXISTING SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION
@@ -769,6 +771,10 @@ scene have no B environment; journal, menus and transitions have no B skin;
 there is no parallax or per-location light. Backlog #19/#20/#22 remain partial
 for one scene, #23 is still baseline-only.
 
+> **Superseded in part by §12.9.** That verdict describes B v2. B v3 is live,
+> brighter, denser and measured against the concept with a new UI-free frame,
+> but exact parity and the completion/release gates are still NOT claimed.
+
 **Scope unchanged:** B is the active target for the one reversible opt-in
 scene. Classic is still the default; animation, gameplay, state, collision,
 input, quests, `SAVE_VERSION`, other scenes and other baselines are untouched.
@@ -822,3 +828,78 @@ The URL https://fongway94.github.io/WalkInCovenant/ serves the Godot loader
 still reports `build_type: workflow` and source branch
 `arena/46955931-walkincovenant`. This is a working-branch preview, not a
 release: no PR, no merge to `main`, no default-asset replacement.
+
+The final B v3 evidence push `d6f067c` produced all-green run `42818980822`
+(lint, visual, publish-b-frames, export-web, browser, deploy) and deployment
+`7682580911` = `success`. Its browser job reports `checks=30 failed=0`,
+`consoleErrors=0`, `pageErrors=0`, seeded fight loaded on attempt 1 and
+`DUEL presses=41 won=True`; 17/17 visual frames decoded complete and
+`visual_diff.py` is clean against reviewed B v3 baselines. The live site is
+that branch, not `main`.
+
+### 12.9 Direction B v3 — the "make in on par" push, honestly measured
+
+Working from the B v2 real-engine frame (`diagnosis/16_B_engine_vs_reference.png`),
+the gap was concrete: the concept's fitted world mean was **86.6** luma with
+edge density **0.45**, while B v2's world was **67.9** with edge density
+**0.20**. The user asked to *"make in on par"*. B v3 changes original pixel
+assets and real engine lighting, not the concept image and not the game rules:
+
+* all 49 atlas cells keep their indices, 16px size and animated water variants;
+  B ramps are lifted, with deterministic clustered grass blades, blossoms,
+  lit pebbles, warm dust and lower-right micro-casts. The shipped atlas has
+  **84 controlled colours**, no pure black/white, and the SAME `data/tiles.json`.
+* the 13 B props and 4 actor sheets keep their dimensions and frame counts.
+  A shared `data/cinematic_palette.json` feeds the generator and stdlib gate;
+  a shape-aware flood-fill rim lights only the OUTER silhouette (not eyes or
+  belts), and clumped 2×2 leaf patches stay inside the existing canopy alpha.
+* `TerrainLayer._draw_cinematic_depth()` replaces the flat orange path wash
+  with wheel ruts, lit stones and paired shadows; adds four sun shafts, seven
+  longer cast bands, a two-course dry-stone wall, world-anchored foreground
+  blades and irregular framing leaves. `ContactShadowLayer` and
+  `GoldenRimLayer` follow every live sprite, so walk cycles and sway keep
+  their shadows and rim light.
+* the shepherd chapter is story dusk, so only the opt-in B theme lifts its
+  `CanvasModulate` to a brighter warm dusk. `GameState.time_of_day`, save
+  format and story beats are unchanged; classic and storybook restore their
+  original tint exactly.
+
+**Real CI evidence, not a simulation.** Final run `42818980822` at `d6f067c`
+decoded **17/17** frames complete and is all green. The two high-detail B
+frames are transported at 48 colours from a separate job / one step per frame;
+the 15 control frames use 24 colours. Frame 17 is a new UI-free review capture
+(the dialogue box is closed by the game's own input; the HUD is still shipped).
+
+| Measured on 320×180 real frames | classic f15 | B v2 f16 | B v3 f16 | B v3 quiet f17 | B concept, fitted |
+|---|---:|---:|---:|---:|---:|
+| whole-frame luma mean | 56.4 | 56.6 | **71.5** | **85.7** | 79.4 |
+| world luma mean (rows 24–112) | 77.3 | 67.9 | **93.8** | **94.5** | 86.6 |
+| world value spread | 20.2 | 20.4 | **30.9** | **30.9** | 22.6 |
+| edge density | 0.216 | ~0.20 | **0.397** | **0.517** | 0.454 |
+| distinct transport colours | 24 | 24 | **48** | **48** | 45,109 |
+
+These are coarse pixel statistics, not a beauty score. The 48-colour number is
+CI annotation transport; the live browser uses the full 84-colour palette.
+`diagnosis/18_B_quiet_vs_reference.png` is the honest side-by-side. B v3 now
+has at least as much measured edge density and large-scale value variation as
+the fitted concept, and the quiet frame's whole-frame luma is close, but it is
+**still not literal parity**: the concept is a 681×348 painterly, UI-free,
+animation-free illustration with 135,490 native colours; the game is 320×180
+pixel art on a 16px grid with a HUD, dialogue panel, 49-cell atlas and live
+animation. The path, tree volumes, atmospheric haze and figure rendering
+remain visibly different. Human playtest and art-director review are still
+required, so no parity, completion or release claim is made.
+
+**Browser/CI repair.** `7b571da` run `42811998272` first exceeded GitHub's
+~50-annotation cap with 17 high-detail frames; `143710a` run `42814917855`
+then exposed an IDBFS race in the browser harness — a live game page flushed
+its old new-game save over the seeded duel save during reload, so 148 presses
+could not win. `d6f067c` closes the boot page, rewrites from a same-origin
+non-game page, opens a fresh game page and retries the seed; final browser
+telemetry is `checks=30 failed=0`, `DUEL presses=41 won=True`. No gameplay
+constant was changed to satisfy automation.
+
+**Scope.** `d6f067c` is live on the working-branch Pages URL only. Classic
+remains the default. Animation, collision, footstep surfaces, input, quests,
+`SAVE_VERSION`, other scenes and the save format are unchanged. No PR, no
+merge to `main`, no default-asset replacement, no release.
