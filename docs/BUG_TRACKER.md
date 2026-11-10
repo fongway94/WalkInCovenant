@@ -88,6 +88,18 @@ result for a run that has not finished.
 
 | BUG-061 | **P3** | The place caption is a tween, and `tests/visual.gd` captured it after a fixed number of frames. Depending on runner timing the `05_bethlehem` frame caught the caption mid-fade — bright in `42156888674`, almost invisible in `42160227100`. Promoting either as a baseline would make a stable frame look like a regression. | Comparing decoded `05_bethlehem` PNGs from two green runs. | **Verified** — `05_bethlehem` of `42160894115` is bright and deterministic; `10_layout_4x3`, `11_transition` and `12_journal_before` no longer carry a stuck caption. |
 
+## Fixed in the FINAL VALIDATION AND PLAYER EXPERIENCE milestone
+
+| ID | Sev | What | Check that failed before the fix | State |
+|---|---|---|---|---|
+| BUG-062 | **P1** | After the chapter ending wrote `elah_ended`, `Main._update_guidance()` still fell through to the witness escort branch and the HUD said 「跟着柯林走。他带你去找少年兵。」 The conclusion looked like one more task. Found in the real browser's post-ending frame (`goliath_05_ending.png`, run `42754753831`). | `tests/deep.gd::_check_ending_objective()` sets `act = DONE` / `elah_ended` and asserts the `done` objective plus an empty prompt; it fails against the old code. | **Fixed** — code + regression check; CI verification recorded in the run table below. |
+
+Two further defects were in the **browser harness**, not the game, and are
+documented in `docs/BROWSER-VALIDATION.md` §1: seeding IDBFS before Godot
+created its DB (`42749614328`), and using `Date.now()` / `Uint8Array` instead of
+Emscripten's `Date` / `Int8Array` record shape (`42751307541`, two page errors).
+Both were fixed before the green browser run.
+
 ## Found and deliberately not fixed
 
 | ID | Sev | What | Why it stays open |
@@ -126,6 +138,16 @@ result for a run that has not finished.
 | `42160624028` | `6f6b5e9` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; `05_bethlehem` caption pinned and bright. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
 | `42160894115` | `a9c9901` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete and reviewed; all 14 promoted as baselines, local `visual_diff: clean` at 0.0000. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
 | `42161167868` | `0e677bc` | **green with all 14 baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, `visual` ✅ with all 14 in-engine baseline comparisons inside the 0.18 limit; `export-web` ✅, `deploy` skipped (working branch). |
+| `42161589362` | `0da2053` | **green** — docs-only final retest; all four jobs ✅, `deploy` skipped. |
+| `42171648194` | `dceac57` | **green** — branch preview deploy enabled; `deploy` ✅, deployment `7593585234`. |
+| `42172317704` | `5d1c5ff` | **green** — corrected Pages post-mortem; `deploy` ✅, deployment `7593675932`. |
+| `42745051005` | `f202208` | **red** — first real browser job: Chromium + WebGL2 + 23 checks ran, but `e.timestamp` handling was still missing and annotation transport exceeded GitHub's 50-notice cap. |
+| `42745933242` | `90d0be3` | **red** — compact evidence fixed; harness fatal `Cannot read properties of undefined (reading 'slice')` on a save field. |
+| `42746755637` | `9a61bb3` | **green browser evidence** — 23/23 checks, 0 console/page errors, WebAudio running, mute persisted, save survived reload, 9 screenshots decoded. |
+| `42749614328` | `af42bf6` | **red** — seeded save created its own IDBFS DB; game ignored it, duel never started. |
+| `42751307541` | `1b0b264` | **red** — `TypeError: e2.timestamp.getTime is not a function` ×2 (wrong IDBFS record shape); duel rendered but win could not be read. |
+| `42752385202` | `5b0bccf` | **red** — IDBFS shape fixed, **duel won in browser** (`goliath_down=true`), but the long walk back to Corin was intercepted by other NPCs. |
+| `42754753831` | `b2951a4` | **green — real browser milestone**: lint ✅ · visual ✅ · export-web ✅ · **browser ✅ 30/30 checks, 0 console/page errors, duel won, Corin + ending reached** · `deploy` skipped by design. Exposed BUG-062. |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

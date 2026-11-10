@@ -93,6 +93,7 @@ func _run() -> void:
 	_check_flock_resume()
 	_check_portraits()
 	_check_giant_down()
+	_check_ending_objective()
 	_finish()
 
 
@@ -1333,6 +1334,29 @@ func _check_giant_down() -> void:
 	main.region.set_giant_down()
 	_check(not g.visible, "the ridge empties when the champion falls")
 	g.visible = true
+
+
+## BUG-062. The browser playtest photographed a finished chapter whose HUD
+## still said "跟着柯林走。他带你去找少年兵。" — the witness chain kept
+## pointing at an NPC after elah_ended. A conclusion must say it is a
+## conclusion, every frame, whatever NPCs happen to remain unspoken.
+func _check_ending_objective() -> void:
+	if main == null or main.hud == null or main.region == null:
+		return
+	var before_act: int = main.act
+	var had_flag: bool = bool(GameState.flag("elah_ended"))
+	main.act = main.ACT_NAMES.size() - 1       # Act.DONE
+	GameState.set_flag("elah_ended", true)
+	main._update_guidance()
+	var want := str(I18n.t(main.region.model.objectives.get("done", {})))
+	_check(str(main.hud.objective_lbl.text).strip_edges() == want.strip_edges(),
+		"a finished chapter shows the completion objective, not 'follow Corin'")
+	_check(str(main.hud.prompt_lbl.text) == "",
+		"and it does not keep a talk prompt alive after the ending")
+	main.act = before_act
+	if not had_flag:
+		GameState.data["flags"].erase("elah_ended")
+	main._update_guidance()
 
 
 func _finish() -> void:

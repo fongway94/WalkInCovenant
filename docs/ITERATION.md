@@ -539,3 +539,52 @@ compared all fourteen in-engine with the same 0.18 limit and passed: the last
 RETEST of this pass.
 
 _(Section 9 is updated as this pass proceeds.)_
+
+---
+
+## 10. FINAL VALIDATION AND PLAYER EXPERIENCE (browser milestone)
+
+The gap named in §9F — "No browser execution" — is now closed. The full record
+is `docs/BROWSER-VALIDATION.md`; the evidence is `docs/browser-evidence/`; the
+harness is `tests/browser/validate.cjs` and the CI job `browser`.
+
+**What changed**
+
+- Added a `browser` job that serves the real `build/web` artifact over local
+  HTTP and opens it in Playwright Chromium. It drives keyboard, mouse and touch,
+  wraps `getContext`/draw calls, `AudioContext` and `AudioBufferSourceNode`,
+  reads Godot's IDBFS `save.json`, captures 23 screenshots, and returns them as
+  check-run annotations (decoded by `tools/decode_browser_frames.py`).
+- Working-branch Pages deploys became **opt-in** (`workflow_dispatch` →
+  `publish_preview`), so the validation pushes could not republish the live
+  site without new approval. `docs/PACKAGING.md` records this.
+- Fixed **BUG-062**: a finished chapter no longer shows "follow Corin" in the
+  HUD. `Main._update_guidance()` short-circuits on `Act.DONE` / `elah_ended`;
+  `tests/deep.gd::_check_ending_objective()` is the regression check.
+
+**What the green run `42754753831` (`b2951a4`) proved**
+
+Chromium 158.0.8127.18 · WebGL2 drawing · 30/30 checks · 0 console errors ·
+0 page errors · 0 failed requests · WebAudio running with 5 buffer starts ·
+mute persisted to `save.json` · save survived a full page reload · five live
+viewport resizes plus portrait guidance · **Goliath duel won in the browser**
+(`goliath_down=true`) · **Corin's after_win conversation and the chapter ending
+played in the browser** (`talked:elah:corin=true`, `elah_ended=true`).
+
+The late-chapter states were reached by rewriting Godot's own IDBFS record and
+reloading, so the engine's real save loader and mission runner did the work.
+The four red runs in `docs/BUG_TRACKER.md` are the honest trail of getting the
+harness right; two of them were Emscripten `Int8Array` / `Date` shape bugs in
+the test, not in the game.
+
+**Still true from §9F**
+
+- No human playtest, no enjoyment verdict.
+- No audible listening; perceptual audio quality unverified.
+- No native-speaker or author Chinese pass.
+- No real device, no tactile or physical-rotation test.
+- `tests/frames/baseline_*.png` remain coarse wrong-scene detectors.
+
+`docs/BROWSER-VALIDATION.md` §6 classifies every remaining issue
+Critical/High/Medium/Low and states the release conditions. This is a **release
+candidate**, not a release: no PR, no merge into `main`, no deploy.

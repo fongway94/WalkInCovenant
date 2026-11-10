@@ -65,6 +65,11 @@ tests survive; the table above is the current truth.
 | 11 | Chinese editorial pass over `elah.json`'s aphorisms ("他错在以为，年轻就什么都不是"), with the author listening. | M |
 | 12 | Camp work: mending, cooking, a queue at the water. Scenery that implies labour. | M |
 | 13 | Resume mid-brook re-walks the brook (O-1) — decide whether the resume should restore the pouch instead. | S |
+| 14 | **Human playtest, opening → conclusion, before any public release.** The one gate the browser job cannot pass. Record confusion, pacing and emotional closure. | M |
+| 15 | Listen to the mix on speakers/headphones: BGM loop seams, SFX overlap, ambience transitions, volume balance. Technical WebAudio checks are green; perception is not. | M |
+| 16 | Native-speaker / author Simplified Chinese pass, including the 石子 / 石头 register split and the aphorisms. Scripture stays verbatim. | M |
+| 17 | Real-device pass: tactile thumb reach, OS rotation, notch/safe area, legibility on an actual handset. Browser emulation is not this. | M |
+| 18 | Hide or fade the touch A/RUN circles for keyboard-only desktop play — only after a device says which input mix to prefer, and with 14 baselines regenerated. | S |
 
 ## Standing rules for every item
 

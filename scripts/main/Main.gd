@@ -308,6 +308,17 @@ func _update_guidance() -> void:
 	if region.dialogue != null and region.dialogue.is_open():
 		hud.set_prompt("")
 		return
+	# The chapter is over. The default branch below still walks the witness's
+	# "follow Corin to the next villager" chain, because those NPCs have not all
+	# been talked to. A finished chapter must not keep pointing at one of them:
+	# the browser playtest found the HUD saying "跟着柯林走" AFTER the ending
+	# had already set elah_ended, which reads as another task instead of a
+	# conclusion (BUG-062). One sentence, no arrow, no prompt, every frame.
+	if act == Act.DONE or bool(GameState.flag("elah_ended")):
+		hud.set_objective(I18n.t(region.model.objectives.get("done", {})))
+		hud.point_at(Vector2.ZERO, false)
+		hud.set_prompt("")
+		return
 	var p: Player = region.player
 	if chapter != null and chapter.has_method("guidance"):
 		var next: Dictionary = chapter.call("guidance")
