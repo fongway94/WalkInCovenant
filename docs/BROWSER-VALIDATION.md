@@ -272,3 +272,11 @@ checks=30 failed=0 consoleErrors=0 pageErrors=0`. `visual_diff.py` is clean
 for 17/17 frames and deployment `7682580911` succeeded. This remains a working
 branch **Release candidate, not release**; the live URL is a preview for human
 playtest, not a `main` release.
+
+**Live Web theme correction.** A user screenshot showed the classic field even
+though the B v3 deployment was current. Diagnosis: B was only applied by the
+visual harness, not by the Web runtime. The working branch now applies the
+cinematic theme after every region-ready event on Web only; desktop/headless/
+Xvfb frames remain classic and their baselines stay valid. The PWA cache name
+is stamped with the commit sha, but a browser with an old cached build may need
+one hard refresh / clear-site-data. This is a preview theme, not a release.

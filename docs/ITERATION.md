@@ -781,3 +781,10 @@ show a materially closer outcome, **not literal parity** with a painterly,
 UI-free, animation-free concept. Human playtest and art-director review remain
 open; the visual overhaul is not complete. No PR, no merge to `main`, no
 release claim.
+
+**User feedback correction (§12.10).** The first live screenshot was still the
+classic bright green field: B v3 was only applied by `tests/visual.gd`, not by
+the Web runtime. The working branch now calls `apply_art_theme("cinematic")`
+from `Main._on_region_ready()` when `OS.has_feature("web")` is true. Desktop,
+headless and Xvfb visual CI stay classic; no default asset file is replaced.
+Setpiece screens are still not B-skinned and human playtest remains open.

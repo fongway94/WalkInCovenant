@@ -226,5 +226,7 @@ animation-free 681×348 image with 135,490 native colours, while the shipped
 frame is a 320×180 16px game with a HUD and live sprites. B v3 is materially
 closer in warmth, light direction, edge density and depth, but tree volume,
 path rendering and atmospheric haze remain different. Human playtest and an
-art-director pass are still required. Classic is still the default; no PR,
-merge to `main`, default replacement or release claim is made.
+art-director pass are still required. Classic is still the default in source,
+desktop, headless tests and visual CI; the live Web preview now applies B at
+runtime (§12.10 of `ART-RESET.md`). No PR, merge to `main`, default asset
+replacement or release claim is made.

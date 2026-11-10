@@ -900,6 +900,41 @@ telemetry is `checks=30 failed=0`, `DUEL presses=41 won=True`. No gameplay
 constant was changed to satisfy automation.
 
 **Scope.** `d6f067c` is live on the working-branch Pages URL only. Classic
-remains the default. Animation, collision, footstep surfaces, input, quests,
-`SAVE_VERSION`, other scenes and the save format are unchanged. No PR, no
-merge to `main`, no default-asset replacement, no release.
+remains the default in source, desktop, headless tests and the Xvfb visual
+harness; the Web preview's runtime theme is corrected in §12.10. Animation,
+collision, footstep surfaces, input, quests, `SAVE_VERSION`, other scenes and
+the save format are unchanged. No PR, no merge to `main`, no default-asset
+replacement, no release.
+
+### 12.10 Why the first live screenshot was still classic — and the runtime fix
+
+The user opened the live URL and sent a screenshot with the bright classic
+green field, blue water and classic HUD, asking **"why still same"**. The
+deployment was current: the live `index.service.worker.js` carried cache stamp
+`d6f067cba19ab770f50b0800d6b16f2fcc131b1c`, so this was not a stale Pages
+build. The real cause was a scope mistake in the assistant's work: all B v3
+assets and lighting were present, but `Main.apply_art_theme()` was only called
+by `tests/visual.gd` for frames 16/17. The shipped game's `_ready()` never
+called it, so a normal Web boot still used classic terrain, props, HUD and
+dialogue. The user was invited to "feel" B but was shown classic.
+
+**Fix on this working branch.** `Main.gd` now has
+`const WEB_PREVIEW_THEME := "cinematic"` and `_preview_art_theme()` returns it
+only when `OS.has_feature("web")`. `_on_region_ready()` applies the theme after
+every cold boot and every region swap, so the live Pages preview shows B at the
+first frame and after travel. Desktop, headless suites and the Xvfb visual
+harness still return `"classic"`, so the 17 committed frame baselines remain
+valid. This is a **runtime theme call**, not a default asset replacement:
+`art/tiles/terrain.png`, `art/props/`, `art/characters/` and every classic file
+are untouched, and setting the constant back to `"classic"` restores the old
+look exactly. Gameplay, collision, animation, quests and save format are not
+changed.
+
+**Still partial.** The B theme covers Region terrain, crafted props/actors,
+HUD and dialogue. Dedicated setpiece screens (`GoliathFight`, `SlingPractice`,
+`StoneChoice`) and the journal/menu/transition surfaces do not yet have B
+skins, so this is not a whole-game art replacement or a parity claim. Human
+playtest is still required. Because this is a PWA, a browser that already
+cached an older build may need one hard refresh / clear-site-data before the
+new sha-stamped service worker takes over; the deployed worker's cache name
+changes with the commit sha. No PR, no merge to `main`, no release.

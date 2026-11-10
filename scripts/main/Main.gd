@@ -4,6 +4,12 @@ extends Node2D
 ## Overworld → talk / gather / cross the line → BECOME → the fight → RETURN.
 ## Story logic stays in data; Main only routes the moments between systems.
 
+## Working-branch live Pages preview only: the Web export boots in the
+## user-selected Direction B theme, while desktop/headless/visual CI stay
+## classic. This is a RUNTIME theme call, not a default asset replacement;
+## setting the constant back to "classic" restores the original look exactly.
+const WEB_PREVIEW_THEME := "cinematic"
+
 var region: Region = null
 ## Which region the previous one was, so the new one can put the player by the
 ## road they came in on. Empty on a cold boot.
@@ -302,10 +308,20 @@ func _update_touch_ownership() -> void:
 ## dismissed, so the valley was a field with five rocks in it. The chain is
 ## deliberately short and always names the NEXT single action:
 ##   Corin → the brook → the line → the fight → the ending.
-## One switch for the ART DIRECTION RESET prototype. The shipped build never
-## calls it with anything but "classic", so no frame, save or behaviour moves;
-## tests/visual.gd uses it to photograph the identical shepherd-field state in
-## the classic and the selected storybook direction (docs/ART-RESET.md §7).
+## One switch for the ART DIRECTION RESET prototype. Desktop, headless tests and
+## the Xvfb visual harness stay classic; the working-branch WEB preview uses the
+## user-selected B theme at runtime (see _preview_art_theme). No default asset
+## file is replaced, no frame/save/behaviour moves, and visual.gd still applies
+## B explicitly for its one comparison frame (docs/ART-RESET.md §12.10).
+func _preview_art_theme() -> String:
+	# A Web export has the "web" feature; the Xvfb visual harness and the
+	# headless test suites do not. This keeps CI frames reproducible while the
+	# branch the user was invited to play shows the direction they chose.
+	if OS.has_feature("web"):
+		return WEB_PREVIEW_THEME
+	return "classic"
+
+
 func apply_art_theme(theme: String) -> void:
 	if region != null and is_instance_valid(region):
 		region.apply_art_theme(theme)
@@ -927,6 +943,12 @@ func _on_region_ready() -> void:
 			_resume_index = runner.first_unmet(_mission_ctx())
 		_begin_missions()
 		_opening()
+	# The live Pages preview must actually SHOW the user-selected B art at boot
+	# and after every region swap. Desktop/headless/visual CI stay classic, so
+	# the committed baselines and the classic default assets are unchanged.
+	var preview_theme := _preview_art_theme()
+	if preview_theme != "classic":
+		apply_art_theme(preview_theme)
 
 
 ## A saved valley has to boot into the chapter it left. Reloading after the win

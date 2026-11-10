@@ -365,3 +365,10 @@ publish-b-frames, export-web, browser and deploy all success. Deployment
 Godot loader and PWA manifest. Pages remains `build_type: workflow` on the
 working branch; the next `main` push republishes `main`. This is a preview, not
 a release or a merge.
+
+**Why the live preview first looked classic.** The B v3 assets were shipped but
+the Web runtime never called `apply_art_theme()`. `Main.gd` now applies
+`WEB_PREVIEW_THEME` on Web region-ready only. The service worker cache version
+is stamped with the commit sha; if a browser still shows the old palette,
+hard-refresh once or clear site data. Classic files, desktop builds and visual
+CI baselines are unchanged.
