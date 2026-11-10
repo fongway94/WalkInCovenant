@@ -8,10 +8,12 @@ in grayscale.
 
     PYTHONPATH=<pillow-cache> python3 tools/art_reset/measure_real_engine.py
 
-Inputs (all REAL 320x180 framebuffer captures):
+Inputs (REAL 320x180 framebuffer captures unless noted):
     frames/15_shepherd_dialogue.png        classic, same camera & dialogue
-    frames/16_shepherd_cinematic.png       opt-in integrated scene
-    docs/art-reset/comparison/16_palette_only.png   previous CI frame, optional
+    frames/16_shepherd_cinematic.png       user-selected Direction B scene
+    docs/art-reset/comparison/16_storybook_final.png  Direction C final
+    docs/art-reset/user_selected_reference.png        B concept, 681x348
+    docs/art-reset/comparison/16_palette_only.png      previous CI frame, optional
 
 Outputs:
     docs/art-reset/diagnosis/04_before_after_real_engine.png

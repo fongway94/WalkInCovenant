@@ -665,3 +665,47 @@ menus untouched, no parallax, no location-specific lighting, no human playtest,
 no perceptual audio, no native-speaker Chinese, no real-device pass. See
 `docs/ART-RESET.md` §12 for the full critique and the external manual pixel
 art that would be required to reach the requested benchmark.
+
+## 13. Direction B retarget — user's explicit choice (2026-11-10)
+
+The comparison question was answered honestly: **No**, the assistant-selected
+Direction C frame was not on par with the user's attached "Rich Cinematic"
+concept (`docs/ART-RESET.md` §12.6). The user then chose B explicitly:
+*"i want the outcome like B, with the neccessary animation like current"*.
+The assistant's C selection is superseded for the active target; C's assets,
+final real frame and metrics are preserved for comparison.
+
+What changed, in one reversible opt-in scene only:
+
+- `art/tiles/terrain_cinematic.png` (49 cells), `art/props_cinematic/` (13) and
+  `art/characters_cinematic/` (4 sheets) use B's golden-hour ramps. Geometry,
+  dimensions, `hframes`, walk/idle/sway/water frames and every Timer are
+  unchanged; `check_cinematic_art.py` gates 17 assets.
+- `TerrainLayer._draw_cinematic_depth()` draws camera-relative graded sun,
+  a dry-stone wall, a winding sunlit path, diagonal cast bands and foreground
+  leaves behind the sprites. `ContactShadowLayer` adds long tapered cast
+  shadows; new `GoldenRimLayer.gd` adds an animated upper-left rim above them.
+  `Hud.gd` / `DialogueBox.gd` have dusk-slate/gold `cinematic` skins.
+- `tests/visual.gd` frame 16 is `16_shepherd_cinematic`; C's final frame is
+  preserved as `comparison/16_storybook_final.png`.
+- The first B CI (`42793930036`) failed the visual gate (0.257 stale-baseline
+  diff) and lost one frame chunk to GitHub's 50-annotation cap. Fixed by
+  removing the stale baseline, 24-colour undithered transport and 4000-char
+  chunks. `42798442187` is green: lint / visual / export-web / browser success,
+  deploy skipped; `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS —
+  143 checks hold`, browser `30/0` with no console or page errors.
+- All 16 frames decoded; `visual_diff.py` clean; reviewed real frame 16
+  promoted to `baseline_16_shepherd_cinematic.png`.
+- Measured B v2 world value spread **20.5** (first B 16.1, C 17.7, classic
+  20.4, B concept 22.6) and world luma **68.0** (first B 58.0, concept 86.6).
+  Edge density remains 0.20 vs the concept's 0.45; the concept has 135,490
+  distinct RGB colours. These are real-frame measurements, not a claim of
+  parity or beauty.
+
+**Still NOT complete and not release-ready.** One opt-in scene, no B
+environments for Bethlehem / court / valley / anointing, no journal or menu
+skin, no parallax, no per-location light, no human art-director playtest, no
+perceptual audio, no native-speaker Chinese, no real-device pass. Classic
+remains the default; gameplay, state, collision, input, quests, `SAVE_VERSION`,
+other baselines, PR/merge/deploy and live Pages unchanged. See
+`docs/ART-RESET.md` §12.7 and backlog #19–23.

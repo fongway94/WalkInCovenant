@@ -156,3 +156,29 @@ still NOT complete: one opt-in scene, two actors, no new maps for Bethlehem /
 court / valley, journal and menus untouched, no parallax or per-location light,
 and no professional-grade manual pixel editing. Backlog #19–23 still stands,
 with #19/#20 now partially done for one scene only.
+
+### §9 update — user-selected Direction B (2026-11-10)
+
+The user reviewed the three original concept sources and explicitly chose
+Direction B's golden-hour outcome: *"i want the outcome like B, with the
+neccessary animation like current"*. This **supersedes the assistant's C
+selection** recorded earlier in this file; C is retained as a reversible opt-in
+theme and as a comparison baseline, not deleted.
+
+Direction B is implemented for the **same one opt-in scene only**
+(`docs/ART-RESET.md` §12.7). It keeps the shipped 16px grid, the 49 atlas
+indices, every walk/idle/sway/water/prop animation frame and every timer. B adds
+a warm 49-cell terrain atlas, 13 props, 4 character sheets, a dusk-slate/gold
+UI skin, camera-relative golden-hour ground light, long cast shadows and an
+animated upper-left rim light on moving figures. Real CI `42798442187` is green:
+16 frames, `deep 143`, browser 30/0, deploy skipped; the reviewed frame 16 was
+promoted as `baseline_16_shepherd_cinematic.png`.
+
+This file remains the **contract for the shipped classic art**. The default
+atlas, gameplay, state, collision, input, quests, save format, every other
+scene, every other baseline, PR/merge/deploy status and live Pages are
+unchanged. The visual overhaul is still NOT complete: the painterly B concept
+is not a shippable pixel asset, the real frame is not on par with it, and the
+remaining manual environments, UI skins, parallax, human art-director review,
+device/audio/Chinese/playtest gates are listed in `docs/DEVELOPMENT_BACKLOG.md`
+#19–23. No release claim is made.

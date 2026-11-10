@@ -1,7 +1,8 @@
 # ART DIRECTION RESET — real diagnosis, three prototypes, one honest verdict
 
-> **Status: comparison produced, direction selected, ONE scene integrated as an
-> opt-in prototype. The visual overhaul is NOT complete.**
+> **Status: comparison produced, direction retargeted to the user's Direction B,
+> ONE scene integrated as a reversible opt-in prototype with animation intact.
+> The visual overhaul is NOT complete.**
 >
 > This file is the evidence for the user's explicit gate: *"START WITH THE
 > EXISTING SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION
@@ -218,6 +219,11 @@ that gives Bethlehem, the shepherd fields, Saul's court and the valley a
 **shared, historically appropriate identity** while keeping the UI in the same
 material world.
 
+> **Superseded 2026-11-10:** this was the assistant's selection. After reviewing
+> the attached painted concept, the user explicitly chose Direction B's outcome
+> with the existing animation preserved. C is retained for comparison. See
+> §12.6–§12.7; the selection text above is history, not the active target.
+
 Three mandatory corrections are borrowed from the other two directions — this
 is a combination, not a fourth style:
 
@@ -344,10 +350,10 @@ opt-in switch:
 * Default is `"classic"`. No existing frame, save, quest, story or input changed.
 * `tests/visual.gd` captures **`15_shepherd_dialogue`** (before) and
   **`16_shepherd_cinematic`** (after) from the identical state — camera, flock,
-  NPC, open dialogue page and Chinese text all unchanged. Frame 15 still has a
-  committed baseline; frame 16 is capture-only until a human promotes the B
-  frame. Direction C's final real frame is preserved as
-  `comparison/16_storybook_final.png` (§12.7).
+  NPC, open dialogue page and Chinese text all unchanged. Both frames now have
+  committed baselines; `baseline_16_shepherd_cinematic.png` was promoted from
+  the reviewed real CI frame `42798442187` (§12.7). Direction C's final real
+  frame is preserved as `comparison/16_storybook_final.png`.
 * CI **`42771321630`**: `lint` ✅ · `visual` ✅ (16 rendered frames) ·
   `export-web` ✅ · `browser` ✅ (30/30 checks, 0 console/page errors) ·
   `deploy` skipped by design. `run_all: ALL CHECKS PASSED`, `smoke: PASS`,
@@ -427,11 +433,20 @@ docs/art-reset/diagnosis/
   08_palette_vs_craft.png                    palette-only vs current frame
   09/10/11_craft_iteration*.png              the three measured craft passes
   10_tiles_4x.png  11_assets_4x.png          source terrain / sprites / portraits
+  12_user_reference_vs_current.png           user's B concept vs C frame
+  13_cinematic_props_3x.png                  Direction B crafted assets, 3×
+  14_direction_override.png                  C final vs B real frame
+  15_direction_progression_2x.png            classic → C → B real → B concept
+  16_B_engine_vs_reference.png               B real frame vs user's concept
+  17_B_engine_vs_reference_grayscale.png     value-only gap check
 docs/art-reset/prototypes/                   reference + 3 original concept sources
 docs/art-reset/comparison/                   4-way sheets ×3 sizes, grayscale,
                                             details, metrics.json, C+ refinement,
                                             real_engine_metrics.json,
-                                            16_palette_only/v1/v2/v3.png
+                                            16_palette_only/v1/v2/v3.png,
+                                            16_storybook_final.png,
+                                            B_engine_{native,desktop,mobile}.png,
+                                            B_engine_grayscale_*.png
 docs/art-reset/storybook_tiles_4x.png        Direction C atlas preview
 docs/art-reset/cinematic_tiles_4x.png        Direction B atlas preview
 art/tiles/terrain_storybook.png              Direction C opt-in atlas (shippable)
@@ -456,7 +471,7 @@ tools/check_art_reset.py                     stdlib CI gate (wired into lint)
 tools/check_craft_props.py                   stdlib crafted-art CI gate
 tools/check_cinematic_art.py                 stdlib B palette/animation gate
 tests/frames/baseline_15_shepherd_dialogue.png
-tests/frames/baseline_16_shepherd_cinematic.png   (after human promotion)
+tests/frames/baseline_16_shepherd_cinematic.png   promoted from real CI 42798442187
 ```
 
 ---
@@ -579,7 +594,8 @@ by the current generator, and no external asset pack was vendored.
   composites shippable.
 
 > **Verdict unchanged: the visual overhaul is NOT complete.** The comparison
-> gate is passed, the direction is selected, and one scene now contains
+> gate is passed, C was the assistant-selected direction at this point (later
+> superseded by the user's B choice — §12.7), and one scene now contains
 > first-pass original craft whose world value separation measurably recovered.
 > It remains one reversible opt-in scene. No PR, no merge to `main`, no deploy;
 > live Pages still serves `5d1c5ff`.
@@ -667,9 +683,78 @@ real measured failure, not a matter of taste. The second pass therefore:
   50-annotation/check-run cap.
 
 **Verification status:** real CI, decoded frames, visual-diff promotion,
-metrics and human review of the v2 frame are recorded in the subsection below.
-Until then this is an implementation report, **not** a claim of parity with the
-painterly concept or of a completed overhaul. The concept remains 681×348 with
-135,490 distinct RGB colours; the shipped frame is 320×180 pixel art with a
-HUD, a dialogue panel and a 49-cell tile atlas. No proprietary artwork, maps,
-characters, music or interface was copied, downloaded or viewed.
+metrics and native-resolution review of the v2 frame are recorded in §12.7.1.
+This is **not** a claim of parity with the painterly concept or of a completed
+overhaul. The concept remains 681×348 with 135,490 distinct RGB colours; the
+shipped frame is 320×180 pixel art with a HUD, a dialogue panel and a 49-cell
+tile atlas. No proprietary artwork, maps, characters, music or interface was
+copied, downloaded or viewed.
+
+#### 12.7.1 Real CI verification of Direction B v2 (2026-11-10)
+
+**CI `42798442187` at `1f2ed32`** — the first B attempt (`42793930036` at
+`2011067`) failed the visual gate with a deliberate 0.257 baseline diff and hit
+GitHub's 50-annotation cap, losing one frame chunk. Both were fixed: the stale
+C baseline was removed until the B frame was reviewed, and the transport was
+changed to 24 undithered colours / 4000-char chunks. The v2 run is green:
+
+| Job | Result |
+|---|---|
+| `lint` | success — `gd_lint`, `api_check`, `check_art_reset`, `check_craft_props`, `check_cinematic_art`, `pack_art --check` and the other stdlib gates pass. |
+| `visual` | success — 16 real Godot frames, all base64 chunks decoded (no incomplete frames). |
+| `export-web` | success. |
+| `browser` | success — `chromium=158.0.8127.18 checks=30 failed=0 consoleErrors=0 pageErrors=0`; duel won, save rewritten, mute and audio telemetry checked. |
+| `deploy` | skipped by design. |
+
+Annotations from the lint job still read `run_all: ALL CHECKS PASSED`,
+`smoke: PASS — the slice played start to finish`, `deep: PASS — 143 checks hold`.
+No console or page errors. `PYTHONPATH=/tmp/wic_pil python3 tools/visual_diff.py`
+reports all 16 frames clean (limit 0.18); frame 15 diff 0.0240, frame 16 diff
+0.0000 after promoting the reviewed real frame to
+`tests/frames/baseline_16_shepherd_cinematic.png`.
+
+**Measured v2 result** (`comparison/real_engine_metrics.json`, 320×180):
+
+| | classic frame 15 | Direction C final | Direction B v2 | B concept, fitted |
+|---|---|---|---|---|
+| world luma mean | 77.7 | 72.2 | **68.0** (first B: 58.0) | 86.6 |
+| world value spread | 20.4 | 17.7 | **20.5** (first B: 16.1) | 22.6 |
+| global luma std | 40.5 | 68.1 | 34.1 | 37.4 |
+| edge density | 0.20 | 0.20 | 0.20 | 0.45 |
+| distinct RGB colours | 48 (transport) | 48 (transport) | ≈70 shipped atlas | 135,490 |
+
+B v2 recovers the world value hierarchy from the first B attempt and slightly
+exceeds the classic proxy, but it is still **18.6 luma darker** and roughly
+**half as edge-dense** as the painterly concept. The classic 20.4 spread is
+inflated by its dark HUD scrim bleeding into world rows 24–40; C's 68.1 global
+luma std comes mostly from its bright parchment UI, not world depth. No number
+here proves beauty.
+
+**Reviewed by eye** at 3× nearest (`/tmp/16_B_v2_3x.png`), native, 1280×720
+desktop and 844×390 mobile sizes, plus grayscale:
+`diagnosis/16_B_engine_vs_reference.png`,
+`diagnosis/17_B_engine_vs_reference_grayscale.png`,
+`diagnosis/15_direction_progression_2x.png`,
+`comparison/B_engine_{native,desktop,mobile}.png` and their grayscale twins.
+The frame now reads as one low upper-left sun: a warm winding path from the
+foreground into a dry-stone horizon, cool right-hand tree shade, long diagonal
+cast bands, warm rim light on sheep and trees, and a dark slate/gold UI. The
+classic frame's flat green field and C's parchment panel are visibly different
+directions; C is preserved, not deleted.
+
+**Still not on par with the concept, and still not complete.** The concept has
+individually rendered grass, stones, leaves, atmospheric haze and volumetric
+figures; the shipped frame has 16px geometric silhouettes, a 49-cell atlas, a
+HUD and a dialogue panel covering roughly half the screen. Human art-director
+review at native resolution, human playtest, perceptual audio, native-speaker
+Chinese, real-device tactile / rotation / safe-area and subjective completion
+gates remain unverified. Bethlehem, Saul's court, the valley and the anointing
+scene have no B environment; journal, menus and transitions have no B skin;
+there is no parallax or per-location light. Backlog #19/#20/#22 remain partial
+for one scene, #23 is still baseline-only.
+
+**Scope unchanged:** B is the active target for the one reversible opt-in
+scene. Classic is still the default; animation, gameplay, state, collision,
+input, quests, `SAVE_VERSION`, other scenes and other baselines are untouched.
+No PR, no merge to `main`, no deploy; live Pages still serves `5d1c5ff`.
+`docs/BROWSER-VALIDATION.md` remains **Release candidate, not release**.
