@@ -72,6 +72,8 @@ var sheep: Array = []
 var counted := 0
 var label: Label
 var _t := 0.0
+var _browser_probe := false
+var _browser_probe_start_x := 0.0
 
 
 func _ready() -> void:
@@ -97,7 +99,17 @@ func _ready() -> void:
 	fg.z_index = 100
 	add_child(fg)
 	_build_hud()
-	set_prototype_resolution(PROTO_WIDTH)
+	# Only the temporary CI Web launcher passes these user arguments. Normal
+	# gameplay always starts at 640 logical pixels and exposes no test marker.
+	var launch_args := OS.get_cmdline_user_args()
+	_browser_probe = OS.has_feature("web") and launch_args.has("--prototype-browser-probe")
+	var width := PROTO_WIDTH
+	if _browser_probe and launch_args.has("--prototype-width=320"):
+		width = 320
+	set_prototype_resolution(width)
+	if _browser_probe:
+		_browser_probe_start_x = david.position.x
+		JavaScriptBridge.eval("window.__prototypeReady = %d; window.__prototypeMoved = false;" % width, true)
 
 
 func _build_obstacles() -> void:
@@ -266,6 +278,9 @@ func _physics_process(delta: float) -> void:
 	david.move_and_slide()
 	david.position = david.position.clamp(WORLD.position, WORLD.end)
 	_update_actor_depth(david)
+	if _browser_probe and absf(david.position.x - _browser_probe_start_x) > 20.0:
+		JavaScriptBridge.eval("window.__prototypeMoved = true;", true)
+		_browser_probe = false
 	if dir.length() > 0.1:
 		var stride := sin(_t * 9.0)
 		david_sprite.position.y = -absf(stride) * 0.6

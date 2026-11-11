@@ -1,13 +1,16 @@
 """Reassemble PROTOFRAME annotations from the prototype render/publisher jobs.
 
-usage: decode_proto.py <run-id> [outdir]
+usage: decode_proto.py <run-id> [outdir] [--browser]
+
+With --browser, only the separate real-Web prototype screenshots are read;
+the default remains the Xvfb prototype and its overflow publisher.
 """
+import argparse
 import base64
 import collections
 import json
 import os
 import subprocess
-import sys
 
 REPO = "fongway94/WalkInCovenant"
 
@@ -16,13 +19,19 @@ def gh(*args):
     return subprocess.run(["gh", *args], capture_output=True, text=True, check=True).stdout
 
 
-run_id = sys.argv[1]
-outdir = sys.argv[2] if len(sys.argv) > 2 else "build/proto_frames"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("run_id")
+parser.add_argument("outdir", nargs="?", default="build/proto_frames")
+parser.add_argument("--browser", action="store_true", help="decode the separate prototype Web browser job")
+args = parser.parse_args()
+run_id, outdir = args.run_id, args.outdir
 os.makedirs(outdir, exist_ok=True)
 jobs = json.loads(gh("api", "repos/%s/actions/runs/%s/jobs?per_page=100" % (REPO, run_id)))["jobs"]
-publishers = [j for j in jobs if j["name"] in ("proto-frames", "proto-frame-overflow")]
-if not any(j["name"] == "proto-frames" for j in publishers):
-    raise SystemExit("proto-frames job not found")
+names = ("proto-browser",) if args.browser else ("proto-frames", "proto-frame-overflow")
+required = names[0]
+publishers = [j for j in jobs if j["name"] in names]
+if not any(j["name"] == required for j in publishers):
+    raise SystemExit("%s job not found" % required)
 parts = collections.defaultdict(dict)
 counts = {}
 for job in publishers:

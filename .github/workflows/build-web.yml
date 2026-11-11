@@ -1013,6 +1013,88 @@ jobs:
   # Isolated art prototype (docs/ART-RESET.md §13): real Godot renders of the
   # playable shepherd field, published as PROTOFRAME / PROTOLOG annotations.
   # It never deploys and never gates production; it only produces evidence.
+  # Browser performance probe for the isolated field only. A temporary HTML
+  # launcher preloads override.cfg against the downloaded, unchanged PCK; it
+  # never changes the production scene, export artifact, Pages or user saves.
+  proto-browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+      - name: Prepare a temporary prototype-only launcher
+        run: python3 tools/proto/prepare_browser.py build/web
+      - name: Measure the isolated Web prototype
+        id: probe
+        continue-on-error: true
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          PROTO_OUT: build/proto-browser
+          PROTO_URL: http://127.0.0.1:8081/proto.html
+        run: |
+          mkdir -p build/proto-browser
+          python3 -m http.server 8081 --bind 127.0.0.1 --directory build/web > build/proto-browser/server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8081/proto.html > /dev/null
+          node tests/proto/browser_perf.cjs
+      - name: Prepare 640x360 prototype Web frames
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          if ls build/proto-browser/browser_*.png >/dev/null 2>&1; then
+            python3 tools/proto/encode_frames.py build/proto-browser
+            if [ -n "$(cat build/proto-browser/overflow/part_*.txt)" ]; then
+              echo "::error::prototype browser frames exceeded the single-job budget"
+              exit 1
+            fi
+          fi
+      - name: Publish the joined browser result
+        if: always()
+        run: |
+          if [ -f build/proto-browser/result.json ]; then
+            echo "::notice::PROTOBROWSER|$(cat build/proto-browser/result.json)"
+          else
+            echo "::error::prototype browser probe produced no result.json"
+          fi
+      - name: Publish prototype Web frame part 0
+        if: always()
+        run: test -f build/proto-browser/parts/part_0.txt && cat build/proto-browser/parts/part_0.txt || echo "no part 0"
+      - name: Publish prototype Web frame part 1
+        if: always()
+        run: test -f build/proto-browser/parts/part_1.txt && cat build/proto-browser/parts/part_1.txt || echo "no part 1"
+      - name: Publish prototype Web frame part 2
+        if: always()
+        run: test -f build/proto-browser/parts/part_2.txt && cat build/proto-browser/parts/part_2.txt || echo "no part 2"
+      - name: Publish prototype Web frame part 3
+        if: always()
+        run: test -f build/proto-browser/parts/part_3.txt && cat build/proto-browser/parts/part_3.txt || echo "no part 3"
+      - name: Publish prototype Web frame part 4
+        if: always()
+        run: test -f build/proto-browser/parts/part_4.txt && cat build/proto-browser/parts/part_4.txt || echo "no part 4"
+      - name: Publish prototype Web frame part 5
+        if: always()
+        run: test -f build/proto-browser/parts/part_5.txt && cat build/proto-browser/parts/part_5.txt || echo "no part 5"
+      - name: Publish prototype Web frame part 6
+        if: always()
+        run: test -f build/proto-browser/parts/part_6.txt && cat build/proto-browser/parts/part_6.txt || echo "no part 6"
+      - name: Publish prototype Web frame part 7
+        if: always()
+        run: test -f build/proto-browser/parts/part_7.txt && cat build/proto-browser/parts/part_7.txt || echo "no part 7"
+      - name: Fail when the prototype browser probe failed
+        if: always() && steps.probe.outcome != 'success'
+        run: exit 1
+
   proto-frames:
     runs-on: ubuntu-latest
     permissions:
