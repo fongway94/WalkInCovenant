@@ -6,6 +6,7 @@ extends Node2D
 
 const BG_PATH := "res://art/proto/shepherd_field_empty.png"
 const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
+const UPPER_TREE_PATH := "res://art/proto/shepherd_field_upper_tree.png"
 const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
 const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
 const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
@@ -27,7 +28,10 @@ const CAMERA_ZOOM := 0.55
 const DAVID_SPEED := 70.0
 const SHEEP_WALK := 14.0
 const SHEEP_FLEE := 40.0
-const SHEEP_FLEE_RANGE := 60.0
+# Keep a taller visual clearance behind David: otherwise a northward sheep
+# overlaps his head even though their feet are 60-70 world pixels apart.
+const SHEEP_FLEE_X := 70.0
+const SHEEP_FLEE_Y := 105.0
 const INTERACT_RANGE := 76.0
 const FIELD := Rect2(330, 150, 760, 400)
 const SHEEP_HOMES := [
@@ -41,6 +45,8 @@ const OBSTACLES := [
 	[1408, 0, 32, 666],
 	[0, 530, 200, 136],
 	[1008, 150, 74, 52],
+	[1082, 170, 26, 32],
+	[1154, 165, 25, 28],
 	[1080, 350, 130, 150],
 	[856, 226, 120, 42],
 	[618, 230, 34, 22],
@@ -73,6 +79,7 @@ func _ready() -> void:
 	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
+	_build_upper_tree_depth()
 	_build_david()
 	for i in range(SHEEP_HOMES.size()):
 		_add_sheep(SHEEP_HOMES[i], i)
@@ -97,6 +104,21 @@ func _build_obstacles() -> void:
 		shape.shape = rect
 		body.add_child(shape)
 		add_child(body)
+
+
+func _build_upper_tree_depth() -> void:
+	# The backdrop contains this tree, but a matching transparent copy is
+	# sorted by its trunk's ground line. Actors behind it are covered; actors
+	# in front remain visible. Both copies are fixed in world coordinates.
+	var depth := Node2D.new()
+	depth.name = "UpperTreeDepth"
+	depth.position = Vector2(0, 202)
+	var image := Sprite2D.new()
+	image.texture = load(UPPER_TREE_PATH) as Texture2D
+	image.centered = false
+	image.position = Vector2(890, -202)
+	depth.add_child(image)
+	add_child(depth)
 
 
 func _build_david() -> void:
@@ -248,8 +270,9 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 	var spr: Sprite2D = s["sprite"]
 	var vel := Vector2.ZERO
 	var away: Vector2 = node.position - david.position
-	if away.length() < SHEEP_FLEE_RANGE and away.length() > 0.5:
-		vel = away.normalized() * SHEEP_FLEE
+	var clearance := Vector2(away.x / SHEEP_FLEE_X, away.y / SHEEP_FLEE_Y)
+	if clearance.length() < 1.0:
+		vel = (away.normalized() if away.length() > 0.5 else Vector2.RIGHT) * SHEEP_FLEE
 		s["idle"] = 0.0
 	elif float(s["idle"]) > 0.0:
 		s["idle"] = float(s["idle"]) - delta

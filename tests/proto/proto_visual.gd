@@ -1,7 +1,7 @@
 extends Node
-## Real Godot framebuffer captures, not composited mock-ups. The field and the
-## low-resolution comparison use the same frozen world and camera position.
-## The walk/camera frame, rock, foreground and sheep tests exercise the scene.
+## Real Godot framebuffer captures, not composited mock-ups. The walk/camera,
+## rock, foreground, tree-depth and sheep tests exercise the playable scene.
+## The previous run documented the frozen 320-vs-640 resolution comparison.
 
 const SCENE := "res://scenes/proto/ShepherdFieldProto.tscn"
 const OUT := "res://build/proto"
@@ -26,14 +26,6 @@ func _ready() -> void:
 	var cam_a: Vector2 = field.camera.get_screen_center_position()
 	var bg_a: Vector2 = (field.get_node("Backdrop") as Node2D).global_position
 	await _save("proto_01_field_640")
-	# Same framing and frozen actors: only the logical size, camera zoom and
-	# proportional HUD size change. Both captures are real 1280x720 frames.
-	field.set_prototype_resolution(320)
-	field.camera.reset_smoothing()
-	await _frames(8)
-	await _save("proto_02_field_320")
-	field.set_prototype_resolution(640)
-	field.camera.reset_smoothing()
 	field.set_process(true)
 	await _frames(8)
 	var sheep_start: Vector2 = (field.sheep[0]["node"] as Node2D).position
@@ -90,7 +82,7 @@ func _ready() -> void:
 	var p: Vector2 = field.nearest_sheep_pos()
 	field.set_david(p + Vector2(-62, 4))
 	field.camera.reset_smoothing()
-	await _frames(6)
+	# Interact immediately, as a player can, before the sheep flees away.
 	var ok: bool = field.interact()
 	var count_after: int = field.counted
 	var again: bool = field.interact()
@@ -100,11 +92,60 @@ func _ready() -> void:
 	await _save("proto_04_sheep")
 	field.set_david(Vector2(330, 110))
 	_check(not field.interact() and field.counted == 1, "interaction requires nearby sheep")
+	# The right-hand upper tree is separately y-sorted at its ground line.
+	# Test a real trunk collider, then capture and compare both sides of the
+	# depth line using the real renderer, not just the scene hierarchy.
+	field.set_david(Vector2(1130, 180))
+	await _frames(4)
+	Input.action_press("ui_right")
+	await _frames(60)
+	Input.action_release("ui_right")
+	await _frames(4)
+	var trunk_x: float = field.david.position.x
+	print("PROTO tree trunk stop_x=%.1f" % trunk_x)
+	_check(trunk_x >= 1140.0 and trunk_x < 1154.0, "tree trunk collision")
+	field.set_process(false)
+	var tree: Node2D = field.get_node("UpperTreeDepth") as Node2D
+	field.set_david(Vector2(920, 165))
+	field.camera.reset_smoothing()
+	await _frames(8)
+	await _save("proto_06_tree_behind")
+	var behind_changed: int = await _tree_pixel_difference(tree)
+	field.set_david(Vector2(920, 210))
+	field.camera.reset_smoothing()
+	await _frames(8)
+	await _save("proto_02_tree_front")
+	var front_changed: int = await _tree_pixel_difference(tree)
+	print("PROTO tree pixel change behind=%d front=%d" % [behind_changed, front_changed])
+	_check(behind_changed > 10 and front_changed < maxi(8, int(float(behind_changed) * 0.25)),
+		"rendered tree covers behind, not in front")
 	if failures == 0:
 		print("PROTO PASS")
 	else:
 		print("PROTO FAIL count=%d" % failures)
 	get_tree().quit(0 if failures == 0 else 1)
+
+
+func _tree_pixel_difference(tree: Node2D) -> int:
+	# At these two fixed test positions the camera is clamped to the right and
+	# top of the world. The region contains David and the canopy. The sheep are
+	# frozen. Toggling the depth copy should change rendered actor pixels only
+	# behind the tree, not while the same actor is in front of its ground line.
+	tree.visible = true
+	await RenderingServer.frame_post_draw
+	var with_tree := get_viewport().get_texture().get_image()
+	tree.visible = false
+	await RenderingServer.frame_post_draw
+	var without_tree := get_viewport().get_texture().get_image()
+	tree.visible = true
+	var changed := 0
+	for y in range(30, 300, 4):
+		for x in range(580, 850, 4):
+			var a := with_tree.get_pixel(x, y)
+			var b := without_tree.get_pixel(x, y)
+			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.15:
+				changed += 1
+	return changed
 
 
 func _check(ok: bool, name: String) -> void:
