@@ -12,6 +12,10 @@ const TREE_GROUND_Y := 202.0
 const FENCE_GROUND_Y := 268.0
 const TREE_DEPTH_Z := 1
 const FENCE_DEPTH_Z := 3
+# Clip transparent horizontal margins, but preserve the full backdrop height
+# and the same world origin. Bounds contain the masks and fall on 20px units.
+const TREE_DEPTH_REGION := Rect2(880, 0, 380, 666)
+const FENCE_DEPTH_REGION := Rect2(840, 0, 140, 666)
 const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
 const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
 const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
@@ -86,8 +90,8 @@ func _ready() -> void:
 	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
-	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, TREE_DEPTH_Z)
-	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, FENCE_DEPTH_Z)
+	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, TREE_DEPTH_Z, TREE_DEPTH_REGION)
+	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, FENCE_DEPTH_Z, FENCE_DEPTH_REGION)
 	_build_david()
 	for i in range(SHEEP_HOMES.size()):
 		_add_sheep(SHEEP_HOMES[i], i)
@@ -124,16 +128,19 @@ func _build_obstacles() -> void:
 		add_child(body)
 
 
-func _build_depth_layer(layer_name: String, path: String, depth_z: int) -> void:
-	# Both copied textures are exactly the same size and world position as the
-	# backdrop. A nested (ground_y, -ground_y) transform produced measurable
-	# sampling differences with 2D pixel snapping, even though it summed to 0.
-	# Actors select z bands using their feet; y-sort still orders actors within
-	# each band. This is a limited solution for these two painted objects.
+func _build_depth_layer(layer_name: String, path: String, depth_z: int, region: Rect2) -> void:
+	# The texture has the backdrop's world size. Clipping only transparent x
+	# margins reduces overdraw; the sprite remains at world origin and draws at
+	# the region's world coordinates. Full height retains the backdrop's y quad.
+	# The frame harness checks that snapped sampling still matches the backdrop.
+	# Actors select z bands using their feet; y-sort orders actors in each band.
 	var image := Sprite2D.new()
 	image.name = layer_name
 	image.texture = load(path) as Texture2D
 	image.centered = false
+	image.region_enabled = true
+	image.region_rect = region
+	image.offset = region.position
 	image.z_index = depth_z
 	add_child(image)
 

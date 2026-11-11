@@ -144,6 +144,17 @@ func _ready() -> void:
 	var alignment_b: int = await _empty_depth_difference()
 	print("PROTO empty depth mismatch camera B=%d" % alignment_b)
 	_check(alignment_b <= 8, "depth overlays align to backdrop at camera B")
+	# A differently sized physical window can snap clipped quads differently.
+	# Check it with the same logical view and then restore the capture window.
+	var original_window := DisplayServer.window_get_size()
+	DisplayServer.window_set_size(Vector2i(960, 540))
+	await _frames(16)
+	var resized_mismatch: int = await _empty_depth_difference()
+	print("PROTO resized window=%s empty depth mismatch=%d" % [str(DisplayServer.window_get_size()), resized_mismatch])
+	_check(DisplayServer.window_get_size() == Vector2i(960, 540) and resized_mismatch <= 8,
+		"depth overlays align at resized window")
+	DisplayServer.window_set_size(original_window)
+	await _frames(16)
 	var front_stats: Dictionary = await _layer_pixel_difference(tree)
 	var front_changed: int = int(front_stats["actor"])
 	print("PROTO tree actor delta behind=%d front=%d; raw=%d/%d background=%d/%d" % [
