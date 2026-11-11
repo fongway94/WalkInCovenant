@@ -1,5 +1,6 @@
 /* Real, isolated Godot Web prototype in headless Chromium/SwiftShader.
- * Four short, sequential moving trials (320, 640, 640, 320 logical width).
+ * Short moving trials compare logical widths and, separately, full versus
+ * clipped depth quads on the same runner in an ABBA order.
  * This measures draw-active requestAnimationFrame cadence, not device FPS;
  * canvas_items still renders both at the same 1280x720 browser canvas size.
  * The test-only launcher and override are created beside a downloaded export.
@@ -85,7 +86,7 @@ async function sample(page, durationMs) {
   }), durationMs);
 }
 
-async function trial(browser, width, index) {
+async function trial(browser, width, depth, index) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   await context.addInitScript(instrument);
   const page = await context.newPage();
@@ -96,22 +97,24 @@ async function trial(browser, width, index) {
     }
   });
   try {
-    await page.goto(`${baseUrl}?width=${width}`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await page.goto(`${baseUrl}?width=${width}&depth=${depth}`, { waitUntil: 'domcontentloaded', timeout: 120000 });
     // This marker is set only by the isolated scene when the requested logical
     // width is actually applied; it prevents measuring the production scene.
-    await page.waitForFunction(w => window.__prototypeReady === w && window.__prototypeProbe.draws > 40,
-      width, { timeout: 120000 });
+    await page.waitForFunction(config => window.__prototypeReady === config.width &&
+      window.__prototypeFullDepth === config.full && window.__prototypeProbe.draws > 40,
+      { width, full: depth === 'full' }, { timeout: 120000 });
     await page.waitForTimeout(2000);
     await page.locator('canvas').focus();
     await page.keyboard.down('ArrowRight');
     const stats = await sample(page, 6000);
     await page.keyboard.up('ArrowRight');
     stats.width = width;
+    stats.depth = depth;
     stats.canvasSize = await page.locator('canvas').evaluate(c => [c.width, c.height]);
     if (!stats.moved || stats.drawActiveFrames < 10 || stats.draws < 40) {
       throw new Error(`probe did not establish movement/drawing: ${JSON.stringify(stats)}`);
     }
-    await page.screenshot({ path: path.join(output, `browser_${width}.png`) });
+    await page.screenshot({ path: path.join(output, `browser_${width}_${depth}.png`) });
     result.trials.push(stats);
     console.log('PROTOBROWSER trial ' + JSON.stringify(stats));
   } finally {
@@ -128,8 +131,11 @@ async function trial(browser, width, index) {
       '--disable-features=WebGLDraftExtensions',
     ] });
     result.chromium = browser.version();
-    const widths = [320, 640, 640, 320];
-    for (let i = 0; i < widths.length; i++) await trial(browser, widths[i], i + 1);
+    const trials = [
+      [320, 'clipped'], [640, 'clipped'], [640, 'clipped'], [320, 'clipped'],
+      [640, 'full'], [640, 'clipped'], [640, 'clipped'], [640, 'full'],
+    ];
+    for (let i = 0; i < trials.length; i++) await trial(browser, trials[i][0], trials[i][1], i + 1);
     if (result.errors.length) throw new Error('browser page/script errors were reported');
     result.ok = true;
   } catch (error) {

@@ -17,8 +17,10 @@ needle = "const engine = new Engine(GODOT_CONFIG);"
 if source.count(needle) != 1:
     raise SystemExit("unexpected Godot HTML shell; refusing to patch the launcher")
 replacement = """// Local CI prototype launcher; index.html remains unchanged.
-const protoWidth = new URLSearchParams(location.search).get('width') === '320' ? 320 : 640;
+const protoParams = new URLSearchParams(location.search);
+const protoWidth = protoParams.get('width') === '320' ? 320 : 640;
 GODOT_CONFIG.args = ['--', '--prototype-browser-probe', '--prototype-width=' + protoWidth];
+if (protoParams.get('depth') === 'full') GODOT_CONFIG.args.push('--prototype-full-depth');
 GODOT_CONFIG.serviceWorker = '';
 const engine = new Engine(GODOT_CONFIG);
 const startOriginalGame = engine.startGame.bind(engine);

@@ -77,10 +77,15 @@ var counted := 0
 var label: Label
 var _t := 0.0
 var _browser_probe := false
+var _browser_full_depth := false
 var _browser_probe_start_x := 0.0
 
 
 func _ready() -> void:
+	# These flags are supplied only by the temporary CI Web launcher.
+	var launch_args := OS.get_cmdline_user_args()
+	_browser_probe = OS.has_feature("web") and launch_args.has("--prototype-browser-probe")
+	_browser_full_depth = _browser_probe and launch_args.has("--prototype-full-depth")
 	seed(42)
 	y_sort_enabled = true
 	var bg := Sprite2D.new()
@@ -103,17 +108,15 @@ func _ready() -> void:
 	fg.z_index = 100
 	add_child(fg)
 	_build_hud()
-	# Only the temporary CI Web launcher passes these user arguments. Normal
-	# gameplay always starts at 640 logical pixels and exposes no test marker.
-	var launch_args := OS.get_cmdline_user_args()
-	_browser_probe = OS.has_feature("web") and launch_args.has("--prototype-browser-probe")
+	# Normal gameplay always starts at 640 logical pixels, with no test marker.
 	var width := PROTO_WIDTH
 	if _browser_probe and launch_args.has("--prototype-width=320"):
 		width = 320
 	set_prototype_resolution(width)
 	if _browser_probe:
 		_browser_probe_start_x = david.position.x
-		JavaScriptBridge.eval("window.__prototypeReady = %d; window.__prototypeMoved = false;" % width, true)
+		var full_flag := "true" if _browser_full_depth else "false"
+		JavaScriptBridge.eval("window.__prototypeReady = %d; window.__prototypeFullDepth = %s; window.__prototypeMoved = false;" % [width, full_flag], true)
 
 
 func _build_obstacles() -> void:
@@ -138,9 +141,12 @@ func _build_depth_layer(layer_name: String, path: String, depth_z: int, region: 
 	image.name = layer_name
 	image.texture = load(path) as Texture2D
 	image.centered = false
-	image.region_enabled = true
-	image.region_rect = region
-	image.offset = region.position
+	# The temporary browser benchmark can select the previous full-quad path
+	# for a same-runner A/B; ordinary prototype play always uses the region.
+	if not _browser_full_depth:
+		image.region_enabled = true
+		image.region_rect = region
+		image.offset = region.position
 	image.z_index = depth_z
 	add_child(image)
 
