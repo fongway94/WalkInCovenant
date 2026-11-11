@@ -1069,6 +1069,18 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 tools/proto/encode_frames.py build/proto
 
+      # The wider composition exceeded one job's annotation budget at useful
+      # WebP quality. A second job publishes the remaining chunks; no capture is
+      # regenerated and both still come from this real Godot framebuffer.
+      - name: Store remaining prototype frame chunks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proto-frame-overflow
+          path: build/proto/overflow/
+          retention-days: 1
+          if-no-files-found: warn
+
       - name: Publish prototype log lines
         if: always()
         run: |
@@ -1116,6 +1128,51 @@ jobs:
         if: always()
         run: |
           test -f build/proto/parts/part_7.txt && cat build/proto/parts/part_7.txt || echo "no part 7"
+
+  # Continuation of proto-frames' annotations, not a second render. Each job
+  # stays below GitHub's annotation cap and retains enough WebP detail to review.
+  proto-frame-overflow:
+    needs: proto-frames
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: proto-frame-overflow
+          path: build/proto/overflow
+
+      - name: Publish prototype overflow part 0
+        run: |
+          test -f build/proto/overflow/part_0.txt && cat build/proto/overflow/part_0.txt || echo "no overflow part 0"
+
+      - name: Publish prototype overflow part 1
+        run: |
+          test -f build/proto/overflow/part_1.txt && cat build/proto/overflow/part_1.txt || echo "no overflow part 1"
+
+      - name: Publish prototype overflow part 2
+        run: |
+          test -f build/proto/overflow/part_2.txt && cat build/proto/overflow/part_2.txt || echo "no overflow part 2"
+
+      - name: Publish prototype overflow part 3
+        run: |
+          test -f build/proto/overflow/part_3.txt && cat build/proto/overflow/part_3.txt || echo "no overflow part 3"
+
+      - name: Publish prototype overflow part 4
+        run: |
+          test -f build/proto/overflow/part_4.txt && cat build/proto/overflow/part_4.txt || echo "no overflow part 4"
+
+      - name: Publish prototype overflow part 5
+        run: |
+          test -f build/proto/overflow/part_5.txt && cat build/proto/overflow/part_5.txt || echo "no overflow part 5"
+
+      - name: Publish prototype overflow part 6
+        run: |
+          test -f build/proto/overflow/part_6.txt && cat build/proto/overflow/part_6.txt || echo "no overflow part 6"
+
+      - name: Publish prototype overflow part 7
+        run: |
+          test -f build/proto/overflow/part_7.txt && cat build/proto/overflow/part_7.txt || echo "no overflow part 7"
 
   deploy:
     needs: export-web

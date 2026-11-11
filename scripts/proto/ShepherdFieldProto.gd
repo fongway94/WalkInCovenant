@@ -5,13 +5,17 @@ extends Node2D
 ## sheep homes are measured on the painting itself.
 
 const BG_PATH := "res://art/proto/shepherd_field_empty.png"
-const FG_PATH := "res://art/proto/shepherd_field_fg.png"
-const DAVID_PATH := "res://art/proto/sprites/david.png"
-const SHEEP_PATH := "res://art/proto/sprites/sheep.png"
+const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
+const DAVID_PATH := "res://art/proto/sprites/david_reference.png"
+const SHEEP_PATHS := [
+	"res://art/proto/sprites/sheep_reference_a.png",
+	"res://art/proto/sprites/sheep_reference_b.png",
+]
 const WORLD := Rect2(0, 0, 1440, 666)
-# The reference's shepherd is about 46 pixels tall against a 681-pixel field.
-# At this wider framing the old 0.6-scale figure was much smaller than that.
-const DAVID_SCALE := 0.85
+# The actor art is hand-matted from the approved reference and enlarged with
+# nearest-neighbour sampling to suit the edited 1440px backdrop. In the
+# reference, sheep are about half the shepherd's height, not white stickers.
+const DAVID_SCALE := 1.0
 const SHEEP_SCALE := 0.66
 # 640 logical pixels across, showing roughly 1,164 world pixels. The window
 # is still free to resize; the painting, collisions and actors stay in world
@@ -66,11 +70,13 @@ func _ready() -> void:
 	add_child(bg)
 	_build_obstacles()
 	_build_david()
-	for home in SHEEP_HOMES:
-		_add_sheep(home)
+	for i in range(SHEEP_HOMES.size()):
+		_add_sheep(SHEEP_HOMES[i], i)
 	var fg := Sprite2D.new()
 	fg.texture = load(FG_PATH) as Texture2D
 	fg.centered = false
+	# The image is a cropped, alpha-matted foreground beginning at world y=250.
+	fg.position = Vector2(0, 250)
 	fg.z_index = 100
 	add_child(fg)
 	_build_hud()
@@ -98,7 +104,7 @@ func _build_david() -> void:
 	shape.shape = circle
 	shape.position = Vector2(0, -6)
 	david.add_child(shape)
-	david.add_child(_shadow(14.0))
+	david.add_child(_shadow(16.0))
 	david_sprite = Sprite2D.new()
 	var tex := load(DAVID_PATH) as Texture2D
 	david_sprite.texture = tex
@@ -122,12 +128,12 @@ func _build_david() -> void:
 	cam.make_current()
 
 
-func _add_sheep(home: Vector2) -> void:
+func _add_sheep(home: Vector2, variant: int) -> void:
 	var node := Node2D.new()
 	node.position = home
-	node.add_child(_shadow(13.0))
+	node.add_child(_shadow(16.0))
 	var spr := Sprite2D.new()
-	var tex := load(SHEEP_PATH) as Texture2D
+	var tex := load(SHEEP_PATHS[variant % SHEEP_PATHS.size()]) as Texture2D
 	spr.texture = tex
 	spr.scale = Vector2.ONE * SHEEP_SCALE
 	spr.offset = Vector2(0, -tex.get_height() * 0.5)
@@ -239,7 +245,7 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 	if FIELD.has_point(next_pos) and not _blocked(next_pos):
 		node.position = next_pos
 	if vel.x != 0.0:
-		spr.flip_h = vel.x > 0.0
+		spr.flip_h = vel.x < 0.0
 	var hop := float(s["hop"])
 	var bob := 0.0
 	if hop > 0.0:

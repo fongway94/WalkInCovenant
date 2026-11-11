@@ -1,4 +1,4 @@
-"""Reassemble PROTOFRAME annotations from a run's proto-frames job.
+"""Reassemble PROTOFRAME annotations from the prototype render/publisher jobs.
 
 usage: decode_proto.py <run-id> [outdir]
 """
@@ -20,18 +20,23 @@ run_id = sys.argv[1]
 outdir = sys.argv[2] if len(sys.argv) > 2 else "build/proto_frames"
 os.makedirs(outdir, exist_ok=True)
 jobs = json.loads(gh("api", "repos/%s/actions/runs/%s/jobs?per_page=100" % (REPO, run_id)))["jobs"]
-job = next(j for j in jobs if j["name"] == "proto-frames")
-check_url = job["check_run_url"]
-anns = json.loads(gh("api", check_url.replace("https://api.github.com/", "") + "/annotations?per_page=100"))
+publishers = [j for j in jobs if j["name"] in ("proto-frames", "proto-frame-overflow")]
+if not any(j["name"] == "proto-frames" for j in publishers):
+    raise SystemExit("proto-frames job not found")
 parts = collections.defaultdict(dict)
 counts = {}
-for a in anns:
-    msg = a.get("message", "")
-    if not msg.startswith("PROTOFRAME|"):
-        continue
-    _, name, idx, cnt, chunk = msg.split("|", 4)
-    parts[name][int(idx)] = chunk
-    counts[name] = int(cnt)
+for job in publishers:
+    if job["status"] != "completed":
+        raise SystemExit("%s is not complete yet" % job["name"])
+    check_url = job["check_run_url"]
+    anns = json.loads(gh("api", check_url.replace("https://api.github.com/", "") + "/annotations?per_page=100"))
+    for a in anns:
+        msg = a.get("message", "")
+        if not msg.startswith("PROTOFRAME|"):
+            continue
+        _, name, idx, cnt, chunk = msg.split("|", 4)
+        parts[name][int(idx)] = chunk
+        counts[name] = int(cnt)
 if not parts:
     raise SystemExit("no PROTOFRAME annotations found")
 incomplete = False
