@@ -1,6 +1,6 @@
 # Shepherd field: visual review
 
-The user played the isolated prototype and **approved its painterly field direction**. That approval is for the prototype, not for the later chapter-wide art or the current full build. Do not deploy the latter without separate approval.
+The user played the isolated prototype and **approved its painterly field direction**. That art approval is for the prototype, not for the later chapter-wide art. They later requested a one-time public deployment of the current build for phone playtesting; this does not constitute broader art approval or authorization for future deployments.
 
 The field is now integrated into the production shepherd act: David and the hired boy are independent actors, strays can be counted and returned, and field camera/collision and save state are restored on exit. The isolated prototype remains available for comparison:
 
@@ -24,4 +24,4 @@ The latest local Chromium journey started with a fresh save, used real keyboard 
 
 The native rendered suite passed all **18 frames** under software OpenGL. It stages the duel and aftermath, and the committed baselines predate the intentional art changes. No baseline was replaced: the coarse comparator can miss the wrong scene, so state assertions and human inspection still matter. See `docs/AGENT_CONTINUATION.md` for commands and exact scope.
 
-The field still uses approximate depth/collision contours and limited reference-derived sheep poses. The newly generated overworld, people, setpieces, UI, physical touch, sound and real-device performance need broader human review. Do not promote new baselines or deploy the broader build without the appropriate review and approval.
+The field still uses approximate depth/collision contours and limited reference-derived sheep poses. The newly generated overworld, people, setpieces, UI, physical touch, sound and real-device performance need broader human review. Do not promote new baselines or make further deployments without the appropriate review and approval.
