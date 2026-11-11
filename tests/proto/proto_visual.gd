@@ -256,6 +256,7 @@ func _exercise_sheep_gait() -> void:
 	var err := diagnostic.save_png(path)
 	print("PROTO saved staged sheep gait diagnostic err=%d" % err)
 	_check(err == OK, "save sheep gait diagnostic")
+	await _check_sheep_shadow_contacts(positions)
 	for i in range(2):
 		var s: Dictionary = field.sheep[i]
 		var node: Node2D = s["node"]
@@ -283,6 +284,42 @@ func _exercise_sheep_gait() -> void:
 		field._update_sheep(s, 0.05)
 		_check(spr.texture == frames[0] and float(s["hop"]) < 0.6,
 			"sheep variant %d uses idle pose while hopping" % i)
+
+
+func _check_sheep_shadow_contacts(positions: Array) -> void:
+	# Compare the real frame with each shadow toggled, in narrow bands near
+	# the left and right hooves. This catches the old tiny central oval but is
+	# only a sampled rendering check, not proof that the shadow looks natural.
+	for i in range(2):
+		var node: Node2D = field.sheep[i]["node"]
+		var spr: Sprite2D = field.sheep[i]["sprite"]
+		var shadow: Node2D = node.get_node("GroundShadow") as Node2D
+		for flipped in [false, true]:
+			spr.flip_h = flipped
+			shadow.visible = true
+			await RenderingServer.frame_post_draw
+			var on := get_viewport().get_texture().get_image()
+			shadow.visible = false
+			await RenderingServer.frame_post_draw
+			var off := get_viewport().get_texture().get_image()
+			shadow.visible = true
+			var center: Vector2 = field.camera.get_screen_center_position()
+			var pixels_per_world: float = float(on.get_width()) / 640.0 * field.camera.zoom.x
+			var screen: Vector2 = Vector2(on.get_width(), on.get_height()) * 0.5
+			screen += (positions[i] - center) * pixels_per_world
+			var contacts := [0, 0]
+			for y in range(roundi(screen.y) - 5, roundi(screen.y) + 4):
+				for side in range(2):
+					var x_start: int = roundi(screen.x) + (-31 if side == 0 else 19)
+					for x in range(x_start, x_start + 12):
+						var a := on.get_pixel(x, y)
+						var b := off.get_pixel(x, y)
+						if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.045:
+							contacts[side] += 1
+			print("PROTO sheep %d shadow flipped=%s left/right=%d/%d" % [i, str(flipped), contacts[0], contacts[1]])
+			_check(contacts[0] >= 3 and contacts[1] >= 3,
+				"sheep %d shadow reaches both sides, flipped=%s" % [i, str(flipped)])
+		spr.flip_h = false
 
 
 func _layer_pixel_difference(layer: Node2D) -> Dictionary:

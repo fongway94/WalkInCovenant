@@ -218,7 +218,7 @@ func _add_sheep(home: Vector2, variant: int) -> void:
 	var node := Node2D.new()
 	node.position = home
 	_update_actor_depth(node)
-	node.add_child(_shadow(16.0))
+	node.add_child(_shadow(16.0, true))
 	var spr := Sprite2D.new()
 	var frames: Array[Texture2D] = []
 	for path in SHEEP_PATHS[variant % SHEEP_PATHS.size()]:
@@ -233,12 +233,15 @@ func _add_sheep(home: Vector2, variant: int) -> void:
 		"idle": 1.0, "hop": 0.0, "counted": false, "phase": randf() * TAU})
 
 
-func _shadow(radius: float) -> Node2D:
+func _shadow(radius: float, wide_hooves: bool = false) -> Node2D:
 	var n := Node2D.new()
 	n.name = "GroundShadow"
 	# Keep this at the same z as the actor and add it BEFORE the sprite: a
 	# negative z places it behind the opaque backdrop, not just behind feet.
-	n.draw.connect(_draw_shadow.bind(n, radius))
+	if wide_hooves:
+		n.draw.connect(_draw_sheep_shadow.bind(n, radius))
+	else:
+		n.draw.connect(_draw_shadow.bind(n, radius))
 	n.queue_redraw()
 	return n
 
@@ -253,6 +256,18 @@ func _draw_shadow(n: Node2D, radius: float) -> void:
 	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.10, 0.17))
 	n.draw_set_transform(Vector2(0, 0), 0.0, Vector2(0.85, 0.24))
 	n.draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.06, 0.48))
+
+
+func _draw_sheep_shadow(n: Node2D, radius: float) -> void:
+	# Sheep feet span much wider than David's. A small, dark central oval made
+	# the outer hooves appear detached; broaden and soften the contact instead.
+	# Keep the cast toward the lower right even when a sheep faces left.
+	n.draw_set_transform(Vector2(radius * 0.65, radius * 0.12), 0.14, Vector2(2.25, 0.26))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.09, 0.11, 0.10))
+	n.draw_set_transform(Vector2(radius * 0.25, 0.0), 0.10, Vector2(1.95, 0.20))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.10, 0.10))
+	n.draw_set_transform(Vector2(0.0, -radius * 0.18), 0.0, Vector2(2.0, 0.17))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.06, 0.24))
 
 
 func _build_hud() -> void:
@@ -359,7 +374,9 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 		bob = -sin(k * PI) * 10.0
 	elif moved:
 		var stride := sin(_t * 9.0 + float(s["phase"]))
-		bob = -absf(stride) * 1.2
+		# The feet already provide the gait. A smaller body lift keeps the
+		# planted legs near their contact shadow, except during a real hop.
+		bob = -absf(stride) * 0.45
 		if stride > 0.25:
 			frame_index = 1
 		elif stride < -0.25:
