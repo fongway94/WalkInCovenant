@@ -21,9 +21,11 @@ Use the arrow keys to move. Press Space near a sheep to make it hop and count it
 
 ## What has been checked
 
-The [native CI render](https://github.com/fongway94/WalkInCovenant/actions/runs/42955805136) exercised movement, interaction, camera tracking, rock/trunk/fence collisions, sampled tree/fence occlusion and background alignment, including a 960×540 window. It also checked both sheep stride poses, idle, blocking, hopping and sampled shadow contact in both facing directions. Pixel checks cover only the tested views and positions.
+The [native CI render](https://github.com/fongway94/WalkInCovenant/actions/runs/42958665393) exercised movement, interaction, camera tracking, rock/trunk/fence collisions, sampled tree/fence occlusion and background alignment, including a 960×540 window. It also checked both sheep stride poses, idle, blocking, hopping and sampled shadow contact in both facing directions. Pixel checks cover only the tested views and positions.
 
-The [same-runner browser experiment](https://github.com/fongway94/WalkInCovenant/actions/runs/42955805136) loaded and moved the prototype in headless Chromium/SwiftShader. Its clipped depth layers rendered faster than full quads in short software-rendered trials; this is **not** a phone, hardware-GPU or production performance measurement. The overall run failed in a separate production-browser test because its post-victory seed was not loaded; a test-setup correction is awaiting another CI run.
+The [same-runner browser experiment](https://github.com/fongway94/WalkInCovenant/actions/runs/42958665393) loaded and moved the prototype in headless Chromium/SwiftShader. Its clipped depth layers rendered faster than full quads in short software-rendered trials; this is **not** a phone, hardware-GPU or production performance measurement. The overall run failed two separate production-browser seed-verification checks: the duel and post-victory ending did complete, but the new HUD-click write-back marker was not observed. A revised test-only marker is awaiting CI; no production gameplay code was changed.
+
+A narrow viewer strip was also visible at the backdrop's right edge during the browser walk. The isolated backdrop now has an approximate 40-pixel paint-over there; its appearance in a new rendered pan still needs CI review.
 
 ## Still needed
 

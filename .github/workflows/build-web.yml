@@ -1154,9 +1154,11 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 tools/proto/encode_frames.py build/proto
 
-      - name: Verify reference sheep texture generation
+      - name: Verify reference sheep textures and cleaned backdrop edge
         if: always()
-        run: python3 tests/proto/check_sheep_art.py
+        run: |
+          python3 tests/proto/check_sheep_art.py
+          python3 tools/proto/clean_backdrop_edge.py --check
 
       # The wider composition exceeded one job's annotation budget at useful
       # WebP quality. A second job publishes the remaining chunks; no capture is

@@ -23,7 +23,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { makeSeededBoot, isPostVictorySave } = require('./seeded_boot.cjs');
+const { makeSeededBoot, isFightSave, isPostVictorySave } = require('./seeded_boot.cjs');
 
 const OUT = process.env.WIC_OUT || 'build/browser';
 const SHOTS = path.join(OUT, 'shots');
@@ -245,8 +245,8 @@ const SAVE_KEY = '/userfs/godot/app_userdata/WalkInCovenant/save.json';
 
 /* Rewriting an existing IDBFS record is more reliable than creating the DB
  * ourselves: Godot/Emscripten decides the version, store shape, mode and
- * timestamp, and we only replace the file bytes. The page is then reloaded so
- * the engine's own startup sync reads them. */
+ * timestamp, and we only replace the file bytes. The game page is closed while
+ * this happens; a fresh page then reads them through the engine's startup sync. */
 async function rewriteSave(page, save) {
   return page.evaluate(async (payload) => {
     const key = payload.key;
@@ -350,8 +350,10 @@ function fightSave() {
       goliath_down: false, elah_ended: false
     },
     words: ['fear', 'name', 'look', 'shepherd'], quests: {},
-    region: 'elah', campaign: 'elah', pos: [16, 10],
-    progress: { act: 'ready', stones: 5, provisions: 3, brothers: true, pos: [16, 10] },
+    // Start south of challenge row 11 so the game can autosave its loaded
+    // state before a real northward walk opens the duel's dialogue.
+    region: 'elah', campaign: 'elah', pos: [16, 14],
+    progress: { act: 'ready', stones: 5, provisions: 3, brothers: true, pos: [16, 14] },
     day: 1, time_of_day: 'morning',
     settings: { clean_mode: true, sound: true, music: true, reduce_motion: false }
   };
@@ -565,9 +567,7 @@ async function waitBoot(page, label) {
   const seedUrl = URL.replace(/index\.html.*$/, 'index.manifest.json');
   const bootSeededPage = makeSeededBoot({ url: URL, seedUrl, wire, rewriteSave, wicState, readSave, note });
   const fightBoot = await bootSeededPage(seeded, fightSave(), {
-    tag: 'seeded_fight', label: 'seeded fight',
-    isLoaded: s => !!s && !!s.flags && s.flags.beth_anointed === true
-      && !!s.progress && s.progress.act !== 'witness',
+    tag: 'seeded_fight', label: 'seeded fight', isLoaded: isFightSave,
   });
   let sp = fightBoot.page;
   const sfs = fightBoot.state;
@@ -576,16 +576,16 @@ async function waitBoot(page, label) {
   check('seeded_fight: canvas exists', !!sfs.canvas, JSON.stringify(sfs.canvas));
   check('seeded_fight: WebGL is drawing', sfs.wic && sfs.wic.draws > 40, 'draw calls=' + (sfs.wic && sfs.wic.draws));
   check('game loaded the seeded save (engine wrote it back)',
-    fightBoot.accepted && !!readySave && !!readySave.flags && readySave.flags.beth_anointed === true
-      && readySave.progress && readySave.progress.act !== 'witness',
-    'progress=' + (JSON.stringify(readySave && readySave.progress) || 'null').slice(0, 220)
+    fightBoot.accepted && isFightSave(readySave),
+    'version=' + JSON.stringify(readySave && readySave.version)
+      + ' progress=' + (JSON.stringify(readySave && readySave.progress) || 'null').slice(0, 220)
       + ' flags=' + (JSON.stringify(readySave && readySave.flags) || 'null').slice(0, 220));
   await shot(sp, 'goliath_01_ready');
 
-  // North across challenge row 11. The region is paused for the battle intro,
-  // so a short hold is enough to fire the trigger.
+  // Walk north from row 14 across challenge row 11. The region pauses for the
+  // battle intro, so holding longer cannot walk past the encounter.
   await sp.keyboard.down('KeyW');
-  await sp.waitForTimeout(1100);
+  await sp.waitForTimeout(1800);
   await sp.keyboard.up('KeyW');
   await sp.waitForTimeout(1400);
   await shot(sp, 'goliath_02_duel');
@@ -642,7 +642,8 @@ async function waitBoot(page, label) {
     const postLoaded = postBoot.loaded;
     check('post-victory save was loaded by the engine',
       postBoot.accepted && isPostVictorySave(postLoaded),
-      'pos=' + JSON.stringify(postLoaded && postLoaded.progress && postLoaded.progress.pos)
+      'version=' + JSON.stringify(postLoaded && postLoaded.version)
+        + ' pos=' + JSON.stringify(postLoaded && postLoaded.progress && postLoaded.progress.pos)
         + ' flags=' + (JSON.stringify(postLoaded && postLoaded.flags) || 'null').slice(0, 180));
     note('post-victory player pos ' + JSON.stringify(postLoaded && postLoaded.progress && postLoaded.progress.pos));
     await shot(pp, 'goliath_05_ending');
