@@ -150,6 +150,47 @@ gh api repos/fongway94/WalkInCovenant/pages/deployments --jq '.[0].status'
 Until that reads `workflow`, the `deploy` job stays green, publishes nothing, and
 prints the instruction as an annotation.
 
+**2026-11-06 — the trap fired anyway.** A Pages build was requested from the
+working branch root (`pages/builds/1345363804`, commit `0da2053`), and
+`https://fongway94.github.io/WalkInCovenant/` began serving the Jekyll-rendered
+`README.md` instead of the game. `build_type` was still `workflow` throughout —
+Source was never the problem; the fix was to republish the correct `web`
+artifact with `actions/deploy-pages` from the working branch. Two guards now
+exist: the `deploy` job refuses to publish an artifact whose `index.html` has no
+registered service worker, and it prints the exact ref/SHA it is publishing.
+
+Verified on 2026-11-06: run `42171648194` (`dceac57`) had `deploy` ✅ (not
+skipped), deployment `7593585234` from `arena/46955931-walkincovenant` reached
+`state: success`, and the URL then served the Godot loader (「请横屏游戏」 /
+canvas fallback) plus `index.manifest.json`, not repository text. A browser that
+cached the old page may need a hard refresh or cleared site data; the service
+worker is stamped with the commit SHA so it busts its own cache on update.
+
+### Playing a working branch before merging (preview deploy)
+
+There is **one** Pages site per repository, so a branch preview is not a second
+URL: it replaces the live site with the branch build until the next `main` push
+(or the merge) republishes `main`. `main` publishes on push; a working branch
+publishes **only** when a human runs the workflow manually with
+`publish_preview` checked (`gh workflow run build-web.yml --ref <branch> -f
+publish_preview=true`). Every ordinary branch push builds and browser-validates
+without republishing Pages — this is deliberate: during the final-validation
+milestone no further deploy is authorised. GitHub also gates deployments by
+environment: Settings → Environments →
+`github-pages` → Deployment branches must list that branch. The current policy
+lists `main`, `arena/46955931-walkincovenant` and
+`arena/b60cd21d-walkincovenant`; a manual preview still needs the branch in that
+policy, so adding a branch to the workflow without adding
+it to that policy makes its deploy job fail. Verify after any preview deploy:
+
+```bash
+gh api repos/fongway94/WalkInCovenant/pages --jq '.build_type'   # → workflow
+gh api "repos/fongway94/WalkInCovenant/deployments?environment=github-pages&per_page=1" \
+  --jq '.[0] | {ref, sha, created_at}'
+```
+
+Then open the URL and confirm it is the Godot loader, not repository text.
+
 **Playing it without Pages at all:** the CI run uploads a `web` artifact containing
 the complete build. Download it, unzip, and serve it — never double-click `index.html` (§1):
 
@@ -293,3 +334,54 @@ answer from the glyphs *shaped so far* — one run knew `谷` (it appears in the
 briefing) yet denied `石` (not yet drawn anywhere) — so the smoke test asserts
 the char table only when `get_supported_chars()` returns the whole table, and
 prints a diagnostic either way.
+
+## 2026-11-10 — working-branch live preview re-enabled
+
+The user explicitly asked to *"serve this branch to live for me to feel"*.
+Because the sandbox's GitHub token cannot create a `workflow_dispatch` event,
+the named-branch push-deploy condition used for the earlier `dceac57` /
+`5d1c5ff` preview is restored. `arena/46955931-walkincovenant` pushes now
+publish the `web` artifact to **https://fongway94.github.io/WalkInCovenant/**.
+`build_type` remains `workflow`, the `github-pages` environment policy already
+allows the branch, and the artifact guard still refuses anything without the
+PWA-injected `index.html`. This is a temporary branch preview, not a release:
+the next `main` push republishes `main`. No merge to `main` is implied.
+
+**Verified result.** `7a9908e` / run `42806534702` exposed a Node20 deploy-pages
+timeout: deployment `7680718045` failed after ten minutes even though all four
+build/test jobs were green. `ab27e54` moved to the native-Node24
+`configure-pages@v6.0.0` (with `enablement: false`, because the site already
+exists and `GITHUB_TOKEN` lacks `administration:write`),
+`upload-pages-artifact@v5.0.0` and `deploy-pages@v5.0.1`. Run `42809032972` is
+all green including `deploy`; deployment `7681093165` succeeded at
+2026-11-10 11:41:36 UTC. The live URL serves the Godot loader and
+`index.manifest.json`. Keep `build_type: workflow` and the artifact guard; the
+next `main` push republishes `main`.
+
+**Final B v3 deployment.** The frame-transport and browser-seed fixes are
+covered by all-green run `42818980822` (`d6f067c`): lint, visual,
+publish-b-frames, export-web, browser and deploy all success. Deployment
+`7682580911` succeeded at 2026-11-10 12:52:25 UTC and the live URL serves the
+Godot loader and PWA manifest. Pages remains `build_type: workflow` on the
+working branch; the next `main` push republishes `main`. This is a preview, not
+a release or a merge.
+
+**Why the live preview first looked classic.** The B v3 assets were shipped but
+the Web runtime never called `apply_art_theme()`. `Main.gd` now applies
+`WEB_PREVIEW_THEME` on Web region-ready only. The service worker cache version
+is stamped with the commit sha; if a browser still shows the old palette,
+hard-refresh once or clear site data. Classic files, desktop builds and visual
+CI baselines are unchanged.
+
+**Final Web B-theme deployment.** `c5e10c0` / run `42837952729` hit the default
+10-minute `deploy-pages` timeout; `02e5d34` sets `timeout: 1200000`,
+`error_count: 20`, `reporting_interval: 10000`. Final run `42843225647` is all
+green including deploy (`7686202899` = success), and the live service worker
+cache stamp is `02e5d34dc6ce926a1f51a9ea6b33f60077f29612`. Hard-refresh once if
+an older PWA cache is still active.
+
+**Final B v4 deployment.** `97642f6` / run `42850057966` is all green including
+deploy; deployment `7687190157` = success and the live service worker stamp is
+`97642f615821fe108c35baa52b0b1814136daa84`. The third 48-colour B frame is
+published by its own `publish-b-frames` step. Hard-refresh once if an older PWA
+cache is still active. This is a working-branch preview, not a release or merge.

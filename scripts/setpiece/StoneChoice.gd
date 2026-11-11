@@ -27,6 +27,8 @@ var pool := 9
 ## {pos: Vector2 (unit space), taken: bool, shade: int}
 var stones: Array = []
 var confirmed := false
+## Shared Web-preview decision; see scripts/systems/ArtDirection.gd.
+var art_theme := "classic"
 
 var _layer: Control = null
 var _msg := ""
@@ -37,6 +39,13 @@ var _cursor := -1
 func _ready() -> void:
 	layer = 24
 	_build()
+	art_theme = ArtDirection.current()
+
+
+func apply_art_theme(theme: String) -> void:
+	art_theme = theme
+	if _layer != null and is_instance_valid(_layer):
+		_layer.queue_redraw()
 
 
 func _build() -> void:
@@ -240,22 +249,31 @@ func _draw_all() -> void:
 		return
 	var font := ThemeDB.fallback_font
 	var e := ScreenFit.edge(vs)
+	var b := art_theme == "cinematic"
 
 	# the brook: sky-ish dusk, then a band of shallow water over pale stones
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.07, 0.09, 0.11, 0.94))
+	var sky_col := Color(0.19, 0.15, 0.11, 0.94) if b \
+		else Color(0.07, 0.09, 0.11, 0.94)
+	_layer.draw_rect(Rect2(Vector2.ZERO, vs), sky_col)
 	var bank := vs.y * 0.33
 	var water := vs.y * 0.62
-	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, water - bank)),
-		Color(0.13, 0.20, 0.24, 0.96))
-	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, 2)), Color(0.34, 0.40, 0.36, 0.8))
-	_layer.draw_rect(Rect2(Vector2(0, water), Vector2(vs.x, vs.y - water)),
-		Color(0.20, 0.18, 0.15, 0.96))
+	var water_col := Color(0.22, 0.29, 0.25, 0.96) if b \
+		else Color(0.13, 0.20, 0.24, 0.96)
+	var bank_line := Color(0.86, 0.68, 0.36, 0.85) if b \
+		else Color(0.34, 0.40, 0.36, 0.8)
+	var earth_col := Color(0.36, 0.27, 0.16, 0.96) if b \
+		else Color(0.20, 0.18, 0.15, 0.96)
+	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, water - bank)), water_col)
+	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, 2)), bank_line)
+	_layer.draw_rect(Rect2(Vector2(0, water), Vector2(vs.x, vs.y - water)), earth_col)
 	# ripples, so the water is water and not a rectangle
+	var ripple_col := Color(0.94, 0.76, 0.40, 0.30) if b \
+		else Color(0.30, 0.42, 0.44, 0.35)
 	for i in range(6):
 		var y := bank + 6.0 + float(i) * ((water - bank) * 0.16)
 		var w := vs.x * (0.30 + 0.06 * float(i % 3))
 		_layer.draw_rect(Rect2(Vector2(vs.x * 0.10 + float(i % 2) * vs.x * 0.22, y),
-			Vector2(w, 1.0)), Color(0.30, 0.42, 0.44, 0.35))
+			Vector2(w, 1.0)), ripple_col)
 
 	# the nine stones
 	var rad := clampf(vs.x * 0.020, 5.0, 9.0)
@@ -265,8 +283,10 @@ func _draw_all() -> void:
 			continue
 		var p := _stone_pos(i)
 		var shade: int = int(s["shade"])
-		var palette: Array[Color] = [Color(0.62, 0.60, 0.55), Color(0.55, 0.53, 0.50),
-			Color(0.68, 0.66, 0.60)]
+		var palette: Array[Color] = [
+			Color(0.78, 0.68, 0.46) if b else Color(0.62, 0.60, 0.55),
+			Color(0.62, 0.54, 0.38) if b else Color(0.55, 0.53, 0.50),
+			Color(0.90, 0.80, 0.56) if b else Color(0.68, 0.66, 0.60)]
 		var body: Color = palette[clampi(shade, 0, 2)]
 		_layer.draw_circle(p + Vector2(1.0, 1.5), rad, Color(0.10, 0.14, 0.15, 0.45))
 		_layer.draw_circle(p, rad, body)
@@ -279,8 +299,12 @@ func _draw_all() -> void:
 	var n := chosen_count()
 	var bag_w := clampf(vs.x * 0.34, 90.0, 150.0)
 	var bag := Rect2(Vector2(vs.x * 0.5 - bag_w * 0.5, vs.y - 40.0), Vector2(bag_w, 22.0))
-	_layer.draw_rect(bag, Color(0.24, 0.19, 0.14, 0.92))
-	_layer.draw_rect(Rect2(bag.position, Vector2(bag.size.x, 1.5)), Color(0.62, 0.50, 0.30, 0.9))
+	var bag_col := Color(0.42, 0.29, 0.17, 0.94) if b \
+		else Color(0.24, 0.19, 0.14, 0.92)
+	var bag_rim := Color(0.92, 0.72, 0.38, 0.94) if b \
+		else Color(0.62, 0.50, 0.30, 0.9)
+	_layer.draw_rect(bag, bag_col)
+	_layer.draw_rect(Rect2(bag.position, Vector2(bag.size.x, 1.5)), bag_rim)
 	for i in range(need):
 		var c := Vector2(bag.position.x + 10.0 + float(i) * (bag.size.x - 20.0) / float(need),
 			bag.position.y + bag.size.y * 0.5)
@@ -291,8 +315,10 @@ func _draw_all() -> void:
 			_layer.draw_arc(c, 4.0, 0.0, TAU, 14, Color(1, 1, 1, 0.22), 1.0)
 
 	var head := I18n.t({"en": "Five smooth stones", "zh": "五块光滑的石子"})
+	var title_col := Color(1.0, 0.92, 0.68, 1.0) if b \
+		else Color(0.96, 0.90, 0.76, 1.0)
 	_layer.draw_string(font, Vector2(e + 2, e + 10), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 9,
-		Color(0.96, 0.90, 0.76, 1.0))
+		title_col)
 	_layer.draw_string(font, Vector2(e + 2, e + 24),
 		I18n.t({"en": "%d / %d" % [n, need], "zh": "%d／%d" % [n, need]}),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.97, 0.87, 0.65, 1.0))

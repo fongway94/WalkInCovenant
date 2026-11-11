@@ -4,8 +4,10 @@
 > It is the record of where every third-party asset came from and under what
 > terms. Update it the day you add a pack, not the day you ship.
 >
-> Licences below were checked on **2026-10-30**. Authors change terms — re-verify
-> before any public release, and record the new date here.
+> The "Planned" table below was checked on **2026-10-30**. The shortlist review
+> in the next section was checked on **2026-11-06** against the repositories and
+> licence files themselves, not against their descriptions. Authors change terms
+> — re-verify before any public release, and record the new date here.
 
 ---
 
@@ -30,6 +32,44 @@
 
 **Never use a CC BY-NC or share-alike (CC BY-SA / GPL) asset.** NC blocks any monetised release;
 share-alike terms can extend to your whole project and conflict with shipping closed-source.
+
+---
+
+## Shortlist review — 2026-11-06 (actual files inspected)
+
+The premium-art pass asked for six candidate sources. Each was checked with the
+GitHub API for existence, licence and contents; where the files were reachable,
+**real PNGs were downloaded and looked at**, not just the repository README.
+Findings are recorded here so a later pass does not repeat the work.
+
+| Source | Verified licence | What is actually in it | Decision |
+|---|---|---|---|
+| `github.com/pixel-boy/NinjaAdventure` | GitHub reports **no SPDX licence and no LICENSE/README file**. The upstream *Ninja Adventure Asset Pack* on itch.io declares **CC0 1.0**; that pack declaration — not the example repo — is the basis on which `art/pack/` is vendored. | A Godot example project; `content/map/*.png` 16 px top-down sheets. Already used unmodified for 12 terrain keys and 6 props (`tools/art_manifest.json`). | **Keep as the existing base.** Do not expand: the pack is ninja/fantasy-flavoured and its grooved dirt reads as corduroy at 320 px. |
+| `github.com/Tiddybub/2d-assets` | Root `LICENSE`: "All assets in this repository are CC0 1.0 Universal … without attribution"; `catalog.json` records 1101 packs with per-pack `credit` and `source_page`. API SPDX is `NOASSERTION` because the licence is a custom text, **not** because rights are unclear. | Downloaded and viewed: `ui/fantasy-ui-borders/Sample.png`, `Preview.png`, `fantasy/roguelike-characters/Preview.png`, `fantasy/oga-16x16-tiles/16x16-tiles.png`, `fantasy/oga-16x16-tileset-water-grass-and-sand/…`. | **Reject for this chapter.** Silver/cyan high-fantasy filigree, 16 px flat characters with no outline or shading, and bright cyan/yellow terrain all fight the warm, outlined house palette. Useful *reference* for UI framing only. |
+| `github.com/series-ai/jam-ready-assets` | `NOASSERTION`. README: 380 packs, 347 CC0, 4 MIT, **29 under the RUN License — RUN projects only until 2028-01-01**. `16x16-outdoors-tileset/2D/top-down-rpg/License.txt` is CC0 (source `alexs-assets.itch.io`, verified 2026-08-25). | 380 mixed-licence packs, binary art stored in **Git LFS**. `OutdoorsTileset.png` fetched through the API is a 129-byte LFS pointer, not an image; `media.githubusercontent.com` is not reachable from this build sandbox. | **Reject.** Mixed terms include a platform-restricted licence, and the actual pixels cannot be retrieved or inspected here. Do not vendor an uninspected pack. |
+| `github.com/TMHSDigital/Free-Game-Dev-Assets` | Repo itself **CC0-1.0**. | A curated *catalog of links* (`catalog/`, `docs/`), explicitly "Links only, nothing rehosted". No art to download. | **Reject as an asset source**; keep as a licence-research reference. Each linked pack would need its own rights check. |
+| `kenney.nl/assets/roguelike-rpg-pack` | **CC0**, 16×16 tiles, 1700 files, released 2015 (page read 2026-11-06). | Preview inspected: cool blue/white dungeon floors, European castle furniture, flat un-outlined tiles. | **Reject.** Wrong period, wrong temperature, wrong lighting. |
+| `kenney.nl/assets/roguelike-characters` | **CC0**, 450 files, 2.0 (page read 2026-11-06). | Preview inspected: 16 px near-monochrome character tokens, no expression or light. | **Reject.** Lower fidelity than the project's own generated cast. |
+
+**Decision: original, project-specific art (option D), not another pack.** The
+house palette (`tools/artgen/palette.py`), 1 px outline and top-left light are
+already consistent across terrain, props, characters and UI; mixing a cool
+high-fantasy pack into it would lower cohesion, not raise it. `docs/ART-COMPARISON.png`
+shows the inspected alternatives next to the project's direction. See
+`docs/ART_DIRECTION.md` for the constraints that a future pack would have to meet.
+
+### Assets created for this project (no third-party rights)
+
+| Asset | Author | Source | Licence | Modification / redistribution |
+|---|---|---|---|---|
+| `art/facesets/*.png` — 18 expressive 32×32 dialogue portraits | this project | `tools/artgen/faces.py`, palette-locked | Project's own | unrestricted |
+| `art/duel/{goliath,david}.png` — 64×64 and 32×32 setpiece figures | this project | `tools/artgen/duel.py` | Project's own | unrestricted |
+| `art/characters/*.png`, `art/tiles/*.png`, `art/props/*.png` (generated keys) | this project | `tools/artgen/` and `tools/char_variants.py` | Project's own | unrestricted |
+
+`tools/check_faces.py` verifies every portrait and duel figure is present,
+palette-locked, distinct from every other actor, byte-identical to a fresh
+generation, and actually loaded by the shipped UI/setpiece. It is a real gate in
+`.github/workflows/build-web.yml`, not a note in a document.
 
 ---
 

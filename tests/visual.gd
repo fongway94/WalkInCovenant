@@ -135,6 +135,21 @@ func _run() -> void:
 			corin.talk()
 			await _frames(3)
 		_check(reg.dialogue.is_open(), "the world's interact handler opens a conversation")
+		# Corin's first two lines are unvoiced scene-setting. Advance to a NAMED
+		# speaker so this frame actually exercises the nameplate and the drawn
+		# 32px portrait — the old capture photographed an empty portrait frame.
+		var named_steps := 0
+		while reg.dialogue.is_open() and reg.dialogue.name_lbl.text == "" \
+				and named_steps < 16:
+			reg.dialogue._advance()      # finish the page that is being typed
+			await _frames(2)
+			if reg.dialogue.is_open() and reg.dialogue.name_lbl.text == "":
+				reg.dialogue._advance()  # step to the next line
+				await _frames(2)
+			named_steps += 1
+		_check(reg.dialogue.is_open() and reg.dialogue.name_lbl.text != "",
+			"a named speaker reaches the box")
+		await _frames(8)
 		await _shot("03_dialogue")
 		# A 2x nearest upscale of the SAME framebuffer, so the Chinese glyphs,
 		# the nameplate and the portrait can actually be inspected by eye at
@@ -213,6 +228,63 @@ func _run() -> void:
 	_check(bool(main._flock_active), "the fold has its three strays on the ground")
 	await _shot("06_flock")
 
+	# 6b. THE SAME FIELD, IN CONVERSATION. The art-direction comparison needs
+	# one honest "before" frame containing every element at once: David, the
+	# flock, the vegetation, the terrain, an NPC and the shipped dialogue box
+	# with its nameplate and 32px portrait. This is the game's own UI over the
+	# game's own world — nothing is drawn for the review.
+	var flock_reg = main.region
+	if flock_reg != null and flock_reg.npcs.size() > 0:
+		var flock_npc = _find_npc(flock_reg, "hired_boy")
+		if flock_npc == null:
+			flock_npc = _find_npc(flock_reg, "corin")
+		if flock_npc != null:
+			flock_npc.talk()
+			var named_flock := 0
+			while flock_reg.dialogue.is_open() \
+					and flock_reg.dialogue.name_lbl.text == "" \
+					and named_flock < 20:
+				flock_reg.dialogue._advance()
+				await _frames(2)
+				if flock_reg.dialogue.is_open() \
+						and flock_reg.dialogue.name_lbl.text == "":
+					flock_reg.dialogue._advance()
+					await _frames(2)
+				named_flock += 1
+			_check(flock_reg.dialogue.is_open() \
+					and flock_reg.dialogue.name_lbl.text != "",
+					"the shepherd field carries a named speaker in its box")
+			await _frames(6)
+			await _shot("15_shepherd_dialogue")
+
+			# 6c. THE SAME FRAME IN THE USER-SELECTED ART DIRECTION. Nothing
+			# moves: the camera, the flock, the NPC, the open dialogue page and
+			# the Chinese text are identical. Direction B ("cinematic") was
+			# chosen by the user on 2026-11-10 over the assistant's C (see
+			# docs/ART-RESET.md §12.7). The opt-in theme swaps the golden-hour
+			# terrain atlas, the dusk-slate UI skin, hand-authored B-palette
+			# prop/character silhouettes, long cast shadows, an animated rim
+			# light on every moving figure and layered environmental light.
+			# Frame counts, walk cycles, sway, water animation and every timer
+			# are UNCHANGED. Everything is rendered by the shipped engine, not
+			# a mock-up. The classic theme is
+			# restored immediately afterwards, so frames 07-14 are unchanged.
+			if main.has_method("apply_art_theme"):
+				main.call("apply_art_theme", "cinematic")
+				await _frames(8)
+				await _shot("16_shepherd_cinematic")
+				# A second, UI-free B frame lets the human review the WHOLE
+				# golden-hour world against the attached concept, not only the
+				# 60px band above the shipped dialogue panel. It is still a real
+				# engine capture at the same camera and game state.
+				await _drain_all()
+				await _frames(4)
+				await _shot("17_shepherd_cinematic_quiet")
+				main.call("apply_art_theme", "classic")
+				await _frames(4)
+			await _drain_all()
+			await _frames(4)
+
 	# 7. A sheep that has NOTICED the player. Stand on the far side of the fold
 	# so the animal turns toward home: the alert pose, the pale wool marker and
 	# the objective counter are all in this frame. This is a real game state,
@@ -239,6 +311,56 @@ func _run() -> void:
 		await _frames(30)
 	await _shot("08_quest_update")
 	_check(main.sheep_home >= 1, "a stray came home and the HUD moved (%d/3)" % main.sheep_home)
+
+	# 13. THE DUEL. The chapter's climax had never been rendered or reviewed:
+	# the previous twelve frames stopped at the shepherd fields. This uses the
+	# shipped GoliathFight — the harness stages it, the setpiece draws itself.
+	# A near-frozen engine clock holds the timing marker still long enough to
+	# photograph the gold band without the fight racing through its phases.
+	Engine.time_scale = 0.08
+	main._spawn_fight()
+	var duel = main.fight
+	await _frames(8)
+	if duel != null and is_instance_valid(duel):
+		duel.phase = 2                    # GoliathFight.Phase.AIM
+		duel._marker = 0.0
+		duel._band = 0.26
+		await _frames(5)
+		_check(duel._gol.texture != null and duel._gol.texture.get_size().x > 16.0,
+			"the giant is the drawn 64px duel figure, not an 8x map sprite")
+		await _shot("13_duel")
+		# The user's live screenshot showed a golden-hour overworld but a
+		# still-classic duel. Photograph the SAME setpiece in Direction B:
+		# B-palette figures, warm valley, one-light casts and B UI skin. The
+		# classic theme is restored before the fight is freed, so frames 14+
+		# keep their reviewed baselines. This is a real engine capture, not a
+		# mock-up; gameplay, timing and the fall animation are unchanged.
+		if duel.has_method("apply_art_theme"):
+			duel.call("apply_art_theme", "cinematic")
+			await _frames(5)
+			await _shot("18_duel_cinematic")
+			duel.call("apply_art_theme", "classic")
+			await _frames(2)
+	Engine.time_scale = 6.0
+	if main.fight != null:
+		main.fight.queue_free()
+		main.fight = null
+	await _frames(4)
+
+	# 14. THE AFTERMATH. He is down, so the ridge must be empty, the HUD must
+	# have changed its role, and the chapter's own aftermath objective must be
+	# on screen. Before this frame there was no picture at all of the valley
+	# after the last stone — the single biggest blind spot in the old suite.
+	GameState.set_flag("goliath_down", true)
+	main.act = main.ACT_NAMES.find("aftermath")
+	main.hud.set_role(I18n.t({"en": "pilgrim", "zh": "朝圣者"}),
+		int(GameState.data.get("level", 1)))
+	main.hud.set_objective(I18n.t(main.region.model.objectives.get("aftermath", {})))
+	main.region.set_giant_down()
+	await _frames(6)
+	_check(main.region.goliath_sprite == null or not main.region.goliath_sprite.visible,
+		"the ridge is empty once the champion has fallen")
+	await _shot("14_aftermath")
 
 	# 5. A second region, entered by walking onto its exit and pressing the one
 	# button. The flag the road wants is read from the region's own data, so
@@ -280,7 +402,13 @@ func _run() -> void:
 			await _frames(20)
 			await _drain_all()
 			await _frames(4)
+			# The caption is a tween; pin it so this frame is the same on every
+			# runner instead of catching an arbitrary point in the fade.
+			if main.card != null:
+				main.card.pin_visible()
 			await _shot("05_bethlehem")
+			if main.card != null:
+				main.card.hide_now()
 
 	# 9. A SECOND aspect ratio. The web build keeps canvas_items stretching, so
 	# a 640x480 window gives a 320x240 root viewport: 4:3 instead of 16:9.

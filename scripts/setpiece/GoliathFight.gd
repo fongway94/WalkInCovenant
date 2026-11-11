@@ -26,6 +26,14 @@ class_name GoliathFight
 signal finished
 
 const HITS_TO_WIN := 3
+## Preloaded so the exported web build ships the drawn figures (a computed
+## resource path would be invisible to the dependency scanner).
+const DUEL_GOLIATH := preload("res://art/duel/goliath.png")
+const DUEL_DAVID := preload("res://art/duel/david.png")
+## Direction B variants: the SAME 64x64 / 32x32 alpha and forehead position,
+## remapped to the shared B palette. Preloaded so the Web export ships them.
+const DUEL_GOLIATH_B := preload("res://art/duel_cinematic/goliath_cinematic.png")
+const DUEL_DAVID_B := preload("res://art/duel_cinematic/david_cinematic.png")
 const STONES := 5
 const NERVE := 3
 
@@ -44,6 +52,9 @@ enum Phase { TELEGRAPH, STRIKE, AIM, RESOLVE, DONE }
 ## file. The HUD is hidden while a setpiece owns the screen (BUG-021), so the
 ## screen has to say what the player is trying to do.
 var objective_text := ""
+## ArtDirection.current() picks B for the live Web preview and classic for
+## desktop/headless/Xvfb. tests/visual.gd can override it for frame 18.
+var art_theme := "classic"
 var phase: Phase = Phase.TELEGRAPH
 var hits := 0
 var stones := STONES
@@ -63,6 +74,7 @@ var _flash := 0.0
 var _a_punch := 0.0      # the A button visibly reacts to every accepted press
 var _shake := 0.0
 var _layer: Control = null
+var _bg: Control = null
 var _david: TextureRect = null
 var _gol: TextureRect = null
 ## Resting positions, so the shake can jitter around a known point instead of
@@ -93,43 +105,70 @@ func _ready() -> void:
 	layer = 14
 	_build()
 	_apply_layout()
+	# The user's live screenshot showed a B overworld but a still-classic duel.
+	# Ask the same shared decision Main uses, so a late-created setpiece agrees.
+	art_theme = ArtDirection.current()
+	_apply_theme_textures()
 	var vp := get_viewport()
 	if vp != null:
 		vp.size_changed.connect(_apply_layout)
 
 
-func _frame(path: String) -> AtlasTexture:
-	var tex := load(path)
-	if tex == null:
-		return null
-	var at := AtlasTexture.new()
-	at.atlas = tex
-	at.region = Rect2(0, 0, 16, 16)
-	return at
+func apply_art_theme(theme: String) -> void:
+	art_theme = theme
+	_apply_theme_textures()
+	if _bg != null and is_instance_valid(_bg):
+		_bg.queue_redraw()
+	if _layer != null and is_instance_valid(_layer):
+		_layer.queue_redraw()
+
+
+func _apply_theme_textures() -> void:
+	if _gol == null or _david == null:
+		return
+	if art_theme == "cinematic":
+		_gol.texture = DUEL_GOLIATH_B
+		_david.texture = DUEL_DAVID_B
+	else:
+		_gol.texture = DUEL_GOLIATH
+		_david.texture = DUEL_DAVID
 
 
 func _build() -> void:
+	# Draw order matters. The backdrop is BEHIND the two figures; the timing
+	# cues, spear, band and words are IN FRONT of them. The old single Control
+	# drew everything behind the sprites, so the gold aim band — the one thing
+	# the player has to time a throw against — was hidden by Goliath's head.
+	_bg = Control.new()
+	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bg)
+	_bg.draw.connect(_redraw_bg)
+
+	_gol = TextureRect.new()
+	# Full-size drawn figures. The old code took a 16x16 overworld sprite and
+	# stretched it to ~128 px: eight-times-upscaled pixels with no face, no
+	# armour and no scale contrast. Preloading (rather than a computed load())
+	# makes both sheets hard dependencies of the web export.
+	_gol.texture = DUEL_GOLIATH
+	_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_gol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_gol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gol)
+
+	_david = TextureRect.new()
+	_david.texture = DUEL_DAVID
+	_david.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_david.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_david.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_david)
+
 	_layer = Control.new()
 	_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_layer)
 	_layer.draw.connect(_redraw)
 	_layer.gui_input.connect(_on_layer_gui)
-
-	_gol = TextureRect.new()
-	_gol.texture = _frame("res://art/characters/goliath_idle.png")
-	_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_gol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_gol.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer.add_child(_gol)
-
-	_david = TextureRect.new()
-	_david.texture = _frame("res://art/characters/%s_idle.png" % CampaignModel.current_hero())
-	_david.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_david.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_david.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer.add_child(_david)
-
 
 ## Positions in one place, from the same layout maths the rest of the game uses.
 func _apply_layout() -> void:
@@ -143,7 +182,13 @@ func _apply_layout() -> void:
 	_david_base = Vector2(vs.x * 0.22 - dav_w * 0.5, ground - dav_w + 6.0)
 	_gol.position = _gol_base
 	_david.position = _david_base
+	# Rotating around the centre, so the fall reads as a body going down rather
+	# than a picture sliding off its corner.
+	_gol.pivot_offset = _gol.size * 0.5
+	_david.pivot_offset = _david.size * 0.5
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _view_size() -> Vector2:
@@ -151,6 +196,59 @@ func _view_size() -> Vector2:
 	if vp == null:
 		return ScreenFit.BASE
 	return vp.get_visible_rect().size
+
+
+## A stepped ridge. Unequal widths and two layers read as hills; nine equal
+## rectangles read as a bar chart. `depth` lifts the far ridge and dims it.
+func _draw_ridge(full_w: float, base_y: float, depth: float, col: Color) -> void:
+	var x := 0.0
+	var i := 0
+	while x < full_w:
+		var w := 9.0 + 13.0 * absf(sin(float(i) * 2.17 + depth))
+		var h := (5.0 + 15.0 * absf(sin(float(i) * 1.37 + depth * 3.0))) * depth
+		_bg.draw_rect(Rect2(Vector2(x, base_y - h), Vector2(w + 1.0, h + 2.0)), col)
+		x += w
+		i += 1
+
+
+## 1 Samuel 17:1-3: two armies on the hillsides, watching one boy. Spear and
+## standard silhouettes at both edges give the duel its witnesses without
+## putting a single extra sprite in the scene.
+func _draw_army(full_w: float, ridge_y: float,
+		col: Color = Color(0.10, 0.11, 0.11, 0.70)) -> void:
+	for i in range(6):
+		var x := 7.0 + float(i) * 12.0
+		_bg.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 13.0), col, 1.0)
+		_bg.draw_line(Vector2(x - 3.0, ridge_y - 11.0),
+			Vector2(x + 3.0, ridge_y - 11.0), col, 1.0)
+	for i in range(5):
+		var x := full_w - 8.0 - float(i) * 14.0
+		_bg.draw_line(Vector2(x, ridge_y), Vector2(x, ridge_y - 15.0), col, 1.0)
+		_bg.draw_line(Vector2(x - 3.0, ridge_y - 13.0),
+			Vector2(x + 3.0, ridge_y - 13.0), col, 1.0)
+
+
+## Pebbles and dry tufts, deterministic, so the floor does not crawl between
+## frames and does not need a random seed or a texture.
+func _draw_ground(vs: Vector2, ground: float,
+		col: Color = Color(0.38, 0.31, 0.22, 0.34), count: int = 26) -> void:
+	var floor_h := maxf(1.0, vs.y - ground - 8.0)
+	for i in range(count):
+		var x := 5.0 + fmod(float(i) * 41.0, maxf(1.0, vs.x - 10.0))
+		var y := ground + 5.0 + fmod(float(i) * 17.0, floor_h)
+		_bg.draw_rect(Rect2(Vector2(x, y), Vector2(2.0, 1.0)), col)
+
+
+## A contact shadow under each figure. Without one the two drawn sprites look
+## pasted onto the backdrop instead of standing on the same ground.
+func _draw_shadow(base: Vector2, size: Vector2,
+		col: Color = Color(0.06, 0.05, 0.05, 0.38)) -> void:
+	var center := base + Vector2(size.x * 0.5, size.y - 1.0)
+	var pts := PackedVector2Array()
+	for i in range(12):
+		var a := TAU * float(i) / 12.0
+		pts.append(center + Vector2(cos(a) * size.x * 0.44, sin(a) * 3.0))
+	_bg.draw_colored_polygon(pts, col)
 
 
 func start() -> void:
@@ -243,6 +341,8 @@ func _process(delta: float) -> void:
 	# spear never travels, the marker never sweeps, and the whole thing looks
 	# like a still picture with a working state machine behind it.
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _after_resolve_step() -> void:
@@ -427,6 +527,8 @@ func _finish() -> void:
 	_fall = 0.0
 	_emitted = false
 	_layer.queue_redraw()
+	if _bg != null:
+		_bg.queue_redraw()
 
 
 func _say(text: String, secs: float) -> void:
@@ -435,26 +537,87 @@ func _say(text: String, secs: float) -> void:
 
 
 # ── drawing ──────────────────────────────────────────────────────────────
+func _redraw_bg() -> void:
+	var vs: Vector2 = _bg.size
+	if vs.x <= 0.0:
+		return
+	var ground := vs.y * 0.66
+	if art_theme == "cinematic":
+		_redraw_bg_cinematic(vs, ground)
+		return
+
+	# ── classic: the valley of Elah at dusk ────────────────────────────
+	# A directed scene, not a flat grey card: warm sky bands, a last line of
+	# light on the horizon, two ridgelines, the two armies' spear silhouettes,
+	# and a textured floor. All of it is a handful of rects and lines, so it
+	# costs no more than the nine flat blocks it replaces.
+	_bg.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.07, 0.08, 0.10, 0.93))
+	var sky_h := ground * 0.74
+	var bh := sky_h / 6.0
+	for i in range(6):
+		var t := float(i) / 6.0
+		_bg.draw_rect(Rect2(Vector2(0, float(i) * bh), Vector2(vs.x, bh + 1.0)),
+			Color(0.11 + 0.10 * t, 0.11 + 0.06 * t, 0.12 + 0.02 * t, 0.58))
+	_bg.draw_rect(Rect2(Vector2(0, ground - 25.0), Vector2(vs.x, 11.0)),
+		Color(0.66, 0.44, 0.24, 0.16))
+	_draw_ridge(vs.x, ground - 13.0, 0.62, Color(0.22, 0.21, 0.18, 0.80))
+	_draw_ridge(vs.x, ground - 2.0, 1.0, Color(0.13, 0.14, 0.13, 0.94))
+	_draw_army(vs.x, ground - 4.0)
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, vs.y - ground)),
+		Color(0.19, 0.16, 0.13, 0.97))
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 1.5)),
+		Color(0.34, 0.28, 0.21, 0.9))
+	_draw_ground(vs, ground)
+	_draw_shadow(_gol_base, _gol.size)
+	_draw_shadow(_david_base, _david.size)
+
+
+## Direction B: the same one-light valley, but golden hour. Warm ochre sky
+## with a low upper-left sun, honey ridges, olive army silhouettes and long
+## cool casts on a sunlit dust floor. These are shapes drawn by the engine,
+## not a static painted background, and the figures still animate and fall.
+func _redraw_bg_cinematic(vs: Vector2, ground: float) -> void:
+	_bg.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.17, 0.14, 0.11, 0.96))
+	var sky_h := ground * 0.74
+	var bh := sky_h / 6.0
+	for i in range(6):
+		var t := float(i) / 6.0
+		_bg.draw_rect(Rect2(Vector2(0, float(i) * bh), Vector2(vs.x, bh + 1.0)),
+			Color(0.30 + 0.22 * t, 0.21 + 0.15 * t, 0.12 + 0.06 * t, 0.74))
+	# Low sun from the upper LEFT; concentric LOW-ALPHA discs, not a bitmap.
+	var sun := Vector2(vs.x * 0.17, ground * 0.28)
+	for i in range(5):
+		_bg.draw_circle(sun, 52.0 - float(i) * 9.0,
+			Color(1.0, 0.84, 0.46, 0.025 + float(i) * 0.012))
+	_bg.draw_rect(Rect2(Vector2(0, ground - 27.0), Vector2(vs.x, 13.0)),
+		Color(0.98, 0.74, 0.34, 0.24))
+	_draw_ridge(vs.x, ground - 13.0, 0.62, Color(0.50, 0.39, 0.21, 0.80))
+	_draw_ridge(vs.x, ground - 2.0, 1.0, Color(0.19, 0.23, 0.14, 0.95))
+	_draw_army(vs.x, ground - 4.0, Color(0.12, 0.16, 0.10, 0.82))
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, vs.y - ground)),
+		Color(0.44, 0.32, 0.18, 0.97))
+	_bg.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 1.5)),
+		Color(0.94, 0.73, 0.37, 0.92))
+	# Four long lower-right casts from the same upper-left sun.
+	for i in range(4):
+		var ox := vs.x * (0.04 + float(i) * 0.23)
+		var band := PackedVector2Array()
+		band.append(Vector2(ox, ground + 2.0))
+		band.append(Vector2(ox + 18.0, ground + 2.0))
+		band.append(Vector2(ox + 128.0, vs.y))
+		band.append(Vector2(ox + 102.0, vs.y))
+		_bg.draw_colored_polygon(band, Color(0.09, 0.14, 0.08, 0.17))
+	_draw_ground(vs, ground, Color(0.90, 0.74, 0.42, 0.30), 14)
+	_draw_shadow(_gol_base, _gol.size, Color(0.09, 0.13, 0.08, 0.44))
+	_draw_shadow(_david_base, _david.size, Color(0.09, 0.13, 0.08, 0.44))
+
 func _redraw() -> void:
 	var vs: Vector2 = _layer.size
 	if vs.x <= 0.0:
 		return
 	var font := ThemeDB.fallback_font
 	var e := ScreenFit.edge(vs)
-	var ground := vs.y * 0.66
-
-	# dusk in the valley of Elah
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.08, 0.10, 0.14, 0.90))
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, vs.y - ground)),
-		Color(0.16, 0.15, 0.13, 0.95))
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 1.5)),
-		Color(0.30, 0.26, 0.20, 0.9))
-	# the two ridges, so it does not read as a flat backdrop
-	for i in range(9):
-		var rw := vs.x / 9.0
-		var h := 10.0 + 16.0 * absf(sin(float(i) * 2.1))
-		_layer.draw_rect(Rect2(Vector2(i * rw, ground - h), Vector2(rw + 1, h)),
-			Color(0.12, 0.13, 0.12, 0.85))
+	var b := art_theme == "cinematic"
 
 	var jitter := Vector2.ZERO
 	if _shake > 0.0:
@@ -463,7 +626,10 @@ func _redraw() -> void:
 	_david.position = _david_base - jitter
 	if _fall > 0.0:
 		var drop := ease(_fall, 0.45)
-		_gol.position += Vector2(-7.0 * drop, 11.0 * drop)
+		_gol.position += Vector2(-9.0 * drop, 13.0 * drop)
+		# He does not slide off the screen: the whole body goes down around its
+		# own centre, which is what a fall looks like at this distance.
+		_gol.rotation = -1.05 * drop
 		_gol.modulate = Color(1.0, 1.0 - 0.28 * drop, 1.0 - 0.34 * drop, 1.0 - 0.12 * drop)
 		for i in range(5):
 			var dx := -18.0 + float(i) * 9.0
@@ -471,13 +637,20 @@ func _redraw() -> void:
 				Vector2(_gol_base.x + _gol.size.x * 0.5 + dx,
 					_gol_base.y + _gol.size.y + 2.0),
 				3.0 + 4.0 * drop, Color(0.55, 0.50, 0.40, 0.22 * drop))
+	else:
+		_gol.rotation = 0.0
+		_gol.modulate = Color(1, 1, 1, 1)
 
 	# your nerve, his forehead
 	for i in range(NERVE):
-		var c2 := Color(0.90, 0.45, 0.40, 0.95) if i < nerve else Color(1, 1, 1, 0.16)
+		var live_nerve := Color(0.96, 0.53, 0.30, 0.95) if b \
+			else Color(0.90, 0.45, 0.40, 0.95)
+		var c2 := live_nerve if i < nerve else Color(1, 1, 1, 0.16)
 		_layer.draw_circle(Vector2(e + 5 + i * 9, e + 6), 3.0, c2)
 	for i in range(HITS_TO_WIN):
-		var c := Color(0.97, 0.87, 0.65, 0.95) if i < hits else Color(1, 1, 1, 0.18)
+		var live_hit := Color(1.0, 0.86, 0.42, 0.95) if b \
+			else Color(0.97, 0.87, 0.65, 0.95)
+		var c := live_hit if i < hits else Color(1, 1, 1, 0.18)
 		_layer.draw_circle(Vector2(vs.x - e - 5 - i * 9, e + 6), 3.0, c)
 
 	var head := _head()
@@ -504,7 +677,9 @@ func _redraw() -> void:
 			_band_marker(head)
 
 	if _flash > 0.0:
-		_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 0.95, 0.85, 0.28 * _flash))
+		var flash_col := Color(1.0, 0.88, 0.60, 0.28 * _flash) if b \
+			else Color(1, 0.95, 0.85, 0.28 * _flash)
+		_layer.draw_rect(Rect2(Vector2.ZERO, vs), flash_col)
 
 	# ── the words, in their own bands ───────────────────────────────────
 	# The HUD used to still be on screen here, printing the world's objective
@@ -513,11 +688,17 @@ func _redraw() -> void:
 	# The setpiece now hides the HUD and lays its own text out: what you are
 	# doing (dim), what to do right now (bright), and what just happened (gold).
 	if objective_text != "":
-		_layer.draw_string(font, Vector2(e + 4, e + 15), objective_text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.72, 0.76, 0.74, 0.9))
+		# 9 px, not 7: the project's CJK font is authored for 9-10 px and at 7
+		# Godot's rasteriser advances glyphs into each other. At 320x180 that
+		# reads as garbled Chinese (frame 13_duel, this pass).
+		var obj_col := Color(0.92, 0.86, 0.70, 0.95) if b \
+			else Color(0.72, 0.76, 0.74, 0.9)
+		_layer.draw_string(font, Vector2(e + 4, e + 24), objective_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, obj_col)
 
 	var hint := ""
-	var hint_col := Color(0.86, 0.86, 0.8, 0.95)
+	var hint_col := Color(0.98, 0.90, 0.70, 0.95) if b \
+		else Color(0.86, 0.86, 0.8, 0.95)
 	match phase:
 		Phase.TELEGRAPH:
 			if round_no <= 1:
@@ -526,30 +707,37 @@ func _redraw() -> void:
 					"zh": "他举起枪。枪尖过来时让开 —— 按 A，或点屏幕。"})
 			else:
 				hint = I18n.t({"en": "He is winding up…", "zh": "他举起枪，在蓄力……"})
-			hint_col = Color(0.95, 0.72, 0.60, 0.95)
+			hint_col = Color(1.0, 0.78, 0.48, 0.98) if b \
+				else Color(0.95, 0.72, 0.60, 0.95)
 		Phase.STRIKE:
 			hint = I18n.t({"en": "A / tap / any direction — STEP ASIDE",
 				"zh": "按 A、点屏幕、或往两边推 —— 让开"})
-			hint_col = Color(1.0, 0.55, 0.45, 1.0)
+			hint_col = Color(1.0, 0.62, 0.36, 1.0) if b \
+				else Color(1.0, 0.55, 0.45, 1.0)
 		Phase.AIM:
 			if absf(_marker) <= _band:
 				hint = I18n.t({"en": "NOW — let go!", "zh": "现在 —— 放手！"})
-				hint_col = Color(1.0, 0.93, 0.62, 1.0)
+				hint_col = Color(1.0, 0.90, 0.52, 1.0) if b \
+					else Color(1.0, 0.93, 0.62, 1.0)
 			else:
 				hint = I18n.t({"en": "Wait for the gold band, then press", "zh": "等白线进到框里，再按"})
-				hint_col = Color(0.98, 0.88, 0.62, 1.0)
+				hint_col = Color(1.0, 0.86, 0.52, 1.0) if b \
+					else Color(0.98, 0.88, 0.62, 1.0)
 	if hint != "":
-		_layer.draw_multiline_string(font, Vector2(e + 4, e + 32), hint,
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 40), hint,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2, hint_col)
 	if _msg != "" and _msg_t > 0.0:
-		_layer.draw_multiline_string(font, Vector2(e + 4, e + 58), _msg,
-			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2,
-			Color(0.97, 0.87, 0.65, 0.95))
+		var msg_col := Color(1.0, 0.86, 0.48, 0.98) if b \
+			else Color(0.97, 0.87, 0.65, 0.95)
+		_layer.draw_multiline_string(font, Vector2(e + 4, e + 66), _msg,
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 8.0, 9, 2, msg_col)
 
 	# what is left in the pouch
+	var stone_col := Color(0.98, 0.91, 0.72, 0.97) if b \
+		else Color(0.80, 0.82, 0.80, 0.95)
 	_layer.draw_string(font, Vector2(e + 4, vs.y - 8),
 		I18n.t({"en": "stones %d" % stones, "zh": "石子 %d 块" % stones}),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.80, 0.82, 0.80, 0.95))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, stone_col)
 
 	# ── the button, on the screen that asks for it ─────────────────────
 	# TouchControls hides the A button while a setpiece owns the screen, so the
@@ -562,15 +750,22 @@ func _redraw() -> void:
 		var live: bool = phase == Phase.STRIKE or phase == Phase.AIM
 		var now_ok: bool = phase == Phase.AIM and absf(_marker) <= _band
 		var rad := 15.0 + 4.0 * _a_punch
-		var tint := Color(0.97, 0.87, 0.65, 0.40 if live else 0.16)
-		var edge := Color(0.97, 0.87, 0.65, 0.85 if live else 0.35)
-		var ink := Color(1, 1, 1, 0.85 if live else 0.45)
+		var tint := Color(1.0, 0.86, 0.46, 0.42 if live else 0.18) if b \
+			else Color(0.97, 0.87, 0.65, 0.40 if live else 0.16)
+		var edge := Color(1.0, 0.90, 0.56, 0.88 if live else 0.38) if b \
+			else Color(0.97, 0.87, 0.65, 0.85 if live else 0.35)
+		var ink := Color(1, 0.98, 0.90, 0.88 if live else 0.48) if b \
+			else Color(1, 1, 1, 0.85 if live else 0.45)
 		if _buffer > 0.0:
-			tint = Color(0.97, 0.87, 0.65, 0.55)
+			tint = Color(1.0, 0.86, 0.46, 0.58) if b \
+				else Color(0.97, 0.87, 0.65, 0.55)
 		if now_ok:
-			tint = Color(1.0, 0.86, 0.42, 0.78)
-			edge = Color(1.0, 0.95, 0.80, 1.0)
-			ink = Color(0.13, 0.10, 0.06, 1.0)
+			tint = Color(1.0, 0.82, 0.32, 0.82) if b \
+				else Color(1.0, 0.86, 0.42, 0.78)
+			edge = Color(1.0, 0.96, 0.78, 1.0) if b \
+				else Color(1.0, 0.95, 0.80, 1.0)
+			ink = Color(0.16, 0.11, 0.05, 1.0) if b \
+				else Color(0.13, 0.10, 0.06, 1.0)
 		if _a_punch > 0.0:
 			tint.a = minf(1.0, tint.a + 0.35 * _a_punch)
 		_layer.draw_circle(a_c, rad, tint)

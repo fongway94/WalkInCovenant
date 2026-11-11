@@ -1,4 +1,4 @@
-# ART DIRECTION — the David chapter (living-world milestone, 2026-11-05)
+# ART DIRECTION — the David chapter (updated 2026-11-06)
 
 One page, so every pixel change in this milestone is answerable to the same
 rules. Sources of truth: `tools/artgen/palette.py` (colours),
@@ -66,13 +66,15 @@ a shipped change in this milestone, named in the last column.
 
 ## 6. Review gate
 
-`tests/visual.gd` captures twelve real engine frames at CI under Xvfb +
+`tests/visual.gd` captures **fourteen** real engine frames at CI under Xvfb +
 llvmpipe. The six older states (boot, valley, dialogue, journal, Bethlehem,
-flock) now sit beside six new ones: a sheep that has noticed the player, a
-quest counter updating, a 2× nearest review of Chinese dialogue, a 4:3 window,
-a real `ScreenFade` caught mid-cut, and the book scrolled to its optional
-"How you came here" pages. The harness also asserts cold-boot
-control latency and that the 4:3 framebuffer really is taller than 180 px.
+flock) sit beside six living-world states (a sheep that has noticed the player,
+a quest counter updating, a 2× nearest review of Chinese dialogue, a 4:3
+window, a real `ScreenFade` caught mid-cut, and the book scrolled to its
+optional "How you came here" pages) **and two climax states**: the Goliath
+duel and the valley after the fall. The harness also asserts cold-boot
+control latency, that the 4:3 framebuffer really is taller than 180 px, and
+that the duel's figures are the drawn sheets rather than scaled map sprites.
 
 Frames are decoded with `tools/decode_frames.py`, **looked at**, and only then
 promoted to `tests/frames/baseline_*.png`. The coarse grid diff is a
@@ -81,3 +83,179 @@ not mean the mood, hierarchy or legibility improved. A change to this document
 without a matching frame review is not a visual change. What CI still cannot
 judge for us: how the Chinese reads at 10 px on a phone, whether the horn and
 bleat sound right, and how the stick feels under a thumb.
+
+
+## 7. Premium-art extension (2026-11-06)
+
+The shortlist review in `assets/LICENSES.md` inspected the actual PNGs of six
+candidate sources (`docs/ART-COMPARISON.png`). All four external packs were
+rejected: cool blue/silver high-fantasy UI, flat un-outlined 16 px characters,
+and bright cyan/yellow terrain fight the warm outlined palette that already
+holds this game together. Three of them also carry mixed or platform-restricted
+terms. **The chosen direction is original, project-specific art**, generated
+from the same `palette.py` ramps, so coherence improves instead of being
+replaced by a second style.
+
+| Rule | Applied in |
+|---|---|
+| A dialogue portrait is a **separate drawing**, never the 16×16 walking sprite scaled up. 32×32, head at ~30% height, warm sepia ground, one outline pass, resting expression per character, nine-mood vocabulary. | `tools/artgen/faces.py`, `art/facesets/*.png`, `DialogueBox.FACES` |
+| Major characters differ in **silhouette**, not only robe colour: mantle, satchel, sling, staff, spear, crown, helm crest, beard, veil. | `tools/artgen/chars.py`, `art/characters/*_idle.png` |
+| A setpiece owns its own art scale. Goliath 64×64, David 32×32 — a real 2:1 contrast, no 8× upscale. Foreheads sit at ~30% of the figure height because the aim band is drawn there. | `tools/artgen/duel.py`, `art/duel/*.png`, `GoliathFight` |
+| The valley of the duel is directed, not a grey card: warm sky bands, two ridgelines, spear silhouettes of both armies (1 Sam 17:1-3), pebbled ground, per-figure contact shadows, and a body-fall rotation. Restrained — no glowing magic, no particles. | `scripts/setpiece/GoliathFight.gd` |
+| Every new art file is palette-locked, deterministic and statically `preload`ed, so the web export cannot silently lose it. | `tools/check_faces.py`, CI static gate |
+| A story result must change the world: once `goliath_down` is set, the standing figure leaves the ridge. | `Region.set_giant_down()`, `14_aftermath` frame |
+
+No external pack was vendored in this pass. The existing Ninja Adventure CC0
+tiles stay where they are; see `assets/LICENSES.md` for the exact licence
+evidence and the attribution wording for a future credits screen.
+
+---
+
+## 8. Art direction reset (2026-11-05) — comparison first
+
+This file remains the **contract for the shipped classic art**. A new milestone
+started a separate investigation: **`docs/ART-RESET.md`**. It contains a real
+diagnosis of all eight major scenes, three original art-direction prototypes,
+a four-way comparison at native / desktop / mobile sizes with grayscale review,
+measured colour and value metrics, and a selection.
+
+**Selected: Direction C — Biblical Storybook RPG**, with B's value hierarchy and
+A's silhouette clarity borrowed as mandatory corrections. One reversible,
+opt-in prototype was integrated into the shepherd-field scene
+(`art/tiles/terrain_storybook.png`, `Main.apply_art_theme()`); the default atlas
+and every baseline were left in place. The report explicitly does **not** claim
+the overhaul is complete: the measured world value spread fell 20.1 → 10.6,
+which proves a better palette is not a substitute for hand-authored sprites,
+tile shapes and layered lighting. The manual art work required is listed in
+`docs/ART-RESET.md` §6 and queued in `docs/DEVELOPMENT_BACKLOG.md` #19–23.
+
+Nothing here is superseded or deleted. When the hand-authored assets exist, this
+contract will be extended rather than rewritten.
+
+### §8 update — craft pass (2026-11-10)
+
+The report's own negative result has been acted on, in **one reversible scene
+only**. See `docs/ART-RESET.md` §12 for the full evidence. Summary:
+
+* 13 hand-authored opt-in props (`art/props_storybook/`) and 4 hand-authored
+  16px character sheets (`art/characters_storybook/`) replace geometric circles
+  and peg figures with ink-outlined, multi-plane silhouettes. Classic assets are
+  untouched and are the default.
+* `scripts/world/ContactShadowLayer.gd` gives props, animals, NPCs and the
+  player one shared ground shade; `TerrainLayer._draw_depth()` adds far/middle/
+  near value planes with a graded warm band and irregular hill edges.
+* Four successive real CI frames measured world value spread
+  **8.0 → 12.3 → 17.1 → 17.7** (palette-only was 10.6; classic 20.1, inflated
+  by its HUD scrim). CI `42784090190` is green: 16 frames, `deep 143`,
+  browser 30/0, deploy skipped.
+* `tools/check_craft_props.py` is a stdlib lint gate; `measure_real_engine.py`
+  is the reproducible measurement.
+
+This file remains the **contract for the shipped classic art**. The overhaul is
+still NOT complete: one opt-in scene, two actors, no new maps for Bethlehem /
+court / valley, journal and menus untouched, no parallax or per-location light,
+and no professional-grade manual pixel editing. Backlog #19–23 still stands,
+with #19/#20 now partially done for one scene only.
+
+### §9 update — user-selected Direction B (2026-11-10)
+
+The user reviewed the three original concept sources and explicitly chose
+Direction B's golden-hour outcome: *"i want the outcome like B, with the
+neccessary animation like current"*. This **supersedes the assistant's C
+selection** recorded earlier in this file; C is retained as a reversible opt-in
+theme and as a comparison baseline, not deleted.
+
+Direction B is implemented for the **same one opt-in scene only**
+(`docs/ART-RESET.md` §12.7). It keeps the shipped 16px grid, the 49 atlas
+indices, every walk/idle/sway/water/prop animation frame and every timer. B adds
+a warm 49-cell terrain atlas, 13 props, 4 character sheets, a dusk-slate/gold
+UI skin, camera-relative golden-hour ground light, long cast shadows and an
+animated upper-left rim light on moving figures. Real CI `42798442187` is green
+on all game jobs; final all-green `42803804441` also carries the browser-harness
+jitter fix: 16 frames, `deep 143`, browser 30/0, deploy skipped at that time.
+The reviewed frame 16 was promoted as `baseline_16_shepherd_cinematic.png`.
+A working-branch live preview was later explicitly authorised — §10.
+
+This file remains the **contract for the shipped classic art**. The default
+atlas, gameplay, state, collision, input, quests, save format, every other
+scene, every other baseline and PR/merge status are unchanged. The user later
+authorised a working-branch live preview (§10); this is not a release. The visual overhaul is still NOT complete: the painterly B concept
+is not a shippable pixel asset, the real frame is not on par with it, and the
+remaining manual environments, UI skins, parallax, human art-director review,
+device/audio/Chinese/playtest gates are listed in `docs/DEVELOPMENT_BACKLOG.md`
+#19–23. No release claim is made.
+
+### §10 update — live branch preview authorised (2026-11-10)
+
+The user explicitly asked to *"serve this branch to live for me to feel. then
+make in on par"*. That authorises a **working-branch preview deployment**, not
+a merge to `main`, a default-asset replacement, or a release. Because the
+sandbox token cannot create a `workflow_dispatch` event, the named branch's
+push-deploy condition (used successfully for the earlier `dceac57` / `5d1c5ff`
+preview) is restored. `build_type` remains `workflow`; the `github-pages`
+environment already allows this branch. The live URL is
+https://fongway94.github.io/WalkInCovenant/ and every subsequent push to
+`arena/46955931-walkincovenant` updates it. The next `main` push republishes
+`main`.
+
+The "on par" instruction is being pursued as richer original pixel art within
+the existing 16px / animation constraints, not by dropping the painterly
+concept into the engine. Exact parity with a 681×348 illustration containing
+135,490 colours, no UI and no tile grid is not a shippable game frame. This
+file remains the contract for the shipped classic art; no release claim is
+made.
+
+### §11 — B v3 live preview and the honest parity gap (2026-11-10)
+
+The user's *"make in on par"* instruction produced Direction B v3 on the same
+opt-in scene. All 49 atlas cells, 13 props, 4 actor sheets, 16px grid, frame
+counts, animation, collision, footstep surfaces, quests and `SAVE_VERSION` are
+unchanged; only original pixel detail, palette, shape-aware lighting and the
+opt-in theme's dusk tint changed. The working branch is **live** at
+https://fongway94.github.io/WalkInCovenant/ for the user to feel.
+
+Final all-green CI `42818980822` (`d6f067c`) decoded 17/17 frames, promoted
+reviewed B v3 baselines, reported browser `checks=30 failed=0`, and deployed
+`7682580911` = `success`. Real quiet-frame metrics are whole-frame luma **85.7**,
+world luma **94.5**, value spread **30.9**, edge density **0.517**, against the
+fitted concept's **79.4 / 86.6 / 22.6 / 0.454**. See `docs/ART-RESET.md` §12.9
+and `diagnosis/18_B_quiet_vs_reference.png`.
+
+Those numbers do **not** prove parity: the concept is a painterly, UI-free,
+animation-free 681×348 image with 135,490 native colours, while the shipped
+frame is a 320×180 16px game with a HUD and live sprites. B v3 is materially
+closer in warmth, light direction, edge density and depth, but tree volume,
+path rendering and atmospheric haze remain different. Human playtest and an
+art-director pass are still required. Classic is still the default in source,
+desktop, headless tests and visual CI; the live Web preview now applies B at
+runtime (§12.10 of `ART-RESET.md`). No PR, merge to `main`, default asset
+replacement or release claim is made.
+
+### §12 — B v4: quiet ground and a golden-hour duel (2026-11-10)
+
+The user's second live screenshot set showed B in the overworld but three
+visible defects: cream confetti across every tile, hard triangular light
+wedges, and a still-classic Goliath duel. B v4 addresses those without
+changing the DS-era contract.
+
+* Atlas marks are rare and clustered; `TerrainLayer` lowers cast-band and shaft
+  alpha, cuts foreground blades, and the B HUD plate is lighter.
+* `ArtDirection.gd` gives one Web-only theme decision. `GoliathFight`,
+  `SlingPractice` and `StoneChoice` now agree with the overworld; the duel has
+  B-palette figures, a warm one-light valley, long casts and gold UI. The
+  figures keep their 32×32 / 64×64 alpha, forehead band and fall rotation.
+* Real CI frame 18 proves the duel in the shipped engine. Final all-green run
+  `42850057966` (`97642f6`) decoded 18/18 frames, browser `30/0`, and deployed
+  `7687190157` = success. `visual_diff.py` is clean with three B baselines.
+
+Final v4 quiet-frame metrics: luma **91.2**, world luma **100.2**, spread
+**26.4**, edge density **0.478**; fitted concept **79.4 / 86.6 / 22.6 / 0.454**.
+B v4 duel: luma **79.6**, edge **0.130**. See `docs/ART-RESET.md` §12.11,
+`diagnosis/18_B_quiet_vs_reference.png`, `diagnosis/19_B_duel_vs_reference.png`
+and `docs/art-reset/cinematic_duel_4x.png`.
+
+Closer is not parity: the painterly concept has 45,109 fitted colours, no UI
+and no animation; the game has a HUD, 16px tiles, rectangular terrain
+transitions and live sprites. Human playtest remains open. Classic source
+assets, desktop/headless/visual CI, `SAVE_VERSION`, collision and animation are
+unchanged. No PR, merge, default replacement or release claim.

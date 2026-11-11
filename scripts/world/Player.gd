@@ -31,6 +31,14 @@ const TILE := 16.0
 enum Mode { IDLE, MOVING }
 
 var model: RegionModel = null
+var char_id := "pilgrim"
+## Which sheet directory is active. The opt-in art direction has crafted sheets
+## for the two actors in the shepherd scene; every other actor keeps its classic
+## sheet. Dimensions/frame counts are identical, so animation is untouched.
+var art_dir := "res://art/characters"
+## When a shared ContactShadowLayer draws the ground shade, suppress the small
+## rectangle in _draw() so figures are not double-shadowed.
+var external_shadow := false
 var mode: Mode = Mode.IDLE
 var facing := Vector2i(0, 1)          # down
 var velocity := Vector2.ZERO
@@ -63,8 +71,9 @@ signal arrived_at(pos: Vector2)
 
 func setup(m: RegionModel, char_id: String) -> void:
 	model = m
-	walk_tex = load("res://art/characters/%s_walk.png" % char_id)
-	idle_tex = load("res://art/characters/%s_idle.png" % char_id)
+	self.char_id = char_id
+	walk_tex = load("%s/%s_walk.png" % [art_dir, char_id])
+	idle_tex = load("%s/%s_idle.png" % [art_dir, char_id])
 	if sprite == null:
 		sprite = Sprite2D.new()
 		sprite.centered = true
@@ -285,8 +294,10 @@ func _update_anim(speed: float, delta: float) -> void:
 
 func _draw() -> void:
 	# contact shadow — grounds the figure. Drawn, not baked, so it is always
-	# under the feet regardless of frame.
-	draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
+	# under the feet regardless of frame. In the storybook scene the shared
+	# ContactShadowLayer owns all ground shade instead (one light direction).
+	if not external_shadow:
+		draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
 	# Saul's armour, in the sprite's own 16px space: a bronze helmet and a coat
 	# of mail over the figure, legs left alone so the walk still reads. It is
 	# drawn, not baked, because the outfit changes during the chapter.
@@ -295,6 +306,26 @@ func _draw() -> void:
 		draw_rect(Rect2(-6, -14, 12, 7), Color(0.72, 0.55, 0.24, 0.92))
 		draw_rect(Rect2(-6, -9, 12, 2), Color(0.50, 0.36, 0.14, 0.92))
 		draw_rect(Rect2(5, -8, 1.5, 7), Color(0.78, 0.78, 0.80, 0.9))
+
+
+## Swap to the crafted sheets only when BOTH exist for this actor. Classic is
+## always the fallback, so no other chapter or save can lose a character.
+func apply_art_theme(theme: String) -> void:
+	var d := "res://art/characters"
+	var alt := "res://art/characters_%s" % theme
+	if (theme == "storybook" or theme == "cinematic") \
+			and ResourceLoader.exists("%s/%s_idle.png" % [alt, char_id]) \
+			and ResourceLoader.exists("%s/%s_walk.png" % [alt, char_id]):
+		d = alt
+	art_dir = d
+	external_shadow = d != "res://art/characters"
+	walk_tex = load("%s/%s_walk.png" % [d, char_id])
+	idle_tex = load("%s/%s_idle.png" % [d, char_id])
+	if sprite != null:
+		sprite.texture = idle_tex
+		sprite.hframes = 2
+		sprite.vframes = 4
+		sprite.frame = 0
 
 
 func face_toward(target: Vector2) -> void:

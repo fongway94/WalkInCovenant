@@ -24,6 +24,8 @@ const BAND_STEP := 0.03
 enum Phase { AIM, RESOLVE, DONE }
 
 var phase: Phase = Phase.AIM
+## Shared Web-preview decision; see scripts/systems/ArtDirection.gd.
+var art_theme := "classic"
 var targets := 3               # how many jars; the data may ask for more
 var hits := 0
 var misses := 0
@@ -42,6 +44,13 @@ var _player: TextureRect = null
 func _ready() -> void:
 	layer = 22
 	_build()
+	art_theme = ArtDirection.current()
+
+
+func apply_art_theme(theme: String) -> void:
+	art_theme = theme
+	if _layer != null and is_instance_valid(_layer):
+		_layer.queue_redraw()
 
 
 func _frame(path: String) -> AtlasTexture:
@@ -183,15 +192,22 @@ func _draw_all() -> void:
 	if vs.x <= 0.0:
 		return
 	var font := ThemeDB.fallback_font
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.10, 0.12, 0.14, 0.82))
+	var b := art_theme == "cinematic"
+	var bg_col := Color(0.20, 0.16, 0.11, 0.86) if b \
+		else Color(0.10, 0.12, 0.14, 0.82)
+	_layer.draw_rect(Rect2(Vector2.ZERO, vs), bg_col)
 	var ground := vs.y - 30.0
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 30)),
-		Color(0.22, 0.24, 0.15, 0.9))
+	var ground_col := Color(0.42, 0.32, 0.18, 0.92) if b \
+		else Color(0.22, 0.24, 0.15, 0.9)
+	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 30)), ground_col)
 	# the wall the jars stand against
 	var wall := Rect2(Vector2(vs.x * 0.5 - 92, ground - 46), Vector2(184, 46))
-	_layer.draw_rect(wall, Color(0.32, 0.29, 0.24, 0.95))
-	_layer.draw_rect(Rect2(wall.position, Vector2(wall.size.x, 2)),
-		Color(0.44, 0.40, 0.32, 0.95))
+	var wall_col := Color(0.58, 0.45, 0.28, 0.95) if b \
+		else Color(0.32, 0.29, 0.24, 0.95)
+	var wall_top := Color(0.80, 0.64, 0.36, 0.95) if b \
+		else Color(0.44, 0.40, 0.32, 0.95)
+	_layer.draw_rect(wall, wall_col)
+	_layer.draw_rect(Rect2(wall.position, Vector2(wall.size.x, 2)), wall_top)
 
 	var left := 22.0
 	var right := vs.x - 22.0
@@ -199,17 +215,23 @@ func _draw_all() -> void:
 		var cx := wall.position.x + 26.0 + i * ((wall.size.x - 52.0) / maxf(1.0, float(targets - 1)))
 		if i < hits:
 			# broken: shards on the wall's lip
-			_layer.draw_rect(Rect2(Vector2(cx - 3, ground - 4), Vector2(6, 4)),
-				Color(0.55, 0.50, 0.42, 0.9))
-			_layer.draw_rect(Rect2(Vector2(cx - 9, ground - 2), Vector2(4, 2)),
-				Color(0.48, 0.44, 0.38, 0.9))
+			var shard_a := Color(0.82, 0.68, 0.44, 0.92) if b \
+				else Color(0.55, 0.50, 0.42, 0.9)
+			var shard_b := Color(0.62, 0.50, 0.32, 0.92) if b \
+				else Color(0.48, 0.44, 0.38, 0.9)
+			_layer.draw_rect(Rect2(Vector2(cx - 3, ground - 4), Vector2(6, 4)), shard_a)
+			_layer.draw_rect(Rect2(Vector2(cx - 9, ground - 2), Vector2(4, 2)), shard_b)
 		else:
 			var body := Rect2(Vector2(cx - 5, ground - 20), Vector2(10, 20))
-			_layer.draw_rect(body, Color(0.62, 0.42, 0.30, 1.0))
-			_layer.draw_rect(Rect2(body.position, Vector2(3, 20)),
-				Color(0.74, 0.52, 0.38, 1.0))
-			_layer.draw_rect(Rect2(Vector2(cx - 3, ground - 24), Vector2(6, 4)),
-				Color(0.52, 0.34, 0.24, 1.0))
+			var clay := Color(0.72, 0.48, 0.26, 1.0) if b \
+				else Color(0.62, 0.42, 0.30, 1.0)
+			var clay_lit := Color(0.92, 0.68, 0.36, 1.0) if b \
+				else Color(0.74, 0.52, 0.38, 1.0)
+			var clay_rim := Color(0.48, 0.32, 0.18, 1.0) if b \
+				else Color(0.52, 0.34, 0.24, 1.0)
+			_layer.draw_rect(body, clay)
+			_layer.draw_rect(Rect2(body.position, Vector2(3, 20)), clay_lit)
+			_layer.draw_rect(Rect2(Vector2(cx - 3, ground - 24), Vector2(6, 4)), clay_rim)
 
 	if phase == Phase.AIM:
 		# the lit band: press while the marker is inside it
@@ -231,15 +253,21 @@ func _draw_all() -> void:
 		_layer.draw_rect(Rect2(Vector2(left, ground - 60), Vector2(right - left, 52)), hit_band)
 
 	if _flash > 0.0:
-		_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(1, 0.95, 0.85, 0.3 * _flash))
+		var flash_col := Color(1.0, 0.86, 0.52, 0.3 * _flash) if b \
+			else Color(1, 0.95, 0.85, 0.3 * _flash)
+		_layer.draw_rect(Rect2(Vector2.ZERO, vs), flash_col)
 
 	# jars broken / to go
+	var jar_col := Color(1.0, 0.92, 0.70, 0.95) if b \
+		else Color(0.93, 0.88, 0.74, 0.9)
 	_layer.draw_string(font, Vector2(22, 22),
 		I18n.t({"en": "jars %d of %d" % [hits, targets], "zh": "陶罐 %d／%d" % [hits, targets]}),
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.93, 0.88, 0.74, 0.9))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 9, jar_col)
 	if _msg != "" and _msg_t > 0.0:
+		var msg_col := Color(1.0, 0.86, 0.48, 0.98) if b \
+			else Color(0.97, 0.87, 0.65, 0.95)
 		_layer.draw_multiline_string(font, Vector2(22, vs.y - 44), _msg,
-			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 9, 2, Color(0.97, 0.87, 0.65, 0.95))
+			HORIZONTAL_ALIGNMENT_LEFT, vs.x - 44, 9, 2, msg_col)
 	if phase == Phase.AIM:
 		# The button the line above names, on the screen that names it: the
 		# touch controls hide theirs while a setpiece owns the picture. It is

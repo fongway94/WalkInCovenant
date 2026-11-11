@@ -410,3 +410,415 @@ GL, not a native-speaker or handset judgement.
   verdict. They are promoted only after the frames are inspected by eye.
 
 _(Section 8 is updated as this pass proceeds.)_
+
+---
+
+## 9. PREMIUM ART + CLIMAX — the pass after the merge (2026-11-06)
+
+The merged LIVING WORLD pass (§8) was green and deployed, but it had two
+honest blind spots: the twelve captured frames never showed the Goliath duel
+or the valley after it, and every face in a conversation was a 16×16 walking
+sprite stretched into a portrait frame. This pass worked the same
+`INSPECT → PLAN → IMPLEMENT → BUILD → TEST → CAPTURE → REVIEW → CRITIQUE →
+IMPROVE → RETEST` loop again, on the **David chapter only**. No second chapter
+was started and the architecture was not replaced.
+
+### A. Asset research was done against actual assets, not descriptions
+
+Six sources were opened and their real files inspected: `pixel-boy/NinjaAdventure`
+(no root licence/readme), `Tiddybub/2d-assets` (1101 assets, CC0 claim with
+per-pack credit), `series-ai/jam-ready-assets` (380 packs, one candidate PNG
+was a 129-byte LFS pointer), `TMHSDigital/Free-Game-Dev-Assets` (link-only
+catalog), Kenney Roguelike RPG pack (CC0, cool dungeon palette) and Kenney
+Roguelike Characters (CC0, near-monochrome 16px tokens). Representative PNGs
+were downloaded and viewed. None fit the warm, outlined, already-shipped house
+palette, and two had licensing or retrieval problems. **Decision: no new
+third-party pack.** The base Ninja Adventure CC0 tiles stay; everything new is
+project-specific generated art. `assets/LICENSES.md` records each source and
+rejection, and `docs/ART-COMPARISON.png` shows before / improved / rejected /
+chosen in one reviewed sheet.
+
+### B. What actually changed in the playable game
+
+- **18 drawn 32×32 portraits** (`tools/artgen/faces.py`) for every named actor,
+  deterministic and locked to the house palette. `DialogueBox.FACES` uses
+  static `preload()` for all of them — a computed `load()` path is invisible to
+  Godot's export dependency scanner and could have shipped a web build with no
+  faces. The 16px sprite remains a fallback for an actor not yet drawn.
+- **Distinct silhouettes** in `tools/artgen/chars.py`: David's mantle, satchel
+  and sling; Goliath's bronze crest; soldiers' spears; cloaks for Samuel,
+  Jesse and Saul. 30 character PNGs regenerated; `check_chars` unchanged.
+- **The duel is a drawn scene, not an upscaled map sprite.**
+  `tools/artgen/duel.py` produces a 64px Goliath and a 32px David;
+  `GoliathFight.gd` places them over six sky bands, a horizon glow, two
+  ridgelines, both armies' spear silhouettes, a textured floor and contact
+  shadows. Goliath rotates around his own centre as he falls. The real sling /
+  dodge / aim setpiece is unchanged (`HITS_TO_WIN 3`, `STONES 5`).
+- **The valley after the fall agrees with the story.** `Main._on_win()` now
+  calls `Region.set_giant_down()`; `_spawn_goliath()` returns early on the
+  `goliath_down` flag, so the standing champion no longer contradicts the
+  aftermath (BUG-053).
+- **The dialogue UI is opaque and its words sit on a plate.** The panel,
+  portrait frame and choice rows are fully opaque; the HUD has one flat dark
+  plate with a gold hairline; the place caption has its own fading strip. All
+  1px offset shadows were removed from 8–9px CJK rows (BUG-058/059/060).
+- **The capture harness grew from 12 to 14 states.** `13_duel` stages the real
+  shipped setpiece at a near-frozen clock and draws nothing itself;
+  `14_aftermath` shows the empty ridge. `tests/deep.gd` grew from 134 to 141
+  checks, including portrait sizes, duel texture sizes and the empty ridge.
+
+### C. Verification chain — every red run is listed
+
+| Run | Commit | Result |
+|---|---|---|
+| `42155243253` | `3933917` | **red** — `lint` failed on `ModuleNotFoundError: No module named 'PIL'`: the new art gate assumed Pillow, which the Godot CI container does not have. Runtime suites, export and deploy were skipped. `visual` was green but published only 12 chunks for 14 rendered states, so `05_bethlehem`, `09_chinese_2x` and `14_aftermath` decoded incomplete. |
+| `42156354692` | `a8b8e21` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 141 checks hold`, all 14 frames complete from 14 publish steps, `check_faces` clean without Pillow. lint ✅ · visual ✅ · export-web ✅ · deploy skipped (working branch). |
+| `42156888674` | `660ee7a` | **green** — 14 complete frames. Review confirmed the opaque dialogue box, but found the new HUD gradient was banding (BUG-060). |
+| `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 complete frames, flat HUD plate verified. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. Review of `05_bethlehem` then found the caption-fade nondeterminism (BUG-061). |
+| `42160624028` | `6f6b5e9` | **green** — 141 checks, 14 complete frames, deterministic bright caption. Its sheet showed the pinned caption leaking into later frames, so `hide_now()` was added. |
+| `42160894115` | `a9c9901` | **green** — 141 checks, 14 complete frames, no caption leak. All 14 PNGs decoded, reviewed as a sheet and 3× zooms, and promoted with `visual_diff.py --write-bases`; a plain run reports `diff 0.0000` for all 14. |
+| `42161167868` | `0e677bc` | **green with all 14 baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, `visual` ✅ (all 14 in-engine baseline comparisons pass), `export-web` ✅, `deploy` skipped. Final RETEST of this pass. |
+
+`smoke.gd` is a **full-chapter slice**, not a smoke of one screen: it drives
+the brook, the shepherd flock, the armour, the five stones, three duel hits
+through `Phase.DONE`, the aftermath, the six ending lines (it asserts the words
+「四块石子」 and 「往南的路」 actually reached the box), `act_id() == "done"`,
+the `chapter_one` seal, `completed: elah`, the save file, and the Elah ↔
+Bethlehem road. That is an automated completion proof; it is not proof that a
+human enjoyed it.
+
+### D. Defects found by looking at PNGs, not by reading a diff
+
+BUG-052 (frozen chatter bubble over an open conversation), BUG-054 (Pillow in
+CI), BUG-055 (12 publish steps for 14 frames), BUG-056 (the gold aim band and
+the incoming spear drawn *behind* Goliath's pixels), BUG-057 (7px CJK garble
+and a harness shot of an empty portrait frame), BUG-058 (ghost tents through an
+80%-opaque dialogue panel), BUG-059 (offset shadows welded to CJK strokes) and
+BUG-060 (gradient banding) are all in `docs/BUG_TRACKER.md` with the frame or
+run that exposed each one. Three of them were found only after a **green** run,
+by decoding and enlarging its frames. Nothing was fixed by relaxing a check:
+`check_faces.py` became stricter in the sense that it no longer depends on an
+optional package, and `decode_frames.py` gained a guard that fails if the
+workflow has fewer publish steps than frames.
+
+### E. Chinese in rendered context
+
+`09_chinese_2x` is a 640×360 nearest upscale of the real framebuffer. With the
+named speaker reached and the panel opaque it shows the framed 32px portrait,
+the 「柯林」 nameplate, the 「」 quotation marks and two lines of 9px Chinese
+with no tofu, no ghost world and no clipped glyph bottoms. `04_journal` and
+`12_journal_before` distinguish Scripture with an explicit `1 Samuel 17:45` /
+【经文】撒母耳记上 citation from invented dialogue; `check_font` maps 826
+codepoints. `13_duel` shows the bilingual objective, the 「现在 —— 放手！」
+timing hint, the aim band, the gold hit dots and the 「石子 5 块」 pouch
+counter. This is a rendered reading of software GL, **not** a native-speaker
+or handset judgement.
+
+### F. What this pass did **not** establish
+
+- **No browser execution.** `export-web` produces and size-checks the WebGL
+  build; no browser binary exists here or in CI, so nothing opened the
+  exported game. No real phone, no two-device aspect/tactile pass.
+- **No audio was heard.** 16 WAVs and 3 beds are checksum- and level-checked
+  only. No sound card.
+- **No native-speaker Chinese review and no human playtest.** Automated tests
+  prove the chapter can be finished, not that it is moving to play.
+- All 14 frames are software GL under Xvfb + llvmpipe. 9–10px Chinese read in
+  an upscaled PNG is not a phone legibility result.
+- `tests/frames/baseline_*.png` are coarse wrong-scene detectors, never an
+  art-quality verdict. They are promoted only after the decoded PNGs are
+  inspected by eye.
+
+### G. Baselines
+
+The twelve coarse baselines from §8 were replaced and two added:
+`tests/frames/baseline_01_boot_world.png` … `baseline_14_aftermath.png`, all
+from `42160894115`. They are wrong-scene detectors, not an art-quality verdict;
+the art review above is the evidence for the visual changes. `42161167868`
+compared all fourteen in-engine with the same 0.18 limit and passed: the last
+RETEST of this pass.
+
+_(Section 9 is updated as this pass proceeds.)_
+
+---
+
+## 10. FINAL VALIDATION AND PLAYER EXPERIENCE (browser milestone)
+
+The gap named in §9F — "No browser execution" — is now closed. The full record
+is `docs/BROWSER-VALIDATION.md`; the evidence is `docs/browser-evidence/`; the
+harness is `tests/browser/validate.cjs` and the CI job `browser`.
+
+**What changed**
+
+- Added a `browser` job that serves the real `build/web` artifact over local
+  HTTP and opens it in Playwright Chromium. It drives keyboard, mouse and touch,
+  wraps `getContext`/draw calls, `AudioContext` and `AudioBufferSourceNode`,
+  reads Godot's IDBFS `save.json`, captures 23 screenshots, and returns them as
+  check-run annotations (decoded by `tools/decode_browser_frames.py`).
+- Working-branch Pages deploys became **opt-in** (`workflow_dispatch` →
+  `publish_preview`), so the validation pushes could not republish the live
+  site without new approval. `docs/PACKAGING.md` records this.
+- Fixed **BUG-062**: a finished chapter no longer shows "follow Corin" in the
+  HUD. `Main._update_guidance()` short-circuits on `Act.DONE` / `elah_ended`;
+  `tests/deep.gd::_check_ending_objective()` is the regression check.
+
+**What the green runs `42754753831` (`b2951a4`) and `42756324054`
+(`dae8827`) proved**
+
+Chromium 158.0.8127.18 · WebGL2 drawing · 30/30 checks · 0 console errors ·
+0 page errors · 0 failed requests · WebAudio running with 5 buffer starts ·
+mute persisted to `save.json` · save survived a full page reload · five live
+viewport resizes plus portrait guidance · **Goliath duel won in the browser**
+(`goliath_down=true`) · **Corin's after_win conversation and the chapter ending
+played in the browser** (`talked:elah:corin=true`, `elah_ended=true`). The final
+run also has `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143
+checks hold`, and the corrected 「本章完成 · 山谷安静了」 HUD.
+
+The late-chapter states were reached by rewriting Godot's own IDBFS record and
+reloading, so the engine's real save loader and mission runner did the work.
+The four red runs in `docs/BUG_TRACKER.md` are the honest trail of getting the
+harness right; two of them were Emscripten `Int8Array` / `Date` shape bugs in
+the test, not in the game.
+
+**Still true from §9F**
+
+- No human playtest, no enjoyment verdict.
+- No audible listening; perceptual audio quality unverified.
+- No native-speaker or author Chinese pass.
+- No real device, no tactile or physical-rotation test.
+- `tests/frames/baseline_*.png` remain coarse wrong-scene detectors.
+
+`docs/BROWSER-VALIDATION.md` §6 classifies every remaining issue
+Critical/High/Medium/Low and states the release conditions. This is a **release
+candidate**, not a release: no PR, no merge into `main`; a working-branch
+preview deploy was later explicitly authorised (§14).
+
+---
+
+## 11. ART DIRECTION RESET — comparison before rebuild
+
+Full record: **`docs/ART-RESET.md`**. Evidence: `docs/art-reset/`.
+
+Starting from the existing shepherd-field screenshot, this pass:
+
+- diagnosed eight rendered scenes with specific, measured weaknesses (one flat
+  value plane, geometric procedural props, 16px unreadable characters, two
+  black UI masses, and **three of eight major scenes having no rendered world
+  at all** — Samuel's anointing, Saul's court and a main menu);
+- captured a new real frame `15_shepherd_dialogue` with sheep, NPC, terrain,
+  vegetation and the shipped dialogue UI, and its Direction-C twin
+  `16_shepherd_storybook` (preserved as `comparison/16_storybook_final.png`;
+  frame 16 now renders the user-selected Direction B — see §13);
+- produced three genuinely different original concept directions, converted
+  them to 320×180 with controlled 64-colour palettes and direction-specific
+  pixel UI, and reviewed all four panels at native, 1280×720 desktop and
+  844×390 mobile sizes plus grayscale (`docs/art-reset/comparison/`);
+- selected **Direction C (Biblical Storybook RPG)** — not the brightest and not
+  the most detailed — with B's lighting logic and A's silhouette clarity as
+  corrections; a `C+` refinement raises world value spread 18.7 → 21.1;
+- rebuilt the colour system as a real atlas (`art/tiles/terrain_storybook.png`,
+  70 colours, warm-brown outline, no pure black/white) and a stdlib CI gate;
+- integrated it into **one playable representative scene** behind an opt-in
+  switch, with a true before/after pair from the shipped engine.
+
+CI `42771321630`: all jobs green, `visual` 16 frames, `deep: PASS — 143 checks
+hold`, `browser` 30/30, `deploy` skipped. No PR, no merge to `main`; the
+user later authorised a working-branch live preview (§14).
+
+**Not complete.** The UI separation improved 45.0 → 112.2 and global luma std
+41.6 → 64.9, but the world's large-scale value spread **fell 20.1 → 10.6**.
+Colour is not depth. Hand-authored sprites, tiles, contact shadows and layered
+environments are still required; §6 of the report names them. Automated visual
+diffs and a green CI are not evidence of artistic quality.
+
+---
+
+## 12. CRAFT PASS after the art-reset verdict (2026-11-10)
+
+The verdict in §11 said the world's value spread fell 20.1 → 10.6 and named the
+missing work. That work was started **without** a full rebuild, PR, merge or
+deploy:
+
+- 13 hand-authored opt-in props and 4 hand-authored 16px character sheets
+  (David + hired boy, idle/walk × 4 facings), with ink outlines, 4–11 value
+  planes and no single-pixel noise; classic files restored and left as default.
+- One shared `ContactShadowLayer` under every prop, item, animal, NPC and the
+  player; three far/middle/near value planes inside `TerrainLayer._draw_depth()`.
+- A stdlib CI gate (`check_craft_props.py`) and a reproducible real-frame
+  measurement tool (`measure_real_engine.py`).
+- Five real CI runs (`42780526864`, `42781811086`, `42783550955`,
+  `42784090190`) decoded and measured. The first attempt made things worse
+  (8.0); reviewing the rendered frame found the depth planes were outside the
+  visible world band. The final frame measures **17.7**, up from the
+  palette-only **10.6** but still below the classic's **20.1** (which is
+  inflated by its dark HUD scrim bleeding into world rows 24–40).
+- v3 was rejected visually for a hard horizontal stripe despite a good number;
+  v4 replaced the rectangular wash with a graded band. Metric chasing alone is
+  explicitly refused.
+
+Final CI `42784090190`: lint / visual / export-web / browser success, deploy
+skipped; `visual` 16 frames, `run_all: ALL CHECKS PASSED`, `smoke: PASS`,
+`deep: PASS — 143 checks hold`, browser `30/0` with no console or page errors.
+`visual_diff.py` clean; baseline 16 promoted from the real CI frame.
+
+**Still NOT complete and not release-ready.** One opt-in scene, mixed classic /
+crafted actors, no new Bethlehem / court / valley environments, journal and
+menus untouched, no parallax, no location-specific lighting, no human playtest,
+no perceptual audio, no native-speaker Chinese, no real-device pass. See
+`docs/ART-RESET.md` §12 for the full critique and the external manual pixel
+art that would be required to reach the requested benchmark.
+
+## 13. Direction B retarget — user's explicit choice (2026-11-10)
+
+The comparison question was answered honestly: **No**, the assistant-selected
+Direction C frame was not on par with the user's attached "Rich Cinematic"
+concept (`docs/ART-RESET.md` §12.6). The user then chose B explicitly:
+*"i want the outcome like B, with the neccessary animation like current"*.
+The assistant's C selection is superseded for the active target; C's assets,
+final real frame and metrics are preserved for comparison.
+
+What changed, in one reversible opt-in scene only:
+
+- `art/tiles/terrain_cinematic.png` (49 cells), `art/props_cinematic/` (13) and
+  `art/characters_cinematic/` (4 sheets) use B's golden-hour ramps. Geometry,
+  dimensions, `hframes`, walk/idle/sway/water frames and every Timer are
+  unchanged; `check_cinematic_art.py` gates 17 assets.
+- `TerrainLayer._draw_cinematic_depth()` draws camera-relative graded sun,
+  a dry-stone wall, a winding sunlit path, diagonal cast bands and foreground
+  leaves behind the sprites. `ContactShadowLayer` adds long tapered cast
+  shadows; new `GoldenRimLayer.gd` adds an animated upper-left rim above them.
+  `Hud.gd` / `DialogueBox.gd` have dusk-slate/gold `cinematic` skins.
+- `tests/visual.gd` frame 16 is `16_shepherd_cinematic`; C's final frame is
+  preserved as `comparison/16_storybook_final.png`.
+- The first B CI (`42793930036`) failed the visual gate (0.257 stale-baseline
+  diff) and lost one frame chunk to GitHub's 50-annotation cap. Fixed by
+  removing the stale baseline, 24-colour undithered transport and 4000-char
+  chunks. `42798442187` was green on all game jobs. A docs-only run
+  (`42800296661`) then exposed a browser-harness resonance (143 presses, no
+  win); `tests/browser/validate.cjs` gained ±200 ms jitter. Final all-green
+  `42803804441`: lint / visual / export-web / browser success, deploy skipped;
+  `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143 checks hold`,
+  browser `30/0` with no console or page errors, `DUEL presses=37 won=True`.
+- All 16 frames decoded from the final run; `visual_diff.py` clean (frame 16
+  0.0016); reviewed real frame 16 promoted to
+  `baseline_16_shepherd_cinematic.png`.
+- Measured B v2 world value spread **20.4** (first B 16.1, C 17.7, classic
+  20.3, B concept 22.6) and world luma **67.9** (first B 58.0, concept 86.6).
+  Edge density remains 0.20 vs the concept's 0.45; the concept has 135,490
+  distinct RGB colours. These are real-frame measurements, not a claim of
+  parity or beauty.
+
+**Still NOT complete and not release-ready.** One opt-in scene, no B
+environments for Bethlehem / court / valley / anointing, no journal or menu
+skin, no parallax, no per-location light, no human art-director playtest, no
+perceptual audio, no native-speaker Chinese, no real-device pass. Classic
+remains the default; gameplay, state, collision, input, quests, `SAVE_VERSION`,
+other baselines and PR/merge status unchanged; the user later authorised a
+working-branch live preview (§14). See
+`docs/ART-RESET.md` §12.7 and backlog #19–23.
+
+## 14. Live branch preview and "on par" push (2026-11-10)
+
+The user reviewed the Direction B v2 evidence and said: *"serve this branch to
+live for me to feel. then make in on par"*. This is explicit authorisation to
+publish **this working branch** to the single GitHub Pages URL, and to keep
+improving the B scene toward the attached concept. It is not a request to merge
+to `main`, replace the classic default, or declare a release.
+
+The sandbox token cannot create a workflow-dispatch event, so the previously
+successful named-branch push-deploy condition is restored in
+`.github/workflows/build-web.yml`. The `github-pages` environment policy already
+lists `arena/46955931-walkincovenant`; `build_type` stays `workflow`; the
+artifact guard still requires the PWA `index.html`. Live URL:
+**https://fongway94.github.io/WalkInCovenant/**. A push to `main` later
+republishes `main`. See `docs/ART-RESET.md` §12.8 for the parity plan and the
+honest limits: exact parity with a painterly, UI-free, animation-free concept is
+not achievable while keeping the 16px grid and the existing animation system.
+
+No PR, no merge to `main`, no default-asset replacement, no release claim.
+`docs/BROWSER-VALIDATION.md` remains **Release candidate, not release**.
+
+**Preview deployment evidence.** `7a9908e` enabled the branch publish but its
+`deploy` job timed out in the Node20 `deploy-pages@v4` action (run
+`42806534702`, deployment `7680718045` = failure). `ab27e54` moved the three
+Pages actions to their native-Node24 releases. Run `42809032972` is all green —
+lint, visual, export-web, browser, **deploy** — and deployment `7681093165` is
+`success`. The live URL serves the game loader and PWA manifest. This is the
+user-requested working-branch preview at
+**https://fongway94.github.io/WalkInCovenant/**, not a `main` release.
+
+## 15. Direction B v3 — live preview, richer pixel art, final all-green CI
+
+The user asked to *"serve this branch to live for me to feel. then make in on
+par"*. The working branch is live at
+**https://fongway94.github.io/WalkInCovenant/**; final deployment
+`7682580911` (`d6f067c`) is `success` and Pages stays `build_type: workflow`.
+A push to `main` later republishes `main`.
+
+Direction B v3 keeps the 49-cell atlas, `data/tiles.json`, 16px grid, all 13
+props / 4 actor sheets and every idle, walk, sway, water and Timer frame. It
+adds clustered grass/blossom/pebble detail, an 84-colour controlled B atlas,
+shape-aware silhouette rims, clumped canopy texture, rutted path stones,
+diagonal sun shafts, longer casts, world-anchored foreground blades, a brighter
+opt-in dusk tint and a second UI-free real-engine review frame. No gameplay,
+collision, save format or default classic asset changed.
+
+Final all-green run `42818980822` — lint, visual, publish-b-frames, export-web,
+browser, deploy. 17/17 frames decoded complete; `visual_diff.py` clean with
+reviewed `baseline_16_shepherd_cinematic.png` and new
+`baseline_17_shepherd_cinematic_quiet.png`. Browser telemetry: seeded fight
+loaded on attempt 1, `DUEL presses=41 won=True`, `checks=30 failed=0`,
+`consoleErrors=0`, `pageErrors=0`. Two earlier runs were instructive:
+`42811998272` exceeded the frame-annotation cap; `42814917855` exposed an IDBFS
+reload race in the browser harness. Both are fixed by split frame publishing and
+a non-game-page seed rewrite; no gameplay constant was weakened.
+
+Measured quiet B v3 frame: luma **85.7**, world luma **94.5**, value spread
+**30.9**, edge density **0.517**; fitted concept **79.4 / 86.6 / 22.6 / 0.454**.
+See `docs/ART-RESET.md` §12.9 and
+`docs/art-reset/diagnosis/18_B_quiet_vs_reference.png`. These coarse metrics
+show a materially closer outcome, **not literal parity** with a painterly,
+UI-free, animation-free concept. Human playtest and art-director review remain
+open; the visual overhaul is not complete. No PR, no merge to `main`, no
+release claim.
+
+**User feedback correction (§12.10).** The first live screenshot was still the
+classic bright green field: B v3 was only applied by `tests/visual.gd`, not by
+the Web runtime. The working branch now calls `apply_art_theme("cinematic")`
+from `Main._on_region_ready()` when `OS.has_feature("web")` is true. Desktop,
+headless and Xvfb visual CI stay classic; no default asset file is replaced.
+Setpiece screens are still not B-skinned and human playtest remains open.
+
+**Final live Web theme deploy.** `c5e10c0` exposed a second Pages deploy timeout
+(run `42837952729`, deployment `7685442624`); `02e5d34` raised the
+`deploy-pages` timeout to 20 minutes. Final run `42843225647` is all green
+including deploy, deployment `7686202899` = `success`, browser `30/0`, and the
+live service worker stamp is `02e5d34...`. The working-branch Web preview now
+starts in B at boot; classic desktop/headless/visual CI stays unchanged. A PWA
+hard refresh may be needed once. No release or parity claim.
+
+## 16. Direction B v4 — user screenshot feedback, quiet ground, B duel
+
+After the live Web theme fix, the user sent three real screenshots: B was
+visible, but the field had cream confetti, hard light wedges, and the duel was
+still classic. `97642f6` fixes all three:
+
+* rare, clustered atlas marks and no global pixel sprinkle; five low-alpha cast
+  bands, softer shafts, one foreground blade per five tiles; lighter B HUD;
+* one shared `ArtDirection.gd` Web-only decision; B-palette 32/64px duel
+  figures and warm golden-hour valley in `GoliathFight`; B skins for
+  `SlingPractice` and `StoneChoice`; no gameplay, timing, fall, save or
+  animation change;
+* real frame 18_duel_cinematic, third one-frame-per-step 48-colour transport,
+  third promoted baseline.
+
+Final run `42850057966` is all green including deploy (`7687190157` success);
+browser `checks=30 failed=0`, `DUEL presses=32 won=True`, 18/18 frames decoded,
+`visual_diff.py` clean. Live service-worker stamp is `97642f6…`. Final v4 quiet
+metrics: luma 91.2, world 100.2, spread 26.4, edge 0.478 vs fitted concept
+79.4 / 86.6 / 22.6 / 0.454. See `docs/ART-RESET.md` §12.11 and
+`diagnosis/19_B_duel_vs_reference.png`.
+
+This is still **not parity** with the painterly, UI-free, animation-free
+reference; the journal/menu/transition surfaces are not B-skinned and human
+playtest remains open. No PR, merge to `main`, default replacement or release.

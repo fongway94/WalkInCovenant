@@ -78,6 +78,32 @@ def build_chars(preview=False):
     return n
 
 
+def build_faces(preview=False):
+    """32x32 expressive dialogue portraits, one PNG per actor."""
+    from .faces import build_faces as make, FACES, W, H
+    faces = make()
+    for actor, cv in faces.items():
+        cv.to_image().save(_out("facesets", "%s.png" % actor))
+        if preview:
+            _preview(cv, "face_%s.png" % actor)
+    if preview:
+        cells = [faces[a] for a in sorted(FACES)]
+        sheet = atlas(cells, 6, W, H)
+        _preview(sheet, "faces_sheet.png")
+    return len(faces)
+
+
+def build_duel(preview=False):
+    """Full-size figures for the Goliath setpiece (not scaled-up map sprites)."""
+    from .duel import build_duel as make
+    figures = make()
+    for name, cv in figures.items():
+        cv.to_image().save(_out("duel", "%s.png" % name))
+        if preview:
+            _preview(cv, "duel_%s.png" % name)
+    return len(figures)
+
+
 def build_props(preview=False):
     from . import props as P
     import json as _json
@@ -119,7 +145,8 @@ def build_props(preview=False):
     return n
 
 
-GROUPS = {"terrain": build_terrain, "chars": build_chars, "props": build_props}
+GROUPS = {"terrain": build_terrain, "chars": build_chars,
+          "faces": build_faces, "duel": build_duel, "props": build_props}
 
 
 def apply_pack() -> bool:

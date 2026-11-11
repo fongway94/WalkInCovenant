@@ -4,6 +4,13 @@ extends Node2D
 ## Overworld → talk / gather / cross the line → BECOME → the fight → RETURN.
 ## Story logic stays in data; Main only routes the moments between systems.
 
+## Working-branch live Pages preview only: the Web export boots in the
+## user-selected Direction B theme, while desktop/headless/visual CI stay
+## classic. The one decision lives in scripts/systems/ArtDirection.gd so
+## late-created setpieces agree with the overworld. This is a RUNTIME theme
+## call, not a default asset replacement; setting Web preview back to
+## "classic" there restores the original look exactly.
+
 var region: Region = null
 ## Which region the previous one was, so the new one can put the player by the
 ## road they came in on. Empty on a cold boot.
@@ -302,10 +309,43 @@ func _update_touch_ownership() -> void:
 ## dismissed, so the valley was a field with five rocks in it. The chain is
 ## deliberately short and always names the NEXT single action:
 ##   Corin → the brook → the line → the fight → the ending.
+## One switch for the ART DIRECTION RESET prototype. Desktop, headless tests and
+## the Xvfb visual harness stay classic; the working-branch WEB preview uses the
+## user-selected B theme at runtime (see _preview_art_theme). No default asset
+## file is replaced, no frame/save/behaviour moves, and visual.gd still applies
+## B explicitly for its one comparison frame (docs/ART-RESET.md §12.10).
+func _preview_art_theme() -> String:
+	# One shared decision: Web preview = B, Xvfb/headless/desktop = classic.
+	# Setpieces ask ArtDirection themselves so a late-created duel does not
+	# fall back to classic after Main has already applied B to the region.
+	return ArtDirection.current()
+
+
+func apply_art_theme(theme: String) -> void:
+	if region != null and is_instance_valid(region):
+		region.apply_art_theme(theme)
+	if hud != null and is_instance_valid(hud):
+		hud.apply_art_skin(theme)
+	if region != null and is_instance_valid(region) \
+			and region.dialogue != null and is_instance_valid(region.dialogue):
+		region.dialogue.apply_art_skin(theme)
+
+
 func _update_guidance() -> void:
 	if hud == null or region == null or region.player == null:
 		return
 	if region.dialogue != null and region.dialogue.is_open():
+		hud.set_prompt("")
+		return
+	# The chapter is over. The default branch below still walks the witness's
+	# "follow Corin to the next villager" chain, because those NPCs have not all
+	# been talked to. A finished chapter must not keep pointing at one of them:
+	# the browser playtest found the HUD saying "跟着柯林走" AFTER the ending
+	# had already set elah_ended, which reads as another task instead of a
+	# conclusion (BUG-062). One sentence, no arrow, no prompt, every frame.
+	if act == Act.DONE or bool(GameState.flag("elah_ended")):
+		hud.set_objective(I18n.t(region.model.objectives.get("done", {})))
+		hud.point_at(Vector2.ZERO, false)
 		hud.set_prompt("")
 		return
 	var p: Player = region.player
@@ -902,6 +942,12 @@ func _on_region_ready() -> void:
 			_resume_index = runner.first_unmet(_mission_ctx())
 		_begin_missions()
 		_opening()
+	# The live Pages preview must actually SHOW the user-selected B art at boot
+	# and after every region swap. Desktop/headless/visual CI stay classic, so
+	# the committed baselines and the classic default assets are unchanged.
+	var preview_theme := _preview_art_theme()
+	if preview_theme != "classic":
+		apply_art_theme(preview_theme)
 
 
 ## A saved valley has to boot into the chapter it left. Reloading after the win
@@ -1584,6 +1630,10 @@ func _after_return() -> void:
 	GameState.grant_seal("chapter_one")
 	GameState.complete_chapter("elah")
 	_story_flag("goliath_down")
+	# The ridge has to reflect what just happened: no standing champion in the
+	# valley the player is about to walk through.
+	if region != null and is_instance_valid(region):
+		region.set_giant_down()
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "Five smooth stones, kept", "zh": "五块光滑的石子，收下了"}))
 	# The chapter has an ENDING, and it is played, not implied. This used to drop

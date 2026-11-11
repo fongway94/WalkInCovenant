@@ -11,7 +11,7 @@ Priority 1. This document is the capability report, not a claim of quality.
 | Display / GPU | **None.** No Xvfb, no Mesa DRI, no browser, no sound card. | **Yes, software.** `xvfb-run` + Mesa llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`), `--rendering-driver opengl3`. |
 | Automated input | n/a | **Yes.** `Input.parse_input_event(InputEventAction)` through the engine's own pipeline, with a direct-handler fallback that is reported separately. |
 | Screenshot capture | n/a | **Yes.** `RenderingServer.frame_post_draw` → `get_viewport().get_texture().get_image()` → nearest-downscale to 320×180 → PNG. |
-| Scene-by-scene | n/a | **Yes.** `tests/visual.tscn` boots the shipped `Main.tscn` and captures twelve named beats: cold boot, the valley, a conversation, a 2× Chinese review, the journal and its optional background page, the shepherd flock, a sheep reacting, a quest update, Bethlehem, a 4:3 window, and a real fade. |
+| Scene-by-scene | n/a | **Yes.** `tests/visual.tscn` boots the shipped `Main.tscn` and captures fourteen named beats: cold boot, the valley, a conversation, a 2× Chinese review, the journal and its optional background page, the shepherd flock, a sheep reacting, a quest update, **the Goliath duel**, **the valley after the fall**, Bethlehem, a 4:3 window, and a real fade. |
 | Visual regression | **Yes, locally**, on decoded PNGs (`tools/visual_diff.py`). | **Yes, in-run**, when `tests/frames/baseline_*.png` are committed: a 32×18 averaged colour-grid diff with a 0.18 limit. |
 | Browser export testing | **No.** No browser binary, and the Pages host / CI artifact host are unreachable. | Not built. The web export is produced and size-checked by `export-web`, but nothing opens it in a browser. |
 | Console / runtime errors | n/a | **Yes.** The render log is grepped for `SCRIPT ERROR`, `Parse Error`, `ERROR:`, failed script loads, null instances and unresolved classes; a match fails the job. |
@@ -28,8 +28,10 @@ CI artifacts and raw logs live on hosts this sandbox cannot reach
 each PNG as base64 `::notice::WICFRAME|name|chunk|total|data` lines. An
 annotation is truncated at 4096 characters and a step may emit ~10 notices, so
 chunks are 3800 characters (still under the 4096-character truncation),
-spread round-robin over twelve short steps
-(measured: a 320×180 capture is ~20 KB → ~27 KB base64 → ~8 chunks). Then:
+spread round-robin over fourteen short steps
+(measured: a 320×180 capture is ~20 KB → ~27 KB base64 → ~8 chunks; after
+48-colour quantisation the twelve-frame run measured 37 chunks, and fourteen
+frames is budgeted at ~43 — still under the cap, subject to the decoded run). Then:
 
 ```bash
 gh run list --limit 5                       # find the run id
@@ -51,8 +53,9 @@ itself is on a blocked host.
   produced, but every `WICFRAME` notice was truncated to 4096 characters, so
   nothing could be decoded. Fixed by 3500-character chunks spread over eight
   steps, and by quantising the transport copy to 64 colours (~7 KB/frame).
-  (The chunk size is now 3800 and the palette 48, to fit twelve frames under
-  GitHub's ~50-annotation cap; see the capability section above.)
+  (The chunk size is now 3800, the palette 48 and the step count 14, to fit
+  fourteen frames under GitHub's ~50-annotation cap; see the capability
+  section above.)
 - Run `41980997515`: the visual job went green
   (`input_routed=true parsed_opens=true direct=false` — a parsed
   `InputEventAction` really reaches `Node._unhandled_input` and opens a
@@ -76,8 +79,9 @@ itself is on a blocked host.
   but would catch a blank or wrong scene. **Six** reviewed baselines are now
   committed, and the engine's own in-run comparison ran green on `41981915709`.
 - Not verified by any of this: a real phone in two aspect ratios, a single
-  audio sample, tactile feel, a duel/camp close-up, or a browser opening the
-  web export. See `docs/DEVICE-CHECKLIST.md` and
+  audio sample, tactile feel, a camp close-up, or a browser opening the
+  web export. The duel and the post-fall valley were added as rendered
+  frames in the 2026-11-06 pass (see below). See `docs/DEVICE-CHECKLIST.md` and
   `docs/DEVELOPMENT_BACKLOG.md`.
 
 ## Honest limits
@@ -121,8 +125,44 @@ limit.
 | `10_layout_4x3` | a taller *logical* 4:3 viewport, not a stretched picture |
 | `11_transition` | a real `ScreenFade` caught mid-fade |
 | `12_journal_before` | 「来路」 / "How you came here" is reachable by scrolling |
+| `13_duel` | the shipped `GoliathFight` renders its own drawn 64px Goliath and 32px David, the directed dusk valley, the gold aim band and the timing marker |
+| `14_aftermath` | after `goliath_down` the ridge is empty, the HUD role has changed back and the chapter aftermath objective is on screen |
 
 These are **wrong-scene detectors, not an art-quality verdict.** Three of the
 five defects listed in `docs/ITERATION.md` §8 were invisible to this grid diff
-and were found only by looking at upscaled PNGs. The duel, the camp close-up,
-any real handset, the browser export and every sound remain unverified.
+and were found only by looking at upscaled PNGs.
+
+## Premium-art / climax pass (2026-11-06)
+
+`tests/visual.gd` grew from twelve to **fourteen** rendered states, and the
+workflow now publishes **fourteen** frame chunks (`WIC_NP: 14`) with a guard in
+`tools/decode_frames.py` that refuses to decode if the workflow has fewer
+publish steps than `NP`. In `42155243253` the harness produced 14 PNGs but only
+12 chunks were published; three frames decoded incomplete (BUG-055). Two new
+frames close the biggest blind spot in the old suite:
+
+| Frame | What it proves |
+|---|---|
+| `13_duel` | the shipped `GoliathFight` renders its own drawn 64px Goliath and 32px David, the directed dusk valley, the gold aim band and the timing marker; the harness stages the real setpiece at a near-frozen clock, it draws nothing itself |
+| `14_aftermath` | after `goliath_down` the ridge is empty, the HUD role has changed back and the chapter aftermath objective is on screen |
+
+`13_duel` also asserts the giant's texture is larger than 16 px, so a silent
+reversion to the old 8×-upscaled map sprite fails the render job.
+
+Two staging details matter for reproducible frames:
+
+- `03_dialogue` / `09_chinese_2x` advance to a **named** speaker. The first two
+  lines of Corin's conversation are unvoiced narration, which used to
+  photograph an empty portrait frame. The harness asserts a nameplate is on
+  screen before it captures.
+- `05_bethlehem` calls `PlaceCard.pin_visible()`. The caption is a tween, so a
+  fixed frame count caught it mid-fade on some runners (bright on one green
+  run, almost invisible on the next — BUG-061). Pinning it kills the tween and
+  sets the caption, subtitle and scrim to full opacity.
+
+All fourteen frames are decoded with `tools/decode_frames.py <run-id>`, reviewed
+as a sheet and as 3×/4× zooms, then promoted together with
+`PYTHONPATH=/home/user/.cache/pillow_check python3 tools/visual_diff.py
+--write-bases`. A plain `tools/visual_diff.py` must then be clean, and the next
+CI run proves the in-engine comparisons pass with the baselines active. The camp
+close-up, real handset, browser execution and every sound remain unverified.

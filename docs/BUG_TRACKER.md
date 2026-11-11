@@ -65,6 +65,41 @@ run, not by reading the diff. **Open: none.** Full reasoning in
 | BUG-050 | **P2** | The journal panel was 0.97 opaque, so the HUD and any dialogue box still on screen showed through as grey ghost text behind 9 px rows. | CI frames `04_journal` and `12_journal_before` of `42018457660`, inspected by eye. | **Fixed** — the background is fully opaque. |
 | BUG-051 | **P2** | The 112×22 chatter bubble was shorter than the bundled CJK font's 24 px minimum line height, so the bottom of every glyph was clipped. The bubble label also carried a solid 1 px black shadow that read as a blotch at 8 px. | `tests/deep.gd::_check_bubbles()` printed `label 104x24 at 4,3` against a 22 px frame in CI `42018457660`. | **Fixed** — 112×28 frame, label at (4,2) with a 24 px line, no shadow, and an opaque background so a sheep behind it no longer shows through the words; the check now asserts the configured geometry and prints what it measured. |
 
+## Premium art + climax pass (2026-11-06)
+
+These came from actually looking at decoded PNGs and from a red CI run, not
+from reading a diff. `42155243253` (`3933917`) is recorded as **red**: the
+`visual` job succeeded, `lint` failed before any runtime suite could run, so
+`export-web` and `deploy` were skipped. Nothing in this table claims a green
+result for a run that has not finished.
+
+| ID | Sev | What | Check / frame that exposed it | State |
+|---|---|---|---|---|
+| BUG-052 | **P2** | An ambient chatter bubble stayed frozen over an open conversation: `Npc._process()` hit the world-pause guard and returned before hiding the bubble. | Frame `03_dialogue` of the previous pass; fixed in `Npc.gd` by hiding chatter *before* the pause guard when `dialogue.is_open()`. | **Verified** — the decoded `03_dialogue` of `42155243253` shows no bubble slab. |
+| BUG-053 | **P1** | The standing overworld Goliath sprite remained on the ridge after the duel, so the valley told two contradictory stories at once. | Code audit; `Region.set_giant_down()` called from `Main._on_win()` and an early return in `_spawn_goliath()`. | **Fixed** — `tests/deep.gd::_check_giant_down()` and frame `14_aftermath` exist, but `42155243253` skipped the runtime suites. Engine proof pending. |
+| BUG-054 | **P1** | `tools/check_faces.py` imported Pillow, which the Godot CI container does not have. `lint` died with `ModuleNotFoundError: No module named 'PIL'` before `gd_lint`, the runtime suites or the export ran. | CI `42155243253`, check-run `127687726625`. | **Fixed** in `a8b8e21` — the gate is stdlib-only: `char_variants.read_png()`, a regex parse of `palette.py`, and `data/art_hashes.json` (2 generators + 20 PNG hashes). Pillow regeneration is optional and used only when locally available. CI verification pending. |
+| BUG-055 | **P1** | The harness rendered 14 states but the workflow still published only 12 frame chunks (`parts_01…12`). Parts 12 and 13 were never emitted, so `05_bethlehem` (1/3), `09_chinese_2x` (3/5) and `14_aftermath` (1/3) decoded incomplete. | `tools/decode_frames.py 42155243253` and the visual job's 12 publish steps; 29 `WICFRAME` notices. | **Fixed** in `a8b8e21` — steps 13/14 added, `WIC_NP: 14`, `NP = int(os.environ.get("WIC_NP","14"))`, and a guard that fails the decode if the workflow has fewer publish steps than frames. CI verification pending. |
+| BUG-056 | **P1** | The duel drew its backdrop **and** its timing cues on one `Control` that was the *first* child, behind both `TextureRect` figures. The gold aim band — the one thing the player times a throw against — the incoming red spear and the telegraph warning were all hidden by Goliath's opaque pixels. | Frame `13_duel` of `42155243253`, inspected at 4×: the AIM hint said 「现在 —— 放手！」 but no band was visible on the forehead. | **Fixed** in `a8b8e21` — a separate backdrop layer behind the figures and a foreground layer above them (`MOUSE_FILTER_IGNORE` on both non-interactive layers so `_layer.gui_input` still owns the screen). CI re-render pending. |
+| BUG-057 | **P2** | The duel objective line used a 7 px CJK font size, which garbled into overlapping glyph strokes at 320×180; the `03_dialogue` harness shot also captured an *unvoiced* narration line, so it photographed an empty portrait frame rather than the new 32 px face. | Frame `13_duel` top-left crop and frame `03_dialogue` of `42155243253`. | **Verified** — `03_dialogue` / `09_chinese_2x` of the green `42156354692` show Corin's drawn face, his nameplate and legible 「」 dialogue; the duel's 9 px objective is clear of the nerve dots. |
+| BUG-058 | **P2** | The dialogue panel was 80 % opaque and the portrait frame 85 %, so tents, sheep and props showed through behind 9 px Chinese — the same ghosting BUG-050 fixed in the journal but not here. | Frame `09_chinese_2x` and `03_dialogue` of `42156354692`, inspected at 3×. | **Verified** — `09_chinese_2x` of `42156888674` is fully opaque: crisp 2× Chinese, a clean framed portrait, no ghost tents. |
+| BUG-059 | **P2** | The HUD objective and the place caption carried a 1 px offset black shadow welded to 8–9 px CJK strokes. At 320×180 it merged into the glyphs and read as doubled, unreadable text over busy grass and water; no background separated the always-on HUD from the world. | Frames `14_aftermath`, `05_bethlehem` and `01_boot_world` of `42156354692`. BUG-051 had already found this shadow on chatter bubbles. | **Partly verified** — `42156888674` confirmed the opaque caption strip and shadow-free glyphs, but its 24-step HUD gradient produced visible horizontal stripes (BUG-060). Flat plate + fully opaque caption strip applied next. |
+
+| BUG-060 | **P2** | The first HUD scrim was drawn as 24 discrete alpha strips. At 320×180 each strip snapped to its own pixel row, so the top of every world frame showed horizontal banding instead of a smooth fade. | Frame `01_boot_world` / `09_chinese_2x` of `42156888674`, inspected at 3×; the unscrimmed `42156354692` frames have no stripes. | **Verified** — `01_boot_world` / `09_chinese_2x` of `42160227100` show one clean plate, no stripes. |
+
+| BUG-061 | **P3** | The place caption is a tween, and `tests/visual.gd` captured it after a fixed number of frames. Depending on runner timing the `05_bethlehem` frame caught the caption mid-fade — bright in `42156888674`, almost invisible in `42160227100`. Promoting either as a baseline would make a stable frame look like a regression. | Comparing decoded `05_bethlehem` PNGs from two green runs. | **Verified** — `05_bethlehem` of `42160894115` is bright and deterministic; `10_layout_4x3`, `11_transition` and `12_journal_before` no longer carry a stuck caption. |
+
+## Fixed in the FINAL VALIDATION AND PLAYER EXPERIENCE milestone
+
+| ID | Sev | What | Check that failed before the fix | State |
+|---|---|---|---|---|
+| BUG-062 | **P1** | After the chapter ending wrote `elah_ended`, `Main._update_guidance()` still fell through to the witness escort branch and the HUD said 「跟着柯林走。他带你去找少年兵。」 The conclusion looked like one more task. Found in the real browser's post-ending frame (`goliath_05_ending.png`, run `42754753831`). | `tests/deep.gd::_check_ending_objective()` sets `act = DONE` / `elah_ended` and asserts the `done` objective plus an empty prompt; it fails against the old code. | **Verified** (`42756324054`) — `deep: PASS — 143 checks hold`; browser ending frame now reads 「本章完成 · 山谷安静了」. |
+
+Two further defects were in the **browser harness**, not the game, and are
+documented in `docs/BROWSER-VALIDATION.md` §1: seeding IDBFS before Godot
+created its DB (`42749614328`), and using `Date.now()` / `Uint8Array` instead of
+Emscripten's `Date` / `Int8Array` record shape (`42751307541`, two page errors).
+Both were fixed before the green browser run.
+
 ## Found and deliberately not fixed
 
 | ID | Sev | What | Why it stays open |
@@ -96,6 +131,24 @@ run, not by reading the diff. **Open: none.** Full reasoning in
 | `42019344693` | `2fe704a` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 134 checks hold`, `visual: PASS — 12 rendered frames` |
 | `42019960134` | `2bf8dc4` | **green** — opaque bubble; 134 checks, 12 reviewed frames promoted as baselines, `visual_diff: clean` |
 | `42020598313` | `f1e67c3` | **green with baselines active** — 134 checks, 12 frames; all twelve in-engine baseline comparisons passed |
+| `42155243253` | `3933917` | **red** — `visual` ✅ (14 states rendered, but only 12 chunks published: BUG-055), `lint` ❌ (Pillow import: BUG-054), `export-web`/`deploy` skipped. Decoded frames exposed BUG-056 and BUG-057. |
+| `42156354692` | `a8b8e21` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS — the slice played start to finish`, `deep: PASS — 141 checks hold`, all 14 frames decoded complete from 14 publish steps; `check_faces` clean on a runner with no Pillow. lint ✅ · visual ✅ · export-web ✅ · deploy skipped (working branch). |
+| `42156888674` | `660ee7a` | **green** — lint ✅ · visual ✅ · export-web ✅ · deploy skipped; 14 frames complete. Review confirmed BUG-058 closed and exposed BUG-060. |
+| `42160227100` | `5c42ece` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; flat HUD plate verified, no banding. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42160624028` | `6f6b5e9` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete; `05_bethlehem` caption pinned and bright. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42160894115` | `a9c9901` | **green** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, 14 frames complete and reviewed; all 14 promoted as baselines, local `visual_diff: clean` at 0.0000. lint ✅ · visual ✅ · export-web ✅ · deploy skipped. |
+| `42161167868` | `0e677bc` | **green with all 14 baselines active** — `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 141 checks hold`, `visual` ✅ with all 14 in-engine baseline comparisons inside the 0.18 limit; `export-web` ✅, `deploy` skipped (working branch). |
+| `42161589362` | `0da2053` | **green** — docs-only final retest; all four jobs ✅, `deploy` skipped. |
+| `42171648194` | `dceac57` | **green** — branch preview deploy enabled; `deploy` ✅, deployment `7593585234`. |
+| `42172317704` | `5d1c5ff` | **green** — corrected Pages post-mortem; `deploy` ✅, deployment `7593675932`. |
+| `42745051005` | `f202208` | **red** — first real browser job: Chromium + WebGL2 + 23 checks ran, but `e.timestamp` handling was still missing and annotation transport exceeded GitHub's 50-notice cap. |
+| `42745933242` | `90d0be3` | **red** — compact evidence fixed; harness fatal `Cannot read properties of undefined (reading 'slice')` on a save field. |
+| `42746755637` | `9a61bb3` | **green browser evidence** — 23/23 checks, 0 console/page errors, WebAudio running, mute persisted, save survived reload, 9 screenshots decoded. |
+| `42749614328` | `af42bf6` | **red** — seeded save created its own IDBFS DB; game ignored it, duel never started. |
+| `42751307541` | `1b0b264` | **red** — `TypeError: e2.timestamp.getTime is not a function` ×2 (wrong IDBFS record shape); duel rendered but win could not be read. |
+| `42752385202` | `5b0bccf` | **red** — IDBFS shape fixed, **duel won in browser** (`goliath_down=true`), but the long walk back to Corin was intercepted by other NPCs. |
+| `42754753831` | `b2951a4` | **green — real browser milestone**: lint ✅ · visual ✅ · export-web ✅ · **browser ✅ 30/30 checks, 0 console/page errors, duel won, Corin + ending reached** · `deploy` skipped by design. Exposed BUG-062. |
+| `42756324054` | `dae8827` | **green — final re-verification**: `run_all: ALL CHECKS PASSED`, `smoke: PASS`, `deep: PASS — 143 checks hold` (BUG-062's two new checks), all 14 visual baselines ✅, `export-web` ✅, **browser ✅ 30/30 checks**, 0 console/page errors, duel won, Corin + ending reached, corrected finished-chapter HUD. `deploy` skipped by design. |
 
 Full per-run detail, including every red run and the bug each one exposed, is in
 `docs/ITERATION.md` §§6 and 8. The LIVING WORLD verification chain continues

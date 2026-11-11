@@ -91,6 +91,9 @@ func _run() -> void:
 	_check_bubbles()
 	_check_living_flock()
 	_check_flock_resume()
+	_check_portraits()
+	_check_giant_down()
+	_check_ending_objective()
 	_finish()
 
 
@@ -649,6 +652,12 @@ func _check_fight_input() -> void:
 
 	_check(f._layer.is_connected("gui_input", Callable(f, "_on_layer_gui")),
 		"the duel's screen listens for clicks on its own layer")
+	# The climax used to stretch a 16x16 map sprite to ~128px. Assert the real
+	# drawn sheets are what the shipped setpiece put on screen.
+	_check(f._gol.texture != null and f._gol.texture.get_size().x >= 64.0,
+		"the duel draws Goliath from the 64px duel sheet")
+	_check(f._david.texture != null and f._david.texture.get_size().x >= 32.0,
+		"and David from the 32px duel sheet")
 	_check(int(f.phase) == int(GoliathFight.Phase.TELEGRAPH), "the duel opens by winding up")
 
 	# (1) a press while he winds up is ANSWERED, not swallowed
@@ -863,9 +872,7 @@ func _check_place_card_language() -> void:
 			% str(main.card.title_lbl.text))
 	# The card is a tween with a 2.4s hold: put it away rather than letting it
 	# hold the screen for the rest of the suite.
-	main.card.title_lbl.modulate.a = 0.0
-	main.card.sub_lbl.modulate.a = 0.0
-	main.card._busy = false
+	main.card.hide_now()   # kills the tween so the card really leaves
 	I18n.set_lang(before)
 
 
@@ -1300,6 +1307,56 @@ func _find(region, id: String) -> Npc:
 		if n.npc_id() == id:
 			return n
 	return null
+
+
+## The dialogue box used to show a 16x16 walking sprite blown up to 30px. A
+## drawn 32x32 face must now be preferred, with the old sprite only as a
+## fallback, and the frame must be empty for a line with no speaker.
+func _check_portraits() -> void:
+	var d: DialogueBox = main.region.dialogue
+	d._set_portrait("corin")
+	_check(d.portrait.visible and d.portrait.texture != null,
+		"a named speaker has a portrait in the box")
+	_check(d.portrait.texture != null and d.portrait.texture.get_size().x >= 32.0,
+		"and it is the 32px drawn face, not the 16px walking sprite")
+	d._set_portrait("")
+	_check(not d.portrait.visible, "a narrator leaves the portrait frame empty")
+
+
+## After the third stone the standing champion must leave the ridge. This is a
+## story contradiction a player can see from anywhere in the valley, not just
+## a HUD flag. Restore the sprite so the rest of the suite keeps its world.
+func _check_giant_down() -> void:
+	var g: Sprite2D = main.region.goliath_sprite
+	_check(g != null, "the ridge has a champion before the fall")
+	if g == null:
+		return
+	main.region.set_giant_down()
+	_check(not g.visible, "the ridge empties when the champion falls")
+	g.visible = true
+
+
+## BUG-062. The browser playtest photographed a finished chapter whose HUD
+## still said "跟着柯林走。他带你去找少年兵。" — the witness chain kept
+## pointing at an NPC after elah_ended. A conclusion must say it is a
+## conclusion, every frame, whatever NPCs happen to remain unspoken.
+func _check_ending_objective() -> void:
+	if main == null or main.hud == null or main.region == null:
+		return
+	var before_act: int = main.act
+	var had_flag: bool = bool(GameState.flag("elah_ended"))
+	main.act = main.ACT_NAMES.size() - 1       # Act.DONE
+	GameState.set_flag("elah_ended", true)
+	main._update_guidance()
+	var want := str(I18n.t(main.region.model.objectives.get("done", {})))
+	_check(str(main.hud.objective_lbl.text).strip_edges() == want.strip_edges(),
+		"a finished chapter shows the completion objective, not 'follow Corin'")
+	_check(str(main.hud.prompt_lbl.text) == "",
+		"and it does not keep a talk prompt alive after the ending")
+	main.act = before_act
+	if not had_flag:
+		GameState.data["flags"].erase("elah_ended")
+	main._update_guidance()
 
 
 func _finish() -> void:

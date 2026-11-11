@@ -27,6 +27,7 @@ const TOAST_Y := 43.0
 const PROMPT_H := 12.0
 
 var bar: HBoxContainer = null
+var band_ctl: Control = null
 var name_lbl: Label = null
 var place_lbl: Label = null
 var verses_lbl: Label = null
@@ -46,6 +47,53 @@ var _stones_n := 0
 var _stones_total := 0
 var _objective := ""
 var _prompt := ""
+
+## Art-direction skins. The classic values are EXACTLY the shipped colours;
+## "storybook" is Direction C from docs/ART-RESET.md. Nothing here changes the
+## layout, the font sizes or the Chinese strings — only the palette, so the
+## before/after frames are a fair colour comparison.
+var band_bg := Color(0.03, 0.05, 0.07, 0.74)
+var band_rule := Color(0.79, 0.64, 0.36, 0.34)
+const SKINS := {
+	"classic": {
+		"band_bg": Color(0.03, 0.05, 0.07, 0.74),
+		"band_rule": Color(0.79, 0.64, 0.36, 0.34),
+		"name": Color(0.97, 0.87, 0.65),
+		"place": Color(0.72, 0.78, 0.80),
+		"verses": Color(0.79, 0.64, 0.36),
+		"stones": Color(0.62, 0.74, 0.86),
+		"time": Color(0.55, 0.62, 0.66),
+		"objective": Color(0.97, 0.93, 0.82),
+		"prompt": Color(0.97, 0.87, 0.65),
+	},
+	"storybook": {
+		"band_bg": Color(0.29, 0.21, 0.14, 0.86),
+		"band_rule": Color(0.78, 0.62, 0.38, 0.60),
+		"name": Color(0.97, 0.92, 0.80),
+		"place": Color(0.87, 0.80, 0.66),
+		"verses": Color(0.93, 0.78, 0.45),
+		"stones": Color(0.72, 0.84, 0.82),
+		"time": Color(0.78, 0.72, 0.60),
+		"objective": Color(0.98, 0.94, 0.84),
+		"prompt": Color(0.97, 0.92, 0.80),
+	},
+	# Direction B: a dusk-slate plate with a thin gold rule, so the warm
+	# golden-hour world stays the brightest thing on screen.
+	"cinematic": {
+		# B v4: the live screenshot's top band read almost black. A lighter,
+		# warmer slate lets the golden field stay the brightest thing while
+		# the Chinese HUD text keeps its contrast.
+		"band_bg": Color(0.14, 0.15, 0.13, 0.72),
+		"band_rule": Color(0.92, 0.74, 0.38, 0.62),
+		"name": Color(0.98, 0.91, 0.72),
+		"place": Color(0.80, 0.84, 0.82),
+		"verses": Color(0.93, 0.76, 0.42),
+		"stones": Color(0.72, 0.84, 0.86),
+		"time": Color(0.86, 0.80, 0.66),
+		"objective": Color(0.98, 0.94, 0.82),
+		"prompt": Color(0.98, 0.88, 0.60),
+	},
+}
 
 
 func _ready() -> void:
@@ -83,6 +131,15 @@ func bind(r: Region) -> void:
 
 # ── construction ─────────────────────────────────────────────────────────
 func _build() -> void:
+	# A gradient scrim behind the two HUD rows. Text with a drop shadow was
+	# still losing against busy water, grass and tents; a soft dark band makes
+	# the UI read as one deliberate element on every scene instead of labels
+	# pasted onto the world. It fades out before the toast band.
+	band_ctl = Control.new()
+	band_ctl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band_ctl.draw.connect(_draw_band)
+	add_child(band_ctl)
+
 	bar = HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 6)
 	add_child(bar)
@@ -130,10 +187,10 @@ func _build() -> void:
 	objective_lbl = Label.new()
 	objective_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_lbl.add_theme_font_size_override("font_size", 8)
-	objective_lbl.add_theme_color_override("font_color", Color(0.93, 0.88, 0.74))
-	objective_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
-	objective_lbl.add_theme_constant_override("shadow_offset_x", 1)
-	objective_lbl.add_theme_constant_override("shadow_offset_y", 1)
+	objective_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
+	# No 1px offset shadow here. At 8 px a shadow merges into the CJK strokes
+	# and reads as doubled glyphs (BUG-051 found the same thing in the chatter
+	# bubbles). The gradient scrim behind this row supplies the contrast.
 	add_child(objective_lbl)
 
 	# The book. Top-left, small — a thing to open when you are lost, not a thing
@@ -181,6 +238,13 @@ func _build() -> void:
 func _apply_layout() -> void:
 	var vs := _view_size()
 	var e := ScreenFit.edge(vs)
+
+	band_ctl.anchor_left = 0.0; band_ctl.anchor_right = 1.0
+	band_ctl.anchor_top = 0.0; band_ctl.anchor_bottom = 0.0
+	band_ctl.offset_left = 0.0; band_ctl.offset_right = 0.0
+	band_ctl.offset_top = 0.0
+	band_ctl.offset_bottom = ROW2_Y + 1.0 + OBJECTIVE_H
+	band_ctl.queue_redraw()
 
 	# top bar (full width, inset)
 	bar.anchor_left = 0.0; bar.anchor_right = 1.0
@@ -230,6 +294,37 @@ func _apply_layout() -> void:
 	prompt_lbl.offset_right = minf(120.0, vs.x * 0.4)
 	prompt_lbl.offset_top = -(ScreenFit.thumb_strip(vs) * 0.55 + PROMPT_H)
 	prompt_lbl.offset_bottom = -(ScreenFit.thumb_strip(vs) * 0.55)
+
+
+func _draw_band() -> void:
+	# One flat plate. A 24-step alpha ramp looked like horizontal stripes at
+	# 320x180 — each strip snapped to its own pixel row (BUG-060). A single
+	# deliberate panel with a hairline reads as a HUD, not a rendering fault.
+	var w := band_ctl.size.x
+	var h := band_ctl.size.y
+	if w <= 0.0 or h <= 0.0:
+		return
+	band_ctl.draw_rect(Rect2(0.0, 0.0, w, h - 1.0), band_bg)
+	band_ctl.draw_rect(Rect2(0.0, h - 1.0, w, 1.0), band_rule)
+
+
+## One call recolours the whole HUD without rebuilding a single Control.
+## The visual harness uses it to photograph the SAME game state in the classic
+## and the selected art direction; the default build never calls it.
+func apply_art_skin(skin: String) -> void:
+	var s: Dictionary = SKINS.get(skin, SKINS["classic"])
+	band_bg = s["band_bg"]
+	band_rule = s["band_rule"]
+	name_lbl.add_theme_color_override("font_color", s["name"])
+	place_lbl.add_theme_color_override("font_color", s["place"])
+	verses_lbl.add_theme_color_override("font_color", s["verses"])
+	stones_lbl.add_theme_color_override("font_color", s["stones"])
+	time_lbl.add_theme_color_override("font_color", s["time"])
+	objective_lbl.add_theme_color_override("font_color", s["objective"])
+	prompt_lbl.add_theme_color_override("font_color", s["prompt"])
+	toast_lbl.add_theme_color_override("font_color", s["prompt"])
+	if band_ctl != null:
+		band_ctl.queue_redraw()
 
 
 func _view_size() -> Vector2:

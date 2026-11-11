@@ -22,11 +22,16 @@ on:
     # `main` is the published game. `arena/**` is a working branch off it — the
     # automatic tooling gives each session a fresh branch name, so listing one
     # name meant the audit's own pushes ran no build at all and every gate in
-    # docs/BUGS.md would have been reported from a commit CI never saw. The
-    # deploy job publishes whatever it built, branch included, exactly as the
-    # previous session branches did: the live URL is how the game is playtested.
+    # docs/BUGS.md would have been reported from a commit CI never saw. Every
+    # branch builds; `main` and the preview branch listed in the `deploy` job
+    # also publish. The live URL is how the game is playtested before a merge.
     branches: [main, 'arena/**']
   workflow_dispatch:
+    inputs:
+      publish_preview:
+        description: 'Publish the working-branch build to GitHub Pages (requires explicit approval)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -91,7 +96,7 @@ jobs:
       # was only in the raw log, which this project's authoring sandbox cannot
       # reach — so a failure in CI was undiagnosable. One annotation of 3000
       # characters cannot be crowded out by GitHub's ~10-per-run cap.
-      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, pack_art)
+      - name: Static checks (gd_lint, check_export, xref_check, api_check, check_font, check_audio, check_chars, check_faces, check_art_reset, check_craft_props, check_cinematic_art, pack_art)
         id: static
         continue-on-error: true
         env:
@@ -101,14 +106,17 @@ jobs:
             echo "::warning::python3 unavailable, static checks skipped"
             exit 0
           fi
+          # check_faces is deliberately stdlib-only: the lint container has no
+          # pip, and a gate that cannot run in CI must not be skipped silently.
           : > static.txt
-          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars; do
+          for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset check_craft_props check_cinematic_art; do
             echo "===== $T =====" >> static.txt
             python3 "tools/$T.py" >> static.txt 2>&1
             echo "exit=$?" >> static.txt
           done
-          # pack_art needs Pillow, which the runner does not ship — try, and
-          # report clearly rather than failing the build on a missing wheel.
+          # pack_art also needs Pillow. It is installed above for check_faces;
+          # keep the explicit guard so a worker without a wheel reports WHY
+          # instead of failing the whole lint job with a traceback.
           echo "===== pack_art =====" >> static.txt
           if python3 -c "import PIL" 2>/dev/null; then
             python3 tools/pack_art.py --check >> static.txt 2>&1
@@ -399,19 +407,23 @@ jobs:
 
       # GitHub TRUNCATES an annotation message at 4096 characters and allows
       # ~10 notices per step. A 320x180 PNG is ~20 KB (27 KB of base64), so
-      # each frame is cut into 3800-char chunks, spread round-robin over twelve
-      # short steps. Twelve (rather than the original eight) keeps the per-step
-      # count low now that the harness captures twelve states — boot control,
-      # a 2x Chinese-text review, sheep interaction, quest update, 4:3 layout
-      # and a real fade. tools/decode_frames.py reassembles by name/index.
+      # each frame is cut into 4000-char chunks, spread round-robin over
+      # sixteen short steps. Sixteen keeps the per-step count low. The two
+      # richer Direction B review frames are published from a SEPARATE job so
+      # their 48-colour transport gets its own annotation budget; the fifteen
+      # classic/control frames stay at 24 colours. tools/decode_frames.py scans
+      # every job and reassembles by name/index.
       - name: Prepare base64 frame chunks
         if: always()
+        env:
+          WIC_NP: 16
         run: |
           # A 320x180 truecolour capture is ~20 KB -> ~8 annotation chunks.
-          # Quantising to 48 colours keeps it a real, readable pixel frame at
-          # ~7 KB, so a whole run fits comfortably inside GitHub's ~50
-          # annotation/check-run cap. Pillow is a transport detail only; the
-          # engine's own Image class does the in-run regression comparison.
+          # Quantising to 24 colours with NO dithering keeps the fifteen
+          # control frames under the ~50-annotation/check-run cap. The three B
+          # frames are republished at 48 colours by the publish-b-frames job.
+          # Pillow is a transport detail only; the engine's own Image class
+          # does the in-run regression comparison.
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           import base64, glob, os
@@ -421,78 +433,105 @@ jobs:
           except ImportError:
               Image = None
           lines = []
-          files = sorted(glob.glob("build/frames/*.png"))
+          B_FRAMES = ("16_shepherd_cinematic.png",
+                      "17_shepherd_cinematic_quiet.png",
+                      "18_duel_cinematic.png")
+          files = [f for f in sorted(glob.glob("build/frames/*.png"))
+                   if os.path.basename(f) not in B_FRAMES]
           if not files:
               print("::warning::visual job produced no frames")
           for f in files:
               src = f
               if Image is not None:
                   small = "build/ann/" + os.path.basename(f)[:-4] + ".q.png"
-                  Image.open(f).convert("RGB").quantize(colors=48).save(small, optimize=True)
+                  Image.open(f).convert("RGB").quantize(colors=24, dither=0).save(small, optimize=True)
                   src = small
               raw = base64.b64encode(open(src, "rb").read()).decode()
               name = os.path.basename(f)[:-4]
-              CH = 3800
+              CH = 4000  # GitHub truncates an annotation at 4096 chars;
+                         # the WICFRAME prefix is ~35, so 4000 is safe.
               parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
               for i, part in enumerate(parts):
                   lines.append("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
-          NP = 12
+          NP = int(os.environ.get("WIC_NP", "16"))
           buckets = [[] for _ in range(NP)]
           for i, line in enumerate(lines):
               buckets[i % NP].append(line)
           for i, b in enumerate(buckets):
               open("build/ann/part_%d.txt" % i, "w").write("\n".join(b) + ("\n" if b else ""))
           print("prepared %d chunk(s) in %d parts for %d frame(s)" % (len(lines), NP, len(files)))
+          PUB = 0
+          NEEDLE = "name: Publish frame" + " chunks"
+          for line in open(".github/workflows/build-web.yml", encoding="utf-8"):
+              PUB += line.count(NEEDLE)
+          if PUB < NP:
+              raise SystemExit("only %d publish steps for NP=%d — parts would be lost" % (PUB, NP))
           PY
 
-      - name: Publish frame chunks 1/12
+      - name: Publish frame chunks 1/16
         if: always()
         run: |
           [ -f build/ann/part_0.txt ] && cat build/ann/part_0.txt || true
-      - name: Publish frame chunks 2/12
+      - name: Publish frame chunks 2/16
         if: always()
         run: |
           [ -f build/ann/part_1.txt ] && cat build/ann/part_1.txt || true
-      - name: Publish frame chunks 3/12
+      - name: Publish frame chunks 3/16
         if: always()
         run: |
           [ -f build/ann/part_2.txt ] && cat build/ann/part_2.txt || true
-      - name: Publish frame chunks 4/12
+      - name: Publish frame chunks 4/16
         if: always()
         run: |
           [ -f build/ann/part_3.txt ] && cat build/ann/part_3.txt || true
-      - name: Publish frame chunks 5/12
+      - name: Publish frame chunks 5/16
         if: always()
         run: |
           [ -f build/ann/part_4.txt ] && cat build/ann/part_4.txt || true
-      - name: Publish frame chunks 6/12
+      - name: Publish frame chunks 6/16
         if: always()
         run: |
           [ -f build/ann/part_5.txt ] && cat build/ann/part_5.txt || true
-      - name: Publish frame chunks 7/12
+      - name: Publish frame chunks 7/16
         if: always()
         run: |
           [ -f build/ann/part_6.txt ] && cat build/ann/part_6.txt || true
-      - name: Publish frame chunks 8/12
+      - name: Publish frame chunks 8/16
         if: always()
         run: |
           [ -f build/ann/part_7.txt ] && cat build/ann/part_7.txt || true
-      - name: Publish frame chunks 9/12
+      - name: Publish frame chunks 9/16
         if: always()
         run: |
           [ -f build/ann/part_8.txt ] && cat build/ann/part_8.txt || true
-      - name: Publish frame chunks 10/12
+      - name: Publish frame chunks 10/16
         if: always()
         run: |
           [ -f build/ann/part_9.txt ] && cat build/ann/part_9.txt || true
-      - name: Publish frame chunks 11/12
+      - name: Publish frame chunks 11/16
         if: always()
         run: |
           [ -f build/ann/part_10.txt ] && cat build/ann/part_10.txt || true
-      - name: Publish frame chunks 12/12
+      - name: Publish frame chunks 12/16
         if: always()
         run: |
           [ -f build/ann/part_11.txt ] && cat build/ann/part_11.txt || true
+      - name: Publish frame chunks 13/16
+        if: always()
+        run: |
+          [ -f build/ann/part_12.txt ] && cat build/ann/part_12.txt || true
+      - name: Publish frame chunks 14/16
+        if: always()
+        run: |
+          [ -f build/ann/part_13.txt ] && cat build/ann/part_13.txt || true
+      - name: Publish frame chunks 15/16
+        if: always()
+        run: |
+          [ -f build/ann/part_14.txt ] && cat build/ann/part_14.txt || true
+      - name: Publish frame chunks 16/16
+        if: always()
+        run: |
+          [ -f build/ann/part_15.txt ] && cat build/ann/part_15.txt || true
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -506,6 +545,88 @@ jobs:
         run: |
           echo "rendered-frame harness failed; see the annotations above"
           exit 1
+
+  # A separate check-run for the two high-detail B review frames. GitHub caps a
+  # check-run at ~50 annotations; publishing these 48-colour PNGs in the visual
+  # job's own budget dropped chunks from frames 06, 11 and 16 on run 42811998272.
+  # The artifact is still uploaded once by the visual job; this job only reprints
+  # the three PNGs with their own WICFRAME annotations.
+  publish-b-frames:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frames
+          path: build/frames
+      # One step per frame: a single runner step silently keeps only its first
+      # ~10 ::notice:: annotations, so two 48-colour frames in one step lost a
+      # chunk even with a separate job (run 42813312029).
+      - name: Publish B dialogue frame at 48 colours
+        env:
+          WIC_B_FRAME: 16_shepherd_cinematic.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
+          PY
+      - name: Publish B quiet frame at 48 colours
+        env:
+          WIC_B_FRAME: 17_shepherd_cinematic_quiet.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q2.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
+          PY
+      - name: Publish B duel frame at 48 colours
+        env:
+          WIC_B_FRAME: 18_duel_cinematic.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_B_FRAME"][:-4]
+          f = "build/frames/" + os.environ["WIC_B_FRAME"]
+          src = "/tmp/" + name + ".q3.png"
+          Image.open(f).convert("RGB").quantize(
+              colors=48, dither=0).save(src, optimize=True)
+          raw = base64.b64encode(open(src, "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s"
+                    % (name, i, len(parts), part))
+          print("published %d chunks for %s" % (len(parts), name))
+          PY
 
   # ── export the web build ─────────────────────────────────────────────────
   export-web:
@@ -663,6 +784,224 @@ jobs:
           name: web
           path: build/web
 
+  # ── real browser validation ──────────────────────────────────────────────
+  # Godot headless tests do not prove the exported WASM game boots. This job
+  # serves the ACTUAL web artifact over a local HTTP server and opens it in a
+  # real Chromium (Playwright), driving keyboard, mouse and touch, reading the
+  # IndexedDB save, checking WebGL/WebAudio and photographing five layouts.
+  # Screenshots and the structured log come back as check-run annotations so
+  # the authoring sandbox — which cannot reach the artifact host — can review
+  # them with tools/decode_browser_frames.py.
+  browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIC_NB: 12
+      WIC_STRICT: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+          node -e "console.log('playwright', require('/tmp/wicpw/node_modules/playwright/package.json').version)"
+
+      - name: Serve the export and open it in Chromium
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          WIC_OUT: build/browser
+          WIC_URL: http://127.0.0.1:8080/index.html
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 --directory build/web > build/browser-server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/index.html > /dev/null && break
+            sleep 1
+          done
+          node tests/browser/validate.cjs
+
+      - name: Prepare evidence annotations
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          import base64, glob, json, os
+          from PIL import Image
+          # GitHub keeps only 50 annotations per check run. Small quantised
+          # thumbnails + a compact log keep the whole evidence set under it.
+          os.makedirs("build/browser/ann", exist_ok=True)
+          CH = 3800
+          lines = []
+          from PIL import ImageDraw
+          allfiles = {os.path.basename(f)[:-4]: f for f in glob.glob("build/browser/shots/*.png")}
+          # One contact sheet of EVERY frame, then a few full-size key frames.
+          names = sorted(allfiles)
+          if names:
+              CW, CHH, PAD = 160, 100, 4
+              cols = 4
+              rows = (len(names) + cols - 1) // cols
+              sheet = Image.new("RGB", (cols * (CW + PAD) + PAD, rows * (CHH + PAD) + PAD), (16, 22, 28))
+              dr = ImageDraw.Draw(sheet)
+              for i, n in enumerate(names):
+                  im = Image.open(allfiles[n]).convert("RGB")
+                  im.thumbnail((CW, CHH - 16), Image.LANCZOS)
+                  x = PAD + (i % cols) * (CW + PAD)
+                  y = PAD + (i // cols) * (CHH + PAD)
+                  sheet.paste(im, (x, y + 16))
+                  dr.text((x, y), "%d %s" % (i, n[:26]), fill=(232, 226, 208))
+              sheet.save("build/browser/ann/00_contact_sheet.png", optimize=True)
+              allfiles["00_contact_sheet"] = "build/browser/ann/00_contact_sheet.png"
+          WANT = ["00_contact_sheet", "01_boot_desktop", "06_dialogue_advance_2",
+                  "vp_mobile_landscape_844x390", "touch_03_portrait",
+                  "goliath_02_duel", "goliath_05_ending"]
+          files = [allfiles[n] for n in WANT if n in allfiles]
+          if not files:
+              print("::warning::browser job produced no screenshots")
+          groups = []
+          for f in files:
+              name = os.path.basename(f)[:-4]
+              im = Image.open(f).convert("RGB")
+              size = (680, 680) if name == "00_contact_sheet" else (320, 320)
+              im.thumbnail(size, Image.LANCZOS)
+              im.quantize(colors=16).save("build/browser/ann/" + name + ".png", optimize=True)
+              raw = base64.b64encode(open("build/browser/ann/" + name + ".png", "rb").read()).decode()
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              groups.append((name, ["::notice::WICBROWSER|%s|%d|%d|%s" % (name, i, len(parts), part)
+                                    for i, part in enumerate(parts)]))
+          # Reserve four lines for the compact log and short text notices.
+          budget = 44
+          for name, chunks in groups:
+              if len(lines) + len(chunks) > budget:
+                  print("::warning::dropping %s (%d chunks) to stay under the annotation cap" % (name, len(chunks)))
+                  continue
+              lines += chunks
+          lp = "build/browser/log.json"
+          if os.path.isfile(lp):
+              try:
+                  d = json.load(open(lp))
+              except Exception as e:
+                  print("::warning::browser log.json was unreadable: %s" % e)
+                  d = {"fatal": "log.json unreadable: %s" % e}
+              compact = {
+                  "chromium": d.get("chromium"), "started": d.get("started"),
+                  "summary": d.get("summary"), "audio": d.get("audio"),
+                  "fatal": (d.get("fatal") or "")[:1500],
+                  "checks": [{k: c.get(k) for k in ("name", "ok", "detail")} for c in d.get("checks", [])],
+                  "console": d.get("console", [])[:20],
+                  "pageErrors": d.get("pageErrors", [])[:10],
+                  "requests": d.get("requests", [])[:10],
+                  "notes": [str(t)[:300] for t in d.get("notes", [])],
+                  "views": [{"tag": v.get("tag"), "canvas": v.get("state", {}).get("canvas"),
+                             "rotationOverlay": v.get("state", {}).get("rotationOverlay"),
+                             "draws": (v.get("state", {}).get("wic") or {}).get("draws")}
+                            for v in d.get("views", [])],
+                  "saves": {k: {"databases": v.get("databases"),
+                                "files": [{"db": x.get("db"), "store": x.get("store"), "key": x.get("key"),
+                                           "shape": x.get("shape"), "raw": (x.get("raw") or "")[:300]}
+                                          for x in v.get("files", [])]}
+                            for k, v in d.get("saves", {}).items()},
+                  "goliath": (lambda g: {"presses": g.get("presses"), "won": g.get("won"),
+                                         "ended": g.get("ended"), "fallbackEnded": g.get("fallbackEnded"),
+                                         "fallbackTalked": g.get("fallbackTalked"),
+                                         "fallbackPresses": g.get("fallbackPresses"),
+                                         "finalProgress": (g.get("finalSave") or {}).get("progress"),
+                                         "finalFlags": (g.get("finalSave") or {}).get("flags")} if g else None)(d.get("goliath")),
+              }
+              blob = json.dumps(compact, separators=(",", ":"), ensure_ascii=False).encode()
+              open("build/browser/ann/compact-log.json", "wb").write(blob)
+              raw = base64.b64encode(blob).decode()
+              parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+              for i, part in enumerate(parts):
+                  lines.append("::notice::WICBROWSERLOG|%d|%d|%s" % (i, len(parts), part))
+              s = compact.get("summary") or {}
+              texts = ["::notice::WICBROWSERTEXT|chromium=%s checks=%s failed=%s consoleErrors=%s pageErrors=%s" %
+                       (compact.get("chromium"), s.get("checks"), s.get("failedChecks"),
+                        s.get("consoleErrors"), s.get("pageErrors"))]
+              if compact.get("fatal"):
+                  texts.append("::notice::WICBROWSERTEXT|FATAL %s" % compact["fatal"][:900].replace("\n", " "))
+              g = compact.get("goliath") or {}
+              texts.append("::notice::WICBROWSERTEXT|DUEL presses=%s won=%s ending=%s corin=%s endingPresses=%s finalAct=%s" %
+                           (g.get("presses"), g.get("won"), g.get("fallbackEnded"), g.get("fallbackTalked"),
+                            g.get("fallbackPresses"), (g.get("finalProgress") or {}).get("act")))
+              for c in [x for x in compact["checks"] if not x.get("ok")][:4]:
+                  texts.append("::notice::WICBROWSERTEXT|FAILED %s -- %s" % (c.get("name"), c.get("detail")))
+              for c in compact["console"][:3]:
+                  texts.append("::notice::WICBROWSERTEXT|CONSOLE %s %s" % (c.get("type"), str(c.get("text"))[:220]))
+              for t in compact["notes"][:3]:
+                  texts.append("::notice::WICBROWSERTEXT|NOTE %s" % t)
+          else:
+              texts = []
+          # 50 annotations per check run. Keep all image/log chunks, spend the
+          # remainder on short text lines.
+          head_count = len(lines)
+          lines += texts[:max(0, 49 - head_count)]
+          print("evidence: %d image/log chunks + %d text lines (cap 49)" % (head_count, len(lines) - head_count))
+          NB = int(os.environ.get("WIC_NB", "12"))
+          buckets = [[] for _ in range(NB)]
+          for i, line in enumerate(lines):
+              buckets[i % NB].append(line)
+          for i, b in enumerate(buckets):
+              open("build/browser/ann/part_%d.txt" % i, "w").write("\n".join(b) + ("\n" if b else ""))
+          print("prepared %d chunk(s) in %d parts for %d screenshot(s)" % (len(lines), NB, len(files)))
+          PUB = 0
+          NEEDLE = "name: Publish browser" + " chunk"
+          for line in open(".github/workflows/build-web.yml", encoding="utf-8"):
+              PUB += line.count(NEEDLE)
+          if PUB < NB:
+              raise SystemExit("only %d publish steps for NB=%d - evidence would be lost" % (PUB, NB))
+          PY
+
+      - name: Publish browser chunk 1/12
+        if: always()
+        run: '[ -f build/browser/ann/part_0.txt ] && cat build/browser/ann/part_0.txt || true'
+      - name: Publish browser chunk 2/12
+        if: always()
+        run: '[ -f build/browser/ann/part_1.txt ] && cat build/browser/ann/part_1.txt || true'
+      - name: Publish browser chunk 3/12
+        if: always()
+        run: '[ -f build/browser/ann/part_2.txt ] && cat build/browser/ann/part_2.txt || true'
+      - name: Publish browser chunk 4/12
+        if: always()
+        run: '[ -f build/browser/ann/part_3.txt ] && cat build/browser/ann/part_3.txt || true'
+      - name: Publish browser chunk 5/12
+        if: always()
+        run: '[ -f build/browser/ann/part_4.txt ] && cat build/browser/ann/part_4.txt || true'
+      - name: Publish browser chunk 6/12
+        if: always()
+        run: '[ -f build/browser/ann/part_5.txt ] && cat build/browser/ann/part_5.txt || true'
+      - name: Publish browser chunk 7/12
+        if: always()
+        run: '[ -f build/browser/ann/part_6.txt ] && cat build/browser/ann/part_6.txt || true'
+      - name: Publish browser chunk 8/12
+        if: always()
+        run: '[ -f build/browser/ann/part_7.txt ] && cat build/browser/ann/part_7.txt || true'
+      - name: Publish browser chunk 9/12
+        if: always()
+        run: '[ -f build/browser/ann/part_8.txt ] && cat build/browser/ann/part_8.txt || true'
+      - name: Publish browser chunk 10/12
+        if: always()
+        run: '[ -f build/browser/ann/part_9.txt ] && cat build/browser/ann/part_9.txt || true'
+      - name: Publish browser chunk 11/12
+        if: always()
+        run: '[ -f build/browser/ann/part_10.txt ] && cat build/browser/ann/part_10.txt || true'
+      - name: Publish browser chunk 12/12
+        if: always()
+        run: '[ -f build/browser/ann/part_11.txt ] && cat build/browser/ann/part_11.txt || true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-evidence
+          path: build/browser
+
   # ── publish to GitHub Pages ──────────────────────────────────────────────
   # Creating a Pages site requires repository admin, which neither this
   # workflow's GITHUB_TOKEN nor an automated agent token is granted:
@@ -671,13 +1010,130 @@ jobs:
   # Actions — and until it is flipped this job stays green, publishes nothing,
   # and says exactly what to do. The build artifact is uploaded regardless, so
   # the game is playable locally in the meantime.
+  # Isolated art prototype (docs/ART-RESET.md §13): real Godot renders of the
+  # playable shepherd field, published as PROTOFRAME / PROTOLOG annotations.
+  # It never deploys and never gates production; it only produces evidence.
+  proto-frames:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.7.2
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-bin
+          GODOT=$(find /tmp/godot-bin -type f -name 'Godot_v4.7.2*' | head -1)
+          cp "$GODOT" /tmp/godot
+          chmod +x /tmp/godot
+
+      - name: Install Xvfb and software OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libxcursor1 \
+            libxinerama1 libxi6 libxrandr2 mesa-utils fontconfig || true
+
+      - name: Import resources
+        run: /tmp/godot --headless --path . --import || true
+
+      - name: Render the shepherd-field prototype (Xvfb + llvmpipe)
+        run: |
+          mkdir -p build/proto
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --rendering-driver opengl3 --audio-driver Dummy \
+            --windowed --resolution 1280x720 res://tests/proto_visual.tscn > proto.txt 2>&1 || true
+          cat proto.txt
+
+      - name: Script errors in the prototype
+        run: |
+          BAD=$(grep -aE "SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance" proto.txt | head -20 || true)
+          if [ -n "$BAD" ]; then
+            printf '%s\n' "$BAD" | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
+
+      - name: Publish prototype log lines
+        if: always()
+        run: |
+          # One annotation for all log lines: the per-job annotation budget is small.
+          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
+          echo "::notice::PROTOLOG|${LINE}"
+
+      - name: Publish prototype frames
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tools/proto/encode_frames.py build/proto
+
+      - name: Publish prototype frame part 0
+        if: always()
+        run: |
+          test -f build/proto/parts/part_0.txt && cat build/proto/parts/part_0.txt || echo "no part 0"
+
+      - name: Publish prototype frame part 1
+        if: always()
+        run: |
+          test -f build/proto/parts/part_1.txt && cat build/proto/parts/part_1.txt || echo "no part 1"
+
+      - name: Publish prototype frame part 2
+        if: always()
+        run: |
+          test -f build/proto/parts/part_2.txt && cat build/proto/parts/part_2.txt || echo "no part 2"
+
+      - name: Publish prototype frame part 3
+        if: always()
+        run: |
+          test -f build/proto/parts/part_3.txt && cat build/proto/parts/part_3.txt || echo "no part 3"
+
+      - name: Publish prototype frame part 4
+        if: always()
+        run: |
+          test -f build/proto/parts/part_4.txt && cat build/proto/parts/part_4.txt || echo "no part 4"
+
+      - name: Publish prototype frame part 5
+        if: always()
+        run: |
+          test -f build/proto/parts/part_5.txt && cat build/proto/parts/part_5.txt || echo "no part 5"
+
+      - name: Publish prototype frame part 6
+        if: always()
+        run: |
+          test -f build/proto/parts/part_6.txt && cat build/proto/parts/part_6.txt || echo "no part 6"
+
+      - name: Publish prototype frame part 7
+        if: always()
+        run: |
+          test -f build/proto/parts/part_7.txt && cat build/proto/parts/part_7.txt || echo "no part 7"
+
   deploy:
     needs: export-web
-    # Pages has an environment protection rule that lets only `main` deploy, so
-    # every working-branch push used to end in a red deploy job after a fully
-    # green lint and export — a build that had nothing wrong with it reported as
-    # a failure. A branch is checked, not published: its artifact is the build.
-    if: github.ref == 'refs/heads/main'
+    # `main` is the release. The named working branch is an opt-in PREVIEW: the
+    # repo's `github-pages` environment has a custom deployment-branch policy
+    # that lists it, so `actions/deploy-pages` is accepted from this ref.
+    # There is ONE Pages site per repo, so a preview deploy temporarily replaces
+    # the live URL with the branch build; the next `main` push (or the merge)
+    # republishes main. Any other branch added here must also be added to that
+    # environment policy, or its deploy job will fail.
+    #
+    # Never switch Source to "Deploy from a branch" to get a preview: that makes
+    # Pages Jekyll-build the repository ROOT and serve README.md instead of the
+    # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
+    # artifact check below exists. `build_type` must stay `workflow`.
+    # `main` publishes automatically. On 2026-11-10 the user explicitly asked to
+    # "serve this branch to live for me to feel", so this named working branch
+    # also publishes on every push while that live-preview authorisation is in
+    # effect. Any OTHER branch still needs workflow_dispatch + publish_preview
+    # AND must be listed in the github-pages environment branch policy. This is
+    # a preview, not a release: it temporarily replaces the one Pages URL, and
+    # the next `main` push republishes main. No merge to `main` is implied.
+    # Branch preview deploys are PAUSED: the user asked for no deploy until they approve
+    # the visual prototype. Explicit workflow_dispatch with publish_preview still works.
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -688,12 +1144,34 @@ jobs:
           name: web
           path: build/web
 
+      - name: Verify the artifact is the game, not repository text
+        run: |
+          if [ ! -f build/web/index.html ]; then
+            echo "::error::web artifact has no index.html — refusing to publish repository text"
+            exit 1
+          fi
+          if ! grep -q "serviceWorker" build/web/index.html; then
+            echo "::error::web artifact index.html is not the PWA-injected Godot build"
+            exit 1
+          fi
+          echo "web artifact verified: index.html with a registered service worker"
+
+      - name: Report the publish target
+        env:
+          WIC_REF: ${{ github.ref_name }}
+          WIC_SHA: ${{ github.sha }}
+        run: |
+          echo "::notice::Publishing $WIC_REF @ $WIC_SHA to https://fongway94.github.io/WalkInCovenant/ . A push to main republishes main."
+
       - id: pages
         name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6.0.0
         continue-on-error: true
         with:
-          enablement: true
+          # The site already exists; `enablement: true` needs a token with
+          # administration:write and can fail with the workflow GITHUB_TOKEN.
+          # Reading the existing workflow site is enough here.
+          enablement: false
 
       - name: Report that Pages needs a one-time switch
         if: steps.pages.outcome != 'success'
@@ -704,11 +1182,21 @@ jobs:
 
       - name: Upload Pages artifact
         if: steps.pages.outcome == 'success'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: build/web
 
       - id: deployment
         name: Deploy to GitHub Pages
         if: steps.pages.outcome == 'success'
-        uses: actions/deploy-pages@v4
+        # v4 targets Node20 and is force-run on Node24 on current runners;
+        # its status polling timed out on the 2026-11-10 preview deployment.
+        # v5.0.1 is native Node24 with backoff/jitter status polling. Run
+        # 42837952729 still hit the action's DEFAULT ten-minute timeout while
+        # the Pages service had this deployment `in_progress`; give the service
+        # 20 minutes and poll less aggressively before declaring a failure.
+        uses: actions/deploy-pages@v5.0.1
+        with:
+          timeout: 1200000
+          error_count: 20
+          reporting_interval: 10000

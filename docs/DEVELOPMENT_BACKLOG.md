@@ -8,6 +8,20 @@ Size: **S** ≤ half a day · **M** a day · **L** more than a day, and split fi
 
 ---
 
+## Status at 2026-11-06 (premium-art / climax pass — supersedes the table below)
+
+| # | State | Evidence |
+|---|---|---|
+| 1 Device pass | **Still open. Highest remaining risk.** | No phone, two aspect ratios, browser-export run or hardware screenshot. Nothing in this pass changes that. |
+| 2 Listen to the audio | **Still open.** | 16 SFX / 3 beds remain checked as state, never heard. The duel now has a new backdrop but no new sound; no audio claim is made. |
+| 3 Screenshot inspection | **Done for fourteen rendered beats, including the climax, not for a camp close-up or a device.** | `tests/visual.gd` grew from 12 to 14 frames; `13_duel` renders the shipped `GoliathFight` with its drawn 64px/32px figures and directed valley, `14_aftermath` renders the empty ridge. All 14 decoded PNGs were reviewed as a sheet and as 3× zooms, then promoted as baselines. Nine defects (BUG-052…061) came from looking at them; a red CI run and two green runs are recorded in `docs/BUG_TRACKER.md`. A camp close-up, a handset screenshot and a browser screenshot remain open. |
+| 4 Premium art | **Landed, with a reviewed before/after.** | 18 drawn 32×32 portraits, distinct cast silhouettes, dedicated duel figures, directed duel backdrop, opaque dialogue box and flat HUD/caption plates. Six candidate asset sources verified against real downloaded PNGs and licences; all rejected for style/rights (`assets/LICENSES.md`, `docs/ART-COMPARISON.png`). Chosen direction is original palette-locked art, gated by the stdlib-only `tools/check_faces.py` and `data/art_hashes.json`. |
+| 5 Defects found by looking / red runs | **Nine more, all with a check or a frame.** | BUG-052…061 in `docs/BUG_TRACKER.md`: frozen chatter bubble, standing giant after the win, Pillow-dependent CI gate, 12 publish steps for 14 frames, aim band behind the sprite, 7px CJK and empty portrait frame, ghosted dialogue panel, shadow-garbled HUD, striped scrim and non-deterministic caption. No check was weakened. |
+| 6 Chinese editorial pass | **Still partly open.** | Rendered-context review of `09_chinese_2x`, the journal's marked Scripture, the duel hints and the six ending lines; `check_font` maps 826 codepoints. No native-speaker/author listening pass and no handset legibility judgement. |
+| 7 Full chapter | **Automated completion proof exists.** | `smoke: PASS — the slice played start to finish` drives brook → flock → armour → five stones → three duel hits through `Phase.DONE` → aftermath → all six ending lines → `act_id() == "done"`, seals, relics, save file and the Bethlehem road. `deep: PASS — 141 checks hold`. This is not a human playtest. |
+
+---
+
 ## Status at 2026-11-05 (the David's Life Before the Battlefield milestone)
 
 | # | State | Evidence |
@@ -51,6 +65,16 @@ tests survive; the table above is the current truth.
 | 11 | Chinese editorial pass over `elah.json`'s aphorisms ("他错在以为，年轻就什么都不是"), with the author listening. | M |
 | 12 | Camp work: mending, cooking, a queue at the water. Scenery that implies labour. | M |
 | 13 | Resume mid-brook re-walks the brook (O-1) — decide whether the resume should restore the pouch instead. | S |
+| 14 | **Human playtest, opening → conclusion, before any public release.** The one gate the browser job cannot pass. Record confusion, pacing and emotional closure. | M |
+| 15 | Listen to the mix on speakers/headphones: BGM loop seams, SFX overlap, ambience transitions, volume balance. Technical WebAudio checks are green; perception is not. | M |
+| 16 | Native-speaker / author Simplified Chinese pass, including the 石子 / 石头 register split and the aphorisms. Scripture stays verbatim. | M |
+| 17 | Real-device pass: tactile thumb reach, OS rotation, notch/safe area, legibility on an actual handset. Browser emulation is not this. | M |
+| 18 | Hide or fade the touch A/RUN circles for keyboard-only desktop play — only after a device says which input mix to prefer, and with 14 baselines regenerated. | S |
+| 19 | **PARTIAL — B v4, one scene (2026-11-10).** 13 hand-authored opt-in props and 4 character sheets (`pilgrim`, `shepherd`, idle/walk × 4 facings) exist for BOTH directions. B v4 adds rare clustered detail, a shape-aware outer rim and clumped leaf texture inside the existing canopy alpha, plus an 84-colour controlled 49-cell atlas. Ink outlines, clothing folds, contact shadow and animated rim light remain; frame counts are identical. **Still required:** hand-pixel-edited cycles for every other actor, seam testing, manual art-director pass and human playtest. See `docs/ART-RESET.md` §12.11. | L |
+| 20 | **MEASURED — B v4, much closer but NOT parity.** Final real CI `42850057966`: B v4 quiet frame luma **91.2**, world luma **100.2**, spread **26.4**, edge density **0.478**; fitted concept **79.4 / 86.6 / 22.6 / 0.454**. B v4 duel frame luma **79.6**, edge **0.130**. Cream confetti and hard wedges are reduced, but the concept has 45,109 fitted colours, no UI and no animation; the game has 48-colour CI transport, a HUD and a 16px grid. **Still open:** tree volume, path rendering, atmospheric haze, human review. See §12.11, `diagnosis/18_B_quiet_vs_reference.png` and `diagnosis/19_B_duel_vs_reference.png`. | M |
+| 21 | Give Bethlehem, Saul's court and the valley distinct rendered environments and location-specific atmospheric palettes. Samuel's anointing and Saul's court currently have **no world at all** — they are dialogue over the same two maps. Direction B exists for the shepherd field only. | L |
+| 22 | **PARTIAL — B v4, overworld + setpieces.** `TerrainLayer._draw_cinematic_depth()` now draws rutted path stones, four soft sun shafts, five low-alpha cast bands, a two-course wall, sparse world-anchored foreground blades and irregular framing leaves; `ContactShadowLayer` and `GoldenRimLayer` follow every animated sprite. `GoliathFight`, `SlingPractice` and `StoneChoice` now share the Web B theme with B-palette duel figures and a warm one-light valley. C remains historical. **Still required:** real parallax, building volume, natural landmarks, per-location light, journal/menu/transition skins. | L |
+| 23 | **NOT DONE — runtime preview only.** `baseline_16_shepherd_cinematic.png`, `baseline_17_shepherd_cinematic_quiet.png` and new `baseline_18_duel_cinematic.png` are promoted; all 18 frames are clean. The Web preview applies B at runtime after user feedback (§12.11), but classic source assets, desktop/headless/visual CI and journal/menu/transition surfaces remain classic. **Still required AFTER 19–22:** default asset replacement, all-scene baselines, browser + human playtest and explicit user approval. No PR or merge to `main`. | M |
 
 ## Standing rules for every item
 

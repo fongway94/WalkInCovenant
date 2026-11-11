@@ -44,7 +44,15 @@ var dialogue: DialogueBox = null
 var goliath_sprite: Sprite2D = null
 
 var _ys: Node2D = null
+var _shadow_layer: Node2D = null
+var _rim_layer: Node2D = null
+## {sprite: Sprite2D, key: String} — kept so the opt-in art direction can swap
+## prop textures without rebuilding the world (which would drop quest state).
+var _prop_sprites: Array = []
 var _mod: CanvasModulate = null
+## The opt-in B scene gets its own golden-hour daylight tint. GameState's
+## time_of_day, save data and story beats are untouched; this is a visual theme.
+var _art_theme := "classic"
 var _props_meta: Dictionary = {}
 var _tiles_meta: Dictionary = {}
 var _paused := false
@@ -104,6 +112,12 @@ func _build() -> void:
 	terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	add_child(terrain)
 
+	# Ground shade belongs BETWEEN the tiles and the y-sorted sprites. It is
+	# disabled in the classic build; apply_art_theme() enables it for the one
+	# integrated scene (docs/ART-RESET.md §6).
+	_shadow_layer = load("res://scripts/world/ContactShadowLayer.gd").new()
+	add_child(_shadow_layer)
+
 	# Before anything that talks. Npc.setup() is handed the dialogue box by
 	# reference, and it used to be built after _spawn_npcs() — so every person in
 	# the valley held null, talk() hit its guard and returned, and pressing A
@@ -117,6 +131,14 @@ func _build() -> void:
 	_ys = Node2D.new()
 	_ys.y_sort_enabled = true
 	add_child(_ys)
+
+	# Direction B's rim light sits AFTER the y-sorted sprites but BEFORE the
+	# CanvasLayer UI. It shares the shadow layer's live target array, so every
+	# walking figure keeps its highlight and shadow in the same light.
+	_rim_layer = load("res://scripts/world/GoldenRimLayer.gd").new()
+	add_child(_rim_layer)
+	var shadow_targets = _shadow_layer.get("targets")
+	_rim_layer.call("set_targets", shadow_targets)
 
 	_spawn_props()
 	_spawn_goliath()
@@ -155,6 +177,8 @@ func _spawn_props() -> void:
 		s.position = Vector2(cx, cy - h * 0.5)
 		s.z_index = 0
 		_ys.add_child(s)
+		_prop_sprites.append({"sprite": s, "key": key})
+		_shadow_layer.call("add_target", s, w * 0.42, 2.6)
 		if SWAY_KEYS.has(key):
 			_swayers.append({"sprite": s, "x": cx, "y": cy - h * 0.5,
 				"phase": float(tx) * 0.37 + float(ty) * 0.19})
@@ -173,6 +197,11 @@ func _spawn_props() -> void:
 ## data — "somebody is shouting over there" with nobody there to shout.
 func _spawn_goliath() -> void:
 	if model.goliath == Vector2i.ZERO:
+		return
+	# Once he has fallen, the ridge is empty. Leaving the standing sprite there
+	# after the duel was a story contradiction a player could see from anywhere
+	# in the valley (found while staging the aftermath frame).
+	if bool(GameState.flag("goliath_down")):
 		return
 	var tex := load("res://art/characters/goliath_idle.png")
 	if tex == null:
@@ -197,12 +226,21 @@ func _spawn_goliath() -> void:
 	goliath_sprite = s
 
 
+## The duel's result reaches the WORLD, not just the HUD and the save. Called
+## from Main._after_return(); also safe on a reload (the sprite is never
+## spawned at all when the flag is already set).
+func set_giant_down() -> void:
+	if goliath_sprite != null and is_instance_valid(goliath_sprite):
+		goliath_sprite.visible = false
+
+
 func _spawn_player() -> void:
 	player = Player.new()
 	var sp := model.nearest_open(model.spawn)
 	player.global_position = Vector2(sp.x * TILE + TILE * 0.5, (sp.y + 1) * TILE - 2)
 	player.setup(model, "pilgrim")
 	_ys.add_child(player)
+	_shadow_layer.call("add_target", player, 12.0, 2.4)
 
 
 func _spawn_npcs() -> void:
@@ -213,6 +251,7 @@ func _spawn_npcs() -> void:
 		n.setup(model, nd, player, dialogue, set_paused)
 		_ys.add_child(n)
 		npcs.append(n)
+		_shadow_layer.call("add_target", n, 12.0, 2.4)
 
 
 ## Add one person after load. Saul is not standing in the camp when the chapter
@@ -223,6 +262,7 @@ func spawn_npc(d: Dictionary) -> Npc:
 	n.setup(model, d, player, dialogue, set_paused)
 	_ys.add_child(n)
 	npcs.append(n)
+	_shadow_layer.call("add_target", n, 12.0, 2.4)
 	return n
 
 
@@ -270,12 +310,13 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 			sp.scale = Vector2(0.85, 0.85)
 			node.add_child(sp)
 	_ys.add_child(node)
+	_shadow_layer.call("add_target", node, 10.0, 2.0)
 	var catch_range := PICK_RANGE
 	if kind == "flock":
 		catch_range = FLOCK_PICK_RANGE
 	pickups.append({"id": id, "kind": kind, "node": node, "got": false,
-		"guided": false, "range": catch_range,
-		"ref": extra.get("ref", ""), "data": extra})
+			"guided": false, "range": catch_range, "sprite_key": sprite,
+			"ref": extra.get("ref", ""), "data": extra})
 
 
 func _on_sheep_reacted(id: String, mood: int) -> void:
@@ -339,6 +380,11 @@ func _apply_time(tod: String) -> void:
 		"noon":    col = Color(1.0, 1.0, 0.98)
 		"dusk":    col = Color(0.80, 0.62, 0.55)
 		"night":   col = Color(0.35, 0.40, 0.55)
+	# The shepherd chapter is literally "before dark", and the classic dusk
+	# modulate (0.80, 0.62, 0.55) made the B meadow read as night. Direction B
+	# keeps the story's dusk but lets the low golden sun reach the field.
+	if _art_theme == "cinematic" and tod == "dusk":
+		col = Color(1.0, 0.90, 0.74)
 	_mod.color = col
 
 
@@ -631,6 +677,80 @@ func set_act(a: String) -> void:
 	for n in npcs:
 		var npc: Npc = n
 		npc.act_name = a
+
+
+## Opt-in art direction for the ART DIRECTION RESET prototype. The classic atlas
+## AND the classic props/sprites stay the default. The storybook (Direction C)
+## and cinematic (user-selected Direction B) atlases have the SAME 16px cells,
+## the SAME 49 indices and the SAME data/tiles.json, so collision, footstep
+## surfaces, the water animation and every save file are untouched by the swap.
+## Everything below is a TEXTURE / DRAW layer only.
+##
+## §6 of docs/ART-RESET.md demanded real craft, not another palette: the second
+## pass adds hand-authored silhouettes, one shared contact-shadow light, and
+## far/middle/near value planes drawn inside the terrain canvas. §12.7 adds B's
+## golden-hour depth, animated rim light and long cast shadows.
+func apply_art_theme(theme: String) -> void:
+	if terrain == null or model == null:
+		return
+	_art_theme = theme
+	# Re-evaluate the current time-of-day tint under the new theme; classic and
+	# storybook restore their original daylight exactly.
+	if _mod != null:
+		_apply_time(str(GameState.data.get("time_of_day", "morning")))
+	var themed := theme == "storybook" or theme == "cinematic"
+	var path := "res://art/tiles/terrain.png"
+	if themed:
+		path = "res://art/tiles/terrain_%s.png" % theme
+	var tex := load(path) as Texture2D
+	if tex != null:
+		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
+	terrain.set_depth_mode(theme if themed else "none")
+	# Crafted props are OPT-IN per key: anything without a crafted variant keeps
+	# its classic sprite, so no prop ever disappears and no footprint changes.
+	for p in _prop_sprites:
+		var d: Dictionary = p
+		var s: Sprite2D = d["sprite"]
+		var key: String = d["key"]
+		var classic := "res://art/props/%s.png" % key
+		var crafted := "res://art/props_%s/%s.png" % [theme, key]
+		var chosen := classic
+		if themed and ResourceLoader.exists(crafted):
+			chosen = crafted
+		var pt := load(chosen) as Texture2D
+		if pt != null:
+			s.texture = pt
+	# The two actors in this scene have crafted 16px sheets. Other actors keep
+	# their classic sheets (their own apply_art_theme checks for both files).
+	if player != null and is_instance_valid(player):
+		player.apply_art_theme(theme)
+	for n in npcs:
+		var npc: Npc = n
+		npc.apply_art_theme(theme)
+	# The three live sheep and any uncollected ground items are part of the
+	# same picture; swap their textures too, without touching their state.
+	for it in pickups:
+		var p: Dictionary = it
+		var node: Node2D = p.get("node")
+		if node == null or not is_instance_valid(node):
+			continue
+		if node.has_method("apply_art_theme"):
+			node.call("apply_art_theme", theme)
+		else:
+			var key := str(p.get("sprite_key", "rock"))
+			var chosen := "res://art/props/%s.png" % key
+			var crafted := "res://art/props_%s/%s.png" % [theme, key]
+			if themed and ResourceLoader.exists(crafted):
+				chosen = crafted
+			for c in node.get_children():
+				if c is Sprite2D:
+					var sp: Sprite2D = c
+					sp.texture = load(chosen)
+	if _shadow_layer != null:
+		_shadow_layer.call("set_enabled", themed)
+		_shadow_layer.call("set_mode", theme if themed else "storybook")
+	if _rim_layer != null:
+		_rim_layer.call("set_enabled", theme == "cinematic")
 
 
 func is_paused() -> bool:
