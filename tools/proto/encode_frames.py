@@ -1,37 +1,67 @@
-"""Encode prototype PNG captures as small JPEG annotation chunks for CI.
+"""Publish real Godot captures as 640x360 WebP annotation chunks.
 
-Each frame is 640x360 WebP, base64-encoded and split into annotation-sized
-chunks: `PROTOFRAME|name|index|count|chunk`. The decoder reassembles them.
+GitHub has a per-job annotation budget as well as a per-step limit. Choose the
+highest common WebP quality that fits all frames in 48 chunks, leaving room for
+the single joined PROTOLOG annotation and an infrastructure warning. The
+quality and chunk count are included in that log rather than another notice.
 """
 import base64
 import glob
+import io
 import os
 import sys
 
 from PIL import Image
 
-CH = 4000  # GitHub truncates an annotation at 4096 characters.
-NP = 8     # GitHub accepts only about ten annotations per step, so chunks are
-           # spread over NP steps; the workflow prints part_0..part_{NP-1}.
+CH = 4000  # Leave room for the PROTOFRAME header below GitHub's 4096 limit.
+NP = 8     # The workflow publishes one bucket per step.
+MAX_CHUNKS = 48
 
 src_dir = sys.argv[1]
 parts_dir = os.path.join(src_dir, "parts")
 os.makedirs(parts_dir, exist_ok=True)
+paths = sorted(glob.glob(os.path.join(src_dir, "*.png")))
+if not paths:
+    raise SystemExit("no prototype PNG frames to publish")
+
+images = []
+for path in paths:
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+        if image.size != (640, 360):
+            image = image.resize((640, 360), Image.Resampling.LANCZOS)
+        images.append((os.path.basename(path)[:-4], image))
+
+for quality in range(78, 32, -3):
+    encoded = []
+    total_chunks = 0
+    for name, image in images:
+        buf = io.BytesIO()
+        image.save(buf, "WEBP", quality=quality, method=6)
+        data = buf.getvalue()
+        raw = base64.b64encode(data).decode("ascii")
+        chunks = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+        encoded.append((name, data, chunks))
+        total_chunks += len(chunks)
+    if total_chunks <= MAX_CHUNKS:
+        break
+else:
+    raise SystemExit("prototype frames exceed the %d-chunk annotation budget" % MAX_CHUNKS)
+
 buckets = [[] for _ in range(NP)]
-lines_out = []
-for f in sorted(glob.glob(os.path.join(src_dir, "*.png"))):
-    name = os.path.basename(f)[:-4]
-    out = os.path.join(src_dir, name + ".webp")
-    Image.open(f).convert("RGB").resize((640, 360), Image.LANCZOS).save(
-        out, "WEBP", quality=78, method=6)
-    raw = base64.b64encode(open(out, "rb").read()).decode()
-    parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-    for i, part in enumerate(parts):
-        lines_out.append("::notice::PROTOFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
-    print("encoded %s bytes=%d chunks=%d" % (name, len(raw), len(parts)), file=sys.stderr)
-for i, line in enumerate(lines_out):
-    buckets[i % NP].append(line)
-for k, b in enumerate(buckets):
-    with open(os.path.join(parts_dir, "part_%d.txt" % k), "w") as fh:
-        fh.write("\n".join(b) + ("\n" if b else ""))
-print("prepared %d chunk(s) in %d part(s)" % (len(lines_out), NP), file=sys.stderr)
+line_index = 0
+for name, data, chunks in encoded:
+    with open(os.path.join(src_dir, name + ".webp"), "wb") as output:
+        output.write(data)
+    for i, chunk in enumerate(chunks):
+        buckets[line_index % NP].append(
+            "::notice::PROTOFRAME|%s|%d|%d|%s" % (name, i, len(chunks), chunk))
+        line_index += 1
+    print("encoded %s bytes=%d chunks=%d" % (name, len(data), len(chunks)), file=sys.stderr)
+for i, bucket in enumerate(buckets):
+    with open(os.path.join(parts_dir, "part_%d.txt" % i), "w", encoding="utf-8") as output:
+        output.write("\n".join(bucket) + ("\n" if bucket else ""))
+summary = "PROTO encoding quality=%d frames=%d chunks=%d" % (quality, len(encoded), total_chunks)
+with open(os.path.join(src_dir, "encoding.txt"), "w", encoding="utf-8") as output:
+    output.write(summary)
+print(summary, file=sys.stderr)

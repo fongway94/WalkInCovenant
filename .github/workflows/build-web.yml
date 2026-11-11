@@ -1056,19 +1056,26 @@ jobs:
             printf '%s\n' "$BAD" | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           fi
-
-      - name: Publish prototype log lines
-        if: always()
-        run: |
-          # One annotation for all log lines: the per-job annotation budget is small.
-          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
-          echo "::notice::PROTOLOG|${LINE}"
+          # The render command captures output even on timeout. A missing PASS
+          # must not turn a crash, failed assertion or empty run green.
+          if ! grep -aq '^PROTO PASS$' proto.txt; then
+            echo "::error::prototype harness did not pass (see PROTOLOG)"
+            exit 1
+          fi
 
       - name: Publish prototype frames
         if: always()
         run: |
           python3 -m pip install --quiet pillow
           python3 tools/proto/encode_frames.py build/proto
+
+      - name: Publish prototype log lines
+        if: always()
+        run: |
+          # One annotation for all log lines, including encoding quality.
+          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
+          ENCODING=$(cat build/proto/encoding.txt 2>/dev/null || true)
+          echo "::notice::PROTOLOG|${LINE}${ENCODING}"
 
       - name: Publish prototype frame part 0
         if: always()

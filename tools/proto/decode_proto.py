@@ -32,12 +32,19 @@ for a in anns:
     _, name, idx, cnt, chunk = msg.split("|", 4)
     parts[name][int(idx)] = chunk
     counts[name] = int(cnt)
+if not parts:
+    raise SystemExit("no PROTOFRAME annotations found")
+incomplete = False
 for name, chunks in sorted(parts.items()):
     missing = [i for i in range(counts[name]) if i not in chunks]
     if missing:
         print("%s: missing chunks %s" % (name, missing))
+        incomplete = True
         continue
     data = base64.b64decode("".join(chunks[i] for i in range(counts[name])))
     path = os.path.join(outdir, name + ".webp")
     open(path, "wb").write(data)
     print("wrote %s (%d bytes)" % (path, len(data)))
+
+if incomplete:
+    raise SystemExit("incomplete prototype frame annotations")

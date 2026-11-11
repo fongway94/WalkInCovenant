@@ -9,8 +9,15 @@ const FG_PATH := "res://art/proto/shepherd_field_fg.png"
 const DAVID_PATH := "res://art/proto/sprites/david.png"
 const SHEEP_PATH := "res://art/proto/sprites/sheep.png"
 const WORLD := Rect2(0, 0, 1440, 666)
-const DAVID_SCALE := 0.6
-const SHEEP_SCALE := 0.8
+# The reference's shepherd is about 46 pixels tall against a 681-pixel field.
+# At this wider framing the old 0.6-scale figure was much smaller than that.
+const DAVID_SCALE := 0.85
+const SHEEP_SCALE := 0.66
+# 640 logical pixels across, showing roughly 1,164 world pixels. The window
+# is still free to resize; the painting, collisions and actors stay in world
+# space. 320 is supported for the CI resolution comparison only.
+const PROTO_WIDTH := 640
+const CAMERA_ZOOM := 0.55
 const DAVID_SPEED := 70.0
 const SHEEP_WALK := 14.0
 const SHEEP_FLEE := 40.0
@@ -40,6 +47,8 @@ const OBSTACLES := [
 
 var david: CharacterBody2D
 var david_sprite: Sprite2D
+var camera: Camera2D
+var hud_panel: PanelContainer
 var sheep: Array = []
 var counted := 0
 var label: Label
@@ -50,8 +59,10 @@ func _ready() -> void:
 	seed(42)
 	y_sort_enabled = true
 	var bg := Sprite2D.new()
+	bg.name = "Backdrop"
 	bg.texture = load(BG_PATH) as Texture2D
 	bg.centered = false
+	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
 	_build_david()
@@ -63,6 +74,7 @@ func _ready() -> void:
 	fg.z_index = 100
 	add_child(fg)
 	_build_hud()
+	set_prototype_resolution(PROTO_WIDTH)
 
 
 func _build_obstacles() -> void:
@@ -86,15 +98,19 @@ func _build_david() -> void:
 	shape.shape = circle
 	shape.position = Vector2(0, -6)
 	david.add_child(shape)
-	david.add_child(_shadow(14.0, 0.8))
+	david.add_child(_shadow(14.0))
 	david_sprite = Sprite2D.new()
 	var tex := load(DAVID_PATH) as Texture2D
 	david_sprite.texture = tex
 	david_sprite.scale = Vector2.ONE * DAVID_SCALE
-	david_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	# A centered sprite's origin is already at its centre. Align its bottom
+	# centre with the physics body's feet/contact shadow, not half a sprite
+	# above and to the left of it.
+	david_sprite.offset = Vector2(0, -tex.get_height() * 0.5)
 	david.add_child(david_sprite)
-	var cam := Camera2D.new()
-	cam.zoom = Vector2(0.5, 0.5)
+	camera = Camera2D.new()
+	var cam := camera
+	cam.zoom = Vector2.ONE * CAMERA_ZOOM
 	cam.limit_left = 0
 	cam.limit_top = 0
 	cam.limit_right = 1440
@@ -109,43 +125,80 @@ func _build_david() -> void:
 func _add_sheep(home: Vector2) -> void:
 	var node := Node2D.new()
 	node.position = home
-	node.add_child(_shadow(16.0, 0.6))
+	node.add_child(_shadow(13.0))
 	var spr := Sprite2D.new()
 	var tex := load(SHEEP_PATH) as Texture2D
 	spr.texture = tex
 	spr.scale = Vector2.ONE * SHEEP_SCALE
-	spr.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	spr.offset = Vector2(0, -tex.get_height() * 0.5)
 	node.add_child(spr)
 	add_child(node)
 	sheep.append({"node": node, "sprite": spr, "home": home, "target": home,
 		"idle": 1.0, "hop": 0.0, "counted": false, "phase": randf() * TAU})
 
 
-func _shadow(radius: float, alpha: float) -> Node2D:
+func _shadow(radius: float) -> Node2D:
 	var n := Node2D.new()
-	n.z_index = -1
-	n.draw.connect(_draw_shadow.bind(n, radius, alpha))
+	# Keep this at the same z as the actor and add it BEFORE the sprite: a
+	# negative z places it behind the opaque backdrop, not just behind feet.
+	n.draw.connect(_draw_shadow.bind(n, radius))
 	n.queue_redraw()
 	return n
 
 
-func _draw_shadow(n: Node2D, radius: float, alpha: float) -> void:
-	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
-	n.draw_circle(Vector2.ZERO, radius, Color(0.10, 0.07, 0.03, alpha))
+func _draw_shadow(n: Node2D, radius: float) -> void:
+	# The reference's sunlight comes from the upper left; its long shadows
+	# travel down and right. A soft cool cast and a darker, smaller contact
+	# ellipse share the actor's real ground position.
+	n.draw_set_transform(Vector2(radius * 0.75, radius * 0.20), 0.14, Vector2(1.8, 0.32))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.09, 0.11, 0.13))
+	n.draw_set_transform(Vector2(radius * 0.55, radius * 0.15), 0.14, Vector2(1.35, 0.24))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.10, 0.17))
+	n.draw_set_transform(Vector2(0, 0), 0.0, Vector2(0.85, 0.24))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.06, 0.48))
 
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	hud_panel = PanelContainer.new()
+	hud_panel.anchor_left = 1.0
+	hud_panel.anchor_right = 1.0
+	hud_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.09, 0.09, 0.74)
+	style.border_color = Color(0.73, 0.61, 0.39, 0.32)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	hud_panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(hud_panel)
 	label = Label.new()
-	label.position = Vector2(6, 4)
-	label.add_theme_font_size_override("font_size", 8)
-	layer.add_child(label)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_color_override("font_color", Color(0.96, 0.89, 0.72))
+	label.add_theme_color_override("font_outline_color", Color(0.05, 0.06, 0.06, 0.95))
+	hud_panel.add_child(label)
 	_refresh_hud()
 
 
 func _refresh_hud() -> void:
-	label.text = "Sheep counted %d/%d - Space beside a sheep" % [counted, sheep.size()]
+	label.text = "Flock %d/%d  |  Space" % [counted, sheep.size()]
+
+
+## Local to this isolated scene; does not edit project.godot or production UI.
+## CI switches between these sizes without changing camera framing to compare
+## actual render detail and text. Canvas-items stretch still uses the window.
+func set_prototype_resolution(width: int) -> void:
+	var factor := float(width) / 640.0
+	get_tree().root.content_scale_size = Vector2i(width, int(float(width) * 9.0 / 16.0))
+	camera.zoom = Vector2.ONE * CAMERA_ZOOM * factor
+	hud_panel.offset_left = -164.0 * factor
+	hud_panel.offset_right = -10.0 * factor
+	hud_panel.offset_top = 9.0 * factor
+	hud_panel.offset_bottom = 33.0 * factor
+	label.add_theme_font_size_override("font_size", maxi(6, roundi(12.0 * factor)))
+	label.add_theme_constant_override("outline_size", maxi(1, roundi(2.0 * factor)))
 
 
 func _physics_process(delta: float) -> void:
