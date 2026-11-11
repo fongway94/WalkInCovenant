@@ -19,9 +19,19 @@ const FENCE_DEPTH_REGION := Rect2(840, 0, 140, 666)
 const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
 const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
 const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
+# Each variant contains the still reference pose and two subtle baked strides.
+# The frames share one canvas/anchor, so switching adds no extra sprite draws.
 const SHEEP_PATHS := [
-	"res://art/proto/sprites/sheep_reference_a.png",
-	"res://art/proto/sprites/sheep_reference_b.png",
+	[
+		"res://art/proto/sprites/sheep_reference_a.png",
+		"res://art/proto/sprites/sheep_reference_a_stride_a.png",
+		"res://art/proto/sprites/sheep_reference_a_stride_b.png",
+	],
+	[
+		"res://art/proto/sprites/sheep_reference_b.png",
+		"res://art/proto/sprites/sheep_reference_b_stride_a.png",
+		"res://art/proto/sprites/sheep_reference_b_stride_b.png",
+	],
 ]
 const WORLD := Rect2(0, 0, 1440, 666)
 # The actor art is hand-matted from the approved reference and enlarged with
@@ -210,13 +220,16 @@ func _add_sheep(home: Vector2, variant: int) -> void:
 	_update_actor_depth(node)
 	node.add_child(_shadow(16.0))
 	var spr := Sprite2D.new()
-	var tex := load(SHEEP_PATHS[variant % SHEEP_PATHS.size()]) as Texture2D
+	var frames: Array[Texture2D] = []
+	for path in SHEEP_PATHS[variant % SHEEP_PATHS.size()]:
+		frames.append(load(path) as Texture2D)
+	var tex: Texture2D = frames[0]
 	spr.texture = tex
 	spr.scale = Vector2.ONE * SHEEP_SCALE
 	spr.offset = Vector2(0, -tex.get_height() * 0.5)
 	node.add_child(spr)
 	add_child(node)
-	sheep.append({"node": node, "sprite": spr, "home": home, "target": home,
+	sheep.append({"node": node, "sprite": spr, "frames": frames, "home": home, "target": home,
 		"idle": 1.0, "hop": 0.0, "counted": false, "phase": randf() * TAU})
 
 
@@ -330,21 +343,34 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 		else:
 			vel = to_target.normalized() * SHEEP_WALK
 	var next_pos: Vector2 = node.position + vel * delta
+	var moved := false
 	if FIELD.has_point(next_pos) and not _blocked(next_pos):
 		node.position = next_pos
+		moved = vel.length_squared() > 0.01
 	_update_actor_depth(node)
 	if vel.x != 0.0:
 		spr.flip_h = vel.x < 0.0
 	var hop := float(s["hop"])
 	var bob := 0.0
+	var frame_index := 0
 	if hop > 0.0:
 		s["hop"] = hop - delta
 		var k := clampf(1.0 - hop / 0.6, 0.0, 1.0)
 		bob = -sin(k * PI) * 10.0
-	elif vel.length() > 0.0:
-		bob = -absf(sin(_t * 9.0 + float(s["phase"]))) * 1.2
+	elif moved:
+		var stride := sin(_t * 9.0 + float(s["phase"]))
+		bob = -absf(stride) * 1.2
+		if stride > 0.25:
+			frame_index = 1
+		elif stride < -0.25:
+			frame_index = 2
 	else:
 		bob = sin(_t * 1.8 + float(s["phase"])) * 0.4
+	# The original pose is retained during idle, blocking and a hop. The two
+	# walking textures move only the reference's feet, with a shared anchor.
+	var frames: Array = s["frames"]
+	if spr.texture != frames[frame_index]:
+		spr.texture = frames[frame_index]
 	spr.position = Vector2(0, bob)
 
 

@@ -85,6 +85,24 @@ ACTORS = {
     },
 }
 
+# Each group contains alternating legs in original reference coordinates.
+# These are deliberately short cuts: the wool/body stays fixed and the feet
+# can move slightly without redrawing or recolouring the reference pixels.
+SHEEP_LEGS = {
+    "sheep_reference_a": {
+        "a": [[(408, 193), (413, 193), (413, 200), (408, 200)],
+              [(423, 193), (427, 193), (427, 200), (423, 200)]],
+        "b": [[(416, 193), (420, 193), (420, 200), (416, 200)],
+              [(429, 193), (432, 193), (432, 200), (429, 200)]],
+    },
+    "sheep_reference_b": {
+        "a": [[(373, 160), (376, 160), (376, 168), (373, 168)],
+              [(386, 160), (390, 160), (390, 168), (386, 168)]],
+        "b": [[(379, 160), (383, 160), (383, 168), (379, 168)],
+              [(394, 160), (398, 160), (398, 168), (394, 168)]],
+    },
+}
+
 
 def main():
     source = Image.open(REFERENCE).convert("RGBA")
@@ -112,6 +130,8 @@ def main():
             # layers reconstruct the same pixels; in motion the boots can
             # stride modestly without inventing a new illustrated body.
             split_boots(actor, bounds, scale)
+        elif name in SHEEP_LEGS:
+            split_sheep_legs(name, actor, bounds, scale)
 
 
 def save_scaled(image, destination, scale, bounds):
@@ -138,6 +158,31 @@ def split_boots(actor, bounds, scale):
     body = actor.copy()
     body.putalpha(ImageChops.subtract(ImageChops.subtract(original_alpha, parts[0]), parts[1]))
     save_scaled(body, OUTPUT / "david_reference_body.png", scale, bounds)
+
+
+def split_sheep_legs(name, actor, bounds, scale):
+    original_alpha = actor.getchannel("A")
+    parts = []
+    for outlines in SHEEP_LEGS[name].values():
+        shape = Image.new("L", actor.size)
+        draw = ImageDraw.Draw(shape)
+        for outline in outlines:
+            draw.polygon([(x - bounds[0], y - bounds[1]) for x, y in outline], fill=255)
+        alpha = ImageChops.multiply(original_alpha, shape)
+        part = actor.copy()
+        part.putalpha(alpha)
+        parts.append(part)
+    body = actor.copy()
+    body.putalpha(ImageChops.subtract(ImageChops.subtract(
+        original_alpha, parts[0].getchannel("A")), parts[1].getchannel("A")))
+    # Bake two modest stride extremes into regular textures. At idle the
+    # original is used; baking avoids three canvas draws per sheep per frame.
+    for label, offset in (("stride_a", 1), ("stride_b", -1)):
+        frame = Image.new("RGBA", actor.size)
+        frame.alpha_composite(parts[0], (offset, 0))
+        frame.alpha_composite(parts[1], (-offset, 0))
+        frame.alpha_composite(body)
+        save_scaled(frame, OUTPUT / (name + "_" + label + ".png"), scale, bounds)
 
 
 if __name__ == "__main__":

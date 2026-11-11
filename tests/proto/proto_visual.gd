@@ -37,9 +37,13 @@ func _ready() -> void:
 	var x0: float = field.david.position.x
 	Input.action_press("ui_right")
 	var max_stride := 0.0
+	var sheep_stride_seen := false
 	for i in range(90):
 		await get_tree().process_frame
 		max_stride = maxf(max_stride, absf(field.david_boot_left.position.x))
+		var sheep_sprite: Sprite2D = field.sheep[0]["sprite"]
+		var sheep_frames: Array = field.sheep[0]["frames"]
+		sheep_stride_seen = sheep_stride_seen or sheep_sprite.texture == sheep_frames[1] or sheep_sprite.texture == sheep_frames[2]
 	# Select a walking pose, not just an idle frame after releasing the key.
 	for i in range(20):
 		if absf(field.david_boot_left.position.x) > 1.4:
@@ -55,6 +59,7 @@ func _ready() -> void:
 	_check(dx > 20.0, "keyboard movement")
 	_check(max_stride > 1.0, "layered boot gait")
 	_check(sheep_dx > 1.0, "independent sheep movement")
+	_check(sheep_stride_seen, "sheep walk uses a stride frame during independent movement")
 	_check(absf(cam_b.x - cam_a.x) > 10.0, "camera followed horizontally")
 	# Vertical tracking is intentionally limited because this wide view nearly
 	# fits the 666px-tall world. Check the clamped target, not player distance.
@@ -180,11 +185,104 @@ func _ready() -> void:
 		"rendered fence covers behind, not in front")
 	_check(int(fence_behind_stats["background"]) <= 6 and int(fence_front_stats["background"]) <= 6,
 		"fence overlay does not shift its background")
+	await _exercise_sheep_gait()
 	if failures == 0:
 		print("PROTO PASS")
 	else:
 		print("PROTO FAIL count=%d" % failures)
 	get_tree().quit(0 if failures == 0 else 1)
+
+
+func _exercise_sheep_gait() -> void:
+	# Freeze the normal simulation and stage both reference variants at the
+	# same two stride extremes. The diagnostic is made from four real viewport
+	# crops (variant A/B across, stride A/B down), not a gameplay screenshot.
+	field.set_david(Vector2(700, 515))
+	field.camera.reset_smoothing()
+	for s in field.sheep:
+		(s["node"] as Node2D).visible = false
+	var positions := [Vector2(640, 335), Vector2(820, 335)]
+	for i in range(2):
+		var s: Dictionary = field.sheep[i]
+		var node: Node2D = s["node"]
+		node.position = positions[i]
+		node.visible = true
+		s["phase"] = 0.0
+	await _frames(12)
+	var diagnostic := Image.create(640, 360, false, Image.FORMAT_RGB8)
+	var first_crops: Array[Image] = []
+	for step in range(2):
+		field._t = PI / 18.0 if step == 0 else PI / 6.0
+		for i in range(2):
+			var s: Dictionary = field.sheep[i]
+			var node: Node2D = s["node"]
+			var spr: Sprite2D = s["sprite"]
+			var frames: Array = s["frames"]
+			node.position = positions[i]
+			s["target"] = positions[i] + Vector2(80, 0)
+			s["idle"] = 0.0
+			s["hop"] = 0.0
+			field._update_sheep(s, 0.05)
+			_check(node.position.x > positions[i].x and spr.texture == frames[step + 1],
+				"sheep variant %d selects stride %d while moving" % [i, step + 1])
+			# Hold the same screen position to compare the two rendered poses.
+			node.position = positions[i]
+		await _frames(4)
+		await RenderingServer.frame_post_draw
+		var image := get_viewport().get_texture().get_image()
+		image.convert(Image.FORMAT_RGB8)
+		var center: Vector2 = field.camera.get_screen_center_position()
+		var pixels_per_world: float = float(image.get_width()) / 640.0 * field.camera.zoom.x
+		for i in range(2):
+			var screen: Vector2 = Vector2(image.get_width(), image.get_height()) * 0.5
+			screen += (positions[i] - center) * pixels_per_world
+			var rect := Rect2i(roundi(screen.x) - 80, roundi(screen.y) - 75, 160, 90)
+			var crop := image.get_region(rect)
+			if step == 0:
+				first_crops.append(crop.duplicate() as Image)
+			else:
+				var changed := 0
+				for y in range(crop.get_height()):
+					for x in range(crop.get_width()):
+						var a: Color = first_crops[i].get_pixel(x, y)
+						var b: Color = crop.get_pixel(x, y)
+						if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.15:
+							changed += 1
+				print("PROTO sheep variant %d rendered stride delta=%d pixels" % [i, changed])
+				_check(changed > 4, "sheep variant %d stride changes rendered pixels" % i)
+			crop.resize(320, 180, Image.INTERPOLATE_NEAREST)
+			diagnostic.blit_rect(crop, Rect2i(0, 0, 320, 180), Vector2i(i * 320, step * 180))
+	var path := ProjectSettings.globalize_path(OUT).path_join("proto_08_sheep_gait.png")
+	var err := diagnostic.save_png(path)
+	print("PROTO saved staged sheep gait diagnostic err=%d" % err)
+	_check(err == OK, "save sheep gait diagnostic")
+	for i in range(2):
+		var s: Dictionary = field.sheep[i]
+		var node: Node2D = s["node"]
+		var spr: Sprite2D = s["sprite"]
+		var frames: Array = s["frames"]
+		field._t = PI / 18.0
+		node.position = positions[i]
+		s["idle"] = 1.0
+		s["hop"] = 0.0
+		spr.texture = frames[1]
+		field._update_sheep(s, 0.05)
+		_check(spr.texture == frames[0], "sheep variant %d returns to idle" % i)
+		var blocked := Vector2(330.1, 335)
+		node.position = blocked
+		s["target"] = Vector2(300, 335)
+		s["idle"] = 0.0
+		spr.texture = frames[1]
+		field._update_sheep(s, 0.05)
+		_check(node.position == blocked and spr.texture == frames[0],
+			"sheep variant %d uses idle pose when blocked" % i)
+		node.position = positions[i]
+		s["target"] = positions[i] + Vector2(80, 0)
+		s["hop"] = 0.6
+		spr.texture = frames[1]
+		field._update_sheep(s, 0.05)
+		_check(spr.texture == frames[0] and float(s["hop"]) < 0.6,
+			"sheep variant %d uses idle pose while hopping" % i)
 
 
 func _layer_pixel_difference(layer: Node2D) -> Dictionary:

@@ -1151,6 +1151,10 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 tools/proto/encode_frames.py build/proto
 
+      - name: Verify reference sheep texture generation
+        if: always()
+        run: python3 tests/proto/check_sheep_art.py
+
       # The wider composition exceeded one job's annotation budget at useful
       # WebP quality. A second job publishes the remaining chunks; no capture is
       # regenerated and both still come from this real Godot framebuffer.
