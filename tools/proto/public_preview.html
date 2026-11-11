@@ -48,6 +48,10 @@
     const url = 'https://api.github.com/repos/fongway94/WalkInCovenant/git/blobs/ba88654340779d89b4b6533f29fb5c1fd5c63eda';
     const expected = '21d9c8f6919acafe358533f3ab875bec42520234f9fdeef68063bd54aeeb0365';
     const required = new Set(['index.js', 'index.wasm', 'index.pck', 'index.audio.worklet.js', 'index.audio.position.worklet.js']);
+    // HTML preview hosts can insert a cross-origin <base> tag. Godot's PWA
+    // probe calls getRegistration() without an explicit URL, so that base
+    // would make the browser reject the otherwise unused service-worker check.
+    document.querySelectorAll('base').forEach(base => base.remove());
     const message = document.getElementById('message');
     const canvas = document.getElementById('canvas');
     const touch = document.getElementById('touch');
