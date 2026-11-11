@@ -26,6 +26,9 @@ func _ready() -> void:
 	var cam_a: Vector2 = field.camera.get_screen_center_position()
 	var bg_a: Vector2 = (field.get_node("Backdrop") as Node2D).global_position
 	await _save("proto_01_field_640")
+	var alignment_a: int = await _empty_depth_difference()
+	print("PROTO empty depth mismatch camera A=%d" % alignment_a)
+	_check(alignment_a <= 8, "depth overlays align to backdrop at camera A")
 	field.set_process(true)
 	await _frames(8)
 	var sheep_start: Vector2 = (field.sheep[0]["node"] as Node2D).position
@@ -89,7 +92,8 @@ func _ready() -> void:
 	await _frames(14)
 	print("PROTO interact=%s counted=%d repeat=%s" % [str(ok), field.counted, str(again)])
 	_check(ok and count_after == 1 and again and field.counted == 1, "sheep interaction counts once")
-	await _save("proto_04_sheep")
+	# The preceding run contains the interaction capture; this run uses the
+	# sixth full-frame slot to show the new fence from the opposite side.
 	field.set_david(Vector2(330, 110))
 	_check(not field.interact() and field.counted == 1, "interaction requires nearby sheep")
 	# The right-hand upper tree is separately y-sorted at its ground line.
@@ -114,23 +118,29 @@ func _ready() -> void:
 	var behind_changed: int = int(behind_stats["actor"])
 	# In front of the tree but behind the fence: its top rail should hide the
 	# boots instead of appearing painted behind the character.
-	field.set_david(Vector2(920, 218))
+	field.set_david(Vector2(920, 224))
 	field.camera.reset_smoothing()
 	await _frames(8)
 	await _save("proto_02_tree_front")
+	var alignment_b: int = await _empty_depth_difference()
+	print("PROTO empty depth mismatch camera B=%d" % alignment_b)
+	_check(alignment_b <= 8, "depth overlays align to backdrop at camera B")
 	var front_stats: Dictionary = await _layer_pixel_difference(tree)
 	var front_changed: int = int(front_stats["actor"])
 	print("PROTO tree actor delta behind=%d front=%d; raw=%d/%d background=%d/%d" % [
 		behind_changed, front_changed, int(behind_stats["raw"]), int(front_stats["raw"]),
 		int(behind_stats["background"]), int(front_stats["background"])])
-	_check(behind_changed > 10 and front_changed < maxi(8, int(float(behind_changed) * 0.15)),
+	_check(behind_changed > 10 and front_changed < maxi(5, int(float(behind_changed) * 0.15)),
 		"rendered tree covers behind, not in front")
+	_check(int(behind_stats["background"]) <= 6 and int(front_stats["background"]) <= 6,
+		"tree overlay does not shift its background")
 	var fence: Node2D = field.get_node("FenceDepth") as Node2D
 	var fence_behind_stats: Dictionary = await _layer_pixel_difference(fence)
 	var fence_behind: int = int(fence_behind_stats["actor"])
 	field.set_david(Vector2(920, 280))
 	field.camera.reset_smoothing()
 	await _frames(8)
+	await _save("proto_04_fence_front")
 	var fence_front_stats: Dictionary = await _layer_pixel_difference(fence)
 	var fence_front: int = int(fence_front_stats["actor"])
 	print("PROTO fence actor delta behind=%d front=%d; raw=%d/%d background=%d/%d" % [
@@ -138,6 +148,8 @@ func _ready() -> void:
 		int(fence_behind_stats["background"]), int(fence_front_stats["background"])])
 	_check(fence_behind > 4 and fence_front < maxi(4, int(float(fence_behind) * 0.25)),
 		"rendered fence covers behind, not in front")
+	_check(int(fence_behind_stats["background"]) <= 6 and int(fence_front_stats["background"]) <= 6,
+		"fence overlay does not shift its background")
 	if failures == 0:
 		print("PROTO PASS")
 	else:
@@ -147,8 +159,10 @@ func _ready() -> void:
 
 func _layer_pixel_difference(layer: Node2D) -> Dictionary:
 	# Four real framebuffers distinguish actor occlusion from discrepancies in
-	# the overlay's *background pixels*. Raw on/off differences alone can be
-	# nonzero even when the character is correctly sorted in front.
+	# the overlay's *background pixels*. Count on/off changes only where the
+	# actor is visible with the overlay off, and separately gate background
+	# mismatches. Subtracting two deltas would falsely count an actor in front
+	# just because it covers a mismatched background pixel.
 	layer.visible = true
 	await RenderingServer.frame_post_draw
 	var with_actor_on := get_viewport().get_texture().get_image()
@@ -177,18 +191,17 @@ func _layer_pixel_difference(layer: Node2D) -> Dictionary:
 			var d := empty_off.get_pixel(x, y)
 			var raw_delta := absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b)
 			var bg_delta := absf(c.r - d.r) + absf(c.g - d.g) + absf(c.b - d.b)
-			var actor_delta := absf((a.r - b.r) - (c.r - d.r))
-			actor_delta += absf((a.g - b.g) - (c.g - d.g))
-			actor_delta += absf((a.b - b.b) - (c.b - d.b))
+			var actor_visible := absf(b.r - d.r) + absf(b.g - d.g) + absf(b.b - d.b)
 			if raw_delta > 0.15:
 				raw += 1
 			if bg_delta > 0.15:
 				background += 1
-			if actor_delta > 0.15:
+			var actor_changed := raw_delta > 0.15 and actor_visible > 0.15
+			if actor_changed:
 				changed += 1
-			# Red = actor-specific change; green = copied-background mismatch.
-			if actor_delta > 0.15 or bg_delta > 0.15:
-				var colour := Color(1.0 if actor_delta > 0.15 else 0.0, 1.0 if bg_delta > 0.15 else 0.0, 0.0)
+			# Red = on/off difference on the actor; green = empty background.
+			if actor_changed or bg_delta > 0.15:
+				var colour := Color(1.0 if actor_changed else 0.0, 1.0 if bg_delta > 0.15 else 0.0, 0.0)
 				map.set_pixel(int(x / 2), int(y / 2), colour)
 				map.set_pixel(int(x / 2) + 1, int(y / 2), colour)
 	# A sparse diagnostic derived from real framebuffers, not a gameplay frame.
@@ -203,6 +216,40 @@ func _set_actor_art_visible(on: bool) -> void:
 	field.david_sprite.visible = on
 	field.david_boot_left.visible = on
 	field.david_boot_right.visible = on
+	(field.david.get_node("GroundShadow") as Node2D).visible = on
+
+
+func _empty_depth_difference() -> int:
+	# Compare both depth copies against the backdrop with all moving characters
+	# hidden. Sample the entire framebuffer at two distinct camera positions;
+	# static HUD/foreground remain identical in both captures.
+	var tree: Node2D = field.get_node("UpperTreeDepth") as Node2D
+	var fence: Node2D = field.get_node("FenceDepth") as Node2D
+	_set_actor_art_visible(false)
+	for s in field.sheep:
+		(s["node"] as Node2D).visible = false
+	tree.visible = true
+	fence.visible = true
+	await RenderingServer.frame_post_draw
+	var enabled := get_viewport().get_texture().get_image()
+	tree.visible = false
+	fence.visible = false
+	await RenderingServer.frame_post_draw
+	var disabled := get_viewport().get_texture().get_image()
+	tree.visible = true
+	fence.visible = true
+	_set_actor_art_visible(true)
+	for s in field.sheep:
+		(s["node"] as Node2D).visible = true
+	var mismatches := 0
+	var size := enabled.get_size()
+	for y in range(0, size.y, 8):
+		for x in range(0, size.x, 8):
+			var a := enabled.get_pixel(x, y)
+			var b := disabled.get_pixel(x, y)
+			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.15:
+				mismatches += 1
+	return mismatches
 
 
 func _check(ok: bool, name: String) -> void:

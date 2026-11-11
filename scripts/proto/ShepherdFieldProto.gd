@@ -111,8 +111,9 @@ func _build_obstacles() -> void:
 func _build_depth_layer(layer_name: String, path: String, ground_y: float) -> void:
 	# The tree and fence remain in the backdrop; world-aligned transparent
 	# copies sort at each object's ground line. A character behind an object is
-	# covered, while one in front draws above it. The textures begin at (0,0),
-	# so pixel snapping cannot shift their origins relative to the backdrop.
+	# covered, while one in front draws above it. These transparent textures
+	# match the backdrop's entire quad, including origin and extent; otherwise
+	# snapped vertex positions can make mask edges sample different pixels.
 	var depth := Node2D.new()
 	depth.name = layer_name
 	depth.position = Vector2(0, ground_y)
@@ -184,6 +185,7 @@ func _add_sheep(home: Vector2, variant: int) -> void:
 
 func _shadow(radius: float) -> Node2D:
 	var n := Node2D.new()
+	n.name = "GroundShadow"
 	# Keep this at the same z as the actor and add it BEFORE the sprite: a
 	# negative z places it behind the opaque backdrop, not just behind feet.
 	n.draw.connect(_draw_shadow.bind(n, radius))

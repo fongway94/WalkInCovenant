@@ -4,8 +4,9 @@
 Only its three posts and two rails are kept; the gaps stay transparent so a
 character behind the fence remains visible between the boards. Pixel values
 come directly from the prototype backdrop. The image starts at world (0, 0),
-matching the backdrop's transform to avoid independently snapped offsets.
-This is one manually traced fence, not a complete scene-depth solution.
+matching the backdrop's origin and entire quad dimensions. Differently sized
+quads can snap to different vertices and sample different pixels at the mask
+edges. This is one manually traced fence, not a complete scene-depth solution.
 Requires Pillow; run from the repository root.
 """
 from pathlib import Path
@@ -14,7 +15,6 @@ from PIL import Image, ImageDraw, ImageFilter
 
 BACKGROUND = Path("art/proto/shepherd_field_empty.png")
 OUTPUT = Path("art/proto/shepherd_field_upper_fence.png")
-CROP = (0, 0, 990, 275)
 BOARDS = [
     # Posts (including their softly lit tops and irregular lower ends).
     [(857, 200), (867, 200), (871, 203), (870, 263), (866, 267), (857, 266)],
@@ -35,8 +35,8 @@ def main():
     image.putalpha(alpha.filter(ImageFilter.GaussianBlur(0.7)))
     clean = Image.new("RGBA", image.size)
     clean.alpha_composite(image)
-    clean.crop(CROP).save(OUTPUT)
-    print("%s: world crop=%s, depth foot y=268" % (OUTPUT, CROP))
+    clean.save(OUTPUT)
+    print("%s: world size=%s, depth foot y=268" % (OUTPUT, clean.size))
 
 
 if __name__ == "__main__":
