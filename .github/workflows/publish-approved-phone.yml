@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event.head_commit.message == 'Publish validated phone playtest b134e10'
+    # The commit hook appends co-author trailers, so match the approved subject.
+    if: startsWith(github.event.head_commit.message, 'Publish validated phone playtest b134e10')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
@@ -29,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 3
+          fetch-depth: 0
 
       - name: Verify the tested revision and CI result
         env:
