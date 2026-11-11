@@ -51,10 +51,22 @@ var _cool_until := 0
 const TALK_COOLDOWN_MS := 500
 
 var sprite: Sprite2D = null
+## The David NPC and player share the same directional rig.
+var david_visual = null
+var human_visual = null
+var _appearance_theme := "classic"
+## Reuse related character designs where a chapter person has no dedicated
+## model yet. All variants keep their own name, dialogue and navigation.
+const PAINTED_ACTORS := {"corin": "corin", "boy": "boy", "shepherd": "boy",
+	"woman": "woman", "elder": "elder", "jesse": "elder", "samuel": "elder",
+	"eliab": "corin", "soldier": "corin", "king": "corin"}
+## Stationary field-specific hired boy, independent of the backdrop.
+var field_sprite: Sprite2D = null
 ## Sheet directory. The crafted sheets are opt-in per actor (see
 ## apply_art_theme); an actor without both crafted sheets keeps classic art.
 var art_dir := "res://art/characters"
 var actor_id := "villager_a"
+var external_shadow := false
 var facing := Vector2i(0, 1)
 var _path := PackedVector2Array()
 var _path_i := 0
@@ -82,13 +94,18 @@ var world_paused := false
 ## combined minimum size of its children, and an autowrapped Chinese Label has
 ## no word breaks: one long chatter line grew this into an 84x150 black slab
 ## over the middle of the shepherd slope. Found by reviewing CI frame 06_flock,
-## not by a pixel diff. A Panel keeps exactly the rectangle we give it, and the
-## label is one clipped line — a bubble is a glance, not a second dialogue box.
+## not by a pixel diff. A Panel keeps exactly the rectangle we give it; longer
+## lines appear as sequential single-line pages instead of being cut off.
 const BUBBLE_W := 112.0
+const BUBBLE_PAGE_MS := 2700
 ## 28, not 22: the bundled CJK font's minimum line height at 8 px is 24, so a
 ## 22 px bubble clipped the bottom of every glyph (found by the red deep check
 ## in CI run 42018457660, which printed "label 104x24 at 4,3").
 const BUBBLE_H := 28.0
+## Keep reactions below the HUD/toast and above the thumb controls. These are
+## viewport-space logical pixels, not world pixels: the field camera is zoomed.
+const BUBBLE_SAFE_TOP := 60.0
+const BUBBLE_SAFE_BOTTOM := 45.0
 ## ONE voice at a time, across the whole world. Every NPC used to start its own
 ## 16 s timer at the same instant, so three bubbles arrived together over the
 ## objective line. This is a wall-clock gate: the per-NPC timer below is scaled
@@ -97,6 +114,9 @@ static var _chat_gate_ms: int = 0
 var _bubble: Panel = null
 var _bubble_lbl: Label = null
 var _bubble_until := 0
+var _bubble_pages := PackedStringArray()
+var _bubble_page := 0
+var _bubble_max_width := BUBBLE_W
 var _chat_i := 0
 var _chat_cd := 9.0
 
@@ -140,19 +160,82 @@ func apply_art_theme(theme: String) -> void:
 			and ResourceLoader.exists("%s/%s_walk.png" % [alt, actor_id]):
 		d = alt
 	art_dir = d
+	_appearance_theme = theme
 	if sprite != null:
 		sprite.texture = load("%s/%s_idle.png" % [d, actor_id])
 		sprite.hframes = 2
+	external_shadow = theme == "storybook" or theme == "cinematic"
+	var use_painted := theme == "cinematic" and actor_id == "david"
+	if use_painted and david_visual == null:
+		david_visual = load("res://scripts/world/DavidVisual.gd").new()
+		david_visual.scale = Vector2.ONE * Player.WORLD_RIG_SCALE
+		add_child(david_visual)
+		david_visual.build()
+	if david_visual != null:
+		david_visual.visible = use_painted
+	var human_id := str(PAINTED_ACTORS.get(actor_id, "")) if theme == "cinematic" else ""
+	if human_id != "" and human_visual == null:
+		human_visual = load("res://scripts/world/HumanVisual.gd").new()
+		human_visual.scale = Vector2.ONE * Player.WORLD_RIG_SCALE
+		add_child(human_visual)
+		human_visual.build(human_id)
+		# Differentiate the supporting cast while retaining a common light.
+		if actor_id == "jesse":
+			human_visual.modulate = Color(0.90, 0.90, 0.78)
+		elif actor_id == "samuel":
+			human_visual.modulate = Color(0.90, 0.92, 0.96)
+		elif actor_id == "eliab" or actor_id == "soldier":
+			human_visual.modulate = Color(0.91, 0.87, 0.80)
+		elif actor_id == "king":
+			human_visual.modulate = Color(1.0, 0.92, 0.70)
+	var field_on := field_sprite != null and field_sprite.visible
+	if human_visual != null:
+		human_visual.visible = human_id != "" and not field_on
+	if sprite != null and not field_on:
+		sprite.visible = not use_painted and human_id == ""
+	queue_redraw()
+
+
+func set_shepherd_field_appearance(on: bool) -> void:
+	if on:
+		if field_sprite == null:
+			field_sprite = Sprite2D.new()
+			field_sprite.texture = load("res://art/characters_painted/hired_boy_idle.png")
+			field_sprite.centered = true
+			field_sprite.offset = Vector2(0, -49)
+			field_sprite.scale = Vector2.ONE * 0.32
+			field_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			add_child(field_sprite)
+		field_sprite.visible = true
+		sprite.visible = false
+		if human_visual != null:
+			human_visual.visible = false
+	else:
+		if field_sprite != null:
+			field_sprite.visible = false
+		apply_art_theme(_appearance_theme)
+	queue_redraw()
 
 
 func npc_id() -> String:
 	return data.get("id", "npc")
 
 
+## Keep marks and speech above whichever foot-anchored rig is currently shown.
+func visual_height() -> float:
+	if field_sprite != null and field_sprite.visible:
+		return 98.0 * field_sprite.scale.y
+	if david_visual != null and david_visual.visible:
+		return 98.0 * david_visual.scale.y
+	if human_visual != null and human_visual.visible:
+		return 98.0 * human_visual.scale.y
+	return 16.0
+
+
 ## A reaction, not a conversation. The bubble is short, quiet, and cannot take
 ## the controls away. It also cannot steal a tap: `mouse_filter` ignores input.
 func emote(text: String) -> void:
-	if text == "":
+	if text.strip_edges() == "":
 		return
 	if _bubble == null:
 		_bubble = Panel.new()
@@ -168,6 +251,10 @@ func emote(text: String) -> void:
 		_bubble.custom_minimum_size = Vector2(BUBBLE_W, BUBBLE_H)
 		_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
 		_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# It is attached to the speaker for positioning, but must render above
+		# y-sorted sheep and people rather than having them cover its words.
+		_bubble.z_as_relative = false
+		_bubble.z_index = 50
 		_bubble_lbl = Label.new()
 		_bubble_lbl.add_theme_font_size_override("font_size", 8)
 		_bubble_lbl.add_theme_color_override("font_color", Color(0.97, 0.93, 0.82))
@@ -181,12 +268,127 @@ func emote(text: String) -> void:
 		_bubble_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble.add_child(_bubble_lbl)
 		add_child(_bubble)
-	_bubble_lbl.text = text
-	_bubble.size = Vector2(BUBBLE_W, BUBBLE_H)
-	_bubble.position = Vector2(-BUBBLE_W * 0.5, -42)
+	_bubble_max_width = 150.0 if field_sprite != null and field_sprite.visible else BUBBLE_W
+	_bubble_pages = _split_bubble_text(text, _bubble_max_width - 8.0)
+	_show_bubble_page(0)
+
+
+## Keep the authored words without making a taller panel: break on word
+## boundaries when possible, and between characters for an unbroken CJK line.
+## The final clip remains a safety net, not the way normal chatter is shortened.
+func _split_bubble_text(text: String, available: float) -> PackedStringArray:
+	var pages := PackedStringArray()
+	var remaining := text.replace("\n", " ").strip_edges()
+	var font := _bubble_lbl.get_theme_font("font")
+	var font_size := _bubble_lbl.get_theme_font_size("font_size")
+	while not remaining.is_empty():
+		var end := 0
+		var last_space := -1
+		for i in range(remaining.length()):
+			var candidate := remaining.substr(0, i + 1)
+			if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > available:
+				break
+			end = i + 1
+			if remaining.substr(i, 1) == " ":
+				last_space = i
+		if end < remaining.length() and last_space > 0:
+			end = last_space
+			# Avoid leaving a lone final word on its own page when moving the
+			# previous word over still fits ("day / nineteen" in Corin's line).
+			var tail := remaining.substr(last_space).strip_edges()
+			var previous_space := remaining.rfind(" ", last_space - 1)
+			if not tail.contains(" ") and previous_space > 0:
+				var shifted := remaining.substr(previous_space).strip_edges()
+				if font.get_string_size(shifted, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= available:
+					end = previous_space
+		# Even an unexpectedly wide single glyph must make forward progress.
+		end = maxi(end, 1)
+		pages.append(remaining.substr(0, end).strip_edges())
+		remaining = remaining.substr(end).strip_edges()
+	return pages
+
+
+func _show_bubble_page(index: int) -> void:
+	if index < 0 or index >= _bubble_pages.size():
+		return
+	_bubble_page = index
+	_bubble_lbl.text = _bubble_pages[index]
+	var text_width := _bubble_lbl.get_theme_font("font").get_string_size(_bubble_lbl.text,
+		HORIZONTAL_ALIGNMENT_LEFT, -1, _bubble_lbl.get_theme_font_size("font_size")).x
+	var width := clampf(ceilf(text_width) + 12.0, 44.0, _bubble_max_width)
+	_bubble.custom_minimum_size = Vector2(width, BUBBLE_H)
+	_bubble.size = Vector2(width, BUBBLE_H)
+	_bubble_lbl.size = Vector2(width - 8.0, BUBBLE_H - 4.0)
 	_bubble.visible = true
 	_bubble_lbl.visible = true
-	_bubble_until = Time.get_ticks_msec() + 2700
+	_bubble_until = Time.get_ticks_msec() + BUBBLE_PAGE_MS
+	_position_bubble()
+
+
+## A field reaction may come from someone standing under the top HUD, unlike
+## optional chatter (which can simply wait). Prefer above their head, but clamp
+## the bubble to the readable play area as the camera follows or zooms.
+func _position_bubble() -> void:
+	if _bubble == null or not is_inside_tree():
+		return
+	var transform := get_global_transform_with_canvas()
+	var preferred := Vector2(-_bubble.size.x * 0.5, -visual_height() - _bubble.size.y - 4.0)
+	var screen := transform * preferred
+	var extent := Vector2(transform.x.length() * _bubble.size.x, transform.y.length() * _bubble.size.y)
+	var view := get_viewport_rect().size
+	var max_x := maxf(2.0, view.x - extent.x - 2.0)
+	var max_y := maxf(2.0, view.y - extent.y - BUBBLE_SAFE_BOTTOM)
+	var min_y := minf(BUBBLE_SAFE_TOP, max_y)
+	screen.x = clampf(screen.x, 2.0, max_x)
+	screen.y = clampf(screen.y, min_y, max_y)
+	# A field reaction can be sent by a distant speaker. A clamped panel must
+	# avoid BOTH that speaker and the player (not merely the speaker's face).
+	# Try the nearby edges of both bodies and the viewport; choose the closest
+	# clear position without moving actors or letting the panel enter the HUD.
+	var blocks: Array[Rect2] = [_speaker_canvas_rect(transform)]
+	if is_instance_valid(player) and player.visible and player.is_inside_tree():
+		blocks.append(_player_canvas_rect())
+	var xs: Array[float] = [screen.x, 2.0, max_x]
+	var ys: Array[float] = [screen.y, min_y, max_y]
+	for body in blocks:
+		xs.append(body.position.x - extent.x - 4.0)
+		xs.append(body.end.x + 4.0)
+		ys.append(body.position.y - extent.y - 4.0)
+		ys.append(body.end.y + 4.0)
+	var best := screen
+	var best_distance := INF
+	for x in xs:
+		for y in ys:
+			var candidate := Vector2(clampf(x, 2.0, max_x), clampf(y, min_y, max_y))
+			var panel := Rect2(candidate, extent)
+			var clear := true
+			for body in blocks:
+				if panel.intersects(body):
+					clear = false
+					break
+			var offset := candidate - screen
+			var distance := offset.x * offset.x + 2.0 * offset.y * offset.y
+			if clear and distance < best_distance:
+				best = candidate
+				best_distance = distance
+	_bubble.position = transform.affine_inverse() * best
+
+
+func _speaker_canvas_rect(transform: Transform2D) -> Rect2:
+	return _actor_canvas_rect(transform, visual_height())
+
+
+func _player_canvas_rect() -> Rect2:
+	if not is_instance_valid(player) or not player.is_inside_tree():
+		return Rect2()
+	return _actor_canvas_rect(player.get_global_transform_with_canvas(), player.visual_height()).grow(2.0)
+
+
+func _actor_canvas_rect(transform: Transform2D, actor_height: float) -> Rect2:
+	var half_width := actor_height * transform.x.length() * 0.30
+	var height := actor_height * transform.y.length()
+	return Rect2(Vector2(transform.origin.x - half_width, transform.origin.y - height),
+		Vector2(half_width * 2.0, height))
 
 
 func _process(delta: float) -> void:
@@ -195,12 +397,22 @@ func _process(delta: float) -> void:
 	# dialogue box for the whole beat (seen in rendered frame 03_dialogue,
 	# BUG-052). Two kinds of speech on one screen is not a scene.
 	if _bubble != null and _bubble.visible:
-		if Time.get_ticks_msec() >= _bubble_until:
-			_bubble.visible = false
-		elif dialogue != null and dialogue.is_open():
+		if dialogue != null and dialogue.is_open():
 			_bubble.visible = false
 			_bubble_until = 0
+			_bubble_pages.clear()
+		elif Time.get_ticks_msec() >= _bubble_until:
+			if _bubble_page + 1 < _bubble_pages.size():
+				_show_bubble_page(_bubble_page + 1)
+			else:
+				_bubble.visible = false
+		else:
+			_position_bubble()
 	if world_paused or model == null or player == null or dialogue == null:
+		return
+	# Field-specific reactions still call emote(), but unsolicited chatter can
+	# cover a nearby highlighted animal in the tighter painted composition.
+	if field_sprite != null and field_sprite.visible:
 		return
 	if dialogue.is_open() or talk_state != Talk.READY:
 		return
@@ -217,8 +429,9 @@ func _process(delta: float) -> void:
 	if get_global_transform_with_canvas().origin.y < 58.0:
 		return
 	var d: Dictionary = lines[_chat_i % lines.size()]
-	_chat_gate_ms = Time.get_ticks_msec() + 16000
 	emote(I18n.t(d))
+	# A long paged line must finish before another NPC may start speaking.
+	_chat_gate_ms = Time.get_ticks_msec() + maxi(16000, _bubble_pages.size() * BUBBLE_PAGE_MS)
 	_chat_i += 1
 	_chat_cd = 16.0
 
@@ -400,7 +613,12 @@ func _dir_from(v: Vector2) -> Vector2i:
 
 func face_toward(target: Vector2) -> void:
 	var d := target - global_position
-	facing = _dir_from(d)
+	if d.length_squared() > 0.01:
+		facing = _dir_from(d)
+	if david_visual != null and david_visual.visible:
+		david_visual.set_pose(facing, false, 0.0, 0.0)
+	if human_visual != null and human_visual.visible:
+		human_visual.set_pose(facing, false, 0.0, 0.0)
 
 
 # ── conversation ─────────────────────────────────────────────────────────
@@ -542,6 +760,10 @@ func _update_anim(delta: float) -> void:
 	if sprite == null:
 		return
 	var row := _dir_row()
+	if david_visual != null and david_visual.visible:
+		david_visual.set_pose(facing, _moving, PATROL_SPEED, delta)
+	if human_visual != null and human_visual.visible:
+		human_visual.set_pose(facing, _moving, PATROL_SPEED, delta)
 	if _moving:
 		var base: Texture2D = sprite.texture
 		var walk_path := "%s/%s_walk.png" % [art_dir, actor_id]
@@ -569,7 +791,8 @@ func is_waiting_ahead() -> bool:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
+	if not external_shadow and (field_sprite == null or not field_sprite.visible):
+		draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
 	# A guide who has reached the person you were following him to says so with
 	# a downward chevron: it is the difference between "he stopped" and "he is
 	# broken".
@@ -583,7 +806,7 @@ func _draw() -> void:
 	# over the head is visible from across the camp.
 	if _talked or sprite == null:
 		return
-	var y := -20.0
+	var y := -visual_height() - 4.0
 	var pts := PackedVector2Array()
 	pts.append(Vector2(0, y + 4))
 	pts.append(Vector2(-3, y))

@@ -17,6 +17,8 @@ const ANIM_FPS := 6.0
 
 var model: RegionModel = null
 var tex: Texture2D = null
+## Optional map-aligned painted ground. Physics still comes from the model.
+var painted_ground: Texture2D = null
 var atlas_cols: int = 16
 
 var _view := Rect2i()
@@ -34,6 +36,11 @@ var depth_mode := "none"     # none | storybook | cinematic
 
 func set_depth_mode(m: String) -> void:
 	depth_mode = m
+	queue_redraw()
+
+
+func set_painted_ground(texture: Texture2D) -> void:
+	painted_ground = texture
 	queue_redraw()
 
 
@@ -87,6 +94,10 @@ func _visible_range() -> Rect2i:
 
 func _draw() -> void:
 	if model == null or tex == null:
+		return
+	if painted_ground != null:
+		draw_texture_rect(painted_ground,
+			Rect2(0, 0, model.width * TILE, model.height * TILE), false)
 		return
 	for y in range(_view.position.y, _view.position.y + _view.size.y):
 		for x in range(_view.position.x, _view.position.x + _view.size.x):

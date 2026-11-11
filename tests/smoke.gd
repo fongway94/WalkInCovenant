@@ -220,7 +220,7 @@ func _run() -> void:
 		corin_first.global_position.distance_to(region.player.global_position) < 40.0,
 		"a person to talk to is already in reach at the spawn")
 	# A few steps produce the small curiosity beat without stopping play.
-	await _stand(region, 19, 45, 4)
+	await _stand(region, 20, 45, 4)
 	_check(bool(GameState.flag("elah_first_call")),
 		"walking a few steps is answered by a distant call")
 	_check(not region.dialogue._open and not region._paused,
@@ -673,19 +673,35 @@ func _run() -> void:
 		# second and the third sheep, while the world is still walking: once
 		# the drill starts, curios deliberately stay quiet.
 		if str(sd.get("id", "")) == "sheep_west":
-			await _stand(region, 28, 37, 3)
+			if region.shepherd_field != null:
+				region.player.global_position = region.shepherd_field.world(region.shepherd_field.HURDLE_MEMORY)
+				await _frames(3)
+			else:
+				await _stand(region, 28, 37, 3)
 			await _wait_open(region.dialogue)
 			_check(region.dialogue._open, "the broken hurdle has three lines when you find it")
 			await _drain_quiet(region.dialogue)
 			await _frames(2)
-		await _stand(region, int(at2[0]), int(at2[1]), 3)
-		# A driven sheep may already be in; a startled one needs 0.7 s to
-		# settle. Wait for THIS animal, with a bound, not for a fixed count.
-		var want := idx + 1
-		var settle := 0
-		while main.sheep_home < want and settle < 120:
-			await _frames(1)
-			settle += 1
+		# A guided animal may already have arrived. Otherwise stand at the LIVE
+		# animal and deliberately press the same action a player uses; proximity
+		# alone must never increment the count.
+		var chosen = null
+		for pickup in region.pickups:
+			if str(pickup.get("id", "")) == str(sd.get("id", "")):
+				chosen = pickup
+				break
+		if chosen != null and not bool(chosen.get("got", false)):
+			var animal: FlockSheep = chosen.get("node")
+			var settle := 0
+			while not bool(chosen.get("got", false)) and settle < 120:
+				region.player.global_position = animal.global_position + Vector2(0, 1)
+				if str(region.context_target().get("id", "")) == animal.sheep_id \
+						and region._interact_lock <= 0.0:
+					TapGate.reset()
+					_press_interact(region)
+				await _frames(1)
+				settle += 1
+			_check(bool(chosen.get("got", false)), "the stray is guided or counted by action")
 		idx += 1
 	_check(main.sheep_home == 3, "all three strays came home (%d/3)" % main.sheep_home)
 	_check(not main._flock_active, "the job ends when the fold is full")
@@ -1201,6 +1217,8 @@ func _run() -> void:
 			if not back2.is_empty():
 				var b2: Array = back2.get("at", [16, 30])
 				await _stand(main.region, int(b2[0]), int(b2[1]), 3)
+				# A new gesture after travel, not the same tap delivered twice.
+				TapGate.reset()
 				_press_interact(main.region)
 				var hops3 := 0
 				while main.region != null and str(main.region.region_id) == "bethlehem" and hops3 < 400:

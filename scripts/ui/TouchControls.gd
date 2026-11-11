@@ -103,6 +103,10 @@ func set_blocked(v: bool) -> void:
 	blocked = v
 	if v:
 		release_all()
+	# The prior blocked redraw erased the buttons. They must reappear even if
+	# the player has not touched the screen since the dialogue closed.
+	if viz != null:
+		viz.queue_redraw()
 
 
 func _input(event: InputEvent) -> void:

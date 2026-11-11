@@ -1,76 +1,68 @@
-# Shepherd-field prototype — continuation
+# Chapter art and gameplay — continuation
 
-- **Branch:** `arena/905f79d4-walkincovenant`. Do not merge or deploy without approval.
-- **Base:** `cec25b525d44dff3b96970415fa2232a13e9d676` on `main`.
-- **Latest verified implementation:** `dcc2935`, tested in [run 42960525168](https://github.com/fongway94/WalkInCovenant/actions/runs/42960525168). Lint, visual, native prototype, both frame publishers, web export, isolated prototype browser and production browser passed; deploy was skipped.
-- **Milestone:** an isolated playable field with independent, reference-matted shepherd and sheep, interaction, movement and selected depth layers. It is closer to the approved reference but **not visually complete or production-ready**. Await visual approval; do not deploy.
-- **Validation history:** `b9686d2` softened sheep contact, but [42955805136](https://github.com/fongway94/WalkInCovenant/actions/runs/42955805136) failed because the post-victory browser test loaded a fresh save. The `d3e1ffc` harness fix closed the game before seeding, but [42958665393](https://github.com/fongway94/WalkInCovenant/actions/runs/42958665393) failed its new HUD-click write-back marker while the duel and ending themselves completed. The resumed duel started on a dialogue trigger, making that click unreliable.
-- **Resolution:** `dcc2935` seeds a version string that the running engine normalizes to a number on save, starts the duel south of the trigger, and requires an unwon duel and unfinished post-victory state. In `42960525168` both seeded boots passed on the first attempt; the duel won after 26 presses and the separately seeded ending completed after 14. All 30 production-browser checks passed, with zero console/page errors. This is not a continuous full-game walk.
-- **Visual cleanup:** a 40-pixel approximate paint-over removes the reference viewer strip that appeared at the backdrop's right edge. Real native and Web pan frames from `42960525168` were inspected; the [before/after comparison](art-reset/comparison/shepherd_field_edge_ci.png) shows the sampled result.
+## Approval and deployment
 
-## Completed and verified
+The user played and approved the **painterly shepherd-field prototype's art direction**. That approval does not cover the subsequently generated chapter art or the current full build. **Do not deploy this build or dispatch `publish_preview` without separate approval.** Ordinary pushes to the active working branch build but do not deploy; `main` retains its automatic-release policy. No merge is implied.
 
-- [x] Reviewed all four baseline frames from main run `42942725993`: the tight camera, bright oversized repeated sheep, dark small David, weak contacts, busy white top-left HUD, and near-total occlusion were visually inadequate.
-- [x] Fixed actor origins and contact/cast shadow order, set sheep scale to `0.66`, widened the view, and moved a compact, outlined flock HUD to the top right.
-- [x] Replaced inadequate keyed sprites with contours matted from the user's approved reference. `tools/proto/extract_reference_sprites.py` reproduces the two sheep variants and David/body/boot layers. The boot layers give a small alternating stride, not authored directional animation. Two baked sheep stride extremes change only reference-derived feet, without additional sprite draws.
-- [x] Replaced the filled foreground polygon with a silhouette/stone matte. The real `proto_03_occlusion` frame shows David's head and torso, with grass/stone partially covering his lower body. The matte is approximate and needs broader traversal review.
-- [x] Added a world-aligned upper-tree copy and one traced fence. Actors select depth bands by foot y; y-sort still orders actors inside a band. Each full-size texture shares the backdrop's exact origin; the draw regions clip transparent horizontal margins while retaining the full height. The renderer checks show no significant sampled background drift at the tested views, including a 960×540 window.
-- [x] `42960525168` render log: walk `dx=73.5`, sheep movement `14.6`, boot stride `2.00`, rock stop `x=612.0`, trunk stop `x=1148.0`, fence stops `y=226.0/280.0` from opposite sides; near interaction counts once and a distant interaction is rejected. The harness explicitly requires `PROTO PASS`.
-- [x] Renderer toggles in the latest run changed **104/0** sampled actor pixels behind/in front of the tree and **23/0** behind/in front of the fence; each object's sampled background difference was **0/0**. Empty-scene checks at two camera positions and a 960×540 physical window each found zero significant sampled differences. These are sampled checks, not proof for every location.
-- [x] Camera-frame registration in `42960525168` predicted a horizontal shift of `-35.41px`, measured `-36px` (error `0.59px`); aligned background residual `5.04` versus `30.35` unaligned. This is a landmark check, not a complete depth/collision audit.
-- [x] Frozen 320×180 versus 640×360 logical renders were compared in `42945561632`. Both were captured at 1280×720 and transported at 640×360; the 640 UI/placement was somewhat cleaner, with broadly similar field detail. Filtering is nearest in the scene and the WebP evidence is lossy. No performance conclusion follows from stills.
-- [x] Higher-detail native frames use 640×360 WebP, a single joined `PROTOLOG`, and two annotation publishers. The latest native run used quality 75 and 85 frame notices split 46/39; the overflow publisher also works on failed visual tests for diagnosis.
-- [x] `docs/art-reset/comparison/shepherd_field_ci_comparison.png` was rebuilt and inspected using only the approved reference and decoded real Godot frames from baseline `42942725993` and improved run `42960525168`. It labels the different framing and includes an approximately matched field crop. `shepherd_field_shadow_ci.png` separately compares staged real-frame sheep crops against the reference and prior run `42953016636`; `shepherd_field_edge_ci.png` compares native edge frames before and after the paint-over.
+The reference is `docs/art-reset/user_selected_reference.png`; the older prototype comparison and evidence remain in `docs/art-reset/`. Its viewer border and arrow are not game art. The current work lives on `arena/905f79d4-walkincovenant`, branched from `cec25b525d44dff3b96970415fa2232a13e9d676`.
 
-## Latest real-frame review
+## Current implementation
 
-Decode `python3 tools/proto/decode_proto.py 42960525168 build/proto_dcc2935`. All six gameplay frames and both diagnostics were inspected:
+- The approved field is integrated into the real shepherd act, with its own camera framing, collision, independent hired boy, flock, context actions and save flags. Leaving it removes field-only animals and their shadow registrations, including a returning animal.
+- Cinematic/painterly is the shared default on Web, desktop and Android. Elah and Bethlehem use map-aligned ground and separate painted props; the player, supporting cast, armour, practice, brook and duel have painted treatments. Classic remains reversible. The later art has **not** been approved by the user; it still needs visual and device review.
+- David and several other actors have generated directional images with a procedural cutout gait, not authored walk cycles. Some supporting characters share tinted rigs, the fig currently reuses the olive tree, and the field's depth contours remain approximations.
+- NPC reaction panels measure the text, stay in the viewport's safe band and try to avoid both the speaker and the player. Long ambient lines advance automatically through bounded single-line pages, preserving words that were previously clipped. The camera fits the field at different aspect ratios. In the brook, measured local backings keep feedback and instructions legible without darkening the whole picture or covering the stones. These checks do not prove every object and bubble placement is visually ideal.
+- Music crossfades swap the existing players' roles rather than restarting the outgoing track; cuts clear the spare player. Focus mute survives settings changes, and a muted or missing dialogue blip cannot repitch an unrelated pooled effect. This is verified through player/bus state, not by listening.
+- `Web` and `Android` exclude `tests/*` and `build/*`. `Web Test Only` is used solely to make a disposable browser-test PCK. `tools/check_pack_contents.py` validates the logical PCK index; `tools/build_browser_probes.py` copies the release shell into `build/web-probes/`, exports and validates a fresh PCK before replacing the copy, and makes launchers there. **Never publish `build/web-probes/`.** The Android resource PCK was checked separately; an Android APK export and device run are still untested.
 
-- `proto_01_field_640`: the palette, wool and character lighting fit the edited field more closely than the baseline's white stickers and dark David. Composition remains narrower than the complete reference and the extra figure in the reference is absent.
-- `proto_02_tree_front`: David is in front of the tree but behind the upper fence rail; only part of his boots/legs is covered. The fence contour is a manual approximation.
-- `proto_03_occlusion`: foreground blades partly cover David rather than hiding nearly all of him. The foreground remains a fixed approximate matte.
-- `proto_04_fence_front`: David is in front of the fence at the southern position. Two-sided collision was also exercised through movement, not only teleports.
-- `proto_05_camera`: scenery tracks with the camera and sheep remain independent. A sheep still comes close to David in this short walk; the elliptical flee rule does not prove that all paths avoid awkward visual overlaps.
-- `proto_06_tree_behind`: tree foliage partially covers David. `proto_07_tree_delta` is a black, sparse diagnostic map, not a gameplay frame; the tested front position had no significant sampled overlay/background change.
-- `proto_08_sheep_gait`: a staged 2×2 diagnostic assembled from real viewport crops (variants across, opposing strides down), not a gameplay frame. Both poses changed visible rendered pixels (504/626 for the two variants). The new broad, softer shadow looks less detached in the actual before/after crops; it remains an approximation.
+## Verified locally
 
-Experiments `9a77db9`, `2a2a3f3`, and `8f4fa9e` had failing prototype jobs. `8f4fa9e` reduced but did not remove tree-background differences (16 sampled pixels); `13288c1` removed the nested transform and passed the stronger tests. Keep this history when interpreting earlier frames.
+- A fresh Chromium/SwiftShader context, with no seeded story state, walked and conversed through four witness verses, first sight, the line, Bethlehem's elder, Samuel, David and the anointing; returned to the shepherd field; counted one sheep; **reloaded** and restored 1/3; then completed the flock, practice, provisions, brothers, Saul's armour, brook, three-hit duel and ending. The final run passed **24 checks** with no browser page/console errors. It uses keyboard events and read-only test telemetry: an automated journey, not a physical-device or human playtest.
+- A **separate staged** browser interruption calls the real field exit while a return tween is live. It verified the animal was freed, sheep shadows and field pickups were removed, and the counted flag remained. Normal narrative timing reaches the exit after that short tween; do not describe the interruption as natural progression.
+- The rebuilt ordinary release Web export also passed **30/30** Chromium checks in strict mode with no page, console or request errors, including emulated touch, resize, IndexedDB reload and audio-unlock telemetry. Its duel and ending checks use separate seeded saves; neither emulated touch nor audio telemetry is a physical-device or listening review.
+- A staged browser layout probe checked live field resizing at 1280×720, 960×540, 1024×768 and 844×390 and back to 1280×720. Emulated touch dragged the floating stick and tapped the on-screen A to count the selected sheep; other sheep independently reached the fold by herding and were distinguished from that action. The probe clicked the real language button and observed both pages of Corin's naturally timed English chatter, with text fitting and the bubble clear of the player and speaker. It also selected five stones in a staged brook fixture and sampled rendered feedback and instruction contrast in Chinese at 1280×720 and English at 844×390. The expanded layout suite passed three consecutive local runs; its percentile-based pixel contrast is a regression signal, not an accessibility certification. Chinese ambient chatter and field reactions were also reviewed in rendered captures. Four viewport/zoom combinations additionally checked field coverage and field-bubble bounds. None of this replaces a physical-device test.
+- The native rendered `tests/visual.gd` suite passed **18 frames** under Xvfb/Mesa llvmpipe. Its harness stages some scenes: it selects and counts a real sheep via the interaction handler, uses field cleanup before the staged duel/aftermath, then takes the road to Bethlehem. The isolated prototype's native movement, depth, collision and sheep checks also passed. The old baselines were **not** replaced. The chapter suite's coarse pixel comparator can pass a semantically wrong frame, so preserve the state assertions and inspect captures rather than treating a passing diff as art approval.
+- The final headless run passed content lint, context **21/21**, shepherd stage **51/51**, shepherd resume **13/13**, painted world **53/53**, audio contract **21/21**, smoke and deep **144 checks**. Pack boundary tests passed **8/8** and seeded-boot helpers **8/8**. Lint, xref, Godot API, export, font, audio-file and art-layout checks passed.
+- A clean working-tree copy without `.godot/` passed import, the audio contract and both Web exports. The Web release PCK had **578** indexed resources, no logical `tests/` or `build/` entries; the disposable probe pack had **668** resources and four browser launchers. Its test PCK also built in a clean data home without export templates. An Android-preset resource PCK likewise contained **578** resources and no `tests/` or `build/` entries, but it is not an APK or device test. CI now checks that Android boundary and waits for the rendered and browser jobs before deployment; these local workflow changes have **not** been run remotely.
+- Audio remains unreviewed by ear. The audio contract verifies nine retired playbacks are freed while the game is still running after repeated handovers; it deliberately drains its mixer before quitting. Other headless tests still sometimes report audio playback resources at immediate shutdown: a verbose painted-world run retained the valley and hit WAV/playback pairs. A minimal reproduction retained one pair when quitting immediately after `stop()`, but not after a 0.5-second delay. This is consistent with queued mixer cleanup, not proof that every in-game leak is absent or that audible quality is acceptable. An earlier native rendered run also reported one resource in use at exit.
 
-## Remaining work and quality limitations
+Screenshots and logs under `build/` are temporary and snapshot-excluded. The shipped art, source artwork needed by the builders and scripts are in the working tree. `tools/art/sources/.gdignore` keeps the large source images out of Godot imports.
 
-- [x] The isolated Web prototype loaded, drew and responded to keyboard movement at both logical widths. Four short, sequential headless Chromium 158 / ANGLE SwiftShader trials on an AMD EPYC 7763 CI runner measured draw-active animation-frame cadence of **15.3 and 16.4 fps at 320**, **15.9 and 16.4 fps at 640**, with p95 intervals of approximately 83–100 ms. Both screenshots were decoded and inspected. These are software-rendered CI observations with WebGL draw-call instrumentation, not mobile/hardware FPS: both widths use the same 1280×720 canvas in `canvas_items` mode.
-- [x] The clipped-region experiment `1188315` passed its native depth/background tests at both camera positions and the 960×540 resized window; its six native frames and both Web frames were inspected. A subsequent Chromium/SwiftShader run measured 28.5–36.1 fps, but it used an AMD EPYC 9V45 rather than the prior EPYC 7763. The difference is **not** evidence that clipping caused a speedup.
-- [x] Same-runner full-versus-clipped A/B in `42951874896`: after the first four trials, four 640-logical-width, 1280×720 canvas trials in full/clipped/clipped/full order measured **16.1 / 23.3 / 23.3 / 16.3 fps**, respectively, on AMD EPYC 7763 with Chromium 158/ANGLE SwiftShader. The clipped average was about 44% higher than the full average in this short, instrumented software-rendering experiment; p95 frame intervals were 83.3/100 ms full versus 66.6/66.7 ms clipped. Three Web screenshots were decoded and inspected; movement and rendering passed. This is evidence for the CI software renderer only, not a mobile or hardware performance claim.
-- [x] `42953016636` verified sheep stride selection during independent movement and both staged variants, plus idle, blocked and hop states. The real gait diagnostic and native/Web gameplay frames were inspected. Both browser jobs succeeded and deploy was skipped.
-- [x] The same run's 640-width full/clipped/clipped/full trials were 19.1 / 27.3 / 27.0 / 19.1 fps on AMD EPYC 9V74 / Chromium SwiftShader. Like the earlier run, these are short instrumented software-renderer observations, not physical-device FPS.
-- [x] The `b9686d2` native render passed left/right shadow on/off sampling for both variants and both facing directions: `44/91`, `51/84`, `49/91`, and `53/87` changed samples. All native gameplay frames and the staged gait comparison were inspected; the detached black oval is reduced. These sampled checks do not guarantee quality for every pose.
-- [x] The `b9686d2` isolated-Web job passed with movement at both logical widths; all three decoded browser screenshots were inspected. Its 640-width full/clipped/clipped/full sequence measured 25.3 / 35.6 / 35.9 / 25.4 fps on an AMD EPYC 9V45 with Chromium/SwiftShader. The full and clipped p95 intervals were about 66.7 ms and 33.4 ms, respectively. These short instrumented trials do not represent mobile or hardware-GPU FPS.
-- [x] The `d3e1ffc` isolated-Web job also passed; all three decoded screenshots were inspected. Its 640-width full/clipped/clipped/full sequence was 12.1 / 17.4 / 17.5 / 12.1 fps on an Intel Xeon Platinum 8370C / Chromium SwiftShader. Different CI CPUs preclude cross-run speed comparisons. The panned screenshots exposed the viewer strip at the right edge.
-- [x] The revised production-browser test fix passed in `42960525168`: the game is closed before seeding from a non-game page, and both the expected story state and a version normalized by the running engine are required before accepting the boot. Eight mocked helper tests passed. The real duel and independently seeded post-victory ending reached `goliath_down` and `elah_ended`; the browser suite passed 30/30 checks. Deploy was skipped.
-- [x] Inspected all three isolated-Web frames and the native tree-front frame after the 40-pixel backdrop edge paint-over. The previous viewer strip no longer appears at the sampled camera positions. The paint-over is an approximate adjacent-texture blend; `python3 tools/proto/clean_backdrop_edge.py --check` checks its deterministic construction, not its visual quality.
-- [x] In the same run, 640-width full/clipped/clipped/full trials were 18.8 / 26.8 / 27.0 / 18.7 fps on AMD EPYC 9V74 / Chromium SwiftShader. These short, instrumented software-renderer observations are not physical-device FPS.
-- [ ] Further art work: author genuinely directional/walking sheep and David animation rather than flipping baked highlights; inspect edge halos and shadows; stress sheep clearance across paths; and add only justified depth/collision layers for remaining trees, fence and foreground. The backdrop is still mostly a flat edited painting, so some world objects cannot yet occlude actors correctly.
-
-The reference is `docs/art-reset/user_selected_reference.png` (681×348); its bottom arrow and right strip are viewer UI, not world art. The 1440×666 edited backdrop is not pixel-identical. The two full-world transparent depth textures still consume texture memory, and clipping has only been sampled at the tested window sizes. Real-device profiling and more resize/path coverage are still needed. No production gameplay scene, chapter, save or live deployment is in scope.
-
-## Commands and constraints
+## Useful commands
 
 ```sh
-export PATH=/home/user/.venv/bin:$PATH  # recreate a venv with Pillow + PyYAML if absent
+# With Godot 4.7.2 and Web export templates installed:
+export PATH="$PWD/build/godot-local:$PATH"  # local provision, if present
+mkdir -p build/web
+touch build/.gdignore  # do not import prior exports or screenshots as source
 python3 tools/gd_lint.py
 python3 tools/xref_check.py
 python3 tools/api_check.py
+python3 tools/check_export.py
+python3 -m unittest discover -s tests -p 'test_pack_contents.py' -v
 node --test tests/browser/seeded_boot.test.cjs
-python3 tools/proto/clean_backdrop_edge.py --check
-python3 -c 'import yaml; d=yaml.safe_load(open(".github/workflows/build-web.yml")); assert d["jobs"]["deploy"]["if"] == "github.ref == '\''refs/heads/main'\'' || (github.event_name == '\''workflow_dispatch'\'' && inputs.publish_preview)"; print("YAML/deploy guard OK")'
-python3 tools/proto/decode_proto.py <run-id> build/proto_<run-id>
-python3 tools/proto/decode_proto.py <run-id> build/proto_browser_<run-id> --browser
-python3 tools/proto/check_camera_alignment.py <field.webp> <camera.webp> --cam-a <x> <y> --cam-b <x> <y> --zoom 0.55
-python3 tools/proto/build_comparison.py <baseline.webp> <current.webp> docs/art-reset/comparison/shepherd_field_ci_comparison.png --baseline-run <id> --current-run <id>
-python3 tools/proto/build_shadow_comparison.py <before-gait.webp> <after-gait.webp> docs/art-reset/comparison/shepherd_field_shadow_ci.png --before-run <id> --after-run <id>
-python3 tools/proto/build_edge_comparison.py <before-tree.webp> <after-tree.webp> docs/art-reset/comparison/shepherd_field_edge_ci.png --before-run <id> --after-run <id>
-godot --path . res://scenes/proto/ShepherdFieldProto.tscn  # on a machine with Godot installed
-gh run view <run-id> --json status,conclusion,jobs,url
+godot --headless --path . --import
+godot --headless --path . --script tests/run_all.gd
+for t in context shepherd_stage shepherd_resume painted_world audio_contract smoke deep; do
+  XDG_DATA_HOME="$PWD/build/test-data/$t" godot --headless --path . "res://tests/$t.tscn"
+done
+# Requires Xvfb and Mesa software OpenGL; saves review frames in build/frames/.
+LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+  xvfb-run -a -s '-screen 0 1280x720x24' godot --path . \
+  --rendering-driver opengl3 --audio-driver Dummy res://tests/visual.tscn
+godot --headless --path . --export-release Web build/web/index.html
+python3 tools/inject_pwa.py build/web
+python3 tools/check_pack_contents.py release build/web/index.pck
+# Pack boundary only: this does NOT create or test an Android APK.
+mkdir -p build/android-pack-check
+godot --headless --path . --export-pack Android build/android-pack-check/index.pck
+python3 tools/check_pack_contents.py release build/android-pack-check/index.pck
+python3 tools/build_browser_probes.py --godot godot
+python3 -m http.server 8083 --bind 127.0.0.1 --directory build/web-probes
+# In a second shell, with Playwright installed:
+WIC_FRESH_JOURNEY=1 WIC_FULL_JOURNEY=1 WIC_PROBE_URL=http://127.0.0.1:8083/ \
+  node tests/browser/shepherd_journey.cjs
+WIC_PROBE_URL=http://127.0.0.1:8083/ node tests/browser/chapter_layout.cjs
 ```
 
-The native joined PROTOLOG is already ~3,680 bytes; split its annotation transport before adding many more checks. Godot cannot run locally: CI/Xvfb or CI/Chromium are the actual renderers. Direct artifact downloads redirect to an inaccessible Azure blob host; check-run annotations work, and runner-to-runner artifact transfer works. A new turn can recreate the Git checkout at the base while reapplying workspace changes: inspect and fetch the session branch before committing, and never discard user changes. The release deploy guard remains automatic for `main` and explicit `publish_preview` dispatch only; ordinary working-branch pushes do not deploy. GitHub read/push authentication is valid; attempting to cancel an already-failed old Actions run returned 403 (the run finished on its own), so do not assume this integration can cancel runs.
+Local sandbox Chromium may require `WIC_PLAYWRIGHT=playwright-core`, `WIC_SPARTICUZ=1`, `NODE_PATH="$PWD/build/preview_deps/node_modules"` and `LD_LIBRARY_PATH="$PWD/build/preview_deps/al2023/lib:/tmp:${LD_LIBRARY_PATH:-}"`. CI installs regular Playwright and builds the test pack separately; it stores only screenshots and verdicts, not the pack. Review the latest CI and rendered results before claiming they passed. A local HTTP server is not a public deployment.

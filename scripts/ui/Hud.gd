@@ -47,6 +47,9 @@ var _stones_n := 0
 var _stones_total := 0
 var _objective := ""
 var _prompt := ""
+## A temporary role survives flag/settings refreshes and language switches.
+var _role_override: Variant = null
+var _role_level := 1
 
 ## Art-direction skins. The classic values are EXACTLY the shipped colours;
 ## "storybook" is Direction C from docs/ART-RESET.md. Nothing here changes the
@@ -125,7 +128,7 @@ func is_covered() -> bool:
 
 func bind(r: Region) -> void:
 	region = r
-	place_lbl.text = I18n.t(r.model.display_name)
+	refresh_place()
 	_refresh()
 
 
@@ -361,8 +364,7 @@ func _toggle_language() -> void:
 	AudioDirector.play_sfx("ui", -12.0)
 	I18n.toggle()
 	lang_btn.text = "EN" if I18n.is_zh() else "中"
-	if region != null:
-		place_lbl.text = I18n.t(region.model.display_name)
+	refresh_place()
 	set_stones(_stones_n, _stones_total)
 	_refresh()
 
@@ -379,6 +381,10 @@ func _refresh() -> void:
 	if who == "pilgrim":
 		who = I18n.t({"en": "pilgrim", "zh": "朝圣者"})
 	var lvl: int = int(GameState.data.get("level", 1))
+	if _role_override != null:
+		who = I18n.t(_role_override)
+		lvl = _role_level
+	refresh_place()
 	var fmt := I18n.t({"en": "%s · Lv%d", "zh": "%s · %d 级"})
 	name_lbl.text = fmt % [who, lvl]
 	var n: int = (GameState.data.get("words", []) as Array).size()
@@ -422,9 +428,20 @@ func set_prompt(text: String) -> void:
 
 ## Set by Main when the player BECOMES someone: the nameplate must say whose
 ## hands are holding the sling (docs/FEEL.md §3).
-func set_role(who: String, level: int) -> void:
-	var fmt := I18n.t({"en": "%s · Lv%d", "zh": "%s · %d 级"})
-	name_lbl.text = fmt % [who, level]
+func set_role(who: Variant, level: int) -> void:
+	_role_override = who
+	_role_level = level
+	_refresh()
+
+
+func clear_role() -> void:
+	_role_override = null
+	_refresh()
+
+
+func refresh_place() -> void:
+	if region != null and region.model != null and place_lbl != null:
+		place_lbl.text = region.place_name()
 
 
 ## Set by Main: how many stones are in the pouch, out of how many exist.

@@ -80,6 +80,8 @@ var david: CharacterBody2D
 var david_sprite: Sprite2D
 var david_boot_left: Sprite2D
 var david_boot_right: Sprite2D
+var david_visual
+var david_facing := Vector2i(0, 1)
 var camera: Camera2D
 var hud_panel: PanelContainer
 var sheep: Array = []
@@ -181,14 +183,15 @@ func _build_david() -> void:
 	shape.position = Vector2(0, -6)
 	david.add_child(shape)
 	david.add_child(_shadow(16.0))
-	# Boot layers are cut from the same reference pixels as the body. They
-	# reconstruct the still pose at rest and stride gently while moving.
-	david_boot_left = _david_part(DAVID_LEFT_BOOT_PATH)
-	david_boot_right = _david_part(DAVID_RIGHT_BOOT_PATH)
-	david.add_child(david_boot_left)
-	david.add_child(david_boot_right)
-	david_sprite = _david_part(DAVID_BODY_PATH)
-	david.add_child(david_sprite)
+	# The same foot-anchored rig as production; retains public test access to
+	# the boot/body pieces while direction changes now use actual poses.
+	david_visual = load("res://scripts/world/DavidVisual.gd").new()
+	david_visual.scale = Vector2.ONE * DAVID_SCALE
+	david.add_child(david_visual)
+	david_visual.build()
+	david_boot_left = david_visual.boot_left
+	david_boot_right = david_visual.boot_right
+	david_sprite = david_visual.body
 	camera = Camera2D.new()
 	var cam := camera
 	cam.zoom = Vector2.ONE * CAMERA_ZOOM
@@ -323,14 +326,11 @@ func _physics_process(delta: float) -> void:
 		JavaScriptBridge.eval("window.__prototypeMoved = true;", true)
 		_browser_probe = false
 	if dir.length() > 0.1:
-		var stride := sin(_t * 9.0)
-		david_sprite.position.y = -absf(stride) * 0.6
-		david_boot_left.position = Vector2(stride * 2.0, -maxf(0.0, stride) * 1.2)
-		david_boot_right.position = Vector2(-stride * 2.0, -maxf(0.0, -stride) * 1.2)
-	else:
-		david_sprite.position = Vector2.ZERO
-		david_boot_left.position = Vector2.ZERO
-		david_boot_right.position = Vector2.ZERO
+		if absf(dir.x) > absf(dir.y):
+			david_facing = Vector2i(signi(int(signf(dir.x))), 0)
+		else:
+			david_facing = Vector2i(0, signi(int(signf(dir.y))))
+	david_visual.set_pose(david_facing, dir.length() > 0.1, DAVID_SPEED, delta)
 
 
 func _process(delta: float) -> void:

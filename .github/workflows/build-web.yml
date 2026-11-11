@@ -143,6 +143,9 @@ jobs:
           echo "a static check failed"
           exit 1
 
+      - name: Test the release and probe pack boundary
+        run: python3 -m unittest discover -s tests -p 'test_pack_contents.py' -v
+
       - name: Import resources and build the global class cache
         run: |
           # --import does a full headless import and exits; --editor --quit can
@@ -165,6 +168,24 @@ jobs:
 
       - name: Boot the project headless (parse + smoke check)
         run: sh tools/ci_bootcheck.sh 10
+
+      # An Android PCK can be exported without the SDK or templates. This only
+      # checks the resource boundary; it does not build or install an APK.
+      - name: Verify the Android resource-pack boundary
+        run: |
+          OUT="build/android-pack-$$"
+          mkdir -p "$OUT"
+          touch build/.gdignore
+          timeout 180 godot --headless --path . --export-pack Android "$OUT/index.pck" > android-pack.txt 2>&1
+          STATUS=$?
+          if [ "$STATUS" -ne 0 ] || [ ! -s "$OUT/index.pck" ] || \
+             grep -aEq 'SCRIPT ERROR|Parse Error|Failed to load script' android-pack.txt; then
+            grep -aE 'ERROR|Parse Error|Failed to load script' android-pack.txt | head -20 || true
+            echo "Android resource-pack export failed (exit $STATUS)"
+            exit 1
+          fi
+          python3 tools/check_pack_contents.py release "$OUT/index.pck"
+          echo "Android resource boundary checked; APK and device are not tested"
 
       - name: Content lint (regions, reachability, bilingual)
         id: lint
@@ -226,6 +247,43 @@ jobs:
           fi
           cat deep.txt
           exit $STATUS
+
+      # These suites exercise the production context resolver, painted field,
+      # save/resume, reversible cinematic art and audio player/bus lifecycle.
+      # Run sequentially with separate save roots: they each create new games.
+      - name: Shepherd, painted-world and audio regressions
+        id: chapter_contracts
+        continue-on-error: true
+        run: |
+          FAILED=0
+          : > chapter-contracts.txt
+          for T in context shepherd_stage shepherd_resume painted_world audio_contract; do
+            echo "===== $T =====" | tee -a chapter-contracts.txt
+            mkdir -p "$RUNNER_TEMP/wic-tests/$T"
+            XDG_DATA_HOME="$RUNNER_TEMP/wic-tests/$T" timeout 180 \
+              godot --headless --path . "res://tests/$T.tscn" > "chapter-$T.txt" 2>&1
+            STATUS=$?
+            cat "chapter-$T.txt" | tee -a chapter-contracts.txt
+            if [ "$STATUS" -ne 0 ] || \
+               ! grep -aEq ': [0-9]+ checks, 0 failures' "chapter-$T.txt" || \
+               grep -aEq 'SCRIPT ERROR|Parse Error|Failed to load script' "chapter-$T.txt"; then
+              FAILED=1
+            fi
+          done
+          exit "$FAILED"
+
+      - name: Publish shepherd, painted-world and audio regression results
+        if: always()
+        run: |
+          [ -f chapter-contracts.txt ] || exit 0
+          if [ "${{ steps.chapter_contracts.outcome }}" = "success" ]; then
+            grep -aE ': [0-9]+ checks, 0 failures' chapter-contracts.txt \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          else
+            grep -aE '=====|FAIL|SCRIPT ERROR|Parse Error|Failed to load script' chapter-contracts.txt \
+              | head -16 | tr '\n' '|' | cut -c1-3000 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          fi
 
       - name: Publish the regression suite
         if: always()
@@ -326,6 +384,12 @@ jobs:
         if: steps.deep.outcome != 'success'
         run: |
           echo "an interruption or reload regression check failed"
+          exit 1
+
+      - name: Fail the job if shepherd, painted-world or audio checks failed
+        if: steps.chapter_contracts.outcome != 'success'
+        run: |
+          echo "a shepherd, painted-world or audio regression check failed"
           exit 1
 
   # ── rendered frames: the one capability the headless suites cannot have ──
@@ -747,6 +811,18 @@ jobs:
           fi
           echo "export contains no script parse errors"
 
+      # The release PCK must never contain the save-seeding test scenes. The
+      # browser chapter job creates its own disposable pack in another job.
+      - name: Verify the Web release contains no test probes
+        run: |
+          python3 tools/check_pack_contents.py release build/web/index.pck
+          for F in build/web/*-probe.html build/web/*-override.cfg build/web/proto.html; do
+            if [ -e "$F" ]; then
+              echo "::error::test launcher in release output: $F"
+              exit 1
+            fi
+          done
+
       - name: Verify PWA (engine-native service worker + manifest)
         env:
           WIC_BUILD_STAMP: ${{ github.sha }}
@@ -1004,6 +1080,93 @@ jobs:
         with:
           name: browser-evidence
           path: build/browser
+
+  # A separate test-only PCK exercises a fresh, real-input chapter journey,
+  # with a reload after counting one sheep, and an explicitly staged cleanup
+  # interruption. Nothing from build/web-probes is published or added to the
+  # release artifact; only screenshots and the verdict are kept.
+  chapter-browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+      - name: Install Godot 4.7.2 for the test pack
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-bin
+          GODOT=$(find /tmp/godot-bin -type f -name 'Godot_v4.7.2*' | head -1)
+          cp "$GODOT" /tmp/godot
+          chmod +x /tmp/godot
+          /tmp/godot --version
+      - name: Import and create the separate test-only pack
+        run: |
+          # The downloaded release is already in build/. Never let Godot
+          # import its generated shell or an earlier test pack as source art.
+          mkdir -p build
+          touch build/.gdignore
+          /tmp/godot --headless --path . --import
+          python3 tools/build_browser_probes.py --godot /tmp/godot
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+      - name: Walk the fresh chapter, interrupt a sheep return, and check layout
+        id: chapter_browser
+        continue-on-error: true
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          WIC_PROBE_URL: http://127.0.0.1:8083/
+          WIC_FRESH_JOURNEY: '1'
+          WIC_FULL_JOURNEY: '1'
+          WIC_SHEPHERD_OUT: build/shepherd-browser
+        run: |
+          mkdir -p build/shepherd-browser
+          python3 -m http.server 8083 --bind 127.0.0.1 --directory build/web-probes > build/chapter-server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8083/shepherd-resume-probe.html > /dev/null
+          timeout 900 node tests/browser/shepherd_journey.cjs
+          test -s build/shepherd-browser/result.json
+          timeout 360 node tests/browser/chapter_layout.cjs
+          test -s build/shepherd-browser/layout-result.json
+      - name: Publish the chapter browser verdict
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, os
+          for tag, path in (
+              ('SHEPHERD_BROWSER', 'build/shepherd-browser/result.json'),
+              ('CHAPTER_LAYOUT', 'build/shepherd-browser/layout-result.json'),
+          ):
+              if not os.path.isfile(path):
+                  print(f'::warning::No {tag} result was produced')
+                  continue
+              with open(path, encoding='utf-8') as f:
+                  result = json.load(f)
+              level = 'notice' if result.get('ok') else 'error'
+              text = json.dumps(result, ensure_ascii=True, separators=(',', ':'))
+              print(f'::{level}::{tag}|{text[:3500]}')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chapter-browser-evidence
+          path: |
+            build/shepherd-browser/*.png
+            build/shepherd-browser/result.json
+            build/shepherd-browser/layout-result.json
+          if-no-files-found: warn
+      - name: Fail if the chapter browser journey failed
+        if: steps.chapter_browser.outcome != 'success'
+        run: exit 1
 
   # ── publish to GitHub Pages ──────────────────────────────────────────────
   # Creating a Pages site requires repository admin, which neither this
@@ -1269,7 +1432,9 @@ jobs:
           test -f build/proto/overflow/part_7.txt && cat build/proto/overflow/part_7.txt || echo "no overflow part 7"
 
   deploy:
-    needs: export-web
+    # No release or approved preview should publish until the rendered and
+    # browser regressions have finished successfully as well as the export.
+    needs: [export-web, visual, browser, chapter-browser]
     # `main` is the release. The named working branch is an opt-in PREVIEW: the
     # repo's `github-pages` environment has a custom deployment-branch policy
     # that lists it, so `actions/deploy-pages` is accepted from this ref.
@@ -1282,15 +1447,10 @@ jobs:
     # Pages Jekyll-build the repository ROOT and serve README.md instead of the
     # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
     # artifact check below exists. `build_type` must stay `workflow`.
-    # `main` publishes automatically. On 2026-11-10 the user explicitly asked to
-    # "serve this branch to live for me to feel", so this named working branch
-    # also publishes on every push while that live-preview authorisation is in
-    # effect. Any OTHER branch still needs workflow_dispatch + publish_preview
-    # AND must be listed in the github-pages environment branch policy. This is
-    # a preview, not a release: it temporarily replaces the one Pages URL, and
-    # the next `main` push republishes main. No merge to `main` is implied.
-    # Branch preview deploys are PAUSED: the user asked for no deploy until they approve
-    # the visual prototype. Explicit workflow_dispatch with publish_preview still works.
+    # Branch pushes only build; an explicit dispatch with publish_preview and
+    # a permitted environment ref is required to replace the Pages site. The
+    # field prototype's approval does not by itself approve later chapter art or
+    # this full build: do not dispatch a preview without the user's approval.
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:

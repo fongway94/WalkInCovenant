@@ -1,35 +1,27 @@
-# Shepherd-field prototype: visual review
+# Shepherd field: visual review
 
-This is an isolated, playable art prototype, not a production game scene. **It has not been deployed or merged.** Deployment remains paused pending visual approval.
+The user played the isolated prototype and **approved its painterly field direction**. That approval is for the prototype, not for the later chapter-wide art or the current full build. Do not deploy the latter without separate approval.
 
-## Compare
-
-- [Reference, earlier prototype and current Godot render](comparison/shepherd_field_ci_comparison.png) — the views use different framing, and the edited backdrop is not identical to the reference.
-- [Sheep shadow detail: reference, before and after](comparison/shepherd_field_shadow_ci.png) — enlarged, staged crops from real Godot frames, not gameplay screenshots.
-- [Right-edge cleanup: before and after](comparison/shepherd_field_edge_ci.png) — real native frames and enlarged edge crops.
-
-The reference's bottom arrow and right strip are viewer interface, not intended scene art.
-
-## Try it locally
-
-With Godot 4.7.2 installed, run from the repository root:
+The field is now integrated into the production shepherd act: David and the hired boy are independent actors, strays can be counted and returned, and field camera/collision and save state are restored on exit. The isolated prototype remains available for comparison:
 
 ```sh
 godot --path . res://scenes/proto/ShepherdFieldProto.tscn
 ```
 
-Use the arrow keys to move. Press Space near a sheep to make it hop and count it once. This prototype does not yet include dedicated touch controls.
+## Original comparisons
 
-## What has been checked
+- [Reference, earlier prototype and Godot render](comparison/shepherd_field_ci_comparison.png) — views use different framing; the edited backdrop is not identical to the reference.
+- [Sheep shadow detail: reference, before and after](comparison/shepherd_field_shadow_ci.png) — enlarged, staged crops from real Godot frames, not gameplay screenshots.
+- [Right-edge cleanup: before and after](comparison/shepherd_field_edge_ci.png) — real native frames and enlarged edge crops.
 
-The [native CI render](https://github.com/fongway94/WalkInCovenant/actions/runs/42960525168) exercised movement, interaction, camera tracking, rock/trunk/fence collisions, sampled tree/fence occlusion and background alignment, including a 960×540 window. It also checked both sheep stride poses, idle, blocking, hopping and sampled shadow contact in both facing directions. Pixel checks cover only the tested views and positions.
+The reference's bottom arrow and right strip are viewer interface, not intended world art. The edge paint-over and vegetation/fence occlusion are approximations.
 
-The [same-runner browser experiment](https://github.com/fongway94/WalkInCovenant/actions/runs/42960525168) loaded and moved the prototype in headless Chromium/SwiftShader. Its clipped depth layers rendered faster than full quads in short software-rendered trials; this is **not** a phone, hardware-GPU or production performance measurement. All applicable validation jobs passed, and deployment was skipped. The separate production-browser suite passed 30/30 checks, including a seeded duel and an independently seeded post-victory ending; this is not a continuous full-game playthrough.
+## Current validation and limits
 
-The previously visible viewer strip at the backdrop's right edge has an approximate 40-pixel paint-over. The new native and Web pan frames were inspected; the cleaned edge is visible in the comparison above.
+The earlier [native prototype run](https://github.com/fongway94/WalkInCovenant/actions/runs/42960525168) measured movement, collisions, camera tracking, sampled depth alignment and sheep movement. Its Chromium/SwiftShader timings are software-renderer observations, not device performance measurements.
 
-## Still needed
+The final local Chromium journey started with a fresh save, used real keyboard input through the witness and Bethlehem, returned to the field, counted one sheep, reloaded and restored 1/3, and continued through the ending: **24 checks passed** without browser page or console errors. A separate, deliberately staged test interrupted a live sheep return and checked cleanup. Field reactions were checked for safe bounds, text fit and speaker/player clearance at four viewport/zoom combinations; a second staged probe resized the live field between four viewport sizes and back, and used emulated touch to move and count a sheep. The expanded probe passed three consecutive runs and also checked rendered Chinese and English brook feedback. These are automated checks, not a human or physical-device playtest.
 
-- Directional, authored character and sheep animation; the current gait is made from limited reference-derived poses and flips baked lighting.
-- More traversal and overlap testing, plus better collision/depth contours for objects still painted into the background; the edge paint-over is approximate.
-- Real-device and touch testing, broader resize coverage, and visual approval before any deployment.
+The native rendered suite passed all **18 frames** under software OpenGL. It stages the duel and aftermath, and the committed baselines predate the intentional art changes. No baseline was replaced: the coarse comparator can miss the wrong scene, so state assertions and human inspection still matter. See `docs/AGENT_CONTINUATION.md` for commands and exact scope.
+
+The field still uses approximate depth/collision contours and limited reference-derived sheep poses. The newly generated overworld, people, setpieces, UI, physical touch, sound and real-device performance need broader human review. Do not promote new baselines or deploy the broader build without the appropriate review and approval.

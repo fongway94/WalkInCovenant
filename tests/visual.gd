@@ -28,8 +28,8 @@ const VIEW_H := 180
 const FRAME_DIR := "res://build/frames"
 const BASE_DIR := "res://tests/frames"
 ## Generous: font rasterisation and a bobbing marker can move a few pixels
-## between runs. This catches a blank frame, a wrong scene or a missing HUD,
-## not a single antialiased glyph.
+## between runs. This coarse colour check can miss even a wrong scene; the
+## semantic assertions and human frame review remain necessary.
 const DIFF_LIMIT := 0.18
 
 var main = null
@@ -94,7 +94,7 @@ func _run() -> void:
 	# reach — and the small curiosity beat that answers the first few steps.
 	# Trigger it HERE, where it belongs, instead of letting it fire late over
 	# the sheep frames: the distant horn is a toast, never a box or a pause.
-	main.region.player.global_position = Vector2(19.0 * 16.0 + 8.0, 45.0 * 16.0 + 8.0)
+	main.region.player.global_position = Vector2(20.0 * 16.0 + 8.0, 45.0 * 16.0 + 8.0)
 	await _frames(6)
 	_check(bool(GameState.flag("elah_first_call")),
 		"a few steps are answered by the distant call")
@@ -253,22 +253,16 @@ func _run() -> void:
 				named_flock += 1
 			_check(flock_reg.dialogue.is_open() \
 					and flock_reg.dialogue.name_lbl.text != "",
-					"the shepherd field carries a named speaker in its box")
+				"the shepherd field carries a named speaker in its box")
+			# The field itself is always the approved painting. Frame 15 uses
+			# the reversible classic UI skin, then 16/17 restore production.
+			main.call("apply_art_theme", "classic")
 			await _frames(6)
 			await _shot("15_shepherd_dialogue")
 
-			# 6c. THE SAME FRAME IN THE USER-SELECTED ART DIRECTION. Nothing
-			# moves: the camera, the flock, the NPC, the open dialogue page and
-			# the Chinese text are identical. Direction B ("cinematic") was
-			# chosen by the user on 2026-11-10 over the assistant's C (see
-			# docs/ART-RESET.md §12.7). The opt-in theme swaps the golden-hour
-			# terrain atlas, the dusk-slate UI skin, hand-authored B-palette
-			# prop/character silhouettes, long cast shadows, an animated rim
-			# light on every moving figure and layered environmental light.
-			# Frame counts, walk cycles, sway, water animation and every timer
-			# are UNCHANGED. Everything is rendered by the shipped engine, not
-			# a mock-up. The classic theme is
-			# restored immediately afterwards, so frames 07-14 are unchanged.
+			# 6c. Restore the production skin over the same painted field and
+			# open dialogue. These are real engine captures, not mock-ups; the
+			# separate stage retains its actors, collision and save state.
 			if main.has_method("apply_art_theme"):
 				main.call("apply_art_theme", "cinematic")
 				await _frames(8)
@@ -280,7 +274,6 @@ func _run() -> void:
 				await _drain_all()
 				await _frames(4)
 				await _shot("17_shepherd_cinematic_quiet")
-				main.call("apply_art_theme", "classic")
 				await _frames(4)
 			await _drain_all()
 			await _frames(4)
@@ -292,11 +285,19 @@ func _run() -> void:
 	# Use the LIVE animal, not its authored tile: a grazing sheep has already
 	# drifted a few pixels by the time this frame is taken.
 	var first_animal = null
+	var farthest_from_boy := -1.0
+	var hired_boy = _find_npc(main.region, "hired_boy")
 	for p in main.region.pickups:
 		var pd: Dictionary = p
-		if str(pd.get("kind", "")) == "flock" and not bool(pd.get("got", false)):
-			first_animal = pd.get("node")
-			break
+		var animal = pd.get("node")
+		if str(pd.get("kind", "")) != "flock" or bool(pd.get("got", false)) \
+				or not is_instance_valid(animal):
+			continue
+		var distance: float = animal.global_position.distance_to(hired_boy.global_position) \
+			if is_instance_valid(hired_boy) else 0.0
+		if distance > farthest_from_boy:
+			first_animal = animal
+			farthest_from_boy = distance
 	_check(first_animal != null, "a stray is still out for the interaction frame")
 	if first_animal != null:
 		var away0: Vector2 = (first_animal.anchor - first_animal.fold).normalized()
@@ -304,13 +305,52 @@ func _run() -> void:
 		await _frames(10)
 		await _shot("07_sheep_near")
 
-		# 8. A quest update. Walk onto that stray and let the world collect it:
-		# the HUD counter, the contextual toast and the hired boy's bubble all
-		# change without a dialogue box taking the picture.
-		main.region.player.global_position = first_animal.global_position
-		await _frames(30)
+		# 8. Proximity alone is not collection. Follow the live animal from
+		# behind until the SAME context resolver as the HUD selects that sheep.
+		# Standing once on its old position let it wander away and selected the
+		# hired boy instead, leaving a dialogue over this and the later frames.
+		var target: Dictionary = {}
+		for _attempt in range(120):
+			if not is_instance_valid(first_animal) or first_animal._leaving:
+				break
+			var away: Vector2 = (first_animal.global_position - first_animal.fold).normalized()
+			main.region.player.global_position = first_animal.global_position + away * 8.0
+			await _frames(1)
+			target = main.region.context_target()
+			if str(target.get("kind", "")) == "flock" \
+					and str(target.get("id", "")) == first_animal.sheep_id \
+					and main.region._interact_lock <= 0.0:
+				break
+		var selected: bool = is_instance_valid(first_animal) \
+			and str(target.get("kind", "")) == "flock" \
+			and str(target.get("id", "")) == first_animal.sheep_id \
+			and main.region._interact_lock <= 0.0
+		_check(selected, "the nearby sheep is the selected action target")
+		if selected:
+			var selected_id := str(first_animal.sheep_id)
+			TapGate.reset()
+			await _press_interact()
+			if main.sheep_home < 1 and not main.region.dialogue.is_open():
+				var action := InputEventAction.new()
+				action.action = "interact"
+				action.pressed = true
+				main.region._unhandled_input(action)
+			_check(bool(GameState.flag(Region.pickup_key(str(main.region.region_id), selected_id))) \
+				and not main._sheep_guided(selected_id) and not main.region.dialogue.is_open(),
+				"the action counts that sheep rather than opening dialogue or guiding it")
+		await _frames(10)
 	await _shot("08_quest_update")
 	_check(main.sheep_home >= 1, "a stray came home and the HUD moved (%d/3)" % main.sheep_home)
+
+	# The duel and aftermath below are deliberately STAGED, not played through.
+	# Return from the separate field using its real cleanup before photographing
+	# the valley; its disabled exits and field-space coordinates are not a road.
+	main._flock_active = false
+	main.region.leave_shepherd_field()
+	main.region.set_time_of_day("morning")
+	main._place_at([16, 10])
+	main.region.set_paused(false)
+	await _frames(4)
 
 	# 13. THE DUEL. The chapter's climax had never been rendered or reviewed:
 	# the previous twelve frames stopped at the shepherd fields. This uses the
@@ -322,6 +362,8 @@ func _run() -> void:
 	var duel = main.fight
 	await _frames(8)
 	if duel != null and is_instance_valid(duel):
+		# Keep a classic comparison, then capture the production duel below.
+		duel.call("apply_art_theme", "classic")
 		duel.phase = 2                    # GoliathFight.Phase.AIM
 		duel._marker = 0.0
 		duel._band = 0.26
@@ -329,12 +371,8 @@ func _run() -> void:
 		_check(duel._gol.texture != null and duel._gol.texture.get_size().x > 16.0,
 			"the giant is the drawn 64px duel figure, not an 8x map sprite")
 		await _shot("13_duel")
-		# The user's live screenshot showed a golden-hour overworld but a
-		# still-classic duel. Photograph the SAME setpiece in Direction B:
-		# B-palette figures, warm valley, one-light casts and B UI skin. The
-		# classic theme is restored before the fight is freed, so frames 14+
-		# keep their reviewed baselines. This is a real engine capture, not a
-		# mock-up; gameplay, timing and the fall animation are unchanged.
+		# Photograph the same setpiece with the production painted theme.
+		# The comparison changes presentation, not timing or fight state.
 		if duel.has_method("apply_art_theme"):
 			duel.call("apply_art_theme", "cinematic")
 			await _frames(5)

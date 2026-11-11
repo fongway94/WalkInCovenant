@@ -20,6 +20,7 @@ class_name StoneChoice
 signal finished(chosen: int)
 
 const MAX_ON_SCREEN := 9
+const PAINTED_BG := preload("res://art/scenes_painted/brook.png")
 const TOUCH_SLOP := 14.0        # px around a stone that still counts as the stone
 
 var need := 5
@@ -27,7 +28,7 @@ var pool := 9
 ## {pos: Vector2 (unit space), taken: bool, shade: int}
 var stones: Array = []
 var confirmed := false
-## Shared Web-preview decision; see scripts/systems/ArtDirection.gd.
+## Shared initial theme; see scripts/systems/ArtDirection.gd.
 var art_theme := "classic"
 
 var _layer: Control = null
@@ -70,7 +71,9 @@ func start(want: int = 5, total: int = 9) -> void:
 		var jx := 0.06 if (i % 2) == 0 else -0.05
 		var jy := 0.03 if (i % 3) == 0 else -0.02
 		stones.append({
-			"pos": Vector2(0.16 + float(col) * 0.17 + jx, 0.46 + float(row) * 0.16 + jy),
+			# Keep the lower row clear of the instruction and pouch on a
+			# 16:9 display; hit testing uses these same positions.
+			"pos": Vector2(0.16 + float(col) * 0.17 + jx, 0.39 + float(row) * 0.14 + jy),
 			"taken": false,
 			"shade": i % 3,
 		})
@@ -243,6 +246,68 @@ func _process(delta: float) -> void:
 
 
 # ── drawing ──────────────────────────────────────────────────────────────
+## Small, irregular pebbles with a shared light direction. Their locations and
+## hit areas remain independent of the scenery and the choice state.
+func _draw_painted_stone(p: Vector2, radius: float, shade: int) -> void:
+	var palette: Array[Color] = [Color(0.70, 0.65, 0.52), Color(0.58, 0.56, 0.48),
+		Color(0.78, 0.72, 0.58)]
+	var body_col: Color = palette[clampi(shade, 0, 2)]
+	var r := radius
+	_layer.draw_set_transform(p + Vector2(0.8, 1.5), 0.0, Vector2(1.2, 0.68))
+	_layer.draw_circle(Vector2.ZERO, r, Color(0.06, 0.10, 0.10, 0.40))
+	_layer.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var outline := PackedVector2Array()
+	outline.append(p + Vector2(-1.02 * r, -0.05 * r))
+	outline.append(p + Vector2(-0.77 * r, -0.62 * r))
+	outline.append(p + Vector2(-0.25 * r, -0.86 * r))
+	outline.append(p + Vector2(0.47 * r, -0.76 * r))
+	outline.append(p + Vector2(0.91 * r, -0.38 * r))
+	outline.append(p + Vector2(0.97 * r, 0.18 * r))
+	outline.append(p + Vector2(0.62 * r, 0.63 * r))
+	outline.append(p + Vector2(-0.12 * r, 0.79 * r))
+	outline.append(p + Vector2(-0.81 * r, 0.49 * r))
+	_layer.draw_colored_polygon(outline, body_col.darkened(0.28))
+	var face := PackedVector2Array()
+	face.append(p + Vector2(-0.88 * r, -0.15 * r))
+	face.append(p + Vector2(-0.62 * r, -0.59 * r))
+	face.append(p + Vector2(-0.20 * r, -0.73 * r))
+	face.append(p + Vector2(0.43 * r, -0.65 * r))
+	face.append(p + Vector2(0.78 * r, -0.30 * r))
+	face.append(p + Vector2(0.79 * r, 0.12 * r))
+	face.append(p + Vector2(0.45 * r, 0.40 * r))
+	face.append(p + Vector2(-0.24 * r, 0.51 * r))
+	face.append(p + Vector2(-0.76 * r, 0.30 * r))
+	_layer.draw_colored_polygon(face, body_col)
+	_layer.draw_line(p + Vector2(-0.62 * r, -0.27 * r),
+		p + Vector2(-0.13 * r, -0.54 * r), body_col.lightened(0.38), 1.1)
+
+
+## Back text with a measured, local panel instead of darkening the whole brook.
+func _text_backdrop(vs: Vector2, text: String, font: Font, baseline: float) -> Rect2:
+	var e := ScreenFit.edge(vs)
+	var text_width := maxf(1.0, vs.x - e * 2.0 - 4.0)
+	var measured := font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+		text_width, 8, 2)
+	return Rect2(Vector2(e, baseline - font.get_ascent(8) - 2.0),
+		Vector2(minf(text_width, measured.x) + 4.0, measured.y + 4.0))
+
+
+func _message_backdrop(vs: Vector2, message: String, font: Font) -> Rect2:
+	return _text_backdrop(vs, message, font, vs.y * 0.27)
+
+
+func _hint_backdrop(vs: Vector2, hint: String, font: Font) -> Rect2:
+	return _text_backdrop(vs, hint, font, vs.y - 55.0)
+
+
+func _hint_text() -> String:
+	if is_full():
+		return I18n.t({"en": "Five. Press A to keep these five.",
+			"zh": "五块了。按 A 就要这五块。"})
+	return I18n.t({"en": "Tap a stone to take it. Tap it again to put it back.",
+		"zh": "点一块石头就拿起来。再点一下放回去。"})
+
+
 func _draw_all() -> void:
 	var vs: Vector2 = _layer.size
 	if vs.x <= 0.0:
@@ -251,30 +316,35 @@ func _draw_all() -> void:
 	var e := ScreenFit.edge(vs)
 	var b := art_theme == "cinematic"
 
-	# the brook: sky-ish dusk, then a band of shallow water over pale stones
-	var sky_col := Color(0.19, 0.15, 0.11, 0.94) if b \
-		else Color(0.07, 0.09, 0.11, 0.94)
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), sky_col)
-	var bank := vs.y * 0.33
-	var water := vs.y * 0.62
-	var water_col := Color(0.22, 0.29, 0.25, 0.96) if b \
-		else Color(0.13, 0.20, 0.24, 0.96)
-	var bank_line := Color(0.86, 0.68, 0.36, 0.85) if b \
-		else Color(0.34, 0.40, 0.36, 0.8)
-	var earth_col := Color(0.36, 0.27, 0.16, 0.96) if b \
-		else Color(0.20, 0.18, 0.15, 0.96)
-	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, water - bank)), water_col)
-	_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, 2)), bank_line)
-	_layer.draw_rect(Rect2(Vector2(0, water), Vector2(vs.x, vs.y - water)), earth_col)
-	# ripples, so the water is water and not a rectangle
-	var ripple_col := Color(0.94, 0.76, 0.40, 0.30) if b \
-		else Color(0.30, 0.42, 0.44, 0.35)
-	for i in range(6):
-		var y := bank + 6.0 + float(i) * ((water - bank) * 0.16)
-		var w := vs.x * (0.30 + 0.06 * float(i % 3))
-		_layer.draw_rect(Rect2(Vector2(vs.x * 0.10 + float(i % 2) * vs.x * 0.22, y),
-			Vector2(w, 1.0)), ripple_col)
-
+	if b:
+		PaintedBackdrop.draw_cover(_layer, PAINTED_BG, vs)
+		# Keep words legible against the changing water without obscuring stones.
+		_layer.draw_rect(Rect2(0, 0, vs.x, 34), Color(0.05, 0.09, 0.08, 0.65))
+		_layer.draw_rect(Rect2(0, vs.y - 62, vs.x, 62), Color(0.05, 0.09, 0.08, 0.33))
+	else:
+		# the brook: sky-ish dusk, then a band of shallow water over pale stones
+		var sky_col := Color(0.19, 0.15, 0.11, 0.94) if b \
+			else Color(0.07, 0.09, 0.11, 0.94)
+		_layer.draw_rect(Rect2(Vector2.ZERO, vs), sky_col)
+		var bank := vs.y * 0.33
+		var water := vs.y * 0.62
+		var water_col := Color(0.22, 0.29, 0.25, 0.96) if b \
+			else Color(0.13, 0.20, 0.24, 0.96)
+		var bank_line := Color(0.86, 0.68, 0.36, 0.85) if b \
+			else Color(0.34, 0.40, 0.36, 0.8)
+		var earth_col := Color(0.36, 0.27, 0.16, 0.96) if b \
+			else Color(0.20, 0.18, 0.15, 0.96)
+		_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, water - bank)), water_col)
+		_layer.draw_rect(Rect2(Vector2(0, bank), Vector2(vs.x, 2)), bank_line)
+		_layer.draw_rect(Rect2(Vector2(0, water), Vector2(vs.x, vs.y - water)), earth_col)
+		# ripples, so the water is water and not a rectangle
+		var ripple_col := Color(0.94, 0.76, 0.40, 0.30) if b \
+			else Color(0.30, 0.42, 0.44, 0.35)
+		for i in range(6):
+			var y := bank + 6.0 + float(i) * ((water - bank) * 0.16)
+			var w := vs.x * (0.30 + 0.06 * float(i % 3))
+			_layer.draw_rect(Rect2(Vector2(vs.x * 0.10 + float(i % 2) * vs.x * 0.22, y),
+				Vector2(w, 1.0)), ripple_col)
 	# the nine stones
 	var rad := clampf(vs.x * 0.020, 5.0, 9.0)
 	for i in range(stones.size()):
@@ -288,10 +358,13 @@ func _draw_all() -> void:
 			Color(0.62, 0.54, 0.38) if b else Color(0.55, 0.53, 0.50),
 			Color(0.90, 0.80, 0.56) if b else Color(0.68, 0.66, 0.60)]
 		var body: Color = palette[clampi(shade, 0, 2)]
-		_layer.draw_circle(p + Vector2(1.0, 1.5), rad, Color(0.10, 0.14, 0.15, 0.45))
-		_layer.draw_circle(p, rad, body)
-		_layer.draw_circle(p + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.45,
-			Color(0.86, 0.85, 0.80, 0.7))
+		if b:
+			_draw_painted_stone(p, rad, shade)
+		else:
+			_layer.draw_circle(p + Vector2(1.0, 1.5), rad, Color(0.10, 0.14, 0.15, 0.45))
+			_layer.draw_circle(p, rad, body)
+			_layer.draw_circle(p + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.45,
+				Color(0.86, 0.85, 0.80, 0.7))
 		if i == _cursor:
 			_layer.draw_arc(p, rad + 3.0, 0.0, TAU, 20, Color(0.97, 0.87, 0.65, 0.9), 1.5)
 
@@ -323,12 +396,11 @@ func _draw_all() -> void:
 		I18n.t({"en": "%d / %d" % [n, need], "zh": "%d／%d" % [n, need]}),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.97, 0.87, 0.65, 1.0))
 
-	var hint := I18n.t({"en": "Tap a stone to take it. Tap it again to put it back.",
-		"zh": "点一块石头就拿起来。再点一下放回去。"})
-	if is_full():
-		hint = I18n.t({"en": "Five. Press A to keep these five.",
-			"zh": "五块了。按 A 就要这五块。"})
-	_layer.draw_multiline_string(font, Vector2(e + 2, vs.y - 58.0), hint,
+	var hint := _hint_text()
+	if b:
+		_layer.draw_rect(_hint_backdrop(vs, hint, font), Color(0.05, 0.08, 0.07, 0.88))
+	var hint_baseline := vs.y - (55.0 if b else 58.0)
+	_layer.draw_multiline_string(font, Vector2(e + 2, hint_baseline), hint,
 		HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 4.0, 8, 2,
 		Color(0.86, 0.86, 0.8, 0.95))
 
@@ -343,6 +415,9 @@ func _draw_all() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(1.0, 0.94, 0.80, 1.0))
 
 	if _msg != "" and _msg_t > 0.0:
-		_layer.draw_multiline_string(font, Vector2(e + 2, vs.y * 0.30), _msg,
+		if b:
+			_layer.draw_rect(_message_backdrop(vs, _msg, font), Color(0.05, 0.08, 0.07, 0.88))
+		var baseline := vs.y * (0.27 if b else 0.30)
+		_layer.draw_multiline_string(font, Vector2(e + 2, baseline), _msg,
 			HORIZONTAL_ALIGNMENT_LEFT, vs.x - e * 2.0 - 4.0, 8, 2,
 			Color(0.95, 0.72, 0.60, 0.95))
