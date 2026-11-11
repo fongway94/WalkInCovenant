@@ -1068,6 +1068,46 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 tools/proto/encode_frames.py build/proto
 
+      - name: Publish prototype frame part 0
+        if: always()
+        run: |
+          test -f build/proto/parts/part_0.txt && cat build/proto/parts/part_0.txt || echo "no part 0"
+
+      - name: Publish prototype frame part 1
+        if: always()
+        run: |
+          test -f build/proto/parts/part_1.txt && cat build/proto/parts/part_1.txt || echo "no part 1"
+
+      - name: Publish prototype frame part 2
+        if: always()
+        run: |
+          test -f build/proto/parts/part_2.txt && cat build/proto/parts/part_2.txt || echo "no part 2"
+
+      - name: Publish prototype frame part 3
+        if: always()
+        run: |
+          test -f build/proto/parts/part_3.txt && cat build/proto/parts/part_3.txt || echo "no part 3"
+
+      - name: Publish prototype frame part 4
+        if: always()
+        run: |
+          test -f build/proto/parts/part_4.txt && cat build/proto/parts/part_4.txt || echo "no part 4"
+
+      - name: Publish prototype frame part 5
+        if: always()
+        run: |
+          test -f build/proto/parts/part_5.txt && cat build/proto/parts/part_5.txt || echo "no part 5"
+
+      - name: Publish prototype frame part 6
+        if: always()
+        run: |
+          test -f build/proto/parts/part_6.txt && cat build/proto/parts/part_6.txt || echo "no part 6"
+
+      - name: Publish prototype frame part 7
+        if: always()
+        run: |
+          test -f build/proto/parts/part_7.txt && cat build/proto/parts/part_7.txt || echo "no part 7"
+
   deploy:
     needs: export-web
     # `main` is the release. The named working branch is an opt-in PREVIEW: the
