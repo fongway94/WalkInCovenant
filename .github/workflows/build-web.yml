@@ -1031,7 +1031,9 @@ jobs:
     # AND must be listed in the github-pages environment branch policy. This is
     # a preview, not a release: it temporarily replaces the one Pages URL, and
     # the next `main` push republishes main. No merge to `main` is implied.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/46955931-walkincovenant' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
+    # Branch preview deploys are PAUSED: the user asked for no deploy until they approve
+    # the visual prototype. Explicit workflow_dispatch with publish_preview still works.
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
