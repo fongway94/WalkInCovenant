@@ -13,7 +13,10 @@ from PIL import Image, ImageDraw, ImageFilter
 
 BACKGROUND = Path("art/proto/shepherd_field_empty.png")
 OUTPUT = Path("art/proto/shepherd_field_upper_tree.png")
-CROP = (890, 0, 1265, 210)
+# The image begins at world (0, 0), even though the tree starts at x=890.
+# Sharing the backdrop's origin prevents independently snapped Sprite2D
+# transforms from shifting the duplicate canopy by half a logical pixel.
+CROP = (0, 0, 1265, 210)
 CANOPY = [
     (945, 0), (1206, 0), (1210, 14), (1223, 24), (1222, 39), (1229, 45),
     (1228, 58), (1240, 65), (1243, 76), (1252, 85), (1255, 102),
@@ -46,7 +49,9 @@ def main():
     for trunk in TRUNKS:
         draw.polygon(trunk, fill=255)
     image.putalpha(alpha.filter(ImageFilter.GaussianBlur(0.7)))
-    image.crop(CROP).save(OUTPUT)
+    clean = Image.new("RGBA", image.size)
+    clean.alpha_composite(image)
+    clean.crop(CROP).save(OUTPUT)
     print("%s: world crop=%s, depth foot y=202" % (OUTPUT, CROP))
 
 

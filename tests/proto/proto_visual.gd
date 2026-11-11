@@ -1,6 +1,6 @@
 extends Node
 ## Real Godot framebuffer captures, not composited mock-ups. The walk/camera,
-## rock, foreground, tree-depth and sheep tests exercise the playable scene.
+## rock, foreground, tree/fence depth and sheep tests exercise the playable scene.
 ## The previous run documented the frozen 320-vs-640 resolution comparison.
 
 const SCENE := "res://scenes/proto/ShepherdFieldProto.tscn"
@@ -110,15 +110,26 @@ func _ready() -> void:
 	field.camera.reset_smoothing()
 	await _frames(8)
 	await _save("proto_06_tree_behind")
-	var behind_changed: int = await _tree_pixel_difference(tree)
-	field.set_david(Vector2(920, 210))
+	var behind_changed: int = await _layer_pixel_difference(tree)
+	# In front of the tree but behind the fence: its top rail should hide the
+	# boots instead of appearing painted behind the character.
+	field.set_david(Vector2(920, 218))
 	field.camera.reset_smoothing()
 	await _frames(8)
 	await _save("proto_02_tree_front")
-	var front_changed: int = await _tree_pixel_difference(tree)
+	var front_changed: int = await _layer_pixel_difference(tree)
 	print("PROTO tree pixel change behind=%d front=%d" % [behind_changed, front_changed])
-	_check(behind_changed > 10 and front_changed < maxi(8, int(float(behind_changed) * 0.25)),
+	_check(behind_changed > 10 and front_changed < maxi(8, int(float(behind_changed) * 0.15)),
 		"rendered tree covers behind, not in front")
+	var fence: Node2D = field.get_node("FenceDepth") as Node2D
+	var fence_behind: int = await _layer_pixel_difference(fence)
+	field.set_david(Vector2(920, 280))
+	field.camera.reset_smoothing()
+	await _frames(8)
+	var fence_front: int = await _layer_pixel_difference(fence)
+	print("PROTO fence pixel change behind=%d front=%d" % [fence_behind, fence_front])
+	_check(fence_behind > 4 and fence_front < maxi(4, int(float(fence_behind) * 0.25)),
+		"rendered fence covers behind, not in front")
 	if failures == 0:
 		print("PROTO PASS")
 	else:
@@ -126,20 +137,20 @@ func _ready() -> void:
 	get_tree().quit(0 if failures == 0 else 1)
 
 
-func _tree_pixel_difference(tree: Node2D) -> int:
-	# At these two fixed test positions the camera is clamped to the right and
-	# top of the world. The region contains David and the canopy. The sheep are
-	# frozen. Toggling the depth copy should change rendered actor pixels only
-	# behind the tree, not while the same actor is in front of its ground line.
-	tree.visible = true
+func _layer_pixel_difference(layer: Node2D) -> int:
+	# At the fixed test positions the camera is clamped to the right and top
+	# of the world. The region contains David, the tree and the fence. Sheep
+	# are frozen. Toggling an aligned depth copy should change actor pixels
+	# behind the object, not while in front of its ground line.
+	layer.visible = true
 	await RenderingServer.frame_post_draw
 	var with_tree := get_viewport().get_texture().get_image()
-	tree.visible = false
+	layer.visible = false
 	await RenderingServer.frame_post_draw
 	var without_tree := get_viewport().get_texture().get_image()
-	tree.visible = true
+	layer.visible = true
 	var changed := 0
-	for y in range(30, 300, 4):
+	for y in range(30, 370, 4):
 		for x in range(580, 850, 4):
 			var a := with_tree.get_pixel(x, y)
 			var b := without_tree.get_pixel(x, y)

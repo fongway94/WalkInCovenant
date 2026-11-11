@@ -7,6 +7,7 @@ extends Node2D
 const BG_PATH := "res://art/proto/shepherd_field_empty.png"
 const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
 const UPPER_TREE_PATH := "res://art/proto/shepherd_field_upper_tree.png"
+const UPPER_FENCE_PATH := "res://art/proto/shepherd_field_upper_fence.png"
 const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
 const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
 const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
@@ -79,7 +80,8 @@ func _ready() -> void:
 	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
-	_build_upper_tree_depth()
+	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, 202.0)
+	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, 268.0)
 	_build_david()
 	for i in range(SHEEP_HOMES.size()):
 		_add_sheep(SHEEP_HOMES[i], i)
@@ -106,17 +108,18 @@ func _build_obstacles() -> void:
 		add_child(body)
 
 
-func _build_upper_tree_depth() -> void:
-	# The backdrop contains this tree, but a matching transparent copy is
-	# sorted by its trunk's ground line. Actors behind it are covered; actors
-	# in front remain visible. Both copies are fixed in world coordinates.
+func _build_depth_layer(layer_name: String, path: String, ground_y: float) -> void:
+	# The tree and fence remain in the backdrop; world-aligned transparent
+	# copies sort at each object's ground line. A character behind an object is
+	# covered, while one in front draws above it. The textures begin at (0,0),
+	# so pixel snapping cannot shift their origins relative to the backdrop.
 	var depth := Node2D.new()
-	depth.name = "UpperTreeDepth"
-	depth.position = Vector2(0, 202)
+	depth.name = layer_name
+	depth.position = Vector2(0, ground_y)
 	var image := Sprite2D.new()
-	image.texture = load(UPPER_TREE_PATH) as Texture2D
+	image.texture = load(path) as Texture2D
 	image.centered = false
-	image.position = Vector2(890, -202)
+	image.position = Vector2(0, -ground_y)
 	depth.add_child(image)
 	add_child(depth)
 
