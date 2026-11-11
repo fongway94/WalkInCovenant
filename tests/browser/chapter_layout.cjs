@@ -1,9 +1,10 @@
 /* Rendered layout regressions against the disposable browser-test pack.
  * The shepherd fixture stages the field; resizes happen in one live page and
- * emulated touch moves David and counts one sheep. The world fixture leaves
- * ambient chatter on its normal cooldown. A real HUD click switches language,
- * then we observe every page of an authored line. A staged brook fixture also
- * checks the rendered feedback contrast in both languages. These are not a
+ * emulated touch moves David and counts one sheep. A seeded shepherd opening
+ * checks mouse and touch on HUD switches during dialogue. The world fixture
+ * leaves ambient chatter on its normal cooldown. A real HUD click switches
+ * language, then we observe every page of an authored line. A staged brook
+ * fixture also checks feedback contrast in both languages. These are not a
  * playthrough; shepherd_journey.cjs covers progression.
  *
  * WIC_PROBE_URL=http://127.0.0.1:8083/ node tests/browser/chapter_layout.cjs
@@ -17,7 +18,8 @@ const path = require('node:path');
 const { chromium } = require(process.env.WIC_PLAYWRIGHT || 'playwright');
 const root = process.env.WIC_PROBE_URL || 'http://127.0.0.1:8083/';
 const out = process.env.WIC_SHEPHERD_OUT || 'build/shepherd-browser';
-const result = { ok: false, viewports: [], touch: null, chatter: [], brook: [], errors: [] };
+const result = { ok: false, viewports: [], touch: null, dialogue_controls: [], witness_objective: null,
+  chatter: [], brook: [], errors: [] };
 fs.mkdirSync(out, { recursive: true });
 
 function assert(ok, message) {
@@ -192,6 +194,127 @@ async function touchField(browser) {
   }
 }
 
+// A seeded opening leaves the production dialogue open; the probe only reads
+// state. A visible HUD switch must receive each mouse/touch hit without the
+// dialogue also consuming it. The disabled book is a no-op, not a skip.
+async function dialogueHud(browser, input) {
+  const touch = input === 'touch';
+  const context = await browser.newContext({ viewport: { width: 844, height: 390 },
+    deviceScaleFactor: touch ? 2 : 1, hasTouch: touch, isMobile: touch, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  page.on('pageerror', e => result.errors.push(`dialogue-${input}: ${e.message}`));
+  page.on('console', m => { if (m.type() === 'error') result.errors.push(`dialogue-${input}: ${m.text()}`); });
+  try {
+    await page.goto(new URL('shepherd-resume-probe.html?seed=1', root).href,
+      { waitUntil: 'load', timeout: 120000 });
+    await page.waitForFunction(() => {
+      const s = window.__shepherdResumeProbe;
+      return s?.field && s.dialogue && s.dialogue_line === 0 && s.dialogue_revealed;
+    }, null, { timeout: 120000 });
+    const state = () => page.evaluate(() => window.__shepherdResumeProbe);
+    const hit = async (property) => {
+      const current = await state();
+      const [x, y, w, h] = current[property];
+      const canvas = await page.locator('canvas').boundingBox();
+      const px = canvas.x + (x + w / 2) * canvas.width / current.viewport[0];
+      const py = canvas.y + (y + h / 2) * canvas.height / current.viewport[1];
+      if (touch) await page.touchscreen.tap(px, py);
+      else await page.mouse.click(px, py);
+    };
+    const initial = await state();
+    assert(initial.language === 'zh', `${input} fixture starts with Chinese dialogue`);
+    await hit('language_button');
+    await page.waitForFunction(() => window.__shepherdResumeProbe?.language === 'en', null, { timeout: 10000 });
+    let s = await state();
+    assert(s.dialogue && s.dialogue_id === initial.dialogue_id && s.dialogue_line === initial.dialogue_line &&
+      s.dialogue_page === initial.dialogue_page && s.dialogue_text.startsWith('The oil is still in your hair.') &&
+      s.objective === 'Bring the three strays back to the fold before dark',
+      `${input} on language translates the opening and objective without advancing the dialogue`);
+    // Wait until this page is fully visible. If a HUD hit were accidentally
+    // interpreted as "next", the page or line would now change measurably.
+    await page.waitForFunction(() => window.__shepherdResumeProbe?.dialogue_revealed, null, { timeout: 10000 });
+    const before = await state();
+    await hit('sound_button');
+    await page.waitForFunction(was => window.__shepherdResumeProbe?.sound_on !== was,
+      before.sound_on, { timeout: 10000 });
+    s = await state();
+    assert(s.dialogue && s.dialogue_id === before.dialogue_id && s.dialogue_line === before.dialogue_line &&
+      s.dialogue_page === before.dialogue_page && s.sound_on !== before.sound_on,
+      `${input} on sound toggles it without advancing the dialogue`);
+    await hit('journal_button');
+    await page.waitForTimeout(350);
+    s = await state();
+    assert(s.dialogue && !s.journal_open && s.dialogue_id === before.dialogue_id &&
+      s.dialogue_line === before.dialogue_line && s.dialogue_page === before.dialogue_page,
+      `${input} on the unavailable book neither opens it nor advances the dialogue`);
+    await page.screenshot({ path: path.join(out, `layout_dialogue_hud_${input}.png`) });
+    const canvas = await page.locator('canvas').boundingBox();
+    if (touch) await page.touchscreen.tap(canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.45);
+    else await page.mouse.click(canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.45);
+    await page.waitForFunction(previous => {
+      const now = window.__shepherdResumeProbe;
+      return now?.dialogue && now.dialogue_id === previous.id &&
+        (now.dialogue_line !== previous.line || now.dialogue_page !== previous.page);
+    }, { id: before.dialogue_id, line: before.dialogue_line, page: before.dialogue_page }, { timeout: 10000 });
+    s = await state();
+    assert(s.dialogue_line !== before.dialogue_line || s.dialogue_page !== before.dialogue_page,
+      `${input} away from the HUD still advances the dialogue`);
+    result.dialogue_controls.push({ input, language: 'en', sound_toggled: true,
+      line_before: before.dialogue_line, line_after: s.dialogue_line, page_after: s.dialogue_page });
+  } catch (e) {
+    await page.screenshot({ path: path.join(out, `layout_dialogue_hud_${input}_failure.png`) }).catch(() => {});
+    throw e;
+  } finally {
+    await context.close();
+  }
+}
+
+// A fresh, unseeded witness speaks to Corin. The previously visible task is
+// kept during the box, but must follow the real language switch too.
+async function witnessObjectiveLanguage(browser) {
+  const { context, page } = await makePage(browser, 'witness-objective');
+  try {
+    await page.goto(new URL('shepherd-resume-probe.html', root).href,
+      { waitUntil: 'load', timeout: 120000 });
+    await page.waitForFunction(() => {
+      const s = window.__shepherdResumeProbe;
+      return s?.ready && s.act === 'witness' && !s.dialogue && s.target === 'corin' && s.target_kind === 'npc';
+    }, null, { timeout: 120000 });
+    await page.waitForTimeout(550);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__shepherdResumeProbe?.dialogue, null, { timeout: 15000 });
+    const state = () => page.evaluate(() => window.__shepherdResumeProbe);
+    const hitLanguage = async (s) => {
+      const [x, y, w, h] = s.language_button;
+      const canvas = await page.locator('canvas').boundingBox();
+      await page.mouse.click(canvas.x + (x + w / 2) * canvas.width / s.viewport[0],
+        canvas.y + (y + h / 2) * canvas.height / s.viewport[1]);
+    };
+    const before = await state();
+    assert(before.language === 'zh' && before.objective === '身边有人。过去问问这是什么地方。',
+      'witness dialogue starts with the Chinese objective');
+    await hitLanguage(before);
+    await page.waitForFunction(() => window.__shepherdResumeProbe?.language === 'en', null, { timeout: 10000 });
+    let s = await state();
+    assert(s.dialogue && s.dialogue_id === before.dialogue_id && s.dialogue_line === before.dialogue_line &&
+      s.dialogue_page === before.dialogue_page && s.objective === 'Someone is standing beside you. Ask where you are.',
+      'witness objective translates without advancing the dialogue');
+    await page.screenshot({ path: path.join(out, 'layout_witness_objective_en.png') });
+    await hitLanguage(s);
+    await page.waitForFunction(() => window.__shepherdResumeProbe?.language === 'zh', null, { timeout: 10000 });
+    s = await state();
+    assert(s.dialogue && s.dialogue_id === before.dialogue_id && s.dialogue_line === before.dialogue_line &&
+      s.dialogue_page === before.dialogue_page && s.objective === before.objective,
+      'witness objective switches back without advancing the dialogue');
+    result.witness_objective = { translated: true, dialogue_unchanged: true };
+  } catch (e) {
+    await page.screenshot({ path: path.join(out, 'layout_witness_objective_failure.png') }).catch(() => {});
+    throw e;
+  } finally {
+    await context.close();
+  }
+}
+
 // Read a screenshot in a separate browser canvas, so this measures rendered
 // pixels rather than a colour claimed by the production script. Median is the
 // panel background; the 99th percentile samples the bright text strokes.
@@ -326,6 +449,9 @@ const watchdog = setTimeout(() => {
 (async () => {
   await runIsolated(fieldResize);
   await runIsolated(touchField);
+  await runIsolated(browser => dialogueHud(browser, 'mouse'));
+  await runIsolated(browser => dialogueHud(browser, 'touch'));
+  await runIsolated(witnessObjectiveLanguage);
   await runIsolated(ordinaryChatter);
   await runIsolated(browser => brookFeedback(browser, 1280, 720, 'zh'));
   await runIsolated(browser => brookFeedback(browser, 844, 390, 'en'));

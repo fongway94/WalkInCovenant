@@ -90,6 +90,9 @@ func _publish() -> void:
 		var player_body: Rect2 = person._player_canvas_rect()
 		bubble = {"rect": [top_left.x, top_left.y, extent.x, extent.y],
 			"player_rect": [player_body.position.x, player_body.position.y, player_body.size.x, player_body.size.y]}
+	var language_rect: Rect2 = main.hud.lang_btn.get_global_rect()
+	var sound_rect: Rect2 = main.hud.sound_btn.get_global_rect()
+	var journal_rect: Rect2 = main.hud.journal_btn.get_global_rect()
 	var status := {
 		"ready": true, "act": main.act_id(), "region": r.region_id,
 		"mission": main.runner.current_id() if main.runner != null else "",
@@ -99,7 +102,20 @@ func _publish() -> void:
 		"armour_painted": p.armour_visual.painted if p.armour_visual != null else false,
 		"speed_scale": p.speed_scale(), "stagger": p.sprite.offset.x,
 		"dialogue": r.dialogue.is_open(), "choices": r.dialogue._in_choices, "paused": r.is_paused(),
+		"dialogue_id": r.dialogue._box_id, "dialogue_line": r.dialogue._i, "dialogue_page": r.dialogue._page,
+		"dialogue_text": r.dialogue._current_page_text() if r.dialogue.is_open() else "",
+		"dialogue_revealed": r.dialogue.is_open() \
+			and r.dialogue._shown >= float(r.dialogue._current_page_text().length()),
 		"count": main.sheep_home, "total": main._sheep_total,
+		"objective": main.hud.objective_lbl.text, "arrow_on": main.hud.arrow._on,
+		"viewport": [get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y],
+		"language": I18n.lang, "sound_on": bool(GameState.data["settings"].get("sound", true)),
+		"journal_open": main.journal.is_open(),
+		"language_button": [language_rect.position.x, language_rect.position.y,
+			language_rect.size.x, language_rect.size.y],
+		"sound_button": [sound_rect.position.x, sound_rect.position.y, sound_rect.size.x, sound_rect.size.y],
+		"journal_button": [journal_rect.position.x, journal_rect.position.y,
+			journal_rect.size.x, journal_rect.size.y],
 		"target": str(target.get("id", "")), "target_kind": str(target.get("kind", "")),
 		"animals": animals, "departing": departing, "pickups": pickups, "people": people,
 		"bubble": bubble, "map": map_rows, "exits": r.model.exits,

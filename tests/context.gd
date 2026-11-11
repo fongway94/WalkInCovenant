@@ -20,6 +20,7 @@ func _run() -> void:
 	region.set_process(false)
 	region.set_paused(false)
 	region._interact_lock = 0.0
+	_check_dialogue_objective_locales(main, region)
 	for n in region.npcs:
 		n.set_physics_process(false)
 		n.global_position = Vector2(460, 730)
@@ -107,8 +108,160 @@ func _run() -> void:
 		"an animal that reaches the fold remains guided")
 	region._on_sheep_arrived(b.sheep_id, true)
 	_check(main.sheep_home == 2, "a duplicate arrival is harmless")
+	main._update_guidance()
+	_check(str(main.hud.objective_lbl.text).ends_with("2/3"), "guided progress reaches the HUD")
+	main.hud.point_at(Vector2(100, 0), true)
+	region._on_sheep_arrived(c.sheep_id, true)
+	_check(main.sheep_home == 3 and region.dialogue.is_open()
+		and str(main.hud.objective_lbl.text).ends_with("3/3") and not main.hud.arrow._on,
+		"the final guided arrival updates the HUD before the home dialogue")
+	main.queue_free()
+	await get_tree().process_frame
+	await _check_bethlehem_arrival_locale()
+	await _check_bethlehem_dialogue_locale()
+	await _check_bethlehem_resume_locale()
 	I18n.set_lang("zh")
 	_finish()
+
+
+## Dialogue freezes the current task, not the language it is printed in. Cover
+## a plain objective, a named-person template and a counted objective without
+## ticking the mission runner or advancing the dialogue.
+func _check_dialogue_objective_locales(main, region: Region) -> void:
+	var lines := [{"who": "", "text": {"en": "A moment.", "zh": "等一等。"}}]
+	I18n.set_lang("zh")
+	_check(I18n.t_for({"en": "Quiet", "zh": "安静"}, "en") == "Quiet" \
+		and I18n.t_for({"zh": "安静"}, "en") == "安静" and I18n.lang == "zh",
+		"resolving another language is pure and retains normal fallback")
+	main.act = main.Act.WITNESS
+	main._update_guidance()
+	_check(main.hud.objective_lbl.text == str(region.model.objectives["corin"]["zh"]),
+		"fresh witness guidance starts in Chinese")
+	region.dialogue.show_lines(lines, func(_w): return {}, func(): pass)
+	var box_id: int = region.dialogue._box_id
+	I18n.set_lang("en")
+	_check(region.dialogue.is_open() and region.dialogue._box_id == box_id \
+		and region.dialogue._i == 0 and main.hud.objective_lbl.text \
+		== str(region.model.objectives["corin"]["en"]),
+		"a witness objective translates without advancing its open dialogue")
+	region.dialogue.hide_box()
+	I18n.set_lang("zh")
+
+	var corin: Npc = main._npc("corin")
+	var old_state: int = corin.state
+	corin._talked = true
+	main._update_guidance()
+	var next: Npc = main._next_unspoken()
+	var zh_line := str(region.model.objectives["npc"]["zh"]) % str(next.data["name"]["zh"])
+	_check(main.hud.objective_lbl.text == zh_line and corin.lead_target == next,
+		"the current witness objective includes the next person's Chinese name")
+	region.dialogue.show_lines(lines, func(_w): return {}, func(): pass)
+	I18n.set_lang("en")
+	var en_line := str(region.model.objectives["npc"]["en"]) % str(next.data["name"]["en"])
+	_check(region.dialogue.is_open() and main.hud.objective_lbl.text == en_line \
+		and corin.lead_target == next,
+		"a named objective translates without restarting the escort under dialogue")
+	region.dialogue.hide_box()
+	corin._talked = false
+	corin.clear_lead()
+	corin.state = old_state
+	I18n.set_lang("zh")
+
+	main.act = main.Act.ERRAND
+	main.provisions = 1
+	main._provision_total = 3
+	main._update_guidance()
+	region.dialogue.show_lines(lines, func(_w): return {}, func(): pass)
+	I18n.set_lang("en")
+	_check(region.dialogue.is_open() and main.provisions == 1 and main.hud.objective_lbl.text \
+		== str(region.model.objectives["provision"]["en"]) + "  1／3",
+		"a frozen provision objective translates without losing its count")
+	region.dialogue.hide_box()
+	main.provisions = 0
+	main._provision_total = 0
+	I18n.set_lang("zh")
+
+
+## Stage a real region swap, not a save in Bethlehem: its arrival opens a box
+## synchronously, before the next guidance frame could discard the old task.
+func _check_bethlehem_arrival_locale() -> void:
+	GameState.new_game()
+	I18n.set_lang("zh")
+	var main = (load("res://scenes/main/Main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.set_process(false)
+	main._update_guidance()
+	main._swap_region("bethlehem")
+	var region: Region = main.region
+	var box_id: int = region.dialogue._box_id
+	_check(region.dialogue.is_open() and main.runner.current_id() == "beth_gate" \
+		and main.hud.objective_lbl.text == str(region.model.objectives["gate"]["zh"]),
+		"Bethlehem arrival replaces the old region's objective before dialogue")
+	I18n.set_lang("en")
+	_check(region.dialogue.is_open() and region.dialogue._box_id == box_id \
+		and main.runner.current_id() == "beth_gate" and main.hud.objective_lbl.text \
+		== str(region.model.objectives["gate"]["en"]),
+		"Bethlehem arrival translates the new objective without advancing the story")
+	main.queue_free()
+	await get_tree().process_frame
+
+
+## A cold-booted Bethlehem Main supplies its own campaign guidance. Its frozen
+## task must also re-letter without the runner entering the next mission.
+func _check_bethlehem_dialogue_locale() -> void:
+	GameState.new_game()
+	GameState.data["region"] = "bethlehem"
+	var main = (load("res://scenes/main/Main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.set_process(false)
+	var region: Region = main.region
+	region.set_process(false)
+	region.set_paused(false)
+	if region.dialogue.is_open():
+		region.dialogue.hide_box()
+	I18n.set_lang("zh")
+	main._update_guidance()
+	var mission: String = main.runner.current_id()
+	_check(mission == "beth_gate" and main.hud.objective_lbl.text \
+		== str(region.model.objectives["gate"]["zh"]),
+		"Bethlehem supplies its own Chinese guidance")
+	region.dialogue.show_lines([{"who": "", "text": {"en": "A moment.", "zh": "等一等。"}}],
+		func(_w): return {}, func(): pass)
+	var box_id: int = region.dialogue._box_id
+	I18n.set_lang("en")
+	_check(region.dialogue.is_open() and region.dialogue._box_id == box_id \
+		and main.runner.current_id() == mission and main.hud.objective_lbl.text \
+		== str(region.model.objectives["gate"]["en"]),
+		"Bethlehem's frozen objective translates without changing the mission")
+	main.queue_free()
+	await get_tree().process_frame
+
+
+## A save in a later Bethlehem mission opens its brief before the first frame.
+## The HUD should not stay blank while that box is displayed.
+func _check_bethlehem_resume_locale() -> void:
+	GameState.new_game()
+	GameState.data["region"] = "bethlehem"
+	GameState.set_flag("beth_met_elder", true)
+	I18n.set_lang("zh")
+	var main = (load("res://scenes/main/Main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	main.set_process(false)
+	var region: Region = main.region
+	var box_id: int = region.dialogue._box_id
+	_check(region.dialogue.is_open() and main.runner.current_id() == "beth_sons" \
+		and main.hud.objective_lbl.text == str(region.model.objectives["house"]["zh"]),
+		"a resumed Bethlehem brief starts with its current Chinese objective")
+	I18n.set_lang("en")
+	_check(region.dialogue.is_open() and region.dialogue._box_id == box_id \
+		and main.runner.current_id() == "beth_sons" and main.hud.objective_lbl.text \
+		== str(region.model.objectives["house"]["en"]),
+		"a resumed Bethlehem brief translates without changing the mission")
+	main.queue_free()
+	await get_tree().process_frame
 
 
 func _send_action(region: Region) -> void:

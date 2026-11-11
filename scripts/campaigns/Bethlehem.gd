@@ -56,8 +56,9 @@ func _card() -> void:
 
 
 # ── the next step, in one sentence ────────────────────────────────────────
-## The HUD's objective and arrow. `Main` calls this before its own guidance, so
-## a campaign that knows its own story never has to teach the shared layer the
+## The HUD's objective and arrow. This is a read-only description: `Main` calls
+## it before its own guidance and once while a region is being initialised. A
+## campaign that knows its own story never has to teach the shared layer the
 ## words "elder", "field" or "anoint".
 func guidance() -> Dictionary:
 	if region == null or runner == null or region.player == null:
@@ -99,7 +100,10 @@ func guidance() -> Dictionary:
 				target = ex
 				point = true
 	var obj: Dictionary = region.model.objectives
-	return {"line": I18n.t(obj.get(key, {})), "target": target, "point": point}
+	var line: Variant = obj.get(key, {})
+	# Keep the translated string for older consumers while Main retains the
+	# bilingual source if a language switch happens under a dialogue box.
+	return {"line": I18n.t(line), "line_i18n": line, "target": target, "point": point}
 
 
 # ── what people do when you speak to them ─────────────────────────────────

@@ -50,6 +50,13 @@ const pause = (p, ms) => p.waitForTimeout(ms);
 const state = (p, key) => p.evaluate(k => window[k], key);
 async function press(p) { await p.keyboard.press('Space'); await pause(p, 420); }
 
+async function clickLanguage(p, s) {
+  const [x, y, w, h] = s.language_button;
+  const canvas = await p.locator('canvas').boundingBox();
+  await p.mouse.click(canvas.x + (x + w / 2) * canvas.width / s.viewport[0],
+    canvas.y + (y + h / 2) * canvas.height / s.viewport[1]);
+}
+
 async function waitState(p, key, label, predicate, handleDialogue = false, timeout = 70000) {
   const deadline = Date.now() + timeout;
   let s;
@@ -178,7 +185,7 @@ async function walkTo(p, key, label, goal, range, done) {
   throw new Error(`${label}: navigation did not finish`);
 }
 
-async function speakTo(p, key, id, completed) {
+async function speakTo(p, key, id, completed, inspectDialogue = null) {
   for (let attempt = 0; attempt < 5; attempt++) {
     // Wait out the prior tap lock before approaching: a patrolling person can
     // move beyond the talk radius if we wait after reaching them.
@@ -189,15 +196,23 @@ async function speakTo(p, key, id, completed) {
         && Math.hypot(person.pos[0] - s.player[0], person.pos[1] - s.player[1]) < 13;
     });
     await press(p);
+    const opened = await state(p, key);
+    if (inspectDialogue && opened?.dialogue) {
+      await inspectDialogue(opened);
+      inspectDialogue = null;
+    }
     const s = await waitState(p, key, `${id} dialogue closes`, v => !v.dialogue && !v.paused,
       true, 120000);
-    if (completed(s)) return s;
+    if (completed(s)) {
+      if (inspectDialogue) throw new Error(`${id}: completed without the expected dialogue inspection`);
+      return s;
+    }
     console.log(`retry ${id}: target moved or interaction was locked`);
   }
   throw new Error(`${id}: interaction did not complete after retries`);
 }
 
-async function takeRoad(p, key, to) {
+async function takeRoad(p, key, to, inspectArrival = null) {
   const s = await state(p, key);
   const exit = s.exits.find(e => e.to === to);
   if (!exit) throw new Error(`no road from ${s.region} to ${to}`);
@@ -206,6 +221,11 @@ async function takeRoad(p, key, to) {
     v => v.target_kind === 'exit' && v.target === to);
   await pause(p, 550);
   await press(p);
+  if (inspectArrival) {
+    await waitState(p, key, `first arrival in ${to}`, v => v.region === to, false, 120000);
+    await pause(p, 850); // let the arrival fade finish before hitting the visible HUD
+    await inspectArrival(await state(p, key));
+  }
   return waitState(p, key, `arrival in ${to}`, v => v.region === to && !v.dialogue && !v.paused,
     true, 120000);
 }
@@ -231,9 +251,45 @@ async function freshOpening(p, key) {
   s = await waitState(p, key, 'road opens', v => v.met_line && !v.dialogue && !v.paused, true);
   assert(s.saw_giant && !s.beth_anointed, 'the first sight and witness line precede Bethlehem');
   await p.screenshot({ path: path.join(out, '00_witness_line.png') });
-  s = await takeRoad(p, key, 'bethlehem');
+  s = await takeRoad(p, key, 'bethlehem', async opened => {
+    const id = opened.dialogue_id, lineIndex = opened.dialogue_line, pageIndex = opened.dialogue_page;
+    assert(opened.dialogue && opened.mission === 'beth_gate' && opened.language === 'zh' &&
+      opened.objective === '问问城门边的长老：镇上为什么停了工。',
+      'Bethlehem arrival replaces the valley task before its first dialogue');
+    await clickLanguage(p, opened);
+    let current = await waitState(p, key, 'English Bethlehem arrival', v => v.language === 'en', false, 10000);
+    assert(current.dialogue && current.dialogue_id === id && current.dialogue_line === lineIndex &&
+      current.dialogue_page === pageIndex && current.mission === 'beth_gate' && current.objective ===
+        'Ask the elder at the gate why the town has stopped working.',
+      'the language button translates Bethlehem arrival without advancing the story');
+    await p.screenshot({ path: path.join(out, '00_bethlehem_arrival_en.png') });
+    await clickLanguage(p, current);
+    current = await waitState(p, key, 'Chinese Bethlehem arrival', v => v.language === 'zh', false, 10000);
+    assert(current.dialogue && current.dialogue_id === id && current.dialogue_line === lineIndex &&
+      current.dialogue_page === pageIndex && current.mission === 'beth_gate' &&
+      current.objective === '问问城门边的长老：镇上为什么停了工。',
+      'Bethlehem arrival restores Chinese without advancing the story');
+  });
   assert(s.mission === 'beth_gate', 'walking south reaches Bethlehem and its first mission');
-  s = await speakTo(p, key, 'elder', v => v.beth_elder);
+  s = await speakTo(p, key, 'elder', v => v.beth_elder, async opened => {
+    const id = opened.dialogue_id, lineIndex = opened.dialogue_line, pageIndex = opened.dialogue_page,
+      mission = opened.mission;
+    assert(opened.language === 'zh' && opened.objective === '问问城门边的长老：镇上为什么停了工。',
+      'Bethlehem starts with its Chinese gate objective');
+    await clickLanguage(p, opened);
+    let current = await waitState(p, key, 'English Bethlehem dialogue', v => v.language === 'en', false, 10000);
+    assert(current.dialogue && current.dialogue_id === id && current.dialogue_line === lineIndex &&
+      current.dialogue_page === pageIndex && current.mission === mission && current.objective ===
+        'Ask the elder at the gate why the town has stopped working.',
+      'Bethlehem translates its frozen objective without advancing the dialogue or mission');
+    await p.screenshot({ path: path.join(out, '00_bethlehem_objective_en.png') });
+    await clickLanguage(p, current);
+    current = await waitState(p, key, 'Chinese Bethlehem dialogue', v => v.language === 'zh', false, 10000);
+    assert(current.dialogue && current.dialogue_id === id && current.dialogue_line === lineIndex &&
+      current.dialogue_page === pageIndex && current.mission === mission &&
+      current.objective === '问问城门边的长老：镇上为什么停了工。',
+      'Bethlehem restores the Chinese objective without changing the story');
+  });
   s = await speakTo(p, key, 'samuel', v => v.beth_sons);
   s = await speakTo(p, key, 'david', v => v.beth_called);
   s = await speakTo(p, key, 'samuel', v => v.beth_anointed);
@@ -367,6 +423,21 @@ async function resumeJourney() {
     await countSheep(page, key, 2);
     s = await countSheep(page, key, 3);
     assert(s.count === 3 && s.flock_done, 'remaining sheep complete the flock');
+    assert(s.dialogue && s.language === 'zh' && s.objective.endsWith('3/3') && !s.arrow_on,
+      'the home dialogue shows the completed flock count without a stale arrow');
+    await page.screenshot({ path: path.join(out, '02b_flock_complete_zh.png') });
+    const line = s.dialogue_line, box = s.dialogue_id;
+    await clickLanguage(page, s);
+    s = await waitState(page, key, 'English home dialogue', v => v.language === 'en', false, 10000);
+    assert(s.dialogue && s.dialogue_id === box && s.dialogue_line === line &&
+      s.objective === 'Bring the three strays back to the fold before dark  3/3' && !s.arrow_on,
+      'the real language button translates the completed count without advancing dialogue');
+    await page.screenshot({ path: path.join(out, '02c_flock_complete_en.png') });
+    await clickLanguage(page, s);
+    s = await waitState(page, key, 'Chinese home dialogue', v => v.language === 'zh', false, 10000);
+    assert(s.dialogue && s.dialogue_id === box && s.dialogue_line === line &&
+      s.objective === '天黑前，把走散的三只羊赶回圈里  3/3',
+      'the language switch returns the completed count to Chinese');
     await playPractice(page, key);
     s = await waitState(page, key, 'errand', v => v.act === 'errand' && !v.field && v.drill_done
       && !v.dialogue && !v.paused && v.provision_count > 0, true, 90000);

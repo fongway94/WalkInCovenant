@@ -135,6 +135,15 @@ var _blip_acc := 0
 var _box_id := 0          # increments every time a new beat opens
 var _idle := 0.0          # seconds since the last input while open
 var _bob := 0.0
+## Controls on another canvas that remain usable over a conversation. The
+## owner layer's visibility matters: a covered HUD must not reserve dead zones.
+var _passthrough_layer: CanvasLayer = null
+var _passthrough_controls: Array = []
+
+
+func set_passthrough_controls(owner_layer: CanvasLayer, controls: Array) -> void:
+	_passthrough_layer = owner_layer
+	_passthrough_controls = controls.duplicate()
 
 
 func _ready() -> void:
@@ -637,8 +646,8 @@ func _input(event: InputEvent) -> void:
 	if not pressed:
 		return
 
-	# A tap on the skip button or on an answer belongs to that button. Without
-	# this the same tap skipped the beat AND advanced a line underneath it.
+	# A tap on a visible button belongs to that button. Without this, the box
+	# can consume a HUD switch or advance a line underneath the same tap.
 	if pos != Vector2.ZERO and _over_control(pos):
 		return
 	if not TapGate.take():
@@ -654,6 +663,13 @@ func _over_control(pos: Vector2) -> bool:
 		for ch in choice_box.get_children():
 			var c := ch as Control
 			if c != null and c.visible and c.get_global_rect().has_point(pos):
+				return true
+	if is_instance_valid(_passthrough_layer) and _passthrough_layer.visible:
+		for entry in _passthrough_controls:
+			if not is_instance_valid(entry):
+				continue
+			var control := entry as Control
+			if control != null and control.is_visible_in_tree() and control.get_global_rect().has_point(pos):
 				return true
 	return false
 

@@ -27,6 +27,15 @@ func _run() -> void:
 		return
 	_check(main.sheep_home == 0 and main.region.shepherd_field != null,
 		"a fresh shepherd save starts at zero in the painted field")
+	# A curio can open before the flock is complete. Switching the language
+	# there should translate the current counter without advancing the story.
+	main._on_curio("test", [{"who": "", "text": {"en": "A quiet place.", "zh": "安静的地方。"}}])
+	I18n.set_lang("en")
+	_check(main.region.dialogue.is_open() and main.hud.objective_lbl.text
+		== str(main.region.model.objectives["shepherd"]["en"]) + "  0/3",
+		"an in-progress flock objective translates while a curio speaks")
+	I18n.set_lang("zh")
+	main.region.dialogue._finish()
 	var first := _live_sheep(main.region)[0] as FlockSheep
 	first._startle = 0.0
 	first.set_process(false)
@@ -55,17 +64,67 @@ func _run() -> void:
 	_check(main.sheep_home == 1 and _live_sheep(main.region).size() == 2,
 		"partial progress returns with one home and only two still out")
 	var left := _live_sheep(main.region)
-	for animal in left:
-		main.region.collect_pickup(animal.sheep_id)
+	I18n.set_lang("zh")
+	main.region.collect_pickup(left[0].sheep_id, true)
+	main._update_guidance()
+	_check(str(main.hud.objective_lbl.text).ends_with("2/3"),
+		"the penultimate guided sheep is reflected in the objective")
+	# Make a stale arrow visible, as it would be when the last stray is far
+	# away. The final direct count opens dialogue in the same signal callback.
+	main.hud.point_at(Vector2(100, 0), true)
+	main.region.collect_pickup(left[1].sheep_id)
 	_check(main.sheep_home == 3 and bool(GameState.flag("elah_flock_done")),
 		"counting the remaining sheep closes the task")
 	_check(main.region.dialogue.is_open(), "the last count can open its home dialogue immediately")
+	var objective_zh := str(main.region.model.objectives["shepherd"]["zh"]) + "  3/3"
+	_check(main.hud.objective_lbl.text == objective_zh and not main.hud.arrow._on,
+		"the completed count and cleared arrow are visible before the home dialogue renders")
+	var box: DialogueBox = main.region.dialogue
+	var lang_pos: Vector2 = main.hud.lang_btn.get_global_rect().get_center()
+	var sound_pos: Vector2 = main.hud.sound_btn.get_global_rect().get_center()
+	var journal_pos: Vector2 = main.hud.journal_btn.get_global_rect().get_center()
+	_check(box._over_control(lang_pos) and box._over_control(sound_pos) and box._over_control(journal_pos),
+		"visible HUD buttons own their pointer events over the dialogue")
+	main.hud.set_covered(true)
+	_check(not box._over_control(lang_pos), "a hidden HUD does not reserve a dialogue tap")
+	main.hud.set_covered(false)
+	for is_touch in [false, true]:
+		box._shown = 0.0
+		TapGate.reset()
+		var event: InputEvent
+		if is_touch:
+			var tap := InputEventScreenTouch.new()
+			tap.position = lang_pos
+			tap.pressed = true
+			event = tap
+		else:
+			var click := InputEventMouseButton.new()
+			click.position = lang_pos
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			event = click
+		box._input(event)
+		_check(box._shown == 0.0, "%s on a HUD button does not advance dialogue"
+			% ("touch" if is_touch else "click"))
+	await get_tree().process_frame
+	_check(main.region.dialogue.is_open() and main.hud.objective_lbl.text == objective_zh,
+		"the completed count remains current while the home dialogue is open")
+	I18n.set_lang("en")
+	var objective_en := str(main.region.model.objectives["shepherd"]["en"]) + "  3/3"
+	_check(main.hud.objective_lbl.text == objective_en,
+		"the completed count translates when language changes during dialogue")
+	I18n.set_lang("zh")
+	_check(main.hud.objective_lbl.text == objective_zh,
+		"the completed count switches back to Chinese during dialogue")
 	main.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()
 	_check(GameState.load_game() and bool(GameState.flag("elah_flock_done")),
 		"the last count is saved even before its dialogue is dismissed")
 	main = _new_main()
+	var home_ready := await _wait_for(main, "home")
+	_check(home_ready and main.hud.objective_lbl.text == objective_zh and not main.hud.arrow._on,
+		"reloading the completed flock shows 3/3 during the replayed home dialogue")
 	var practice_ready := await _wait_for(main, "practice")
 	_check(practice_ready and main.sheep_home == 3 and _live_sheep(main.region).is_empty(),
 		"reloading a completed flock opens practice rather than respawning sheep")
@@ -104,6 +163,9 @@ func _live_sheep(region: Region) -> Array:
 
 func _wait_for(main, wanted: String) -> bool:
 	for i in range(900):
+		if wanted == "home" and main.region != null and main.sheep_home == 3 \
+				and main.region.dialogue.is_open() and main.practice == null:
+			return true
 		if main.region != null and main.region.dialogue.is_open():
 			main.region.dialogue._advance()
 		if wanted == "flock" and main._flock_active:

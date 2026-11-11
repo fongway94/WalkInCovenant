@@ -28,13 +28,19 @@ func t(d: Variant) -> String:
 	"""Resolve an inline bilingual value. Accepts {"en":…,"zh":…}, a plain
 	String, or null. Never crashes on malformed content — a broken line should
 	show something, not take down a chapter."""
+	return t_for(d, lang)
+
+
+## Resolve another language without changing the active locale or emitting a
+## signal. This lets a frozen objective keep both translations during dialogue.
+func t_for(d: Variant, language: String) -> String:
 	if d == null:
 		return ""
 	if d is String:
 		return d
 	if d is Dictionary:
-		if d.has(lang):
-			return str(d[lang])
+		if d.has(language):
+			return str(d[language])
 		for l in LANGS:
 			if d.has(l):
 				return str(d[l])
