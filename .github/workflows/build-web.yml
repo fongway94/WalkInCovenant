@@ -1060,7 +1060,9 @@ jobs:
       - name: Publish prototype log lines
         if: always()
         run: |
-          grep -a "^PROTO" proto.txt | while IFS= read -r l; do echo "::notice::PROTOLOG|$l"; done || true
+          # One annotation for all log lines: the per-job annotation budget is small.
+          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
+          echo "::notice::PROTOLOG|${LINE}"
 
       - name: Publish prototype frames
         if: always()

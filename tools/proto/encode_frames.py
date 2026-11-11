@@ -1,6 +1,6 @@
 """Encode prototype PNG captures as small JPEG annotation chunks for CI.
 
-Each frame is 640x360 JPEG, base64-encoded and split into annotation-sized
+Each frame is 640x360 WebP, base64-encoded and split into annotation-sized
 chunks: `PROTOFRAME|name|index|count|chunk`. The decoder reassembles them.
 """
 import base64
@@ -21,9 +21,9 @@ buckets = [[] for _ in range(NP)]
 lines_out = []
 for f in sorted(glob.glob(os.path.join(src_dir, "*.png"))):
     name = os.path.basename(f)[:-4]
-    out = os.path.join(src_dir, name + ".jpg")
+    out = os.path.join(src_dir, name + ".webp")
     Image.open(f).convert("RGB").resize((640, 360), Image.LANCZOS).save(
-        out, quality=72, optimize=True)
+        out, "WEBP", quality=78, method=6)
     raw = base64.b64encode(open(out, "rb").read()).decode()
     parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
     for i, part in enumerate(parts):

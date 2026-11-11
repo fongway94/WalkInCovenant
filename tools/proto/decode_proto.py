@@ -38,6 +38,6 @@ for name, chunks in sorted(parts.items()):
         print("%s: missing chunks %s" % (name, missing))
         continue
     data = base64.b64decode("".join(chunks[i] for i in range(counts[name])))
-    path = os.path.join(outdir, name + ".jpg")
+    path = os.path.join(outdir, name + ".webp")
     open(path, "wb").write(data)
     print("wrote %s (%d bytes)" % (path, len(data)))
