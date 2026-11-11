@@ -1,4 +1,4 @@
-# Build the web export on every push and publish it to GitHub Pages.
+# Build the web export on every push; publish main or an explicitly approved preview.
 #
 # WHY THIS EXISTS: the sandbox that authors this project cannot run Godot
 # (release binaries live on a host outside its network). GitHub Actions can.
@@ -23,8 +23,8 @@ on:
     # automatic tooling gives each session a fresh branch name, so listing one
     # name meant the audit's own pushes ran no build at all and every gate in
     # docs/BUGS.md would have been reported from a commit CI never saw. Every
-    # branch builds; `main` and the preview branch listed in the `deploy` job
-    # also publish. The live URL is how the game is playtested before a merge.
+    # branch builds; `main` publishes automatically. A branch preview requires
+    # an explicit `publish_preview` dispatch after the user's approval.
     branches: [main, 'arena/**']
   workflow_dispatch:
     inputs:
@@ -801,6 +801,9 @@ jobs:
       WIC_STRICT: 0
     steps:
       - uses: actions/checkout@v4
+
+      - name: Test seeded browser save setup
+        run: node --test tests/browser/seeded_boot.test.cjs
 
       - uses: actions/download-artifact@v4
         with:

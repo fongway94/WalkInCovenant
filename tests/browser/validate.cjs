@@ -23,6 +23,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { makeSeededBoot, isPostVictorySave } = require('./seeded_boot.cjs');
 
 const OUT = process.env.WIC_OUT || 'build/browser';
 const SHOTS = path.join(OUT, 'shots');
@@ -550,57 +551,24 @@ async function waitBoot(page, label) {
   await touch.close();
 
   /* ── 4. GOLIATH ENCOUNTER → VICTORY → CHAPTER COMPLETION ───────────────
-   * A fresh context is seeded with a real GameState-shaped save at `the_line`.
-   * From there every transition is driven by real keyboard input in the
-   * exported game: crossing the challenge row opens the duel, timed presses
-   * dodge/throw until the giant falls, then the player walks back to Corin and
-   * the ending plays. No GDScript test hook is used; the save is the same file
-   * the game itself writes to IDBFS. */
+   * Seed a real GameState-shaped save at `the_line`, then drive the exported
+   * duel with real keyboard input. The ending is exercised independently from
+   * a post-victory save near Corin, not by walking back from the duel. No
+   * GDScript test hook is used; the game reads its own IDBFS save file. */
   const seeded = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   await seeded.addInitScript(INIT);
-  /* Run 42814917855 exposed a real IDBFS race: rewriting save.json on a LIVE
-   * game page and then reloading let the engine flush its old in-memory
-   * new-game state during unload. The second boot then resumed as `witness`,
-   * so the duel was never actually fought. Close the boot page FIRST, rewrite
-   * from a same-origin NON-GAME page (the PWA manifest has no engine script),
-   * then open a fresh game page. Retry the whole seed up to three times; the
-   * save, not the screenshot, decides whether the engine loaded it. No game
-   * state, gameplay constant or save format is changed here. */
+  /* Run 42814917855 exposed a live-page seed/reload race. Run 42955805136
+   * again loaded a default save after a live rewrite, consistent with that
+   * race. Both seeded scenarios now close the engine, rewrite from a same-
+   * origin NON-GAME page, and open a fresh game page. The bounded retry accepts
+   * only the real saved state; no gameplay or save format is changed here. */
   const seedUrl = URL.replace(/index\.html.*$/, 'index.manifest.json');
-  async function bootSeededFight() {
-    const boot = await seeded.newPage();
-    wire(boot, 'seeded_fight_boot');
-    await boot.goto(URL, { waitUntil: 'load', timeout: 120000 });
-    await boot.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-    await boot.waitForTimeout(1600);
-    await boot.close();
-    const writer = await seeded.newPage();
-    await writer.goto(seedUrl, { waitUntil: 'load', timeout: 120000 });
-    const seedInfo = await rewriteSave(writer, fightSave());
-    await writer.close();
-    const page = await seeded.newPage();
-    wire(page, 'seeded_fight');
-    await page.goto(URL, { waitUntil: 'load', timeout: 120000 });
-    await page.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-    await page.waitForTimeout(1600);
-    const state = await wicState(page);
-    const sx2 = state.canvas.cssW / 320, sy2 = state.canvas.cssH / 180;
-    await page.mouse.click(state.canvas.x + 305 * sx2, state.canvas.y + 10 * sy2);
-    await page.waitForTimeout(1200);
-    const loaded = await readSave(page);
-    return { page, state, loaded, seedInfo };
-  }
-  let fightBoot = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    fightBoot = await bootSeededFight();
-    const s = fightBoot.loaded;
-    const ok = !!s && !!s.flags && s.flags.beth_anointed === true
-      && s.progress && s.progress.act !== 'witness';
-    note('seeded fight boot attempt ' + attempt + ': ' + (ok ? 'loaded' : 'retry')
-      + ' progress=' + JSON.stringify(s && s.progress).slice(0, 180));
-    if (ok) break;
-    await fightBoot.page.close();
-  }
+  const bootSeededPage = makeSeededBoot({ url: URL, seedUrl, wire, rewriteSave, wicState, readSave, note });
+  const fightBoot = await bootSeededPage(seeded, fightSave(), {
+    tag: 'seeded_fight', label: 'seeded fight',
+    isLoaded: s => !!s && !!s.flags && s.flags.beth_anointed === true
+      && !!s.progress && s.progress.act !== 'witness',
+  });
   let sp = fightBoot.page;
   const sfs = fightBoot.state;
   const seedInfo = fightBoot.seedInfo;
@@ -608,10 +576,10 @@ async function waitBoot(page, label) {
   check('seeded_fight: canvas exists', !!sfs.canvas, JSON.stringify(sfs.canvas));
   check('seeded_fight: WebGL is drawing', sfs.wic && sfs.wic.draws > 40, 'draw calls=' + (sfs.wic && sfs.wic.draws));
   check('game loaded the seeded save (engine wrote it back)',
-    !!readySave && !!readySave.flags && readySave.flags.beth_anointed === true
+    fightBoot.accepted && !!readySave && !!readySave.flags && readySave.flags.beth_anointed === true
       && readySave.progress && readySave.progress.act !== 'witness',
-    'progress=' + JSON.stringify(readySave && readySave.progress).slice(0, 220)
-      + ' flags=' + JSON.stringify(readySave && readySave.flags).slice(0, 220));
+    'progress=' + (JSON.stringify(readySave && readySave.progress) || 'null').slice(0, 220)
+      + ' flags=' + (JSON.stringify(readySave && readySave.flags) || 'null').slice(0, 220));
   await shot(sp, 'goliath_01_ready');
 
   // North across challenge row 11. The region is paused for the battle intro,
@@ -645,7 +613,7 @@ async function waitBoot(page, label) {
   }
   note('duel: ' + presses + ' presses, goliath_down=' + won);
   check('Goliath duel reaches goliath_down in the browser', won,
-    'presses=' + presses + ' save=' + JSON.stringify((await readSave(sp) || {}).flags).slice(0, 240));
+    'presses=' + presses + ' save=' + (JSON.stringify((await readSave(sp) || {}).flags) || 'null').slice(0, 240));
   await shot(sp, 'goliath_03_win');
 
   // The duel's own win state is the hard browser-progression check. Walking
@@ -667,23 +635,15 @@ async function waitBoot(page, label) {
   if (!won || !ended) {
     const post = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     await post.addInitScript(INIT);
-    const pp = await post.newPage();
-    wire(pp, 'post_win');
-    await pp.goto(URL, { waitUntil: 'load', timeout: 120000 });
-    await pp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-    await pp.waitForTimeout(1600);
-    await rewriteSave(pp, postWinSave());
-    await pp.reload({ waitUntil: 'load', timeout: 120000 });
-    await pp.waitForFunction(() => window.__wic && window.__wic.draws > 40, null, { timeout: 120000 });
-    await pp.waitForTimeout(1600);
-    const pst = await wicState(pp);
-    await pp.mouse.click(pst.canvas.x + 305 * (pst.canvas.cssW / 320), pst.canvas.y + 10 * (pst.canvas.cssH / 180));
-    await pp.waitForTimeout(1100);
-    const postLoaded = await readSave(pp);
+    const postBoot = await bootSeededPage(post, postWinSave(), {
+      tag: 'post_win', label: 'post-victory', isLoaded: isPostVictorySave,
+    });
+    const pp = postBoot.page;
+    const postLoaded = postBoot.loaded;
     check('post-victory save was loaded by the engine',
-      !!postLoaded && !!postLoaded.flags && postLoaded.flags.goliath_down === true,
+      postBoot.accepted && isPostVictorySave(postLoaded),
       'pos=' + JSON.stringify(postLoaded && postLoaded.progress && postLoaded.progress.pos)
-        + ' flags=' + JSON.stringify(postLoaded && postLoaded.flags).slice(0, 180));
+        + ' flags=' + (JSON.stringify(postLoaded && postLoaded.flags) || 'null').slice(0, 180));
     note('post-victory player pos ' + JSON.stringify(postLoaded && postLoaded.progress && postLoaded.progress.pos));
     await shot(pp, 'goliath_05_ending');
     // Space is BOTH the world's interact action and the dialogue's advance
