@@ -14,7 +14,7 @@ Requires Pillow. Re-run from the repo root after editing the masks.
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 REFERENCE = Path("docs/art-reset/user_selected_reference.png")
 OUTPUT = Path("art/proto/sprites")
@@ -106,10 +106,38 @@ def main():
         actor.putalpha(mask)
         actor = actor.crop(bounds)
         scale = spec["scale"]
-        actor = actor.resize((actor.width * scale, actor.height * scale), Image.Resampling.NEAREST)
-        destination = OUTPUT / (name + ".png")
-        actor.save(destination)
-        print("%s: source=%s output=%s" % (destination, bounds, actor.size))
+        save_scaled(actor, OUTPUT / (name + ".png"), scale, bounds)
+        if name == "david_reference":
+            # Separate only the bottoms of the two boots. At rest the three
+            # layers reconstruct the same pixels; in motion the boots can
+            # stride modestly without inventing a new illustrated body.
+            split_boots(actor, bounds, scale)
+
+
+def save_scaled(image, destination, scale, bounds):
+    enlarged = image.resize((image.width * scale, image.height * scale), Image.Resampling.NEAREST)
+    enlarged.save(destination)
+    print("%s: source=%s output=%s" % (destination, bounds, enlarged.size))
+
+
+def split_boots(actor, bounds, scale):
+    original_alpha = actor.getchannel("A")
+    parts = []
+    for name, outline in (
+        ("left", [(346, 91), (352, 91), (352, 99), (346, 99)]),
+        ("right", [(356, 91), (362, 91), (362, 99), (356, 99)]),
+    ):
+        shape = Image.new("L", actor.size)
+        local = [(x - bounds[0], y - bounds[1]) for x, y in outline]
+        ImageDraw.Draw(shape).polygon(local, fill=255)
+        alpha = ImageChops.multiply(original_alpha, shape)
+        part = actor.copy()
+        part.putalpha(alpha)
+        save_scaled(part, OUTPUT / ("david_reference_boot_" + name + ".png"), scale, bounds)
+        parts.append(alpha)
+    body = actor.copy()
+    body.putalpha(ImageChops.subtract(ImageChops.subtract(original_alpha, parts[0]), parts[1]))
+    save_scaled(body, OUTPUT / "david_reference_body.png", scale, bounds)
 
 
 if __name__ == "__main__":

@@ -17,7 +17,9 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	field = (load(SCENE) as PackedScene).instantiate()
 	add_child(field)
-	field.set_david(Vector2(700, 360))
+	# Use the actual scene spawn, also making the baseline/new captures
+	# comparable. At y=360 the original sheep home overlaps David's head.
+	field.set_david(Vector2(700, 470))
 	field.set_process(false)
 	field.camera.reset_smoothing()
 	await _frames(20)
@@ -39,22 +41,36 @@ func _ready() -> void:
 	field.sheep[0]["target"] = sheep_start + Vector2(24, 0)
 	var x0: float = field.david.position.x
 	Input.action_press("ui_right")
-	await _frames(90)
-	Input.action_release("ui_right")
-	await _frames(30)
+	var max_stride := 0.0
+	for i in range(90):
+		await get_tree().process_frame
+		max_stride = maxf(max_stride, absf(field.david_boot_left.position.x))
+	# Select a walking pose, not just an idle frame after releasing the key.
+	for i in range(20):
+		if absf(field.david_boot_left.position.x) > 1.4:
+			break
+		await get_tree().process_frame
 	var dx: float = field.david.position.x - x0
 	var sheep_dx: float = (field.sheep[0]["node"] as Node2D).position.distance_to(sheep_start)
 	var cam_b: Vector2 = field.camera.get_screen_center_position()
 	var bg_b: Vector2 = (field.get_node("Backdrop") as Node2D).global_position
-	print("PROTO walk dx=%.1f sheep_moved=%.1f" % [dx, sheep_dx])
+	print("PROTO walk dx=%.1f sheep_moved=%.1f max_stride=%.2f" % [dx, sheep_dx, max_stride])
 	print("PROTO camera A=(%.2f,%.2f) B=(%.2f,%.2f) bg_A=(%.1f,%.1f) bg_B=(%.1f,%.1f) zoom=%.3f" % [
 		cam_a.x, cam_a.y, cam_b.x, cam_b.y, bg_a.x, bg_a.y, bg_b.x, bg_b.y, field.camera.zoom.x])
 	_check(dx > 20.0, "keyboard movement")
+	_check(max_stride > 1.0, "layered boot gait")
 	_check(sheep_dx > 1.0, "independent sheep movement")
 	_check(absf(cam_b.x - cam_a.x) > 10.0, "camera followed horizontally")
-	_check(cam_b.distance_to(field.david.position) < 35.0, "camera settled near player")
+	# Vertical tracking is intentionally limited because this wide view nearly
+	# fits the 666px-tall world. Check the clamped target, not player distance.
+	var half_world_height: float = 180.0 / field.camera.zoom.y
+	var expected_y: float = clampf(field.david.position.y, half_world_height, 666.0 - half_world_height)
+	_check(absf(cam_b.x - field.david.position.x) < 20.0 and absf(cam_b.y - expected_y) < 2.0,
+		"camera follows within world limits")
 	_check(bg_a == bg_b, "backdrop world origin unchanged")
 	await _save("proto_05_camera")
+	Input.action_release("ui_right")
+	await _frames(8)
 	# Walk into a painted rock. The collision body must stop before its left
 	# edge; a teleport alone would not test the physics shape.
 	field.set_david(Vector2(590, 250))
@@ -72,7 +88,7 @@ func _ready() -> void:
 	await _frames(8)
 	await _save("proto_03_occlusion")
 	var p: Vector2 = field.nearest_sheep_pos()
-	field.set_david(p + Vector2(-30, 4))
+	field.set_david(p + Vector2(-62, 4))
 	field.camera.reset_smoothing()
 	await _frames(6)
 	var ok: bool = field.interact()
@@ -82,6 +98,8 @@ func _ready() -> void:
 	print("PROTO interact=%s counted=%d repeat=%s" % [str(ok), field.counted, str(again)])
 	_check(ok and count_after == 1 and again and field.counted == 1, "sheep interaction counts once")
 	await _save("proto_04_sheep")
+	field.set_david(Vector2(330, 110))
+	_check(not field.interact() and field.counted == 1, "interaction requires nearby sheep")
 	if failures == 0:
 		print("PROTO PASS")
 	else:

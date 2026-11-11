@@ -6,7 +6,9 @@ extends Node2D
 
 const BG_PATH := "res://art/proto/shepherd_field_empty.png"
 const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
-const DAVID_PATH := "res://art/proto/sprites/david_reference.png"
+const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
+const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
+const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
 const SHEEP_PATHS := [
 	"res://art/proto/sprites/sheep_reference_a.png",
 	"res://art/proto/sprites/sheep_reference_b.png",
@@ -25,8 +27,8 @@ const CAMERA_ZOOM := 0.55
 const DAVID_SPEED := 70.0
 const SHEEP_WALK := 14.0
 const SHEEP_FLEE := 40.0
-const SHEEP_FLEE_RANGE := 46.0
-const INTERACT_RANGE := 46.0
+const SHEEP_FLEE_RANGE := 60.0
+const INTERACT_RANGE := 76.0
 const FIELD := Rect2(330, 150, 760, 400)
 const SHEEP_HOMES := [
 	Vector2(700, 300), Vector2(790, 400), Vector2(620, 470),
@@ -51,6 +53,8 @@ const OBSTACLES := [
 
 var david: CharacterBody2D
 var david_sprite: Sprite2D
+var david_boot_left: Sprite2D
+var david_boot_right: Sprite2D
 var camera: Camera2D
 var hud_panel: PanelContainer
 var sheep: Array = []
@@ -105,14 +109,13 @@ func _build_david() -> void:
 	shape.position = Vector2(0, -6)
 	david.add_child(shape)
 	david.add_child(_shadow(16.0))
-	david_sprite = Sprite2D.new()
-	var tex := load(DAVID_PATH) as Texture2D
-	david_sprite.texture = tex
-	david_sprite.scale = Vector2.ONE * DAVID_SCALE
-	# A centered sprite's origin is already at its centre. Align its bottom
-	# centre with the physics body's feet/contact shadow, not half a sprite
-	# above and to the left of it.
-	david_sprite.offset = Vector2(0, -tex.get_height() * 0.5)
+	# Boot layers are cut from the same reference pixels as the body. They
+	# reconstruct the still pose at rest and stride gently while moving.
+	david_boot_left = _david_part(DAVID_LEFT_BOOT_PATH)
+	david_boot_right = _david_part(DAVID_RIGHT_BOOT_PATH)
+	david.add_child(david_boot_left)
+	david.add_child(david_boot_right)
+	david_sprite = _david_part(DAVID_BODY_PATH)
 	david.add_child(david_sprite)
 	camera = Camera2D.new()
 	var cam := camera
@@ -126,6 +129,17 @@ func _build_david() -> void:
 	david.add_child(cam)
 	add_child(david)
 	cam.make_current()
+
+
+func _david_part(path: String) -> Sprite2D:
+	var part := Sprite2D.new()
+	var tex := load(path) as Texture2D
+	part.texture = tex
+	part.scale = Vector2.ONE * DAVID_SCALE
+	# A centered sprite's origin is already at its centre. Its bottom centre
+	# belongs at the physics body's feet/contact shadow.
+	part.offset = Vector2(0, -tex.get_height() * 0.5)
+	return part
 
 
 func _add_sheep(home: Vector2, variant: int) -> void:
@@ -213,9 +227,14 @@ func _physics_process(delta: float) -> void:
 	david.move_and_slide()
 	david.position = david.position.clamp(WORLD.position, WORLD.end)
 	if dir.length() > 0.1:
-		david_sprite.position.y = -absf(sin(_t * 12.0)) * 1.5
+		var stride := sin(_t * 9.0)
+		david_sprite.position.y = -absf(stride) * 0.6
+		david_boot_left.position = Vector2(stride * 2.0, -maxf(0.0, stride) * 1.2)
+		david_boot_right.position = Vector2(-stride * 2.0, -maxf(0.0, -stride) * 1.2)
 	else:
-		david_sprite.position.y = 0.0
+		david_sprite.position = Vector2.ZERO
+		david_boot_left.position = Vector2.ZERO
+		david_boot_right.position = Vector2.ZERO
 
 
 func _process(delta: float) -> void:
