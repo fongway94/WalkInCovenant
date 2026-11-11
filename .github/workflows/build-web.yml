@@ -1133,6 +1133,9 @@ jobs:
   # stays below GitHub's annotation cap and retains enough WebP detail to review.
   proto-frame-overflow:
     needs: proto-frames
+    # Failed visual assertions still need their frames for diagnosis. The
+    # producer uploads its chunks under `always()` before it finishes.
+    if: always() && needs.proto-frames.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read

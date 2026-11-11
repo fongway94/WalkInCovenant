@@ -110,24 +110,32 @@ func _ready() -> void:
 	field.camera.reset_smoothing()
 	await _frames(8)
 	await _save("proto_06_tree_behind")
-	var behind_changed: int = await _layer_pixel_difference(tree)
+	var behind_stats: Dictionary = await _layer_pixel_difference(tree)
+	var behind_changed: int = int(behind_stats["actor"])
 	# In front of the tree but behind the fence: its top rail should hide the
 	# boots instead of appearing painted behind the character.
 	field.set_david(Vector2(920, 218))
 	field.camera.reset_smoothing()
 	await _frames(8)
 	await _save("proto_02_tree_front")
-	var front_changed: int = await _layer_pixel_difference(tree)
-	print("PROTO tree pixel change behind=%d front=%d" % [behind_changed, front_changed])
+	var front_stats: Dictionary = await _layer_pixel_difference(tree)
+	var front_changed: int = int(front_stats["actor"])
+	print("PROTO tree actor delta behind=%d front=%d; raw=%d/%d background=%d/%d" % [
+		behind_changed, front_changed, int(behind_stats["raw"]), int(front_stats["raw"]),
+		int(behind_stats["background"]), int(front_stats["background"])])
 	_check(behind_changed > 10 and front_changed < maxi(8, int(float(behind_changed) * 0.15)),
 		"rendered tree covers behind, not in front")
 	var fence: Node2D = field.get_node("FenceDepth") as Node2D
-	var fence_behind: int = await _layer_pixel_difference(fence)
+	var fence_behind_stats: Dictionary = await _layer_pixel_difference(fence)
+	var fence_behind: int = int(fence_behind_stats["actor"])
 	field.set_david(Vector2(920, 280))
 	field.camera.reset_smoothing()
 	await _frames(8)
-	var fence_front: int = await _layer_pixel_difference(fence)
-	print("PROTO fence pixel change behind=%d front=%d" % [fence_behind, fence_front])
+	var fence_front_stats: Dictionary = await _layer_pixel_difference(fence)
+	var fence_front: int = int(fence_front_stats["actor"])
+	print("PROTO fence actor delta behind=%d front=%d; raw=%d/%d background=%d/%d" % [
+		fence_behind, fence_front, int(fence_behind_stats["raw"]), int(fence_front_stats["raw"]),
+		int(fence_behind_stats["background"]), int(fence_front_stats["background"])])
 	_check(fence_behind > 4 and fence_front < maxi(4, int(float(fence_behind) * 0.25)),
 		"rendered fence covers behind, not in front")
 	if failures == 0:
@@ -137,26 +145,64 @@ func _ready() -> void:
 	get_tree().quit(0 if failures == 0 else 1)
 
 
-func _layer_pixel_difference(layer: Node2D) -> int:
-	# At the fixed test positions the camera is clamped to the right and top
-	# of the world. The region contains David, the tree and the fence. Sheep
-	# are frozen. Toggling an aligned depth copy should change actor pixels
-	# behind the object, not while in front of its ground line.
+func _layer_pixel_difference(layer: Node2D) -> Dictionary:
+	# Four real framebuffers distinguish actor occlusion from discrepancies in
+	# the overlay's *background pixels*. Raw on/off differences alone can be
+	# nonzero even when the character is correctly sorted in front.
 	layer.visible = true
 	await RenderingServer.frame_post_draw
-	var with_tree := get_viewport().get_texture().get_image()
+	var with_actor_on := get_viewport().get_texture().get_image()
 	layer.visible = false
 	await RenderingServer.frame_post_draw
-	var without_tree := get_viewport().get_texture().get_image()
+	var with_actor_off := get_viewport().get_texture().get_image()
+	_set_actor_art_visible(false)
+	layer.visible = true
+	await RenderingServer.frame_post_draw
+	var empty_on := get_viewport().get_texture().get_image()
+	layer.visible = false
+	await RenderingServer.frame_post_draw
+	var empty_off := get_viewport().get_texture().get_image()
+	_set_actor_art_visible(true)
 	layer.visible = true
 	var changed := 0
+	var raw := 0
+	var background := 0
+	var map := Image.create(640, 360, false, Image.FORMAT_RGB8)
+	map.fill(Color.BLACK)
 	for y in range(30, 370, 4):
 		for x in range(580, 850, 4):
-			var a := with_tree.get_pixel(x, y)
-			var b := without_tree.get_pixel(x, y)
-			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.15:
+			var a := with_actor_on.get_pixel(x, y)
+			var b := with_actor_off.get_pixel(x, y)
+			var c := empty_on.get_pixel(x, y)
+			var d := empty_off.get_pixel(x, y)
+			var raw_delta := absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b)
+			var bg_delta := absf(c.r - d.r) + absf(c.g - d.g) + absf(c.b - d.b)
+			var actor_delta := absf((a.r - b.r) - (c.r - d.r))
+			actor_delta += absf((a.g - b.g) - (c.g - d.g))
+			actor_delta += absf((a.b - b.b) - (c.b - d.b))
+			if raw_delta > 0.15:
+				raw += 1
+			if bg_delta > 0.15:
+				background += 1
+			if actor_delta > 0.15:
 				changed += 1
-	return changed
+			# Red = actor-specific change; green = copied-background mismatch.
+			if actor_delta > 0.15 or bg_delta > 0.15:
+				var colour := Color(1.0 if actor_delta > 0.15 else 0.0, 1.0 if bg_delta > 0.15 else 0.0, 0.0)
+				map.set_pixel(int(x / 2), int(y / 2), colour)
+				map.set_pixel(int(x / 2) + 1, int(y / 2), colour)
+	# A sparse diagnostic derived from real framebuffers, not a gameplay frame.
+	if layer.name == "UpperTreeDepth" and field.david.position.y > 200.0:
+		var path := ProjectSettings.globalize_path(OUT).path_join("proto_07_tree_delta.png")
+		var err := map.save_png(path)
+		print("PROTO saved tree delta diagnostic err=%d" % err)
+	return {"actor": changed, "raw": raw, "background": background}
+
+
+func _set_actor_art_visible(on: bool) -> void:
+	field.david_sprite.visible = on
+	field.david_boot_left.visible = on
+	field.david_boot_right.visible = on
 
 
 func _check(ok: bool, name: String) -> void:
