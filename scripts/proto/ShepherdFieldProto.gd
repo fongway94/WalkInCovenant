@@ -1,0 +1,245 @@
+extends Node2D
+## Isolated art prototype: a playable shepherd field on the edited reference
+## backdrop. No production scene loads this file. Coordinates are BACKDROP
+## pixels: the 1440x666 picture sits at the origin at scale 1, so obstacles and
+## sheep homes are measured on the painting itself.
+
+const BG_PATH := "res://art/proto/shepherd_field_empty.png"
+const FG_PATH := "res://art/proto/shepherd_field_fg.png"
+const DAVID_PATH := "res://art/proto/sprites/david.png"
+const SHEEP_PATH := "res://art/proto/sprites/sheep.png"
+const WORLD := Rect2(0, 0, 1440, 666)
+const DAVID_SCALE := 0.6
+const SHEEP_SCALE := 0.8
+const DAVID_SPEED := 70.0
+const SHEEP_WALK := 14.0
+const SHEEP_FLEE := 40.0
+const SHEEP_FLEE_RANGE := 46.0
+const INTERACT_RANGE := 46.0
+const FIELD := Rect2(330, 150, 760, 400)
+const SHEEP_HOMES := [
+	Vector2(700, 300), Vector2(790, 400), Vector2(620, 470),
+	Vector2(880, 440), Vector2(960, 330), Vector2(560, 380),
+]
+## Solid obstacles as [x, y, w, h] in backdrop pixels: walls, trunks, fence, rocks.
+const OBSTACLES := [
+	[0, 0, 300, 58],
+	[430, 0, 1010, 60],
+	[1408, 0, 32, 666],
+	[0, 530, 200, 136],
+	[1008, 150, 74, 52],
+	[1080, 350, 130, 150],
+	[856, 226, 120, 42],
+	[618, 230, 34, 22],
+	[524, 290, 34, 22],
+	[566, 422, 34, 22],
+	[594, 538, 34, 22],
+	[672, 540, 34, 22],
+	[1196, 560, 34, 22],
+]
+
+var david: CharacterBody2D
+var david_sprite: Sprite2D
+var sheep: Array = []
+var counted := 0
+var label: Label
+var _t := 0.0
+
+
+func _ready() -> void:
+	seed(42)
+	y_sort_enabled = true
+	var bg := Sprite2D.new()
+	bg.texture = load(BG_PATH) as Texture2D
+	bg.centered = false
+	add_child(bg)
+	_build_obstacles()
+	_build_david()
+	for home in SHEEP_HOMES:
+		_add_sheep(home)
+	var fg := Sprite2D.new()
+	fg.texture = load(FG_PATH) as Texture2D
+	fg.centered = false
+	fg.z_index = 100
+	add_child(fg)
+	_build_hud()
+
+
+func _build_obstacles() -> void:
+	for r in OBSTACLES:
+		var body := StaticBody2D.new()
+		body.position = Vector2(float(r[0]) + float(r[2]) * 0.5, float(r[1]) + float(r[3]) * 0.5)
+		var shape := CollisionShape2D.new()
+		var rect := RectangleShape2D.new()
+		rect.size = Vector2(float(r[2]), float(r[3]))
+		shape.shape = rect
+		body.add_child(shape)
+		add_child(body)
+
+
+func _build_david() -> void:
+	david = CharacterBody2D.new()
+	david.position = Vector2(700, 470)
+	var shape := CollisionShape2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = 6.0
+	shape.shape = circle
+	shape.position = Vector2(0, -6)
+	david.add_child(shape)
+	david.add_child(_shadow(14.0, 0.8))
+	david_sprite = Sprite2D.new()
+	var tex := load(DAVID_PATH) as Texture2D
+	david_sprite.texture = tex
+	david_sprite.scale = Vector2.ONE * DAVID_SCALE
+	david_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	david.add_child(david_sprite)
+	var cam := Camera2D.new()
+	cam.zoom = Vector2(0.5, 0.5)
+	cam.limit_left = 0
+	cam.limit_top = 0
+	cam.limit_right = 1440
+	cam.limit_bottom = 666
+	cam.position_smoothing_enabled = true
+	cam.position_smoothing_speed = 8.0
+	david.add_child(cam)
+	add_child(david)
+	cam.make_current()
+
+
+func _add_sheep(home: Vector2) -> void:
+	var node := Node2D.new()
+	node.position = home
+	node.add_child(_shadow(16.0, 0.6))
+	var spr := Sprite2D.new()
+	var tex := load(SHEEP_PATH) as Texture2D
+	spr.texture = tex
+	spr.scale = Vector2.ONE * SHEEP_SCALE
+	spr.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	node.add_child(spr)
+	add_child(node)
+	sheep.append({"node": node, "sprite": spr, "home": home, "target": home,
+		"idle": 1.0, "hop": 0.0, "counted": false, "phase": randf() * TAU})
+
+
+func _shadow(radius: float, alpha: float) -> Node2D:
+	var n := Node2D.new()
+	n.z_index = -1
+	n.draw.connect(_draw_shadow.bind(n, radius, alpha))
+	n.queue_redraw()
+	return n
+
+
+func _draw_shadow(n: Node2D, radius: float, alpha: float) -> void:
+	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.10, 0.07, 0.03, alpha))
+
+
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	label = Label.new()
+	label.position = Vector2(6, 4)
+	label.add_theme_font_size_override("font_size", 8)
+	layer.add_child(label)
+	_refresh_hud()
+
+
+func _refresh_hud() -> void:
+	label.text = "Sheep counted %d/%d - Space beside a sheep" % [counted, sheep.size()]
+
+
+func _physics_process(delta: float) -> void:
+	var dir := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	david.velocity = dir * DAVID_SPEED
+	david.move_and_slide()
+	david.position = david.position.clamp(WORLD.position, WORLD.end)
+	if dir.length() > 0.1:
+		david_sprite.position.y = -absf(sin(_t * 12.0)) * 1.5
+	else:
+		david_sprite.position.y = 0.0
+
+
+func _process(delta: float) -> void:
+	_t += delta
+	for s in sheep:
+		_update_sheep(s, delta)
+
+
+func _update_sheep(s: Dictionary, delta: float) -> void:
+	var node: Node2D = s["node"]
+	var spr: Sprite2D = s["sprite"]
+	var vel := Vector2.ZERO
+	var away: Vector2 = node.position - david.position
+	if away.length() < SHEEP_FLEE_RANGE and away.length() > 0.5:
+		vel = away.normalized() * SHEEP_FLEE
+		s["idle"] = 0.0
+	elif float(s["idle"]) > 0.0:
+		s["idle"] = float(s["idle"]) - delta
+	else:
+		var to_target: Vector2 = s["target"] - node.position
+		if to_target.length() < 2.0:
+			s["target"] = _random_home(s["home"])
+			s["idle"] = randf_range(1.2, 3.0)
+		else:
+			vel = to_target.normalized() * SHEEP_WALK
+	var next_pos: Vector2 = node.position + vel * delta
+	if FIELD.has_point(next_pos) and not _blocked(next_pos):
+		node.position = next_pos
+	if vel.x != 0.0:
+		spr.flip_h = vel.x > 0.0
+	var hop := float(s["hop"])
+	var bob := 0.0
+	if hop > 0.0:
+		s["hop"] = hop - delta
+		var k := clampf(1.0 - hop / 0.6, 0.0, 1.0)
+		bob = -sin(k * PI) * 10.0
+	elif vel.length() > 0.0:
+		bob = -absf(sin(_t * 9.0 + float(s["phase"]))) * 1.2
+	else:
+		bob = sin(_t * 1.8 + float(s["phase"])) * 0.4
+	spr.position = Vector2(0, bob)
+
+
+func _random_home(home: Vector2) -> Vector2:
+	return home + Vector2(randf_range(-30.0, 30.0), randf_range(-18.0, 18.0))
+
+
+func _blocked(p: Vector2) -> bool:
+	for r in OBSTACLES:
+		if Rect2(float(r[0]), float(r[1]), float(r[2]), float(r[3])).grow(4.0).has_point(p):
+			return true
+	return false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_accept"):
+		interact()
+		get_viewport().set_input_as_handled()
+
+
+## Space beside a sheep: it hops, and the first time it counts toward the flock.
+func interact() -> bool:
+	var best: Dictionary = {}
+	var best_d := INTERACT_RANGE
+	for s in sheep:
+		var d: float = (s["node"] as Node2D).position.distance_to(david.position)
+		if d < best_d:
+			best_d = d
+			best = s
+	if best.is_empty():
+		return false
+	best["hop"] = 0.6
+	if not best["counted"]:
+		best["counted"] = true
+		counted += 1
+	_refresh_hud()
+	return true
+
+
+func set_david(p: Vector2) -> void:
+	david.position = p
+	david.velocity = Vector2.ZERO
+
+
+func nearest_sheep_pos() -> Vector2:
+	return (sheep[0]["node"] as Node2D).position

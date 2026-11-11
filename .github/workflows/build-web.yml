@@ -1010,6 +1010,64 @@ jobs:
   # Actions — and until it is flipped this job stays green, publishes nothing,
   # and says exactly what to do. The build artifact is uploaded regardless, so
   # the game is playable locally in the meantime.
+  # Isolated art prototype (docs/ART-RESET.md §13): real Godot renders of the
+  # playable shepherd field, published as PROTOFRAME / PROTOLOG annotations.
+  # It never deploys and never gates production; it only produces evidence.
+  proto-frames:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.7.2
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-bin
+          GODOT=$(find /tmp/godot-bin -type f -name 'Godot_v4.7.2*' | head -1)
+          cp "$GODOT" /tmp/godot
+          chmod +x /tmp/godot
+
+      - name: Install Xvfb and software OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libxcursor1 \
+            libxinerama1 libxi6 libxrandr2 mesa-utils fontconfig || true
+
+      - name: Import resources
+        run: /tmp/godot --headless --path . --import || true
+
+      - name: Render the shepherd-field prototype (Xvfb + llvmpipe)
+        run: |
+          mkdir -p build/proto
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          timeout 240 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --rendering-driver opengl3 --audio-driver Dummy \
+            --windowed --resolution 1280x720 res://tests/proto_visual.tscn > proto.txt 2>&1 || true
+          cat proto.txt
+
+      - name: Script errors in the prototype
+        run: |
+          BAD=$(grep -aE "SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance" proto.txt | head -20 || true)
+          if [ -n "$BAD" ]; then
+            printf '%s\n' "$BAD" | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
+
+      - name: Publish prototype log lines
+        if: always()
+        run: |
+          grep -a "^PROTO" proto.txt | while IFS= read -r l; do echo "::notice::PROTOLOG|$l"; done || true
+
+      - name: Publish prototype frames
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tools/proto/encode_frames.py build/proto
+
   deploy:
     needs: export-web
     # `main` is the release. The named working branch is an opt-in PREVIEW: the
