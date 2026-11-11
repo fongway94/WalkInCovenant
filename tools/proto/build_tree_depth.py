@@ -3,8 +3,8 @@
 
 This tree was painted into the background, so David previously drew over the
 canopy even while behind it. These manually traced polygons retain the same
-pixels at the same world coordinates. At runtime the layer is y-sorted at the
-trunk's ground line. It is a limited experiment, not a full semantic
+pixels at the same world coordinates. At runtime actors select depth bands at
+the trunk's ground line. It is a limited experiment, not a full semantic
 segmentation of the scene. Requires Pillow; run from the repository root.
 """
 from pathlib import Path

@@ -96,7 +96,7 @@ func _ready() -> void:
 	# sixth full-frame slot to show the new fence from the opposite side.
 	field.set_david(Vector2(330, 110))
 	_check(not field.interact() and field.counted == 1, "interaction requires nearby sheep")
-	# The right-hand upper tree is separately y-sorted at its ground line.
+	# The right-hand upper tree is depth-sorted at its ground line.
 	# Test a real trunk collider, then capture and compare both sides of the
 	# depth line using the real renderer, not just the scene hierarchy.
 	field.set_david(Vector2(1130, 180))
@@ -108,6 +108,25 @@ func _ready() -> void:
 	var trunk_x: float = field.david.position.x
 	print("PROTO tree trunk stop_x=%.1f" % trunk_x)
 	_check(trunk_x >= 1140.0 and trunk_x < 1154.0, "tree trunk collision")
+	# Approach the fence from both sides, rather than only teleporting to the
+	# two depth-test positions. David's collision circle is at his feet.
+	field.set_david(Vector2(920, 190))
+	await _frames(4)
+	Input.action_press("ui_down")
+	await _frames(80)
+	Input.action_release("ui_down")
+	await _frames(4)
+	var fence_north: float = field.david.position.y
+	field.set_david(Vector2(920, 300))
+	await _frames(4)
+	Input.action_press("ui_up")
+	await _frames(80)
+	Input.action_release("ui_up")
+	await _frames(4)
+	var fence_south: float = field.david.position.y
+	print("PROTO fence collision north=%.1f south=%.1f" % [fence_north, fence_south])
+	_check(fence_north >= 220.0 and fence_north < 227.0 and fence_south >= 279.0 and fence_south <= 285.0,
+		"fence blocks walking from both sides")
 	field.set_process(false)
 	var tree: Node2D = field.get_node("UpperTreeDepth") as Node2D
 	field.set_david(Vector2(920, 165))

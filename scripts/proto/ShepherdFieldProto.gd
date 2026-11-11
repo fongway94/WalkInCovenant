@@ -8,6 +8,10 @@ const BG_PATH := "res://art/proto/shepherd_field_empty.png"
 const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
 const UPPER_TREE_PATH := "res://art/proto/shepherd_field_upper_tree.png"
 const UPPER_FENCE_PATH := "res://art/proto/shepherd_field_upper_fence.png"
+const TREE_GROUND_Y := 202.0
+const FENCE_GROUND_Y := 268.0
+const TREE_DEPTH_Z := 1
+const FENCE_DEPTH_Z := 3
 const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
 const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
 const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
@@ -80,8 +84,8 @@ func _ready() -> void:
 	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
-	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, 202.0)
-	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, 268.0)
+	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, TREE_DEPTH_Z)
+	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, FENCE_DEPTH_Z)
 	_build_david()
 	for i in range(SHEEP_HOMES.size()):
 		_add_sheep(SHEEP_HOMES[i], i)
@@ -108,26 +112,33 @@ func _build_obstacles() -> void:
 		add_child(body)
 
 
-func _build_depth_layer(layer_name: String, path: String, ground_y: float) -> void:
-	# The tree and fence remain in the backdrop; world-aligned transparent
-	# copies sort at each object's ground line. A character behind an object is
-	# covered, while one in front draws above it. These transparent textures
-	# match the backdrop's entire quad, including origin and extent; otherwise
-	# snapped vertex positions can make mask edges sample different pixels.
-	var depth := Node2D.new()
-	depth.name = layer_name
-	depth.position = Vector2(0, ground_y)
+func _build_depth_layer(layer_name: String, path: String, depth_z: int) -> void:
+	# Both copied textures are exactly the same size and world position as the
+	# backdrop. A nested (ground_y, -ground_y) transform produced measurable
+	# sampling differences with 2D pixel snapping, even though it summed to 0.
+	# Actors select z bands using their feet; y-sort still orders actors within
+	# each band. This is a limited solution for these two painted objects.
 	var image := Sprite2D.new()
+	image.name = layer_name
 	image.texture = load(path) as Texture2D
 	image.centered = false
-	image.position = Vector2(0, -ground_y)
-	depth.add_child(image)
-	add_child(depth)
+	image.z_index = depth_z
+	add_child(image)
+
+
+func _update_actor_depth(actor: Node2D) -> void:
+	if actor.position.y >= FENCE_GROUND_Y:
+		actor.z_index = FENCE_DEPTH_Z + 1
+	elif actor.position.y >= TREE_GROUND_Y:
+		actor.z_index = TREE_DEPTH_Z + 1
+	else:
+		actor.z_index = TREE_DEPTH_Z - 1
 
 
 func _build_david() -> void:
 	david = CharacterBody2D.new()
 	david.position = Vector2(700, 470)
+	_update_actor_depth(david)
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 6.0
@@ -171,6 +182,7 @@ func _david_part(path: String) -> Sprite2D:
 func _add_sheep(home: Vector2, variant: int) -> void:
 	var node := Node2D.new()
 	node.position = home
+	_update_actor_depth(node)
 	node.add_child(_shadow(16.0))
 	var spr := Sprite2D.new()
 	var tex := load(SHEEP_PATHS[variant % SHEEP_PATHS.size()]) as Texture2D
@@ -253,6 +265,7 @@ func _physics_process(delta: float) -> void:
 	david.velocity = dir * DAVID_SPEED
 	david.move_and_slide()
 	david.position = david.position.clamp(WORLD.position, WORLD.end)
+	_update_actor_depth(david)
 	if dir.length() > 0.1:
 		var stride := sin(_t * 9.0)
 		david_sprite.position.y = -absf(stride) * 0.6
@@ -291,6 +304,7 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 	var next_pos: Vector2 = node.position + vel * delta
 	if FIELD.has_point(next_pos) and not _blocked(next_pos):
 		node.position = next_pos
+	_update_actor_depth(node)
 	if vel.x != 0.0:
 		spr.flip_h = vel.x < 0.0
 	var hop := float(s["hop"])
@@ -345,6 +359,7 @@ func interact() -> bool:
 func set_david(p: Vector2) -> void:
 	david.position = p
 	david.velocity = Vector2.ZERO
+	_update_actor_depth(david)
 
 
 func nearest_sheep_pos() -> Vector2:
