@@ -1451,7 +1451,14 @@ jobs:
     # a permitted environment ref is required to replace the Pages site. The
     # field prototype's approval does not by itself approve later chapter art or
     # this full build: do not dispatch a preview without the user's approval.
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
+    # One-time phone playtest explicitly approved by the user. The exact push
+    # message is an additional opt-in; remove this case after the deployment.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_preview) ||
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/arena/905f79d4-walkincovenant' &&
+       github.event.head_commit.message == 'Publish approved phone playtest b134e10')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
