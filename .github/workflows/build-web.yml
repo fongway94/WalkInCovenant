@@ -152,6 +152,9 @@ jobs:
       - name: Test the release and probe pack boundary
         run: python3 -m unittest discover -s tests -p 'test_pack_contents.py' -v
 
+      - name: Test the Godot reference with a cold offline cache
+        run: python3 -m unittest discover -s tests -p 'test_api_reference.py' -v
+
       - name: Import resources and build the global class cache
         run: |
           # --import does a full headless import and exits; --editor --quit can

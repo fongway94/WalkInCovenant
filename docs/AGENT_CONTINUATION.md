@@ -25,7 +25,7 @@ The current working branch is `arena/905f79d4-walkincovenant`, based on `cec25b5
 - The browser layout suite passed **35 checks**, including field resizing, emulated stick/A input, HUD controls during dialogue, bilingual objectives and brook feedback. The strict production Web export passed **30/30** browser checks with no console, page or request errors. Its duel/ending use separately seeded saves; the fresh journey above is the end-to-end run. Emulated touch and WebAudio telemetry are not a physical-device or listening test.
 - Native software OpenGL/Xvfb rendered **18 frames**, with the real transition sampled at alpha 0.45 and allowed to finish. Existing coarse baselines were **not** replaced and are not art approval. Headless context **35/35**, shepherd stage **51/51**, shepherd resume **24/24**, painted world **68/68**, audio contract **21/21**, smoke and deep **144** passed, as did content validation.
 - Lint, xref, engine API, export, font, audio-file, art-layout, pack unittest **8/8** and seeded-boot unittest **8/8** passed. The rebuilt font maps all **850** required codepoints. Web and Android-preset release PCKs each had **602** indexed resources without tests/build entries; the disposable browser pack had **700**. Sixteen generated ground/prop outputs were regenerated into a scratch directory and matched byte-for-byte.
-- The previous attempt [run 43034724118](https://github.com/fongway94/WalkInCovenant/actions/runs/43034724118) had no Python in its Godot image, so static checks were skipped and a later pack test exited 127. The updated workflow sets up Python and fails closed, but that change must itself be checked in CI.
+- [Run 43034724118](https://github.com/fongway94/WalkInCovenant/actions/runs/43034724118) had no Python in its Godot image, so static checks were skipped and a later pack test exited 127. Python setup succeeded in [run 43131983489](https://github.com/fongway94/WalkInCovenant/actions/runs/43131983489), but its static checks then found 27 false missing-class errors because the pinned offline Godot reference lacked some classes and the runner could not fetch them. The missing Godot 4.7 class documents and ancestor chain have now been pinned; a cold-cache/no-network test passes locally and still catches a deliberately invalid member. Check the next CI run for this fix.
 - Audio remains unreviewed by ear. The contract checks bus/player state and releases nine retired playbacks while running, not audible quality. Immediate engine shutdown still sometimes reports WAV/playback/ObjectDB resources; a delayed shutdown avoids one reproduction, but does not prove all leaks absent. The native visual run also reports shutdown resources. No Android APK or new physical-device test has been performed.
 
 ## Files and reproducibility
@@ -43,6 +43,7 @@ mkdir -p build/web && touch build/.gdignore
 python3 tools/gd_lint.py && python3 tools/xref_check.py && python3 tools/api_check.py
 python3 tools/check_export.py && python3 tools/check_font.py
 python3 -m unittest discover -s tests -p 'test_pack_contents.py' -v
+python3 -m unittest discover -s tests -p 'test_api_reference.py' -v
 node --test tests/browser/seeded_boot.test.cjs
 godot --headless --path . --import
 godot --headless --path . --script tests/run_all.gd

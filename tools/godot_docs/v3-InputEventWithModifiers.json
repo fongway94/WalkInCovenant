@@ -1,0 +1,1 @@
+{"inherits": "InputEventFromWindow", "members": ["alt_pressed", "command_or_control_autoremap", "ctrl_pressed", "device", "get_modifiers_mask", "is_command_or_control_pressed", "meta_pressed", "shift_pressed"], "methods": {"get_modifiers_mask": [0, 0], "is_command_or_control_pressed": [0, 0]}, "virtuals": []}

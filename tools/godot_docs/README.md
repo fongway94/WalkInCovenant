@@ -18,4 +18,11 @@ Godot upgrade changes `REF`). Regenerate with:
     rm -rf /tmp/godot-docs && python3 tools/api_check.py   # rebuild /tmp cache
     cp /tmp/godot-docs/*.json tools/godot_docs/
 
-This is the same data as before, just pinned — no check was relaxed.
+This is the same data as before, just pinned — no check was relaxed. When new
+engine types are introduced, include their full inheritance chains as well;
+otherwise a partially populated cache can still produce false missing-class
+findings. `tests/test_api_reference.py` runs both project checks with an empty
+cache and network access disabled, and proves that an invalid engine member is
+still rejected:
+
+    python3 -m unittest discover -s tests -p 'test_api_reference.py' -v

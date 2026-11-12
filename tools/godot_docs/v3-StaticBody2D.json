@@ -1,0 +1,1 @@
+{"inherits": "PhysicsBody2D", "members": ["constant_angular_velocity", "constant_linear_velocity", "physics_material_override"], "methods": {}, "virtuals": []}
