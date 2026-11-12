@@ -1338,14 +1338,16 @@ jobs:
       - name: Publish prototype frames
         if: always()
         run: |
-          python3 -m pip install --quiet pillow
+          # The source-art reproducibility checks below use the same version.
+          python3 -m pip install --quiet pillow==13.0.0
           python3 tools/proto/encode_frames.py build/proto
 
-      - name: Verify reference sheep textures and cleaned backdrop edge
+      - name: Verify reference and source-rebuilt textures
         if: always()
         run: |
           python3 tests/proto/check_sheep_art.py
           python3 tools/proto/clean_backdrop_edge.py --check
+          python3 tests/proto/check_quality_assets.py
 
       # The wider composition exceeded one job's annotation budget at useful
       # WebP quality. A second job publishes the remaining chunks; no capture is

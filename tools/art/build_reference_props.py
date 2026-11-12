@@ -2,22 +2,24 @@
 """Build the chapter's remaining painterly props from isolated source images.
 
 The source art was generated against the approved shepherd-field image. The
-small outputs use two texture pixels per legacy world unit; Region applies the
-corresponding visual scale without changing the authored physics footprints.
-All assets remain independent sprites. Requires Pillow; run from the repo root.
+outputs are rebuilt at triple the previous texture density from those sources.
+The game compensates the visual scale, without changing physics footprints or
+moving their foot anchors. All assets remain independent sprites. Requires
+Pillow; run from the repo root.
 """
 from pathlib import Path
 
 from PIL import Image, ImageEnhance
 
 from build_world_ground import chroma
+from prop_detail import align_to_legacy, detail_size
 
 SRC = Path('tools/art/sources')
 OUT = Path('art/props_painted')
 SHEEP = Path('art/proto/sprites')
 
-# Output canvas dimensions are twice the sizes in data/props.json. Keeping the
-# transparent padding and bottom-alignment makes the foot anchor predictable.
+# Legacy canvas dimensions (before the detail multiplier). The helper keeps
+# their transparent padding and bottom alignment at the same world positions.
 PROPS = {
     'fire': ('prop_fire_reference.png', (32, 24)),
     'altar_stones': ('prop_altar_reference.png', (32, 32)),
@@ -46,21 +48,26 @@ def fit_foot(image, size):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, (source, size) in PROPS.items():
-        frame = fit_foot(chroma(Image.open(SRC / source)), size)
+        art = chroma(Image.open(SRC / source))
+        frame = align_to_legacy(fit_foot(art, size), fit_foot(art, detail_size(size)))
         if name == 'fire':
-            # Region's existing animation expects two horizontal frames.
-            sheet = Image.new('RGBA', (size[0] * 2, size[1]))
+            # Align a single frame first; both animation frames therefore keep
+            # the same feet and do not shift as brightness changes.
+            width, height = frame.size
+            sheet = Image.new('RGBA', (width * 2, height))
             sheet.alpha_composite(frame, (0, 0))
-            sheet.alpha_composite(ImageEnhance.Brightness(frame).enhance(1.08), (size[0], 0))
+            sheet.alpha_composite(ImageEnhance.Brightness(frame).enhance(1.08), (width, 0))
             frame = sheet
         frame.save(OUT / (name + '.png'), optimize=True)
         print(name, frame.size)
-    # Reuse the approved prototype's independent cutout sheep, not the old
-    # blocky overworld sheet. The two available poses keep some life in a flock.
+    # Reuse the approved prototype's actual reference-derived cutouts. Their
+    # available native pixels are limited; a larger canvas is not new detail.
     for name, source in [('sheep', 'sheep_reference_a.png'),
                          ('sheep_graze', 'sheep_reference_b.png'),
                          ('sheep_alert', 'sheep_reference_a_stride_a.png')]:
-        frame = fit_foot(Image.open(SHEEP / source), (28, 24))
+        art = Image.open(SHEEP / source)
+        size = (28, 24)
+        frame = align_to_legacy(fit_foot(art, size), fit_foot(art, detail_size(size)))
         frame.save(OUT / (name + '.png'), optimize=True)
         print(name, frame.size)
 

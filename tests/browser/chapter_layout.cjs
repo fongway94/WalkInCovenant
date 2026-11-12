@@ -128,6 +128,20 @@ async function touchField(browser) {
     }
     const initial = await state();
     assert(initial.count === 0 && initial.animals.length === 3, 'the touch fixture begins with three sheep');
+    // The game has a 320x180 logical viewport, but that alone does not mean
+    // its Web canvas is a 320x180 bitmap. Verify the actual high-DPI backing
+    // size separately so a future export change cannot silently halve detail.
+    const canvasPixels = await page.evaluate(() => {
+      const canvas = document.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      return { width: canvas.width, height: canvas.height, cssWidth: rect.width,
+        cssHeight: rect.height, dpr: window.devicePixelRatio };
+    });
+    assert(canvasPixels.dpr === 2 &&
+      Math.abs(canvasPixels.width - canvasPixels.cssWidth * canvasPixels.dpr) <= 1 &&
+      Math.abs(canvasPixels.height - canvasPixels.cssHeight * canvasPixels.dpr) <= 1,
+      `the touch field uses a DPR-2 canvas backing (${JSON.stringify(canvasPixels)})`);
+    await page.screenshot({ path: path.join(out, 'layout_touch_initial.png') });
     await drag('left', 350);
     let s = await state();
     const distanceMoved = Math.hypot(s.player[0] - initial.player[0], s.player[1] - initial.player[1]);
@@ -180,8 +194,8 @@ async function touchField(browser) {
     s = await state();
     assert(s.claimed.filter(a => !a.guided).length === directBefore + 1,
       'one touch does not directly count a second sheep');
-    result.touch = { viewport: [844, 390], distance_moved: distanceMoved, counted: tapped,
-      count: s.count, claimed: s.claimed };
+    result.touch = { viewport: [844, 390], canvas: canvasPixels, distance_moved: distanceMoved,
+      counted: tapped, count: s.count, claimed: s.claimed };
     await page.screenshot({ path: path.join(out, 'layout_touch_sheep.png') });
   } catch (e) {
     if (lastState) result.touch_failure_state = { player: lastState.player, count: lastState.count,

@@ -1,6 +1,6 @@
 # David and Goliath: replay and world-art review
 
-The approved shepherd-field prototype remains the visual reference. The wider-world art shown here is a **proposal for review**, not an approved replacement. Only the David and Goliath/Elah story is currently playable.
+The approved shepherd-field prototype remains the visual reference. The wider-world art shown here is a **proposal for review**, not an approved replacement. Only the David and Goliath/Elah story is currently playable. These images document the published v7 playtest; the later, unpublished [detail pass has its own before/after review](QUALITY_REVIEW.md).
 
 ## Replay without resetting the original
 
@@ -29,6 +29,6 @@ Please look especially at whether the Bethlehem well's grass scale and the diffe
 
 ## What has and hasn't been checked
 
-The current local build passed a fresh automated browser journey from the opening to the ending, replay/recovery and bilingual-control checks, browser layout and release checks, headless regressions, and a native software-rendered frame suite. The full-story path used real keyboard input; the replay and layout checks include emulated touch. See `docs/AGENT_CONTINUATION.md` for scope and counts.
+The v7 build passed a fresh automated browser journey from the opening to the ending, replay/recovery and bilingual-control checks, browser layout and release checks, headless regressions, and a native software-rendered frame suite. The full-story path used real keyboard input; the replay and layout checks include emulated touch. See `docs/AGENT_CONTINUATION.md` for scope and counts.
 
 The new build has **not** been reviewed on a physical phone or Android device, and its audio has not been reviewed by ear. The user approved publishing this proposal for a phone playtest at https://fongway94.github.io/WalkInCovenant/; that is not approval of the wider-world art. Any further deployment needs separate approval.

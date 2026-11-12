@@ -131,14 +131,27 @@ func _run() -> void:
 			"%s selects its painted map prop" % key)
 	var missing_props: Array = []
 	var anchors_ok := true
+	var world_sizes_ok := true
+	var geometry_file := FileAccess.open("res://tests/fixtures/painted_prop_geometry.json", FileAccess.READ)
+	_check(geometry_file != null, "the pre-detail prop geometry fixture exists")
+	var geometry: Dictionary = JSON.parse_string(geometry_file.get_as_text())["props"] if geometry_file else {}
 	for entry in r._prop_sprites:
 		var sprite: Sprite2D = entry["sprite"]
 		var key := str(entry["key"])
 		if not sprite.texture.resource_path.ends_with("props_painted/%s.png" % key):
 			missing_props.append(key)
 		anchors_ok = anchors_ok and is_equal_approx(sprite.offset.y, -sprite.texture.get_height() * 0.5)
+		if not geometry.has(key):
+			world_sizes_ok = false
+			continue
+		var old_size: Array = geometry[key]["size"]
+		var old_scale := float(Region.PAINTED_PROP_SCALE.get(key, 1.0))
+		var expected := Vector2(float(old_size[0]) / sprite.hframes, float(old_size[1])) * old_scale
+		var actual := sprite.texture.get_size() / Vector2(sprite.hframes, sprite.vframes) * sprite.scale
+		world_sizes_ok = world_sizes_ok and actual.is_equal_approx(expected)
 	_check(missing_props.is_empty(), "every actual Elah map prop has painted art: %s" % str(missing_props))
-	_check(anchors_ok, "painted map props are foot-anchored at their unchanged tiles")
+	_check(anchors_ok and world_sizes_ok,
+		"higher-detail map props retain their previous world sizes and foot anchors")
 	var sort_ok := r._ys.y_sort_enabled and r._prop_sprites.size() == r.model.props.size()
 	var shadows_ok := true
 	var fire: Sprite2D = null
@@ -171,7 +184,8 @@ func _run() -> void:
 		if child is Timer:
 			fire_timer = child
 	_check(fire != null and fire_timer != null and fire.hframes == 2
-		and fire.texture.get_size() == Vector2(64, 24), "the painted camp fire is a two-frame sheet")
+		and fire.texture.get_size() == Vector2(64, 24) * ArtDirection.PAINTED_PROP_DETAIL_FACTOR,
+		"the higher-detail camp fire is still a two-frame sheet")
 	if fire != null and fire_timer != null:
 		var previous_frame := fire.frame
 		await fire_timer.timeout
@@ -197,6 +211,11 @@ func _run() -> void:
 		and sheep._graze_tex.resource_path.ends_with("props_painted/sheep_graze.png")
 		and sheep._alert_tex.resource_path.ends_with("props_painted/sheep_alert.png"),
 		"a dynamically spawned flock animal uses all three painted poses")
+	_check(sheep._sprite.scale.is_equal_approx(
+		Vector2.ONE * (0.425 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR))
+		and sheep._sprite.offset == Vector2(0, -float(sheep._up_tex.get_height()) * 0.5)
+		and (sheep._up_tex.get_size() * sheep._sprite.scale).is_equal_approx(Vector2(28, 24) * 0.425),
+		"a live sheep keeps its previous displayed size and foot anchor")
 	sheep.apply_art_theme("classic")
 	_check(sheep._up_tex.resource_path.ends_with("art/props/sheep.png")
 		and sheep._sprite.scale == Vector2.ONE * 0.85 and sheep._sprite.offset == Vector2.ZERO,
@@ -210,7 +229,7 @@ func _run() -> void:
 	r.spawn_pickup("painted_contract_wheat", "provision", "wheat_sheaf", 19, 38)
 	var wheat_sprite: Sprite2D = (r.pickups.back()["node"] as Node2D).get_child(0)
 	_check(wheat_sprite.texture.resource_path.ends_with("props_painted/wheat_sheaf.png")
-		and is_equal_approx(wheat_sprite.scale.x, 0.425),
+		and is_equal_approx(wheat_sprite.scale.x, 0.425 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR),
 		"the later-spawned wheat provision uses its higher-resolution painted prop")
 	player.setup(r.model, "david")
 	r.enter_shepherd_field()
@@ -287,7 +306,9 @@ func _run() -> void:
 			house = entry["sprite"]
 			break
 	_check(house != null and house.texture.resource_path.ends_with("props_painted/house.png")
-		and house.texture.get_size() == Vector2(66, 83), "Bethlehem house retains its authored canvas")
+		and house.texture.get_size() == Vector2(66, 83) * ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		and (house.texture.get_size() * house.scale).is_equal_approx(Vector2(66, 83)),
+		"Bethlehem house retains its authored world-sized canvas")
 	var beth_missing: Array = []
 	for entry in beth._prop_sprites:
 		var sprite: Sprite2D = entry["sprite"]

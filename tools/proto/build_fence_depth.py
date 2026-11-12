@@ -26,8 +26,9 @@ BOARDS = [
 ]
 
 
-def main():
-    image = Image.open(BACKGROUND).convert("RGBA")
+def build_layer(background):
+    """Cut the existing rail and post mattes from the supplied backdrop."""
+    image = background.convert("RGBA")
     alpha = Image.new("L", image.size)
     draw = ImageDraw.Draw(alpha)
     for board in BOARDS:
@@ -35,6 +36,12 @@ def main():
     image.putalpha(alpha.filter(ImageFilter.GaussianBlur(0.7)))
     clean = Image.new("RGBA", image.size)
     clean.alpha_composite(image)
+    return clean
+
+
+def main():
+    with Image.open(BACKGROUND) as background:
+        clean = build_layer(background)
     clean.save(OUTPUT)
     print("%s: world size=%s, depth foot y=268" % (OUTPUT, clean.size))
 

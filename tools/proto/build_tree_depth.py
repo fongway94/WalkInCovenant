@@ -41,8 +41,9 @@ TRUNKS = [
 ]
 
 
-def main():
-    image = Image.open(BACKGROUND).convert("RGBA")
+def build_layer(background):
+    """Cut this same world-aligned matte from the supplied backdrop."""
+    image = background.convert("RGBA")
     alpha = Image.new("L", image.size)
     draw = ImageDraw.Draw(alpha)
     draw.polygon(CANOPY, fill=255)
@@ -51,6 +52,12 @@ def main():
     image.putalpha(alpha.filter(ImageFilter.GaussianBlur(0.7)))
     clean = Image.new("RGBA", image.size)
     clean.alpha_composite(image)
+    return clean
+
+
+def main():
+    with Image.open(BACKGROUND) as background:
+        clean = build_layer(background)
     clean.save(OUTPUT)
     print("%s: world size=%s, depth foot y=202" % (OUTPUT, clean.size))
 

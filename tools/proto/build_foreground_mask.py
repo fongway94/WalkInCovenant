@@ -18,11 +18,12 @@ OUTPUT = Path("art/proto/shepherd_field_fg_cutout.png")
 CROP = (0, 250, 440, 666)
 
 
-def main():
-    bg = Image.open(BACKGROUND).convert("RGB")
+def build_layer(background, guide_image):
+    """Recompute the existing foreground matte for the supplied colours."""
+    bg = background.convert("RGB")
     # Grow the guide to include narrow blades that cross the former polygon's
     # edge. Colour/brightness filtering below prevents keeping the whole path.
-    region = Image.open(REGION).getchannel("A").filter(ImageFilter.MaxFilter(41))
+    region = guide_image.getchannel("A").filter(ImageFilter.MaxFilter(41))
     matte = Image.new("L", bg.size)
     pixels, guide, alpha = bg.load(), region.load(), matte.load()
     for y in range(CROP[1], CROP[3]):
@@ -39,7 +40,13 @@ def main():
     matte = matte.filter(ImageFilter.GaussianBlur(0.55))
     result = bg.convert("RGBA")
     result.putalpha(matte)
-    result.crop(CROP).save(OUTPUT)
+    return result.crop(CROP)
+
+
+def main():
+    with Image.open(BACKGROUND) as background, Image.open(REGION) as guide:
+        layer = build_layer(background, guide)
+    layer.save(OUTPUT)
     print("%s: crop=%s" % (OUTPUT, CROP))
 
 

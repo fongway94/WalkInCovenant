@@ -30,12 +30,15 @@ const OBSTACLES := [
 func build() -> void:
 	position = ORIGIN
 	scale = Vector2.ONE * PAINT_SCALE
-	_add_layer("Backdrop", "res://art/proto/shepherd_field_empty.png", -100)
-	_add_clipped_layer("Tree", "res://art/proto/shepherd_field_upper_tree.png", 1,
+	# These layers share pixels and coordinates. The restored backdrop keeps the
+	# reference outside the inpainted actor positions and the repainted edge;
+	# masks are rebuilt from that same composite rather than the older image.
+	_add_layer("Backdrop", "res://art/scenes_painted/shepherd_field_reference.png", -100)
+	_add_clipped_layer("Tree", "res://art/scenes_painted/shepherd_field_reference_tree.png", 1,
 		Rect2(880, 0, 380, 666))
-	_add_clipped_layer("Fence", "res://art/proto/shepherd_field_upper_fence.png", 3,
+	_add_clipped_layer("Fence", "res://art/scenes_painted/shepherd_field_reference_fence.png", 3,
 		Rect2(840, 0, 140, 666))
-	var foreground := _add_layer("Foreground", "res://art/proto/shepherd_field_fg_cutout.png", 100)
+	var foreground := _add_layer("Foreground", "res://art/scenes_painted/shepherd_field_reference_foreground.png", 100)
 	foreground.position = Vector2(0, 250)
 
 

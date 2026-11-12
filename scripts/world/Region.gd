@@ -196,7 +196,7 @@ func _prop_texture_path(key: String, theme: String) -> String:
 
 func _prop_visual_scale(key: String, theme: String, path: String) -> float:
 	if theme == "cinematic" and path.begins_with("res://art/props_painted/"):
-		return float(PAINTED_PROP_SCALE.get(key, 1.0))
+		return float(PAINTED_PROP_SCALE.get(key, 1.0)) / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
 	return 1.0
 
 

@@ -2,7 +2,7 @@
 
 The user played the isolated prototype and **approved its painterly field direction**. That art approval is for the prototype, not for the later chapter-wide art. They later requested a one-time public deployment of the current build for phone playtesting; this does not constitute broader art approval or authorization for future deployments.
 
-The field is now integrated into the production shepherd act: David and the hired boy are independent actors, strays can be counted and returned, and field camera/collision and save state are restored on exit. The isolated prototype remains available for comparison:
+The field is integrated into the production shepherd act: David and the hired boy are independent actors, strays can be counted and returned, and field camera/collision and save state are restored on exit. A later, unpublished [detail pass](QUALITY_REVIEW.md) restores pixels from the full attached reference in the integrated field; it does not change the isolated prototype. The prototype remains available for comparison:
 
 ```sh
 godot --path . res://scenes/proto/ShepherdFieldProto.tscn

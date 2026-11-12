@@ -32,6 +32,26 @@ func _run() -> void:
 	var player := region.player
 	player.set_physics_process(false)
 	_check(field != null and field.get_node("Backdrop") != null, "approved backdrop installed in production")
+	var backdrop: Sprite2D = field.get_node("Backdrop")
+	var tree: Sprite2D = field.get_node("Tree")
+	var fence: Sprite2D = field.get_node("Fence")
+	var foreground: Sprite2D = field.get_node("Foreground")
+	_check(backdrop.texture.resource_path.ends_with("shepherd_field_reference.png")
+		and tree.texture.resource_path.ends_with("shepherd_field_reference_tree.png")
+		and fence.texture.resource_path.ends_with("shepherd_field_reference_fence.png")
+		and foreground.texture.resource_path.ends_with("shepherd_field_reference_foreground.png"),
+		"production uses the restored backdrop and its matching depth layers")
+	_check(backdrop.texture.get_size() == Vector2(1440, 666)
+		and tree.texture.get_size() == backdrop.texture.get_size()
+		and fence.texture.get_size() == backdrop.texture.get_size()
+		and foreground.texture.get_size() == Vector2(440, 416)
+		and foreground.position == Vector2(0, 250),
+		"restored layers retain the approved painting coordinates")
+	var bg_image := backdrop.texture.get_image()
+	_check(_layer_matches(bg_image, tree.texture.get_image(), Vector2i.ZERO)
+		and _layer_matches(bg_image, fence.texture.get_image(), Vector2i.ZERO)
+		and _layer_matches(bg_image, foreground.texture.get_image(), Vector2i(0, 250)),
+		"visible depth-layer samples match their registered backdrop pixels")
 	_check(not region.terrain.visible and region.cam.bounds == field.world_bounds(),
 		"painted field owns view bounds, with tile terrain hidden")
 	var normal_zoom: float = field.camera_zoom_for(Vector2(320, 180))
@@ -185,6 +205,23 @@ func _run() -> void:
 	_check(boy.global_position == old_boy and boy.sprite.visible and not boy.field_sprite.visible,
 		"leaving restores the NPC's original position and art")
 	_finish()
+
+
+## Opaque samples should have the same colours as the image below them; a
+## mismatched old mask can otherwise leave a visible outline when actors move.
+func _layer_matches(background: Image, layer: Image, offset: Vector2i) -> bool:
+	var samples := 0
+	for y in range(0, layer.get_height(), 9):
+		for x in range(0, layer.get_width(), 9):
+			var front := layer.get_pixel(x, y)
+			if front.a < 0.99:
+				continue
+			var back := background.get_pixel(x + offset.x, y + offset.y)
+			if absf(front.r - back.r) > 0.015 or absf(front.g - back.g) > 0.015 \
+					or absf(front.b - back.b) > 0.015:
+				return false
+			samples += 1
+	return samples > 10
 
 
 func _check(ok: bool, message: String) -> void:

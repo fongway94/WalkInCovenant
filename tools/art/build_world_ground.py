@@ -13,6 +13,8 @@ import math
 import random
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
+from prop_detail import DETAIL_FACTOR, align_to_legacy
+
 SRC = Path('tools/art/sources')
 OUT = Path('art/scenes_painted')
 PROPS = Path('art/props_painted')
@@ -196,23 +198,34 @@ def chroma(image):
 
 
 def props():
-    # The old 26x18 tent read as a little box next to a person. Preserve its
-    # 2x1 collision footprint but use a larger, detailed visual canvas. Region
-    # anchors the visual at the same foot tile independently of its size.
+    # Rebuild these from the original isolated paintings at three times the
+    # old texture density. Their visible bounds and bottom-anchored world
+    # sizes remain the same; Region keeps the authored collision footprints.
     tent = chroma(Image.open(SRC / 'tent_prop.png'))
-    tent = tent.resize((52, 34), Image.Resampling.LANCZOS)
-    out = Image.new('RGBA', (52, 36))
-    out.alpha_composite(tent, (0, 2))
-    out.save(PROPS / 'tent.png', optimize=True)
 
-    # Bethlehem's buildings retain their original 66x83 canvas and 2x2
-    # collision footprint. The isolated source has a wider, lower silhouette,
-    # so fit it inside that canvas and align its base with the original anchor.
+    def tent_canvas(factor):
+        image = tent.resize((52 * factor, 34 * factor), Image.Resampling.LANCZOS)
+        canvas = Image.new('RGBA', (52 * factor, 36 * factor))
+        canvas.alpha_composite(image, (0, 2 * factor))
+        return canvas
+
+    align_to_legacy(tent_canvas(1), tent_canvas(DETAIL_FACTOR)).save(
+        PROPS / 'tent.png', optimize=True)
+
+    # The house also retains its previous visible bounds, centred within the
+    # same 66x83 world-sized canvas and its original 2x2 footprint.
     house = chroma(Image.open(SRC / 'house_prop.png'))
-    house.thumbnail((66, 83), Image.Resampling.LANCZOS)
-    out = Image.new('RGBA', (66, 83))
-    out.alpha_composite(house, ((66 - house.width) // 2, 83 - house.height))
-    out.save(PROPS / 'house.png', optimize=True)
+
+    def house_canvas(factor):
+        size = (66 * factor, 83 * factor)
+        image = house.copy()
+        image.thumbnail(size, Image.Resampling.LANCZOS)
+        canvas = Image.new('RGBA', size)
+        canvas.alpha_composite(image, ((size[0] - image.width) // 2, size[1] - image.height))
+        return canvas
+
+    align_to_legacy(house_canvas(1), house_canvas(DETAIL_FACTOR)).save(
+        PROPS / 'house.png', optimize=True)
 
 
 def main():

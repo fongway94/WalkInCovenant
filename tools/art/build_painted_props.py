@@ -9,6 +9,8 @@ for footprints and solidity. Requires Pillow. Run from the repository root.
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
+from prop_detail import align_to_legacy, detail_size
+
 SRC = Path('tools/art/sources')
 OUT = Path('art/props_painted')
 
@@ -60,15 +62,22 @@ def make_prop(source, size, points, holes=()):
     return canvas
 
 
+def detailed_prop(source, size, points, holes=()):
+    # Both mattes come directly from the source painting. The low-resolution
+    # version provides geometry only; its pixels are not enlarged into the art.
+    return align_to_legacy(make_prop(source, size, points, holes),
+                           make_prop(source, detail_size(size), points, holes))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name, (source, size, points) in MATTES.items():
-        image = make_prop(source, size, points)
+        image = detailed_prop(source, size, points)
         image.save(OUT / (name + '.png'), optimize=True)
         print(name, image.size, image.getchannel('A').getbbox())
     source, _, points = MATTES['olive_tree']
-    # The small fig remains within its original 16x24 canvas.
-    make_prop(source, (16, 24), points).save(OUT / 'fig_tree.png', optimize=True)
+    # The small fig remains within its original 16x24 world-sized canvas.
+    detailed_prop(source, (16, 24), points).save(OUT / 'fig_tree.png', optimize=True)
     # Bethlehem's stone well is also used in Elah. Remove the visible opening
     # under the crossbar so the surrounding ground is not baked into the prop.
     well = [(333, 516), (339, 510), (340, 503), (344, 501), (346, 494),
@@ -77,7 +86,7 @@ def main():
             (352, 558), (340, 553), (339, 522), (333, 522)]
     holes = [[(357, 501), (379, 491), (379, 502), (357, 506)],
              [(382, 490), (388, 487), (388, 502), (382, 502)]]
-    make_prop('bethlehem_world.png', (16, 16), well, holes).save(OUT / 'well.png', optimize=True)
+    detailed_prop('bethlehem_world.png', (16, 16), well, holes).save(OUT / 'well.png', optimize=True)
 
 
 if __name__ == '__main__':

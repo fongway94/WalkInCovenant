@@ -6,6 +6,10 @@ class_name ArtDirection
 ## explicit reversible theme for comparisons and regression coverage.
 
 const DEFAULT_THEME := "cinematic"
+## Painted prop PNGs are rebuilt from their sources at this multiple of their
+## former canvas density. Divide visual scales by it; gameplay stays in world
+## units and classic/storybook assets are unaffected.
+const PAINTED_PROP_DETAIL_FACTOR := 3.0
 
 
 static func current() -> String:

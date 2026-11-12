@@ -122,7 +122,7 @@ func apply_art_theme(theme: String) -> void:
 		else:
 			_sprite.texture = _up_tex
 		if d == painted:
-			_sprite.scale = Vector2.ONE * 0.425
+			_sprite.scale = Vector2.ONE * (0.425 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR)
 			_sprite.offset = Vector2(0, -float(_up_tex.get_height()) * 0.5)
 		else:
 			_sprite.scale = Vector2.ONE * 0.85
