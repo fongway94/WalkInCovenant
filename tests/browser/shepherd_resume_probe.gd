@@ -156,8 +156,9 @@ func _publish() -> void:
 	}
 	if main.practice != null:
 		status["practice"] = {"phase": int(main.practice.phase),
-			"marker": float(main.practice._marker), "band": float(main.practice._band),
-			"hits": int(main.practice.hits)}
+			"marker": float(main.practice._marker), "direction": float(main.practice._dir),
+			"band": float(main.practice._band), "hits": int(main.practice.hits),
+			"misses": int(main.practice.misses)}
 	else:
 		status["practice"] = null
 	if main.stones_panel != null:

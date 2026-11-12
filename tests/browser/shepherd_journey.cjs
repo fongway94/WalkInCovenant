@@ -15,6 +15,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.WIC_PLAYWRIGHT || 'playwright');
+const { drivePractice } = require('./practice_driver.cjs');
 const root = process.env.WIC_PROBE_URL || 'http://127.0.0.1:8083/';
 const out = process.env.WIC_SHEPHERD_OUT || 'build/shepherd-browser';
 const errors = [];
@@ -110,16 +111,8 @@ async function countSheep(p, key, count) {
 
 async function playPractice(p, key) {
   await waitState(p, key, 'sling practice', s => !!s.practice, true);
-  for (let attempt = 0; attempt < 14; attempt++) {
-    await p.waitForFunction(k => {
-      const v = window[k];
-      return v && (!v.practice || (v.practice.phase === 0 && Math.abs(v.practice.marker - 0.5) < 0.09));
-    }, key, { timeout: 30000 });
-    const s = await state(p, key);
-    if (!s.practice) break;
-    await p.keyboard.press('Space');
-    await pause(p, 350);
-  }
+  results.practice_attempts = [];
+  await drivePractice(p, key, shot => results.practice_attempts.push(shot));
 }
 
 // Plan over the Region's read-only collision map, then send only real keyboard

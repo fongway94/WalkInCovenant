@@ -1209,6 +1209,12 @@ jobs:
           SRV=$!
           trap 'kill $SRV 2>/dev/null || true' EXIT
           curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8083/shepherd-resume-probe.html > /dev/null
+          # Exercise the real practice input at different browser/input delays;
+          # the probe observes state but never sets the marker or the score.
+          for DELAY in 0 200 400; do
+            WIC_PRACTICE_DELAY="$DELAY" timeout 130 node tests/browser/practice_latency.cjs
+            test -s "build/shepherd-browser/practice-latency-$DELAY.json"
+          done
           timeout 900 node tests/browser/shepherd_journey.cjs
           test -s build/shepherd-browser/result.json
           timeout 360 node tests/browser/chapter_layout.cjs
@@ -1221,6 +1227,9 @@ jobs:
           python3 - <<'PY'
           import json, os
           for tag, path in (
+              ('PRACTICE_LATENCY_0', 'build/shepherd-browser/practice-latency-0.json'),
+              ('PRACTICE_LATENCY_200', 'build/shepherd-browser/practice-latency-200.json'),
+              ('PRACTICE_LATENCY_400', 'build/shepherd-browser/practice-latency-400.json'),
               ('SHEPHERD_BROWSER', 'build/shepherd-browser/result.json'),
               ('CHAPTER_LAYOUT', 'build/shepherd-browser/layout-result.json'),
               ('JOURNEY_SLOTS', 'build/shepherd-browser/journey-slots-result.json'),
@@ -1243,6 +1252,7 @@ jobs:
             build/shepherd-browser/result.json
             build/shepherd-browser/layout-result.json
             build/shepherd-browser/journey-slots-result.json
+            build/shepherd-browser/practice-latency-*.json
           if-no-files-found: warn
       - name: Fail if the chapter browser journey failed
         if: steps.chapter_browser.outcome != 'success'

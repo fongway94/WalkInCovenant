@@ -59,6 +59,7 @@ func _publish() -> void:
 		"practice":
 			status["phase"] = int(scene.phase)
 			status["marker"] = float(scene._marker)
+			status["direction"] = float(scene._dir)
 			status["band"] = float(scene._band)
 			status["hits"] = int(scene.hits)
 			status["misses"] = int(scene.misses)
