@@ -1,6 +1,6 @@
 # Chapter movement, scale and ground refinement
 
-This is the **local working-branch refinement**, not the currently published playtest. The public site remains on the previously approved game revision `e66ba37`. The comparison baseline below is the matching game tree at `1de5452`; no later build has been published.
+This refinement is the current [public chapter playtest](https://fongway94.github.io/WalkInCovenant/), published with the user's approval from game revision `d8526c3`. Its [passing CI build](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43316898488). The comparison baseline below is the tree at `1de5452`, which has the same game content as the previously published `e66ba37`.
 
 ## The world at the same camera positions
 
@@ -17,7 +17,7 @@ Elah and Bethlehem now use sharper, map-aligned ground split into two pieces per
 
 ## Motion
 
-The clips pair **rendered framebuffer crops** from a staged fixture that invokes the production movement code in fixed 1/24-second steps while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation.
+The clips pair **rendered framebuffer crops** from a staged fixture that invokes the production movement code in fixed 1/24-second steps while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation. Their embedded “published” and “local” labels describe the time of capture: the left is the earlier `e66ba37` game, and the right is the refinement now published as `d8526c3`.
 
 | Witness, side walk | David, side walk in the field |
 |:---|:---|
@@ -33,6 +33,7 @@ The shared gait eases in and out, adds a small weight shift and lean, and advanc
 - Native gameplay suites passed: painted world **129/129**, shepherd stage **54/54**, resume **24/24**, context **35/35**, save slots **38/38**, audio contract **21/21**, deep **144**, plus smoke and content tests. Native software OpenGL rendered the 18-frame regression and the reference/prototype fixtures.
 - Reproducibility checks passed for four split grounds, the new fig and **27** character views / **108** layers. The ground check also verifies unchanged water and protected shoreline pixels. The local Web and Android-preset release PCKs contained **856** indexed resources and excluded test fixtures; the separate disposable browser pack contained **963**. An Android PCK is not an APK.
 - The new movement capture fixture passed with **12** real player walks/runs, **3** eased stops and **2** NPC patrols. A CI gate checks its completion and failure count; the captures themselves require visual review.
-- The first hosted build of this pass, [run 43246174951](https://github.com/fongway94/WalkInCovenant/actions/runs/43246174951), passed its build and visual jobs but failed the browser journey at timed practice with no hits. A staged negative control reproduced 14 misses when 400 ms was added to the old driver's key delivery. The revised read-only driver waits for registered shots and adjusts its lead; real-input staged practice passed with 0, 100, 200, 300 and 400 ms added delay. This supports a timing-flake diagnosis but does not prove the exact cause on the hosted runner. Check the later run for the current revision.
+- The first hosted build of this pass, [run 43246174951](https://github.com/fongway94/WalkInCovenant/actions/runs/43246174951), passed its build and visual jobs but failed the browser journey at timed practice with no hits. A staged negative control reproduced 14 misses when 400 ms was added to the old driver's key delivery. The revised read-only driver waits for registered shots and adjusts its lead; real-input staged practice passed with 0, 100, 200, 300 and 400 ms added delay. This supports a timing-flake diagnosis but does not prove the exact cause on the hosted runner. [CI 43251709210](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) subsequently passed the whole journey, layout, replay and 0/200/400-ms practice checks for the published game revision.
+- The publication verified that the public PCK matched the tested artifact and the service worker had the new revision; a fresh public Chromium play-check passed **30/30** with no console, page or request errors. This is not a physical-phone or listening test.
 
 The local Web PCK is about **30.03 MiB**, versus **20.27 MiB** for the earlier local export; the largest ground texture dimension is 2048 pixels. Mobile memory, download time and performance have not been measured on a physical device. Animation, generated angles and visual quality still need human judgment; there has been no listening test. Immediate engine shutdown can still report ObjectDB/resource warnings.
