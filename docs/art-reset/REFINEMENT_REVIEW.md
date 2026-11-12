@@ -11,13 +11,13 @@ The following pairs are actual 1000×450 native Godot framebuffers from the same
 | ![Camp before](refinement-review/camp-before.webp) | ![Camp after](refinement-review/camp-after.webp) |
 | ![Bethlehem before](refinement-review/bethlehem-before.webp) | ![Bethlehem after](refinement-review/bethlehem-after.webp) |
 
-[Revised stream crossing](refinement-review/crossing-after.webp) · [Saul in the real browser journey](refinement-review/saul-journey.webp) · [Actual release-Web camp at an emulated 844×390 viewport](refinement-review/phone-camp.webp)
+[Revised stream crossing](refinement-review/crossing-after.webp) · [Saul in the real browser journey](refinement-review/saul-journey.webp) · [Actual release-Web Elah camp at an emulated 844×390 viewport](refinement-review/phone-camp.webp)
 
 Elah and Bethlehem now use sharper, map-aligned ground split into two pieces per region. The revised masks retain the original river, crossing and irregular shoreline; the ridge has a softened, uneven verge. New ground uses several non-repeating meadow bands rather than stamped flower clusters. The existing field painting, map coordinates and collision remain unchanged. The ordinary tents, houses, trees, well, jars and shrubs have been rebalanced visually, with a new mature fig tree. Saul's open-front tent keeps its separately calibrated scale and sorting. Some scenery and paving still repeat.
 
 ## Motion
 
-The clips pair **real physics-step framebuffer crops**, taken at the same 24 Hz fixture cadence while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation.
+The clips pair **rendered framebuffer crops** from a staged fixture that invokes the production movement code in fixed 1/24-second steps while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation.
 
 | Witness, side walk | David, side walk in the field |
 |:---|:---|

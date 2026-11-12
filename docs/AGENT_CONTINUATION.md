@@ -20,7 +20,7 @@ Local checks for this pass: fresh Chromium journey through the ending **37** ass
 
 The initial hosted run [43246174951](https://github.com/fongway94/WalkInCovenant/actions/runs/43246174951) passed the visual capture and export but failed timed practice in the browser journey with zero hits; later layout/replay jobs within that step did not run. A local 400-ms added-input-latency negative control made the old practice driver miss all 14 shots. The revised `tests/browser/practice_driver.cjs` observes real registered hits/misses and adapts its lead without changing the game; `practice_latency.cjs` passed locally with 0, 100, 200, 300 and 400 ms added delay. This suggests, but does not prove, the cause of the hosted failure. The CI chapter job now exercises 0/200/400 ms before the full journey. Check the later run for the exact current revision.
 
-At the time of the pass, port 8114 serves an ephemeral local release preview from `build/refinement-test/serve/`; the test-only launchers are for regression runs only and should be removed from that served directory afterwards. `build/` and local processes do not persist as source, and the preview is not the public phone link.
+At the time of the pass, port 8114 serves an ephemeral local release preview from `build/refinement-test/serve/`. The test-only launchers were removed from that served directory after regression runs and the fixture URL returned 404; the release pack passed its boundary check. `build/` and local processes do not persist as source, and the preview is not the public phone link.
 
 ## Previous published chapter-wide reference pass
 

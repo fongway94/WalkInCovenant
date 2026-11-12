@@ -62,12 +62,13 @@ async function launch() {
     if (!result.final?.done || result.final.hits !== 3 || result.errors.length) {
       throw new Error('practice did not complete with three real hits and no browser errors');
     }
-    result.ok = true;
-    console.log(`PASS real practice at ${delay} ms added key latency: ` +
-      `${result.final.hits} hits, ${result.final.misses} misses`);
     await context.close();
   } finally { await browser.close(); }
+  result.ok = true;
+  console.log(`PASS real practice at ${delay} ms added key latency: ` +
+    `${result.final.hits} hits, ${result.final.misses} misses`);
 })().catch(e => {
+  result.ok = false;
   result.error = String(e && e.stack ? e.stack : e);
   console.error(result.error);
 }).finally(() => {
