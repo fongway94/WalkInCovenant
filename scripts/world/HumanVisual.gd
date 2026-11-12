@@ -1,11 +1,15 @@
 extends Node2D
-## Foot-anchored painted rig for the witness and supporting people.
-## Front, profile and back are individually painted sources where available;
-## left mirrors right. Feet are gently animated cutouts rather than authored
-## full-body walk frames. A front-only person stays front-facing when stationary.
+## Foot-anchored reference-direction rig for the witness and supporting people.
+## The witness and supporting cast have generated front/right/back sprites.
+## Left mirrors right. Feet are animated cutouts, not authored walk frames.
+## Samuel's seated art stays in one layer; a missing view falls back to front.
 
-const ROOT := "res://art/characters_painted/"
+const ROOT := "res://art/characters_reference/"
+## Must match SEATED_HEIGHT in the reproducible character builder.
+const SEATED_HEIGHT := 76.0
 
+var visible_height := 98.0
+var seated := false
 var body: Sprite2D
 var boot_left: Sprite2D
 var boot_right: Sprite2D
@@ -20,6 +24,8 @@ var _pose_name := ""
 func build(actor: String) -> void:
 	if body != null:
 		return
+	seated = actor == "samuel"
+	visible_height = SEATED_HEIGHT if seated else 98.0
 	for pose in ["front", "profile", "back"]:
 		var prefix: String = ROOT + actor + "_" + str(pose)
 		if ResourceLoader.exists(prefix + "_body.png"):
@@ -68,9 +74,11 @@ func set_pose(facing: Vector2i, walking: bool, speed: float, delta: float) -> vo
 	elif direction.x != 0:
 		pose = "profile"
 	_select_pose(pose, direction.x < 0)
-	moving = walking
-	gait_amount = move_toward(gait_amount, 1.0 if walking else 0.0, maxf(0.0, delta) * 8.0)
-	if walking:
+	# Even if a caller requests movement, the seated prophet's stool and body
+	# must never bob as if walking. This does not change NPC movement logic.
+	moving = walking and not seated
+	gait_amount = move_toward(gait_amount, 1.0 if moving else 0.0, maxf(0.0, delta) * 8.0)
+	if moving:
 		phase += delta * clampf(speed / 60.0, 0.5, 1.7) * 9.0
 	var wave := sin(phase) * gait_amount
 	var side := -1.0 if direction.x < 0 else 1.0

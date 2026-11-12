@@ -27,6 +27,11 @@ const PAINTED_PROP_SCALE := {
 	"bush": 0.50, "wool_tuft": 0.50, "signpost": 0.50,
 	"sheep": 0.50, "sheep_graze": 0.50, "sheep_alert": 0.50,
 }
+## This authored Elah tent is Saul's backdrop. Its open-front art must sort at
+## its back wall, behind the king in the doorway, while the visible base and
+## shadow stay on the original footprint. No collision or actor position moves.
+const ROYAL_TENT_AT := Vector2i(20, 42)
+const ROYAL_TENT_SORT_RAISE := 48.0
 ## Anything within this radius of an exit tile can be left through it.
 const EXIT_RANGE := 13.0
 ## How long after a box closes the A button is ignored. Long enough to swallow
@@ -200,6 +205,28 @@ func _prop_visual_scale(key: String, theme: String, path: String) -> float:
 	return 1.0
 
 
+## Distinct instances at fixed map coordinates. Footprints and collision remain
+## authoritative. Saul's open tent has its own back-wall sort point, below.
+## Dynamically spawned items continue using _prop_texture_path.
+func _map_prop_texture_path(key: String, theme: String, at: Vector2i) -> String:
+	var chosen := _prop_texture_path(key, theme)
+	if theme != "cinematic":
+		return chosen
+	var variant := ""
+	if key == "tent":
+		if region_id == "elah" and at == ROYAL_TENT_AT:
+			variant = "res://art/props_painted/tent_royal_open.png"
+		else:
+			var index := posmod(posmod(at.x + at.y, 5), 3)
+			if index == 1:
+				variant = "res://art/props_painted/tent_camp_a.png"
+			elif index == 2:
+				variant = "res://art/props_painted/tent_camp_b.png"
+	elif key == "house" and posmod(at.x, 2) == 0:
+		variant = "res://art/props_painted/house_reference_alt.png"
+	return variant if variant != "" and ResourceLoader.exists(variant) else chosen
+
+
 func _spawn_props() -> void:
 	for p in model.props:
 		var key: String = p["type"]
@@ -225,7 +252,7 @@ func _spawn_props() -> void:
 		_ys.add_child(s)
 		_shadow_layer.call("add_target", s, w * 0.42, 2.6)
 		var targets: Array = _shadow_layer.get("targets")
-		_prop_sprites.append({"sprite": s, "key": key, "shadow": targets.back()})
+		_prop_sprites.append({"sprite": s, "key": key, "at": Vector2i(tx, ty), "shadow": targets.back()})
 		if SWAY_KEYS.has(key):
 			_swayers.append({"sprite": s, "x": cx, "y": cy,
 				"phase": float(tx) * 0.37 + float(ty) * 0.19})
@@ -883,7 +910,11 @@ func apply_art_theme(theme: String) -> void:
 	if tex != null:
 		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	terrain.set_depth_mode(theme if themed else "none")
-	var painted := "res://art/scenes_painted/world_%s.png" % region_id
+	# The revised meadow is still map-aligned: terrain collision and exits
+	# continue to come from the region JSON, never from the background pixels.
+	var painted := "res://art/scenes_painted/world_%s_reference.png" % region_id
+	if not ResourceLoader.exists(painted):
+		painted = "res://art/scenes_painted/world_%s.png" % region_id
 	if theme == "cinematic" and ResourceLoader.exists(painted):
 		terrain.set_painted_ground(load(painted) as Texture2D)
 	else:
@@ -895,15 +926,25 @@ func apply_art_theme(theme: String) -> void:
 		var d: Dictionary = p
 		var s: Sprite2D = d["sprite"]
 		var key: String = d["key"]
-		var prop_path := _prop_texture_path(key, theme)
+		var at: Vector2i = d["at"]
+		var prop_path := _map_prop_texture_path(key, theme, at)
 		var pt := load(prop_path) as Texture2D
 		if pt != null:
 			s.texture = pt
 			var visual_scale := _prop_visual_scale(key, theme, prop_path)
 			s.scale = Vector2.ONE * visual_scale
-			s.offset = Vector2(0, -float(pt.get_height()) / float(s.vframes) * 0.5)
 			var shadow: Dictionary = d["shadow"]
 			shadow["w"] = float(pt.get_width()) / float(s.hframes) * visual_scale * 0.42
+			var sort_raise := 0.0
+			if key == "tent" and region_id == "elah" and at == ROYAL_TENT_AT:
+				if prop_path.ends_with("/tent_royal_open.png"):
+					sort_raise = ROYAL_TENT_SORT_RAISE
+				# Reversible when switching back to classic. Compensate the sprite
+				# offset and shadow so only its sort point changes, not its base.
+				s.position.y = float(at.y + 1) * TILE - sort_raise
+			s.offset = Vector2(0, -float(pt.get_height()) / float(s.vframes) * 0.5
+				+ sort_raise / visual_scale)
+			shadow["offset"] = Vector2(0, sort_raise)
 	# The two actors in this scene have crafted 16px sheets. Other actors keep
 	# their classic sheets (their own apply_art_theme checks for both files).
 	if player != null and is_instance_valid(player):

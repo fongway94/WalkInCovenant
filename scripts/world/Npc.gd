@@ -58,8 +58,8 @@ var _appearance_theme := "classic"
 ## Reuse related character designs where a chapter person has no dedicated
 ## model yet. All variants keep their own name, dialogue and navigation.
 const PAINTED_ACTORS := {"corin": "corin", "boy": "boy", "shepherd": "boy",
-	"woman": "woman", "elder": "elder", "jesse": "elder", "samuel": "elder",
-	"eliab": "corin", "soldier": "corin", "king": "corin"}
+	"woman": "woman", "elder": "elder", "jesse": "jesse", "samuel": "samuel",
+	"eliab": "eliab", "soldier": "corin", "king": "king"}
 ## Stationary field-specific hired boy, independent of the backdrop.
 var field_sprite: Sprite2D = null
 ## Sheet directory. The crafted sheets are opt-in per actor (see
@@ -179,15 +179,10 @@ func apply_art_theme(theme: String) -> void:
 		human_visual.scale = Vector2.ONE * Player.WORLD_RIG_SCALE
 		add_child(human_visual)
 		human_visual.build(human_id)
-		# Differentiate the supporting cast while retaining a common light.
-		if actor_id == "jesse":
-			human_visual.modulate = Color(0.90, 0.90, 0.78)
-		elif actor_id == "samuel":
-			human_visual.modulate = Color(0.90, 0.92, 0.96)
-		elif actor_id == "eliab" or actor_id == "soldier":
+		# The generic soldier is a fallback for future content; Eliab has his own
+		# art and must look the same in Bethlehem and the brothers' scene.
+		if actor_id == "soldier":
 			human_visual.modulate = Color(0.91, 0.87, 0.80)
-		elif actor_id == "king":
-			human_visual.modulate = Color(1.0, 0.92, 0.70)
 	var field_on := field_sprite != null and field_sprite.visible
 	if human_visual != null:
 		human_visual.visible = human_id != "" and not field_on
@@ -200,7 +195,8 @@ func set_shepherd_field_appearance(on: bool) -> void:
 	if on:
 		if field_sprite == null:
 			field_sprite = Sprite2D.new()
-			field_sprite.texture = load("res://art/characters_painted/hired_boy_idle.png")
+			# Match the compact supporting cast without moving his field anchor.
+			field_sprite.texture = load("res://art/characters_reference/boy_front_idle.png")
 			field_sprite.centered = true
 			field_sprite.offset = Vector2(0, -49)
 			field_sprite.scale = Vector2.ONE * 0.32
@@ -228,7 +224,7 @@ func visual_height() -> float:
 	if david_visual != null and david_visual.visible:
 		return 98.0 * david_visual.scale.y
 	if human_visual != null and human_visual.visible:
-		return 98.0 * human_visual.scale.y
+		return human_visual.visible_height * human_visual.scale.y
 	return 16.0
 
 
@@ -341,13 +337,24 @@ func _position_bubble() -> void:
 	var min_y := minf(BUBBLE_SAFE_TOP, max_y)
 	screen.x = clampf(screen.x, 2.0, max_x)
 	screen.y = clampf(screen.y, min_y, max_y)
-	# A field reaction can be sent by a distant speaker. A clamped panel must
-	# avoid BOTH that speaker and the player (not merely the speaker's face).
-	# Try the nearby edges of both bodies and the viewport; choose the closest
-	# clear position without moving actors or letting the panel enter the HUD.
+	# A clamped panel must clear the speaker, the player AND other visible
+	# people. In camp, the woman's natural chatter used to cover Saul's entire
+	# face while the player was trying to find him. Work in canvas space so the
+	# same rule follows camera movement and zoom without moving any actor.
 	var blocks: Array[Rect2] = [_speaker_canvas_rect(transform)]
-	if is_instance_valid(player) and player.visible and player.is_inside_tree():
+	if is_instance_valid(player) and player.is_visible_in_tree():
 		blocks.append(_player_canvas_rect())
+	var view_rect := Rect2(Vector2.ZERO, view)
+	if get_parent() != null:
+		for child in get_parent().get_children():
+			if child == self or not (child is Npc) or not child.is_visible_in_tree():
+				continue
+			var other: Npc = child
+			var body := _actor_canvas_rect(other.get_global_transform_with_canvas(), other.visual_height()).grow(3.0)
+			if body.intersects(view_rect):
+				blocks.append(body)
+	# Try the nearby edges of the bodies and viewport, then choose the closest
+	# clear position without letting the panel enter the HUD.
 	var xs: Array[float] = [screen.x, 2.0, max_x]
 	var ys: Array[float] = [screen.y, min_y, max_y]
 	for body in blocks:
@@ -371,6 +378,11 @@ func _position_bubble() -> void:
 			if clear and distance < best_distance:
 				best = candidate
 				best_distance = distance
+	# In an unusually crowded/small view, omit this optional bubble instead of
+	# covering a character. A later reaction can try again as people move.
+	if is_inf(best_distance):
+		_bubble.visible = false
+		return
 	_bubble.position = transform.affine_inverse() * best
 
 
@@ -626,6 +638,10 @@ func face_toward(target: Vector2) -> void:
 ## so the HUD prompt can call it every frame.
 func can_talk() -> bool:
 	_sync_talk()
+	# A story-only figure takes part in an automatically triggered scene and
+	# must not steal the nearest-interaction prompt or open an empty dialogue.
+	if bool(data.get("story_only", false)):
+		return false
 	if player == null or dialogue == null:
 		return false
 	if talk_state != Talk.READY:
@@ -804,7 +820,7 @@ func _draw() -> void:
 	# four people who each held a verse and never knew they were worth stopping
 	# for: the HUD prompt only appears once you are already in range, and a mark
 	# over the head is visible from across the camp.
-	if _talked or sprite == null:
+	if _talked or sprite == null or bool(data.get("story_only", false)):
 		return
 	var y := -visual_height() - 4.0
 	var pts := PackedVector2Array()

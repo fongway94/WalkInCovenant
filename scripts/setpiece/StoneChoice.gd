@@ -21,6 +21,11 @@ signal finished(chosen: int)
 
 const MAX_ON_SCREEN := 9
 const PAINTED_BG := preload("res://art/scenes_painted/brook.png")
+## Three independently matted stones from the brook painting. Their drawing is
+## cosmetic; the original centres, hit areas and selection state stay intact.
+const PAINTED_STONES := [preload("res://art/props_painted/brook_stone_a.png"),
+	preload("res://art/props_painted/brook_stone_b.png"),
+	preload("res://art/props_painted/brook_stone_c.png")]
 const TOUCH_SLOP := 14.0        # px around a stone that still counts as the stone
 
 var need := 5
@@ -249,37 +254,16 @@ func _process(delta: float) -> void:
 ## Small, irregular pebbles with a shared light direction. Their locations and
 ## hit areas remain independent of the scenery and the choice state.
 func _draw_painted_stone(p: Vector2, radius: float, shade: int) -> void:
-	var palette: Array[Color] = [Color(0.70, 0.65, 0.52), Color(0.58, 0.56, 0.48),
-		Color(0.78, 0.72, 0.58)]
-	var body_col: Color = palette[clampi(shade, 0, 2)]
-	var r := radius
 	_layer.draw_set_transform(p + Vector2(0.8, 1.5), 0.0, Vector2(1.2, 0.68))
-	_layer.draw_circle(Vector2.ZERO, r, Color(0.06, 0.10, 0.10, 0.40))
+	_layer.draw_circle(Vector2.ZERO, radius, Color(0.06, 0.10, 0.10, 0.34))
+	# A quiet ripple distinguishes the selectable stones from rocks already
+	# painted into the banks without changing any touch or cursor geometry.
+	_layer.draw_arc(Vector2.ZERO, radius * 1.14, 0.12, PI - 0.12, 18,
+		Color(1.0, 0.91, 0.68, 0.52), 0.8)
 	_layer.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var outline := PackedVector2Array()
-	outline.append(p + Vector2(-1.02 * r, -0.05 * r))
-	outline.append(p + Vector2(-0.77 * r, -0.62 * r))
-	outline.append(p + Vector2(-0.25 * r, -0.86 * r))
-	outline.append(p + Vector2(0.47 * r, -0.76 * r))
-	outline.append(p + Vector2(0.91 * r, -0.38 * r))
-	outline.append(p + Vector2(0.97 * r, 0.18 * r))
-	outline.append(p + Vector2(0.62 * r, 0.63 * r))
-	outline.append(p + Vector2(-0.12 * r, 0.79 * r))
-	outline.append(p + Vector2(-0.81 * r, 0.49 * r))
-	_layer.draw_colored_polygon(outline, body_col.darkened(0.28))
-	var face := PackedVector2Array()
-	face.append(p + Vector2(-0.88 * r, -0.15 * r))
-	face.append(p + Vector2(-0.62 * r, -0.59 * r))
-	face.append(p + Vector2(-0.20 * r, -0.73 * r))
-	face.append(p + Vector2(0.43 * r, -0.65 * r))
-	face.append(p + Vector2(0.78 * r, -0.30 * r))
-	face.append(p + Vector2(0.79 * r, 0.12 * r))
-	face.append(p + Vector2(0.45 * r, 0.40 * r))
-	face.append(p + Vector2(-0.24 * r, 0.51 * r))
-	face.append(p + Vector2(-0.76 * r, 0.30 * r))
-	_layer.draw_colored_polygon(face, body_col)
-	_layer.draw_line(p + Vector2(-0.62 * r, -0.27 * r),
-		p + Vector2(-0.13 * r, -0.54 * r), body_col.lightened(0.38), 1.1)
+	var size := Vector2(radius * 2.25, radius * 1.55)
+	_layer.draw_texture_rect(PAINTED_STONES[clampi(shade, 0, 2)],
+		Rect2(p - size * 0.5, size), false)
 
 
 ## Back text with a measured, local panel instead of darkening the whole brook.

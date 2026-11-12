@@ -118,6 +118,40 @@ func _draw_world_shadow(node: Node2D, p: Vector2, radius: float) -> void:
 	if node is Sprite2D:
 		var sprite := node as Sprite2D
 		var path := sprite.texture.resource_path if sprite.texture != null else ""
+		if path.ends_with("/house.png") or path.ends_with("/house_reference_alt.png"):
+			# The painted houses end at an off-centre isometric corner. A
+			# person-sized oval at the tile centre read as a floating building.
+			# Broaden and shift the contact under the actual bottom corner;
+			# this draws only below the sprite and changes no map geometry.
+			var corner := p + Vector2(radius * 0.55, 0.0)
+			var footprint := PackedVector2Array([
+				corner + Vector2(-radius * 2.25, -radius * 0.60),
+				corner + Vector2(radius * 0.70, -radius * 1.05),
+				corner + Vector2(radius * 2.70, -radius * 0.28),
+				corner + Vector2(radius * 1.80, radius * 0.28),
+				corner + Vector2(0.0, radius * 0.35),
+				corner + Vector2(-radius * 1.10, radius * 0.12)])
+			draw_colored_polygon(footprint, Color(0.07, 0.08, 0.06, 0.24))
+			return
+		if path.ends_with("/tent.png") or path.ends_with("/tent_camp_a.png") \
+				or path.ends_with("/tent_camp_b.png") or path.ends_with("/tent_royal_open.png"):
+			# Tent silhouettes meet the ground along a slanted edge, not at a
+			# person's single central foot. Keep the contact wide and quiet.
+			var shift := -0.35
+			if path.ends_with("/tent_camp_a.png"):
+				shift = -0.75
+			elif path.ends_with("/tent_camp_b.png"):
+				shift = 0.15
+			var corner := p + Vector2(radius * shift, 0.0)
+			var footprint := PackedVector2Array([
+				corner + Vector2(-radius * 2.20, -radius * 0.42),
+				corner + Vector2(-radius * 0.65, -radius * 0.90),
+				corner + Vector2(radius * 1.35, -radius * 0.70),
+				corner + Vector2(radius * 2.45, -radius * 0.18),
+				corner + Vector2(radius * 1.40, radius * 0.20),
+				corner + Vector2(-radius * 0.70, radius * 0.22)])
+			draw_colored_polygon(footprint, Color(0.07, 0.08, 0.06, 0.20))
+			return
 		for key in ["fire", "altar_stones", "rock", "boulder", "wool_tuft", "wheat_sheaf"]:
 			if path.ends_with("/" + key + ".png"):
 				low = true

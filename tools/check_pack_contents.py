@@ -17,6 +17,38 @@ import sys
 
 PROBES = ("setpiece", "shepherd", "shepherd_resume", "world", "journey_slots")
 
+# These resources are chosen at runtime from computed paths, so a pack can
+# otherwise pass the scene boundary while silently falling back to older art.
+# The Godot PCK index stores imported PNGs as their logical .png.import paths.
+RIG_VIEWS = {
+    "pilgrim": ("front", "profile", "back"), "corin": ("front", "profile", "back"),
+    "elder": ("front", "profile", "back"), "samuel": ("front", "profile", "back"),
+    "woman": ("front", "profile", "back"), "boy": ("front", "profile", "back"),
+    "jesse": ("front", "profile", "back"), "eliab": ("front", "profile", "back"),
+    "king": ("front", "profile", "back"),
+}
+REQUIRED_ART = {
+    f"art/characters_reference/{actor}_{view}_{part}.png.import"
+    for actor, views in RIG_VIEWS.items() for view in views
+    for part in ("body", "boot_left", "boot_right")
+} | {
+    "art/characters_reference/boy_front_idle.png.import",
+    "art/scenes_painted/world_elah_reference.png.import",
+    "art/scenes_painted/world_bethlehem_reference.png.import",
+    "art/scenes_painted/shepherd_field_reference.png.import",
+    "art/scenes_painted/shepherd_field_reference_tree.png.import",
+    "art/scenes_painted/shepherd_field_reference_fence.png.import",
+    "art/scenes_painted/shepherd_field_reference_foreground.png.import",
+    "art/props_painted/tent_camp_a.png.import",
+    "art/props_painted/tent_camp_b.png.import",
+    "art/props_painted/tent_royal_open.png.import",
+    "art/props_painted/house_reference_alt.png.import",
+    "art/props_painted/brook_stone_a.png.import",
+    "art/props_painted/brook_stone_b.png.import",
+    "art/props_painted/brook_stone_c.png.import",
+    "art/props_painted/jar.png.import",
+}
+
 
 def paths_in_pack(path: Path) -> set[str]:
     size = path.stat().st_size
@@ -69,6 +101,9 @@ def validate(path: Path, mode: str) -> None:
     missing = needed - names
     if missing:
         raise ValueError("missing game resources: " + ", ".join(sorted(missing)))
+    missing_art = REQUIRED_ART - names
+    if missing_art:
+        raise ValueError("missing runtime art resources: " + ", ".join(sorted(missing_art)))
     generated = sorted(n for n in names if n.startswith("build/"))
     if generated:
         raise ValueError("generated build output in pack: " + ", ".join(generated[:8]))

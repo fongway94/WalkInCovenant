@@ -26,11 +26,15 @@ func _run() -> void:
 	var original_giant_pos := r.goliath_sprite.position
 	_check(ArtDirection.current() == "cinematic" and r._art_theme == "cinematic",
 		"the shared production default applies to Main on this platform")
-	_check(r.terrain.painted_ground != null and r.terrain.painted_ground.resource_path.ends_with("world_elah.png"),
-		"default Elah uses its map-aligned ground")
+	_check(r.terrain.painted_ground != null and r.terrain.painted_ground.resource_path.ends_with("world_elah_reference.png"),
+		"default Elah uses its revised map-aligned ground")
 	_check(r.model._solid == solid_before, "art selection does not alter collision")
 	_check(player.human_visual != null and player.human_visual.visible and not player.sprite.visible,
 		"the witness uses the painted rig")
+	_check(player.human_visual != null and player.human_visual._poses.has("front")
+		and (player.human_visual._poses["front"][0] as Texture2D).resource_path.ends_with(
+			"characters_reference/pilgrim_front_body.png"),
+		"the runtime loads the reference-direction witness assets")
 	if player.human_visual != null:
 		_check(is_equal_approx(player.human_visual.scale.x, Player.WORLD_RIG_SCALE),
 			"the witness is scaled for the tile world")
@@ -41,17 +45,117 @@ func _run() -> void:
 			player.mode = Player.Mode.MOVING
 			player._update_anim(60.0, 0.1)
 			_check(player.human_visual._pose_name == poses[i]
-				and player.human_visual.body.flip_h == (directions[i] == Vector2i(-1, 0)),
+				and player.human_visual.body.flip_h == (directions[i] == Vector2i(-1, 0))
+				and player.human_visual.body.texture.resource_path.ends_with(
+					"characters_reference/pilgrim_%s_body.png" % poses[i]),
 				"witness direction %s selects the correct pose" % str(directions[i]))
 	var corin: Npc = null
 	var boy: Npc = null
+	var woman: Npc = null
 	for n in r.npcs:
 		if n.npc_id() == "corin":
 			corin = n
 		elif n.npc_id() == "hired_boy":
 			boy = n
+		elif n.npc_id() == "woman":
+			woman = n
 	_check(corin != null and corin.human_visual != null and corin.human_visual.visible
 		and not corin.sprite.visible, "Corin is an independent painted actor")
+	for spec in [[boy, "boy", Vector2i(1, 0), "profile"],
+			[boy, "boy", Vector2i(-1, 0), "profile"],
+			[boy, "boy", Vector2i(0, -1), "back"],
+			[woman, "woman", Vector2i(1, 0), "profile"],
+			[woman, "woman", Vector2i(-1, 0), "profile"],
+			[woman, "woman", Vector2i(0, -1), "back"]]:
+		var person: Npc = spec[0]
+		var actor: String = spec[1]
+		var direction: Vector2i = spec[2]
+		var view: String = spec[3]
+		if person == null or person.human_visual == null:
+			_check(false, "%s has a directional rig" % actor)
+			continue
+		person.human_visual.set_pose(direction, false, 0.0, 0.1)
+		_check(person.human_visual._pose_name == view
+			and person.human_visual.body.flip_h == (direction.x < 0)
+			and person.human_visual.body.texture.resource_path.ends_with(
+				"characters_reference/%s_%s_body.png" % [actor, view]),
+			"%s %s uses the generated %s pose" % [actor, str(direction), view])
+	# Saul is spawned later by the story. Exercise that production spawn and
+	# original map position, not a moved stand-in, including all directions.
+	main._spawn_saul()
+	var test_king: Npc = null
+	for n in r.npcs:
+		if n.npc_id() == "saul":
+			test_king = n
+			break
+	_check(test_king != null, "the production Saul spawn is present")
+	if test_king == null:
+		get_tree().quit(1)
+		return
+	var king_anchor := test_king.global_position
+	var royal_tent: Sprite2D = null
+	var royal_shadow: Dictionary = {}
+	for entry in r._prop_sprites:
+		if str(entry["key"]) == "tent" and entry["at"] == Region.ROYAL_TENT_AT:
+			royal_tent = entry["sprite"]
+			royal_shadow = entry["shadow"]
+			break
+	_check(king_anchor == Vector2(344, 670) and royal_tent != null
+		and royal_tent.texture.resource_path.ends_with("/tent_royal_open.png")
+		and royal_tent.get_parent() == r._ys and royal_tent.position.y < king_anchor.y
+		and royal_tent.z_index == test_king.z_index,
+		"Saul stays at his story position and the open tent sorts behind him")
+	_check(royal_tent != null and is_equal_approx(
+		royal_tent.position.y + (royal_tent.offset.y + royal_tent.texture.get_height() * 0.5)
+		* royal_tent.scale.y, float(Region.ROYAL_TENT_AT.y + 1) * Region.TILE)
+		and royal_shadow.get("offset", Vector2.ZERO) == Vector2(0, Region.ROYAL_TENT_SORT_RAISE)
+		and royal_tent.position + Vector2(royal_shadow.get("offset", Vector2.ZERO))
+			== Vector2(336, 688),
+		"the open tent's visual base and shadow retain the authored ground anchor")
+	var player_before_king := player.global_position
+	player.global_position = king_anchor + Vector2(-19, 0)
+	var king_target := r.context_target()
+	_check(str(king_target.get("kind", "")) == "npc" and str(king_target.get("id", "")) == "saul"
+		and player.global_position.distance_to(king_anchor) <= Region.TALK_RANGE,
+		"Saul can be selected from beside the open doorway without changing interaction range")
+	if woman != null:
+		woman.emote("「水烧上了。坐会儿。」")
+		var ct := woman.get_global_transform_with_canvas()
+		var panel := Rect2(ct * woman._bubble.position,
+			Vector2(ct.x.length() * woman._bubble.size.x, ct.y.length() * woman._bubble.size.y))
+		var king_body := woman._actor_canvas_rect(test_king.get_global_transform_with_canvas(),
+			test_king.visual_height()).grow(3.0)
+		_check(woman._bubble.visible and not panel.intersects(king_body)
+			and not panel.intersects(woman._player_canvas_rect())
+			and not panel.intersects(woman._speaker_canvas_rect(ct)),
+			"nearby ambient chatter leaves Saul, its speaker and the player visible")
+		woman._bubble.visible = false
+	else:
+		_check(false, "the camp woman is present to test chatter")
+	player.global_position = player_before_king
+	for item in [[Vector2i(0, 1), "front"], [Vector2i(1, 0), "profile"],
+			[Vector2i(-1, 0), "profile"], [Vector2i(0, -1), "back"]]:
+		var direction: Vector2i = item[0]
+		var pose: String = item[1]
+		test_king.face_toward(king_anchor + Vector2(direction) * 50.0)
+		_check(test_king.human_visual != null and test_king.human_visual._pose_name == pose
+			and test_king.human_visual.body.flip_h == (direction.x < 0)
+			and test_king.human_visual.body.texture.resource_path.ends_with(
+				"characters_reference/king_%s_body.png" % pose)
+			and test_king.global_position == king_anchor,
+			"dynamically spawned Saul keeps his anchor and uses his %s pose" % pose)
+	test_king.apply_art_theme("classic")
+	_check(test_king.sprite.visible and not test_king.human_visual.visible
+		and test_king.sprite.texture.resource_path.ends_with("characters/king_idle.png")
+		and test_king.global_position == king_anchor,
+		"Saul returns to classic art without changing position")
+	test_king.apply_art_theme(ArtDirection.current())
+	_check(test_king.human_visual.visible and not test_king.sprite.visible
+		and test_king.human_visual.body.texture.resource_path.ends_with("characters_reference/king_back_body.png"),
+		"Saul's directional reference art survives a classic round trip")
+	r.npcs.erase(test_king)
+	r._shadow_layer.call("remove_target", test_king)
+	test_king.queue_free()
 	var opening_target := r.context_target()
 	_check(str(opening_target.get("kind", "")) == "npc" and str(opening_target.get("id", "")) == "corin"
 		and absf(player.global_position.x - corin.global_position.x) >= 12.0,
@@ -123,12 +227,25 @@ func _run() -> void:
 		"the larger champion retains his original foot anchor")
 	for key in ["tent", "olive_tree", "rock", "boulder", "jar", "well"]:
 		var prop: Sprite2D = null
+		var expected_path := ""
 		for entry in r._prop_sprites:
 			if str(entry["key"]) == key:
 				prop = entry["sprite"]
+				expected_path = r._map_prop_texture_path(key, "cinematic", entry["at"])
 				break
-		_check(prop != null and prop.texture.resource_path.ends_with("props_painted/%s.png" % key),
+		_check(prop != null and prop.texture.resource_path == expected_path
+			and expected_path.begins_with("res://art/props_painted/"),
 			"%s selects its painted map prop" % key)
+	var tent_variants := {}
+	for entry in r._prop_sprites:
+		if str(entry["key"]) == "tent":
+			var path: String = (entry["sprite"] as Sprite2D).texture.resource_path
+			tent_variants[path] = int(tent_variants.get(path, 0)) + 1
+	_check(tent_variants.get("res://art/props_painted/tent.png", 0) == 2
+		and tent_variants.get("res://art/props_painted/tent_camp_a.png", 0) == 2
+		and tent_variants.get("res://art/props_painted/tent_camp_b.png", 0) == 1
+		and tent_variants.get("res://art/props_painted/tent_royal_open.png", 0) == 1,
+		"the camp includes five varied tents and the single open royal tent")
 	var missing_props: Array = []
 	var anchors_ok := true
 	var world_sizes_ok := true
@@ -138,20 +255,26 @@ func _run() -> void:
 	for entry in r._prop_sprites:
 		var sprite: Sprite2D = entry["sprite"]
 		var key := str(entry["key"])
-		if not sprite.texture.resource_path.ends_with("props_painted/%s.png" % key):
+		if sprite.texture.resource_path != r._map_prop_texture_path(key, "cinematic", entry["at"]) \
+				or not sprite.texture.resource_path.begins_with("res://art/props_painted/"):
 			missing_props.append(key)
-		anchors_ok = anchors_ok and is_equal_approx(sprite.offset.y, -sprite.texture.get_height() * 0.5)
+		var is_royal: bool = key == "tent" and entry["at"] == Region.ROYAL_TENT_AT
+		var sort_raise := Region.ROYAL_TENT_SORT_RAISE if is_royal else 0.0
+		anchors_ok = anchors_ok and is_equal_approx(sprite.offset.y,
+			-sprite.texture.get_height() * 0.5 + sort_raise / sprite.scale.y)
 		if not geometry.has(key):
 			world_sizes_ok = false
 			continue
 		var old_size: Array = geometry[key]["size"]
 		var old_scale := float(Region.PAINTED_PROP_SCALE.get(key, 1.0))
 		var expected := Vector2(float(old_size[0]) / sprite.hframes, float(old_size[1])) * old_scale
+		if is_royal:
+			expected = Vector2(252, 210) * sprite.scale
 		var actual := sprite.texture.get_size() / Vector2(sprite.hframes, sprite.vframes) * sprite.scale
 		world_sizes_ok = world_sizes_ok and actual.is_equal_approx(expected)
 	_check(missing_props.is_empty(), "every actual Elah map prop has painted art: %s" % str(missing_props))
 	_check(anchors_ok and world_sizes_ok,
-		"higher-detail map props retain their previous world sizes and foot anchors")
+		"map props retain foot anchors and their expected sizes, including the larger open tent")
 	var sort_ok := r._ys.y_sort_enabled and r._prop_sprites.size() == r.model.props.size()
 	var shadows_ok := true
 	var fire: Sprite2D = null
@@ -162,16 +285,18 @@ func _run() -> void:
 		var meta: Dictionary = placed["_meta"]
 		var expected_x := (float(placed["at"][0]) + float(meta["w_tiles"]) * 0.5) * 16.0
 		var expected_y := (float(placed["at"][1]) + 1.0) * 16.0
+		var is_royal: bool = str(prop_entry["key"]) == "tent" and prop_entry["at"] == Region.ROYAL_TENT_AT
+		var sort_raise := Region.ROYAL_TENT_SORT_RAISE if is_royal else 0.0
 		sort_ok = sort_ok and visual.get_parent() == r._ys \
 			and absf(visual.position.x - expected_x) <= 0.81 \
-			and absf(visual.position.y - expected_y) <= 0.41
+			and absf(visual.position.y + sort_raise - expected_y) <= 0.41
 		var shadow: Dictionary = prop_entry["shadow"]
 		var expected_width := float(visual.texture.get_width()) / float(visual.hframes) * visual.scale.x * 0.42
-		shadows_ok = shadows_ok and shadow["node"] == visual and shadow["offset"] == Vector2.ZERO \
+		shadows_ok = shadows_ok and shadow["node"] == visual and shadow["offset"] == Vector2(0, sort_raise) \
 			and is_equal_approx(float(shadow["w"]), expected_width)
 		if str(prop_entry["key"]) == "fire":
 			fire = visual
-	_check(sort_ok, "each painted prop y-sorts at its authored footprint, including gentle sway")
+	_check(sort_ok, "props sort at their feet except for the open tent's back wall, including sway")
 	_check(shadows_ok and bool(r._shadow_layer.get("enabled"))
 		and str(r._shadow_layer.get("mode")) == "painted_world",
 		"painted-world shadows follow scaled props at their feet")
@@ -234,8 +359,9 @@ func _run() -> void:
 	player.setup(r.model, "david")
 	r.enter_shepherd_field()
 	_check(is_equal_approx(player.david_visual.scale.x, Player.FIELD_RIG_SCALE)
-		and boy.field_sprite.visible and not boy.human_visual.visible,
-		"the field keeps its approved scale and independent hired boy")
+		and boy.field_sprite.visible and not boy.human_visual.visible
+		and boy.field_sprite.texture.resource_path.ends_with("characters_reference/boy_front_idle.png"),
+		"the field keeps its approved scale and independent reference-styled hired boy")
 	_check(str(r._shadow_layer.get("mode")) == "painted_field",
 		"the approved field keeps its separate shadow treatment")
 	r.leave_shepherd_field()
@@ -290,6 +416,26 @@ func _run() -> void:
 		and r.goliath_sprite.offset == Vector2(0, -8),
 		"classic restores the champion's original geometry")
 	_check(r.model._solid == solid_before, "theme and field round trips preserve collision")
+	var classic_tents := true
+	for entry in r._prop_sprites:
+		if str(entry["key"]) == "tent":
+			classic_tents = classic_tents and (entry["sprite"] as Sprite2D).texture.resource_path \
+				== "res://art/props/tent.png"
+	_check(classic_tents, "all tent variants revert to the original classic texture")
+	_check(royal_tent != null and is_equal_approx(royal_tent.position.y, 688.0)
+		and is_equal_approx(royal_tent.offset.y, -royal_tent.texture.get_height() * 0.5)
+		and royal_shadow.get("offset", Vector2.ZERO) == Vector2.ZERO,
+		"classic restores the royal tent's original sort point and shadow")
+	r.apply_art_theme("cinematic")
+	var restored_tents := {}
+	for entry in r._prop_sprites:
+		if str(entry["key"]) == "tent":
+			var path: String = (entry["sprite"] as Sprite2D).texture.resource_path
+			restored_tents[path] = int(restored_tents.get(path, 0)) + 1
+	_check(restored_tents == tent_variants and r.model._solid == solid_before
+		and royal_tent != null and is_equal_approx(royal_tent.position.y, 688.0 - Region.ROYAL_TENT_SORT_RAISE)
+		and royal_shadow.get("offset", Vector2.ZERO) == Vector2(0, Region.ROYAL_TENT_SORT_RAISE),
+		"a theme round trip restores the open tent and its sort without changing collision")
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -310,12 +456,79 @@ func _run() -> void:
 		and (house.texture.get_size() * house.scale).is_equal_approx(Vector2(66, 83)),
 		"Bethlehem house retains its authored world-sized canvas")
 	var beth_missing: Array = []
+	var house_paths := {}
 	for entry in beth._prop_sprites:
 		var sprite: Sprite2D = entry["sprite"]
 		var key := str(entry["key"])
-		if not sprite.texture.resource_path.ends_with("props_painted/%s.png" % key):
+		if sprite.texture.resource_path != beth._map_prop_texture_path(key, "cinematic", entry["at"]) \
+				or not sprite.texture.resource_path.begins_with("res://art/props_painted/"):
 			beth_missing.append(key)
+		if key == "house":
+			house_paths[sprite.texture.resource_path] = true
 	_check(beth_missing.is_empty(), "every Bethlehem map prop has painted art: %s" % str(beth_missing))
+	_check(house_paths.has("res://art/props_painted/house.png")
+		and house_paths.has("res://art/props_painted/house_reference_alt.png") and house_paths.size() == 2,
+		"Bethlehem's two houses use distinct cosmetic images at their original footprints")
+	var samuel: Npc = null
+	var jesse: Npc = null
+	var eliab: Npc = null
+	for n in beth.npcs:
+		if n.npc_id() == "samuel":
+			samuel = n
+		elif n.npc_id() == "jesse":
+			jesse = n
+		elif n.npc_id() == "eliab":
+			eliab = n
+	_check(samuel != null and jesse != null and eliab != null
+		and samuel.human_visual != null and jesse.human_visual != null and eliab.human_visual != null
+		and (samuel.human_visual._poses["front"][0] as Texture2D).resource_path.ends_with(
+			"characters_reference/samuel_front_body.png")
+		and (jesse.human_visual._poses["front"][0] as Texture2D).resource_path.ends_with(
+			"characters_reference/jesse_front_body.png")
+		and (eliab.human_visual._poses["front"][0] as Texture2D).resource_path.ends_with(
+			"characters_reference/eliab_front_body.png"),
+		"Samuel, Jesse and Eliab use their own generated front appearances")
+	for spec in [[samuel, "samuel"], [jesse, "jesse"], [eliab, "eliab"]]:
+		var person: Npc = spec[0]
+		var actor: String = spec[1]
+		if person == null or person.human_visual == null:
+			_check(false, "%s has a directional rig" % actor)
+			continue
+		var anchor := person.global_position
+		for turn in [[Vector2i(0, 1), "front"], [Vector2i(1, 0), "profile"],
+				[Vector2i(-1, 0), "profile"], [Vector2i(0, -1), "back"]]:
+			var direction: Vector2i = turn[0]
+			var pose: String = turn[1]
+			person.face_toward(anchor + Vector2(direction) * 50.0)
+			_check(person.human_visual._pose_name == pose
+				and person.human_visual.body.flip_h == (direction.x < 0)
+				and person.human_visual.body.texture.resource_path.ends_with(
+					"characters_reference/%s_%s_body.png" % [actor, pose])
+				and person.global_position == anchor,
+				"%s keeps his anchor and uses his %s pose" % [actor, pose])
+	if samuel != null and samuel.human_visual != null:
+		_check(is_equal_approx(samuel.visual_height(), 76.0 * Player.WORLD_RIG_SCALE)
+			and samuel.human_visual.boot_left.texture.get_image().get_used_rect().size == Vector2i.ZERO
+			and samuel.human_visual.boot_right.texture.get_image().get_used_rect().size == Vector2i.ZERO,
+			"seated Samuel's marker uses his shorter silhouette and his stool stays intact")
+		samuel.human_visual.set_pose(Vector2i(1, 0), true, 60.0, 0.25)
+		_check(not samuel.human_visual.moving and samuel.human_visual.gait_amount == 0.0
+			and samuel.human_visual.body.position == Vector2.ZERO,
+			"a walking request cannot animate Samuel's seated figure or stool")
+	for person in [samuel, jesse, eliab]:
+		if person == null or person.human_visual == null:
+			continue
+		var anchor: Vector2 = person.global_position
+		person.apply_art_theme("classic")
+		_check(person.sprite.visible and not person.human_visual.visible
+			and person.sprite.texture.resource_path.ends_with("characters/%s_idle.png" % person.actor_id)
+			and person.global_position == anchor,
+			"%s returns to classic art at the same position" % person.actor_id)
+		person.apply_art_theme(ArtDirection.current())
+		_check(person.human_visual.visible and not person.sprite.visible
+			and person.human_visual.body.texture.resource_path.ends_with(
+				"characters_reference/%s_%s_body.png" % [person.actor_id, person.human_visual._pose_name]),
+			"%s restores dedicated reference art after a classic round trip" % person.actor_id)
 	_check(beth.model._solid == beth_solid, "painted Bethlehem retains its original collision")
 	beth.queue_free()
 	await get_tree().process_frame
@@ -323,6 +536,8 @@ func _run() -> void:
 	var practice := SlingPractice.new()
 	add_child(practice)
 	_check(practice.art_theme == ArtDirection.current(), "practice inherits the shared default")
+	_check(SlingPractice.PAINTED_JAR.resource_path.ends_with("props_painted/jar.png"),
+		"practice targets use the painted jar while retaining their timing")
 	practice.start(3)
 	_check(practice._player.expand_mode == TextureRect.EXPAND_IGNORE_SIZE
 		and practice._player.mouse_filter == Control.MOUSE_FILTER_IGNORE,
@@ -343,6 +558,11 @@ func _run() -> void:
 	var brook := StoneChoice.new()
 	add_child(brook)
 	_check(brook.art_theme == ArtDirection.current(), "brook inherits the shared default")
+	_check(StoneChoice.PAINTED_STONES.size() == 3
+		and (StoneChoice.PAINTED_STONES[0] as Texture2D).resource_path.ends_with("brook_stone_a.png")
+		and (StoneChoice.PAINTED_STONES[1] as Texture2D).resource_path.ends_with("brook_stone_b.png")
+		and (StoneChoice.PAINTED_STONES[2] as Texture2D).resource_path.ends_with("brook_stone_c.png"),
+		"brook has three preloaded selectable-stone appearances")
 	brook.start(5, 9)
 	var max_y := 0.0
 	for stone in brook.stones:

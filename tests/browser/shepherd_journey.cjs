@@ -48,6 +48,9 @@ async function makePage(browser, label) {
 
 const pause = (p, ms) => p.waitForTimeout(ms);
 const state = (p, key) => p.evaluate(k => window[k], key);
+function overlaps([x, y, w, h], [a, b, c, d]) {
+  return x < a + c && x + w > a && y < b + d && y + h > b;
+}
 async function press(p) { await p.keyboard.press('Space'); await pause(p, 420); }
 
 async function clickLanguage(p, s) {
@@ -318,13 +321,40 @@ async function continueChapter(p, key) {
     console.log(`walked to ${item.id}: provisions ${s.provisions}/3`);
   }
   assert(s.provisions === 3, 'walked to and collected all three provisions');
+  let brother = s.people.find(n => n.id === 'eliab');
+  assert(brother && brother.actor === 'eliab' && brother.appearance.includes('/eliab_') && !brother.can_talk,
+    'Eliab waits at the brothers’ post with his own art and no empty interaction');
   const brothers = [s.brothers_at[0] * 16 + 8, s.brothers_at[1] * 16 + 8];
-  s = await walkTo(p, key, 'brothers', brothers, 18, v => v.brothers_met);
+  s = await walkTo(p, key, 'brothers', brothers, 18, v => v.brothers_scene && v.dialogue);
+  brother = s.people.find(n => n.id === 'eliab');
+  assert(brother && brother.appearance.includes('/eliab_') &&
+    Math.hypot(brother.pos[0] - s.player[0], brother.pos[1] - s.player[1]) < 50,
+    'the real brothers’ scene shows Eliab near David, not just a dialogue portrait');
+  await pause(p, 350);
+  await p.screenshot({ path: path.join(out, '03_brothers_scene.png') });
+  s = await waitState(p, key, 'brothers scene closes', v => v.brothers_met && !v.dialogue && !v.paused,
+    true, 120000);
   assert(s.brothers_met, 'walking to the brothers advances their story beat');
   s = await waitState(p, key, 'Saul in camp', v => v.act === 'saul' && !v.dialogue && !v.paused
     && v.people.some(n => n.id === 'saul'), true);
   const king = s.people.find(n => n.id === 'saul');
-  await walkTo(p, key, 'Saul', king.pos, 14, v => v.target_kind === 'npc' && v.target === 'saul');
+  // Approach from the open side of the tent, at a readable speaking distance.
+  // This is real input on the original collision map, not a teleported fixture.
+  const talkSpot = [king.pos[0] - 16, Math.floor(king.pos[1] / 16) * 16 + 8];
+  s = await walkTo(p, key, 'Saul', talkSpot, 5, v => v.target_kind === 'npc' && v.target === 'saul'
+    && v.player[0] <= king.pos[0] - 14 && Math.abs(v.player[1] - king.pos[1]) <= 10);
+  assert(Math.hypot(s.player[0] - king.pos[0], s.player[1] - king.pos[1]) < 22,
+    'Saul is reachable at a clear speaking distance beside his open tent');
+  // Wait for real ambient chatter at its production cooldown; do not trigger a
+  // synthetic emote. It formerly covered the king in this exact journey.
+  s = await waitState(p, key, 'natural camp chatter', v => v.bubbles.some(b => b.id === 'woman'),
+    false, 45000);
+  const liveKing = s.people.find(n => n.id === 'saul');
+  const chatter = s.bubbles.find(b => b.id === 'woman');
+  assert(liveKing && chatter && !overlaps(chatter.rect, liveKing.rect),
+    'the nearby woman’s natural chatter leaves Saul visible');
+  // Retain the real journey frame before interaction, with every prop visible.
+  await p.screenshot({ path: path.join(out, '04_saul_in_camp.png') });
   await press(p);
   s = await waitState(p, key, 'wearing armour', v => v.act === 'armour' && v.armour
     && !v.dialogue && !v.paused, true, 90000);

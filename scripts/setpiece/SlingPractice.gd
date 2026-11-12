@@ -22,6 +22,7 @@ const BAND_START := 0.26       # generous: half the world is not a test
 const BAND_STEP := 0.03
 const PAINTED_BG := preload("res://art/scenes_painted/practice.png")
 const PAINTED_DAVID := preload("res://art/proto/sprites/david_reference.png")
+const PAINTED_JAR := preload("res://art/props_painted/jar.png")
 
 enum Phase { AIM, RESOLVE, DONE }
 
@@ -209,25 +210,13 @@ func _say(text: String, secs: float = 1.4) -> void:
 
 
 # ── drawing ──────────────────────────────────────────────────────────────
-## An uneven, shaded silhouette rather than a flat rectangular target. Each jar
-## is still drawn independently so it can break when the player actually hits.
+## Use the same source-detailed clay as the world, without changing the
+## target positions, timing, or the shards drawn after a successful hit.
 func _draw_painted_jar(foot: Vector2) -> void:
 	_layer.draw_circle(foot + Vector2(1, 0), 6.5, Color(0.08, 0.10, 0.06, 0.28))
-	var outline := PackedVector2Array([
-		foot + Vector2(-4, -20), foot + Vector2(4, -20),
-		foot + Vector2(4, -17), foot + Vector2(7, -13),
-		foot + Vector2(6, -4), foot + Vector2(4, -1),
-		foot + Vector2(-4, -1), foot + Vector2(-6, -4),
-		foot + Vector2(-7, -13), foot + Vector2(-4, -17)])
-	_layer.draw_colored_polygon(outline, Color(0.25, 0.15, 0.09))
-	var clay := PackedVector2Array([
-		foot + Vector2(-3, -17), foot + Vector2(3, -17),
-		foot + Vector2(5, -12), foot + Vector2(4, -4),
-		foot + Vector2(2, -2), foot + Vector2(-3, -3),
-		foot + Vector2(-5, -7), foot + Vector2(-5, -13)])
-	_layer.draw_colored_polygon(clay, Color(0.68, 0.38, 0.21))
-	_layer.draw_line(foot + Vector2(-3, -15), foot + Vector2(-3, -6), Color(0.91, 0.63, 0.35), 1.5)
-	_layer.draw_line(foot + Vector2(-4, -19), foot + Vector2(4, -19), Color(0.84, 0.55, 0.30), 2.0)
+	# The 18x26 canvas includes transparent space above the visible jar; its
+	# bottom therefore stays exactly on the existing target foot position.
+	_layer.draw_texture_rect(PAINTED_JAR, Rect2(foot + Vector2(-9, -26), Vector2(18, 26)), false)
 
 
 func _draw_all() -> void:

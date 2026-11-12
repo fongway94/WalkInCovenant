@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check reproducibility, field masking and prop geometry; not an art review.
+"""Check reproducibility, field masking, actors and prop geometry; not an art review.
 
 Requires Pillow 13.0.0. Runs entirely on the committed source images and does
 not touch game saves or overwrite any output textures.
@@ -22,6 +22,9 @@ import build_reference_field as field  # noqa: E402
 import build_world_ground as world  # noqa: E402
 import build_reference_props as reference_props  # noqa: E402
 import build_painted_props as painted_props  # noqa: E402
+import build_reference_world as continuation  # noqa: E402
+import build_reference_characters as characters  # noqa: E402
+import build_reference_variants as variants  # noqa: E402
 from prop_detail import DETAIL_FACTOR  # noqa: E402
 
 
@@ -33,14 +36,14 @@ def same_pixels(generated, path):
 
 def source_point_to_field(x, y):
     # Forward registration, for checking that every actor exclusion survives.
-    denominator = 0.0000000393956484 * x - 0.000000903656387 * y + 1.0
-    return (round((1.95901326 * x - 0.000350231808 * y + 4.92095688) / denominator),
-            round((0.0000507730048 * x + 1.96166493 * y - 75.0694105) / denominator))
+    denominator = 0.0000000893508570 * x - 0.000000537761701 * y + 1.0
+    return (round((1.43202038 * x - 0.000241270343 * y - 2.74793799) / denominator),
+            round((-0.0000121064900 * x + 1.43371684 * y - 83.2078352) / denominator))
 
 
 def check_field():
     digest = hashlib.sha256(field.REFERENCE.read_bytes()).hexdigest()
-    assert digest == "7529dccc897638aeba86f33af8e5fa3d069ce5d92edeb80de4369f272a69a3ca"
+    assert digest == "73d0baa80239745904985e4348e45238b9ae9e41dedf0b90e3d60b87957a2833"
     images, mask = field.build()
     for name, image in images.items():
         assert same_pixels(image, field.OUT / name), "non-reproducible field: " + name
@@ -105,6 +108,91 @@ def check_props():
     print("20 source-rebuilt props, legacy bounds, animation and both map inventories: PASS")
 
 
+def check_continuations():
+    for region in ("elah", "bethlehem"):
+        image, mask = continuation.continuation(region)
+        path = Path("art/scenes_painted/world_" + region + "_reference.png")
+        assert same_pixels(image, path), "non-reproducible ground: " + region
+        data = json.loads(Path("data/regions/" + region + ".json").read_text())
+        base = Image.open(Path("art/scenes_painted/world_" + region + ".png")).convert("RGB")
+        assert image.size == base.size
+        water = world.tile_mask(data["grid"], "~=", image.size, 0)
+        assert ImageChops.multiply(mask, water).getbbox() is None, "meadow changed a crossing: " + region
+        diff = ImageChops.difference(image, base).convert("L")
+        assert ImageChops.multiply(diff, water).getbbox() is None, "water pixels changed: " + region
+        assert mask.getbbox() is not None, "missing meadow continuation: " + region
+    print("two map-aligned meadow continuations and untouched water: PASS")
+
+
+def check_people():
+    outputs = dict(characters.build_all())
+    actual = {p.name for p in Path("art/characters_reference").glob("*.png")}
+    assert len(outputs) == 108 and set(outputs) == actual, "unexpected character output set"
+    expected_views = {
+        actor: {"front", "profile", "back"}
+        for actor in ("pilgrim", "corin", "elder", "woman", "boy", "samuel", "jesse", "eliab", "king")
+    }
+    assert characters.SEATED_HEIGHT == 76
+    assert {actor: set(views) for actor, views in characters.ACTORS.items()} == expected_views
+    for actor, views in characters.ACTORS.items():
+        for pose, source in views.items():
+            assert source == f"reference_{actor}_{pose}.png", "unexpected source for " + actor + "/" + pose
+    for name, image in outputs.items():
+        assert image.mode == "RGBA" and image.size == (70, 98), name
+        assert same_pixels(image, Path("art/characters_reference") / name), "non-reproducible: " + name
+        if name.endswith("_idle.png"):
+            assert image.getchannel("A").getbbox() is not None, "empty actor: " + name
+            visible_key = [(r, g, b) for r, g, b, a in image.get_flattened_data()
+                           if a > 200 and r > 140 and b > 140 and g < 70]
+            assert not visible_key, "visible magenta key in " + name
+            prefix = name[:-len("idle.png")]
+            parts = [outputs[prefix + part + ".png"] for part in ("body", "boot_left", "boot_right")]
+            alpha = [part.getchannel("A") for part in parts]
+            if name.startswith("samuel_"):
+                bounds = image.getchannel("A").getbbox()
+                assert bounds[1] >= 98 - characters.SEATED_HEIGHT and bounds[3] == 98, name
+                assert alpha[1].getbbox() is None and alpha[2].getbbox() is None, "seated stool was split: " + name
+                assert alpha[0].tobytes() == image.getchannel("A").tobytes(), "seated body changed: " + name
+            assert all(ImageChops.multiply(alpha[a], alpha[b]).getbbox() is None
+                       for a, b in ((0, 1), (0, 2), (1, 2))), "overlapping layers: " + name
+            combined = ImageChops.add(ImageChops.add(alpha[0], alpha[1]), alpha[2])
+            assert combined.tobytes() == image.getchannel("A").tobytes(), "missing layer pixels: " + name
+            for part, part_alpha in zip(parts, alpha):
+                difference = ImageChops.difference(part.convert("RGB"), image.convert("RGB"))
+                for channel in difference.split():
+                    assert ImageChops.multiply(channel, part_alpha).getbbox() is None, "layer colour: " + name
+    print("27 foot-anchored actor views, 108 reproducible layers and clean mattes: PASS")
+
+
+def check_variants():
+    expected = {"tent_camp_a.png": (156, 108), "tent_camp_b.png": (156, 108),
+                "tent_royal_open.png": (252, 210), "house_reference_alt.png": (198, 249),
+                "brook_stone_a.png": (54, 36), "brook_stone_b.png": (54, 36),
+                "brook_stone_c.png": (54, 36)}
+    outputs = dict(variants.build_all())
+    assert set(outputs) == set(expected)
+    for name, image in outputs.items():
+        assert image.mode == "RGBA" and image.size == expected[name]
+        assert same_pixels(image, Path("art/props_painted") / name), "non-reproducible: " + name
+        bounds = image.getchannel("A").getbbox()
+        assert bounds is not None, "empty variant: " + name
+        if name.startswith("tent_"):
+            assert bounds[3] >= image.height - 2, "tent foot anchor changed: " + name
+        if name == "tent_royal_open.png":
+            # The rear curtain ends at Saul's authored foot depth, leaving the
+            # ground and his shadow visible while the tied curtains remain.
+            assert image.getpixel((126, 149))[3] > 200
+            assert image.getpixel((126, 150))[3] == 0
+            assert image.getpixel((10, 200))[3] > 200
+            assert image.getpixel((240, 200))[3] > 200
+        if name.startswith("house_"):
+            assert bounds[3] == 249, "house foot anchor changed: " + name
+    print("seven cosmetic tent, house and brook-stone variants: PASS")
+
+
 if __name__ == "__main__":
     check_field()
     check_props()
+    check_continuations()
+    check_people()
+    check_variants()

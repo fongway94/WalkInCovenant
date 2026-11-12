@@ -459,6 +459,27 @@ jobs:
           echo "render exit=$STATUS"
           exit $STATUS
 
+      - name: Check Saul and nearby chatter in the rendered camp
+        run: |
+          mkdir -p "$RUNNER_TEMP/wic-reference" build
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-reference"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/reference_visual_probe.tscn > reference-visual.txt 2>&1 || STATUS=$?
+          cat reference-visual.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|not visible|covers Saul|did not detect' reference-visual.txt | head -8 || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || ! grep -q 'reference visual fixture finished' reference-visual.txt; then
+            echo "::error::Reference camp render failed (exit $STATUS): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+          grep -aE 'framebuffer delta|occluded lower-body control|fixture finished' reference-visual.txt \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+
       - name: Console and runtime error gate
         if: always()
         run: |
@@ -619,6 +640,17 @@ jobs:
         with:
           name: frames
           path: build/frames
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-camp-review
+          path: |
+            build/reference-pass-captures/saul-front.png
+            build/reference-pass-captures/saul-chatter.png
+            build/reference-pass-captures/saul-tent-behind.png
+            build/reference-pass-captures/saul-tent-front.png
           if-no-files-found: ignore
 
       - name: Fail the job if rendering failed

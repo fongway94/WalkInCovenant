@@ -745,6 +745,15 @@ func _run() -> void:
 	_drain(region.dialogue)
 	await _frames(2)
 	_check(not region._paused, "the errand releases the world")
+	var brother: Npc = _find_npc(region, "eliab")
+	_check(brother != null and brother.visible and brother.actor_id == "eliab"
+		and brother.human_visual != null and brother.human_visual.visible
+		and brother.human_visual.body.texture.resource_path.ends_with("characters_reference/eliab_front_body.png")
+		and not brother.can_talk(),
+		"Eliab appears at the brothers' post without offering an empty interaction")
+	var actor_count: int = region.npcs.size()
+	_check(main._spawn_errand_brother() == brother and region.npcs.size() == actor_count,
+		"replaying the errand opening cannot duplicate Eliab")
 
 	# ── 6b. the errand ───────────────────────────────────────────────────
 	var prov_spawned := 0

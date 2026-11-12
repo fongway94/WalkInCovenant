@@ -732,12 +732,36 @@ func _speaker(who: String) -> Dictionary:
 	return {"name": I18n.t(nm), "actor": str(nm.get("actor", who))}
 
 
+## Put Eliab at the brothers' post when the errand starts. He is a visual
+## participant in the automatic scene, not a second, empty conversation. This
+## is idempotent because the errand opening can be replayed after a reload.
+func _spawn_errand_brother() -> Npc:
+	if region == null or region.region_id != "elah":
+		return null
+	var existing := _npc("eliab")
+	if existing != null:
+		return existing
+	var post: Array = region.model.david_act.get("brothers_at", [16, 40])
+	if post.size() != 2:
+		return null
+	var at := region.model.nearest_open(Vector2i(int(post[0]) - 1, int(post[1]) - 1))
+	var speakers: Dictionary = region.model.david_act.get("speakers", {})
+	var person: Dictionary = speakers.get("eliab", {})
+	return region.spawn_npc({"id": "eliab", "actor": "eliab", "at": [at.x, at.y],
+		"name": {"en": str(person.get("en", "Eliab")), "zh": str(person.get("zh", "以利押"))},
+		"story_only": true})
+
+
 ## The brothers see him arrive with bread and want him gone. This is the last
 ## beat before the fight and it is straight out of 1 Samuel 17:28.
 func _brothers_beat() -> void:
 	if _brothers_met:
 		return
 	_brothers_met = true
+	var brother := _spawn_errand_brother()
+	if brother != null and region.player != null:
+		brother.face_toward(region.player.global_position)
+		region.player.face_toward(brother.global_position)
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
 	region.dialogue.show_lines(lines, _speaker, func():
@@ -1643,6 +1667,7 @@ func _start_errand() -> void:
 		region.leave_shepherd_field()
 		hud.refresh_place()
 		_place_at(st)
+		_spawn_errand_brother()
 		# The shepherd slope was dusk. Morning returns with the errand, so the
 	# two acts are visibly different days and the light is not a UI trick.
 		region.set_time_of_day("morning")

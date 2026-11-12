@@ -13,9 +13,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-from check_pack_contents import PROBES, paths_in_pack, validate  # noqa: E402
+from check_pack_contents import PROBES, REQUIRED_ART, paths_in_pack, validate  # noqa: E402
 
-GAME = ["project.binary", "scenes/main/Main.tscn.remap"]
+GAME = ["project.binary", "scenes/main/Main.tscn.remap"] + sorted(REQUIRED_ART)
 TEST_SCENES = [f"tests/browser/{name}_probe.tscn.remap" for name in PROBES]
 
 
@@ -53,6 +53,21 @@ class PackBoundaryTests(unittest.TestCase):
             self.check(GAME + ["tests/browser/shepherd_probe.tscn.remap"], "release")
         with self.assertRaisesRegex(ValueError, "missing game resources"):
             self.check(["project.binary"], "release")
+
+    def test_both_pack_modes_require_dynamic_reference_art(self) -> None:
+        for mode, names in (("release", GAME), ("probes", GAME + TEST_SCENES)):
+            for art in ("art/characters_reference/samuel_front_body.png.import",
+                        "art/characters_reference/samuel_back_body.png.import",
+                        "art/characters_reference/woman_back_body.png.import",
+                        "art/characters_reference/boy_back_body.png.import",
+                        "art/characters_reference/jesse_profile_body.png.import",
+                        "art/characters_reference/eliab_back_body.png.import",
+                        "art/characters_reference/king_front_body.png.import",
+                        "art/scenes_painted/world_elah_reference.png.import",
+                        "art/props_painted/tent_royal_open.png.import",
+                        "art/props_painted/brook_stone_a.png.import"):
+                with self.subTest(mode=mode, art=art), self.assertRaisesRegex(ValueError, "missing runtime art resources"):
+                    self.check([name for name in names if name != art], mode)
 
     def test_probe_pack_requires_every_browser_scene_and_game(self) -> None:
         self.check(GAME + TEST_SCENES, "probes")

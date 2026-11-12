@@ -52,12 +52,26 @@ func _publish() -> void:
 	var departing: Array = []
 	var pickups: Array = []
 	var people: Array = []
+	var bubbles: Array = []
 	var provision_count := 0
 	for person in r.npcs:
 		if person.visible:
-			people.append({"id": person.npc_id(),
+			var appearance := ""
+			if person.human_visual != null and person.human_visual.visible \
+					and person.human_visual.body.texture != null:
+				appearance = person.human_visual.body.texture.resource_path
+			var ct := person.get_global_transform_with_canvas()
+			var body := person._speaker_canvas_rect(ct).grow(3.0)
+			people.append({"id": person.npc_id(), "actor": person.actor_id,
 				"pos": [person.global_position.x, person.global_position.y],
-				"can_talk": person.can_talk()})
+				"rect": [body.position.x, body.position.y, body.size.x, body.size.y],
+				"appearance": appearance, "can_talk": person.can_talk()})
+			if person._bubble != null and person._bubble.visible:
+				var top_left: Vector2 = ct * person._bubble.position
+				var extent := Vector2(ct.x.length() * person._bubble.size.x,
+					ct.y.length() * person._bubble.size.y)
+				bubbles.append({"id": person.npc_id(),
+					"rect": [top_left.x, top_left.y, extent.x, extent.y]})
 	for item in r.pickups:
 		var entry: Dictionary = item
 		var node = entry.get("node")
@@ -118,7 +132,7 @@ func _publish() -> void:
 			journal_rect.size.x, journal_rect.size.y],
 		"target": str(target.get("id", "")), "target_kind": str(target.get("kind", "")),
 		"animals": animals, "departing": departing, "pickups": pickups, "people": people,
-		"bubble": bubble, "map": map_rows, "exits": r.model.exits,
+		"bubble": bubble, "bubbles": bubbles, "map": map_rows, "exits": r.model.exits,
 		"word_count": (GameState.data.get("words", []) as Array).size(),
 		"saw_giant": bool(GameState.flag("elah_saw_him")),
 		"met_line": bool(GameState.flag("elah_met_the_line")),
@@ -132,6 +146,7 @@ func _publish() -> void:
 		"flock_done": bool(GameState.flag("elah_flock_done")),
 		"drill_done": bool(GameState.flag("elah_drill_done")),
 		"brothers_met": bool(GameState.flag("elah_brothers_met")),
+		"brothers_scene": main._brothers_met and main.act_id() == "errand",
 		"armour_off": bool(GameState.flag("elah_armour_off")),
 		"goliath_down": bool(GameState.flag("goliath_down")),
 		"talked_corin": bool(GameState.flag("talked:elah:corin")),
