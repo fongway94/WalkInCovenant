@@ -105,6 +105,11 @@ func apply_art_theme(theme: String) -> void:
 			and ResourceLoader.exists("%s/sheep_graze.png" % alt) \
 			and ResourceLoader.exists("%s/sheep_alert.png" % alt):
 		d = alt
+	var painted := "res://art/props_painted"
+	if theme == "cinematic" and ResourceLoader.exists(painted + "/sheep.png") \
+			and ResourceLoader.exists(painted + "/sheep_graze.png") \
+			and ResourceLoader.exists(painted + "/sheep_alert.png"):
+		d = painted
 	_up_tex = load("%s/sheep.png" % d)
 	_graze_tex = load("%s/sheep_graze.png" % d)
 	_alert_tex = load("%s/sheep_alert.png" % d)
@@ -116,6 +121,12 @@ func apply_art_theme(theme: String) -> void:
 			_sprite.texture = _alert_tex
 		else:
 			_sprite.texture = _up_tex
+		if d == painted:
+			_sprite.scale = Vector2.ONE * 0.425
+			_sprite.offset = Vector2(0, -float(_up_tex.get_height()) * 0.5)
+		else:
+			_sprite.scale = Vector2.ONE * 0.85
+			_sprite.offset = Vector2.ZERO
 
 
 ## The production field uses the same independent reference-derived sheep as

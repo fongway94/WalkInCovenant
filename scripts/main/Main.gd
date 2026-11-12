@@ -123,6 +123,7 @@ func _ready() -> void:
 	journal = Journal.new()
 	add_child(journal)
 	journal.closed.connect(_close_journal)
+	journal.journey_requested.connect(_switch_journey)
 	# The language switch lives on the HUD, which is always on screen — including
 	# around an open book. One connection, made once, so a reprinted page cannot
 	# re-connect itself into a second call.
@@ -149,6 +150,10 @@ func _ready() -> void:
 	add_child(runner)
 
 	_build_region(_boot_region_id(), "")
+	# A damaged original is deliberately never overwritten with a fresh game.
+	# Tell the player immediately that this session cannot save its progress.
+	if GameState.save_protected():
+		call_deferred("_open_journal")
 
 
 ## Which region the save is in. A journey writes it; a cold boot reads it, so a
@@ -697,7 +702,7 @@ func _autosave() -> void:
 	_save_progress()
 
 
-func _save_progress() -> void:
+func _save_progress() -> bool:
 	var t := _tile_of(region.player.global_position)
 	GameState.data["pos"] = [t.x, t.y]
 	GameState.data["region"] = str(region.region_id)
@@ -708,7 +713,7 @@ func _save_progress() -> void:
 		"brothers": _brothers_met,
 		"pos": [t.x, t.y],
 	}
-	GameState.save_game()
+	return GameState.save_game()
 
 
 func _tile_of(pos: Vector2) -> Vector2i:
@@ -1041,6 +1046,12 @@ func _resume_story() -> void:
 	provisions = int(pr.get("provisions", 0))
 	_brothers_met = bool(pr.get("brothers", false))
 	_restore_pos(pr)
+	# A finished original journey is free roam, not an unfinished aftermath.
+	# Do not re-enter its last mission or replay Corin's ending on every reload.
+	if region.region_id == "elah" and bool(GameState.flag("elah_ended")):
+		act = Act.DONE
+		_resume_index = runner.count()
+		return
 	# The giant is down. If the ending never played, Corin still owes it to you.
 	if bool(GameState.flag("goliath_down")):
 		_resume_index = runner.index_of("aftermath")
@@ -1523,7 +1534,24 @@ func _print_journal() -> void:
 	# out of the boot: the modern-day arrival and the controls, still in the
 	# region's own data, readable whenever the player is curious.
 	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
-		stones, _stones_total, seals, titles, background_lines())
+		stones, _stones_total, seals, titles, background_lines(),
+		GameState.has_replay(), GameState.replay_is_active())
+
+
+## Save the actual world before changing slots. A replay is never a reset of the
+## existing save; each journey can be resumed from this same book. Do not let
+## the old Main autosave its world into the newly selected slot during reload.
+func _switch_journey() -> void:
+	if _travelling or region == null or journal == null or not journal.is_open():
+		return
+	_travelling = true
+	if not _save_progress() or not GameState.switch_journey():
+		_travelling = false
+		journal.journey_switch_failed()
+		return
+	set_process(false)
+	region.set_paused(true)
+	get_tree().call_deferred("reload_current_scene")
 
 
 ## The two HUD switches can be pressed with the book open. Everything on the

@@ -17,6 +17,16 @@ const TALK_RANGE := 22.0
 ## Props that breathe. One pixel, slow, phase-offset per instance; frozen while
 ## a dialogue box owns the picture. No marker, no reward, no gameplay meaning.
 const SWAY_KEYS := ["wheat_sheaf", "bush", "wool_tuft"]
+## Painted props may have a higher-resolution canvas or a larger visual than
+## their legacy sheet. These are visual scales only; collision still comes from
+## data/props.json. Every sprite is bottom anchored at its original map tile.
+const PAINTED_PROP_SCALE := {
+	"tent": 0.90, "jar": 0.72, "well": 1.25,
+	"fire": 0.50, "altar_stones": 0.50, "fold": 0.50,
+	"trough": 0.50, "staff": 0.50, "wheat_sheaf": 0.50,
+	"bush": 0.50, "wool_tuft": 0.50, "signpost": 0.50,
+	"sheep": 0.50, "sheep_graze": 0.50, "sheep_alert": 0.50,
+}
 ## Anything within this radius of an exit tile can be left through it.
 const EXIT_RANGE := 13.0
 ## How long after a box closes the A button is ignored. Long enough to swallow
@@ -184,6 +194,12 @@ func _prop_texture_path(key: String, theme: String) -> String:
 	return chosen
 
 
+func _prop_visual_scale(key: String, theme: String, path: String) -> float:
+	if theme == "cinematic" and path.begins_with("res://art/props_painted/"):
+		return float(PAINTED_PROP_SCALE.get(key, 1.0))
+	return 1.0
+
+
 func _spawn_props() -> void:
 	for p in model.props:
 		var key: String = p["type"]
@@ -201,13 +217,17 @@ func _spawn_props() -> void:
 		# anchor: bottom-left tile of footprint → centre the sprite over it
 		var cx: float = (tx + float(meta.get("w_tiles", 1)) * 0.5) * TILE
 		var cy: float = (ty + 1) * TILE
-		s.position = Vector2(cx, cy - h * 0.5)
+		# Y-sort at the feet, not at the image centre. Larger art can then
+		# overlap the scenery naturally without moving the actual footprint.
+		s.position = Vector2(cx, cy)
+		s.offset = Vector2(0, -h * 0.5)
 		s.z_index = 0
 		_ys.add_child(s)
-		_prop_sprites.append({"sprite": s, "key": key})
-		_shadow_layer.call("add_target", s, w * 0.42, 2.6, Vector2(0, h * 0.5))
+		_shadow_layer.call("add_target", s, w * 0.42, 2.6)
+		var targets: Array = _shadow_layer.get("targets")
+		_prop_sprites.append({"sprite": s, "key": key, "shadow": targets.back()})
 		if SWAY_KEYS.has(key):
-			_swayers.append({"sprite": s, "x": cx, "y": cy - h * 0.5,
+			_swayers.append({"sprite": s, "x": cx, "y": cy,
 				"phase": float(tx) * 0.37 + float(ty) * 0.19})
 		if fr > 1:
 			var t := Timer.new()
@@ -230,7 +250,7 @@ func _apply_giant_theme(theme: String) -> void:
 		# Roughly twice the height of a painted overworld person, while its
 		# node and contact shadow stay at the same original foot position.
 		s.offset = Vector2(0, -64)
-		s.scale = Vector2.ONE * 0.35
+		s.scale = Vector2.ONE * 0.40
 	else:
 		s.texture = load("res://art/characters/goliath_idle.png")
 		s.hframes = 2
@@ -364,11 +384,12 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 	else:
 		node = Node2D.new()
 		node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
-		var tex := load(_prop_texture_path(sprite, _art_theme))
+		var path := _prop_texture_path(sprite, _art_theme)
+		var tex := load(path)
 		if tex != null:
 			var sp := Sprite2D.new()
 			sp.texture = tex
-			sp.scale = Vector2(0.85, 0.85)
+			sp.scale = Vector2.ONE * (0.85 * _prop_visual_scale(sprite, _art_theme, path))
 			node.add_child(sp)
 	_ys.add_child(node)
 	var shadow_width := 12.0 if kind == "flock" and shepherd_field != null else 10.0
@@ -868,15 +889,21 @@ func apply_art_theme(theme: String) -> void:
 	else:
 		terrain.set_painted_ground(null)
 	_apply_giant_theme(theme)
-	# Crafted props are OPT-IN per key: anything without a crafted variant keeps
-	# its classic sprite, so no prop ever disappears and no footprint changes.
+	# A prop's texture and visual scale are reversible. Its bottom stays on
+	# the original tile, and its shadow follows its displayed width.
 	for p in _prop_sprites:
 		var d: Dictionary = p
 		var s: Sprite2D = d["sprite"]
 		var key: String = d["key"]
-		var pt := load(_prop_texture_path(key, theme)) as Texture2D
+		var prop_path := _prop_texture_path(key, theme)
+		var pt := load(prop_path) as Texture2D
 		if pt != null:
 			s.texture = pt
+			var visual_scale := _prop_visual_scale(key, theme, prop_path)
+			s.scale = Vector2.ONE * visual_scale
+			s.offset = Vector2(0, -float(pt.get_height()) / float(s.vframes) * 0.5)
+			var shadow: Dictionary = d["shadow"]
+			shadow["w"] = float(pt.get_width()) / float(s.hframes) * visual_scale * 0.42
 	# The two actors in this scene have crafted 16px sheets. Other actors keep
 	# their classic sheets (their own apply_art_theme checks for both files).
 	if player != null and is_instance_valid(player):
@@ -904,9 +931,10 @@ func apply_art_theme(theme: String) -> void:
 				if c is Sprite2D:
 					var sp: Sprite2D = c
 					sp.texture = load(chosen)
+					sp.scale = Vector2.ONE * (0.85 * _prop_visual_scale(key, theme, chosen))
 	if _shadow_layer != null:
 		_shadow_layer.call("set_enabled", themed)
-		var shadow_mode := "painted_field" if terrain.painted_ground != null else (theme if themed else "storybook")
+		var shadow_mode := "painted_world" if terrain.painted_ground != null else (theme if themed else "storybook")
 		_shadow_layer.call("set_mode", shadow_mode)
 	if _rim_layer != null:
 		_rim_layer.call("set_enabled", theme == "cinematic" and terrain.painted_ground == null)
@@ -1046,7 +1074,7 @@ func leave_shepherd_field() -> void:
 	_apply_time(str(GameState.data.get("time_of_day", "morning")))
 	player.external_shadow = _art_theme != "classic"
 	_shadow_layer.call("set_enabled", _art_theme != "classic")
-	var shadow_mode := "painted_field" if terrain.painted_ground != null else (_art_theme if _art_theme != "classic" else "storybook")
+	var shadow_mode := "painted_world" if terrain.painted_ground != null else (_art_theme if _art_theme != "classic" else "storybook")
 	_shadow_layer.call("set_mode", shadow_mode)
 	_rim_layer.call("set_enabled", _art_theme == "cinematic" and terrain.painted_ground == null)
 

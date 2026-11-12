@@ -19,6 +19,7 @@ PROBES = {
     "shepherd": "shepherd",
     "world": "world",
     "shepherd-resume": "shepherd_resume",
+    "journey-slots": "journey_slots",
 }
 
 

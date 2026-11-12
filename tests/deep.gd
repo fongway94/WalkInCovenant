@@ -283,8 +283,9 @@ func _check_goliath() -> void:
 		return
 	var previous_theme: String = main.region._art_theme
 	if previous_theme == "cinematic":
-		_check(g.hframes == 1 and g.vframes == 1 and is_equal_approx(g.scale.x, 0.35),
-			"the painted giant uses one correctly scaled independent figure")
+		_check(g.hframes == 1 and g.vframes == 1 and is_equal_approx(g.scale.x, 0.40)
+			and is_equal_approx(g.scale.y, 0.40) and g.offset == Vector2(0, -64),
+			"the painted giant uses one correctly scaled and foot-anchored figure")
 	# The original BUG-003 regression still applies when the user selects the
 	# reversible classic comparison; restore production afterwards.
 	main.region.apply_art_theme("classic")

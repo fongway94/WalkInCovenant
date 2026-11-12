@@ -10,6 +10,7 @@ Pillow and the source PNGs in tools/art/sources. Run from the repository root.
 from pathlib import Path
 import json
 import math
+import random
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 SRC = Path('tools/art/sources')
@@ -19,20 +20,79 @@ SCALE = 2                  # texture pixels per world unit
 TILE = 16 * SCALE
 
 
-def reflected_texture(source, size):
-    """Mirror-repeat an image without hard edges between repetitions."""
+def quilted_texture(source, size, seed, patch=(560, 480), overlap=(160, 140)):
+    """Feather varied crops together; avoid the obvious mirrored flower rows.
+
+    The large overlaps make a soft transition without putting a recognisable
+    reflected axis through the playable screen. Only horizontal mirroring is
+    used, so upright grasses never appear upside down.
+    """
     source = source.convert('RGB')
+    pw, ph = patch
+    ox, oy = overlap
+    if source.width < pw or source.height < ph:
+        raise ValueError('source is smaller than the requested texture patch')
+    rng = random.Random(seed)
     out = Image.new('RGB', size)
-    w, h = source.size
-    for y in range(0, size[1], h):
-        for x in range(0, size[0], w):
-            tile = source
-            if (x // w) % 2:
+    xfade = Image.new('L', patch, 255)
+    yfade = Image.new('L', patch, 255)
+    xd, yd = ImageDraw.Draw(xfade), ImageDraw.Draw(yfade)
+    for i in range(ox):
+        xd.line((i, 0, i, ph - 1), fill=round(255 * i / ox))
+    for i in range(oy):
+        yd.line((0, i, pw - 1, i), fill=round(255 * i / oy))
+    opaque = Image.new('L', patch, 255)
+    for row, y in enumerate(range(0, size[1], ph - oy)):
+        for col, x in enumerate(range(0, size[0], pw - ox)):
+            sx = rng.randrange(source.width - pw + 1)
+            sy = rng.randrange(source.height - ph + 1)
+            tile = source.crop((sx, sy, sx + pw, sy + ph))
+            if rng.random() < 0.5:
                 tile = ImageOps.mirror(tile)
-            if (y // h) % 2:
-                tile = ImageOps.flip(tile)
-            out.paste(tile, (x, y))
+            mx = xfade if col else opaque
+            my = yfade if row else opaque
+            out.paste(tile, (x, y), ImageChops.multiply(mx, my))
     return out
+
+
+def meadow_sections(region, size):
+    """Join two different, full-size paintings rather than tiling flower clumps.
+
+    Each painting appears only once per region. The old random quilting still
+    repeated the same conspicuous yellow flower bed several times, sometimes in
+    the same phone viewport. A single soft overlap joins unique source areas;
+    the Elah join also falls mostly under the river. Bottom-edge foreground
+    blades are cropped away so they do not resemble impassable obstacles.
+    """
+    specs = {
+        'elah': (
+            ('reference_meadow_second_ground.png', None, 1.0, 1.0),
+            ('reference_meadow_quiet_ground.png', None, 1.0, 1.0),
+        ),
+        'bethlehem': (
+            ('reference_meadow_village_ground.png', None, 0.95, 0.85),
+            ('reference_meadow_settlement_ground.png', None, 0.86, 1.0),
+        ),
+    }
+    overlap = 160
+    height = (size[1] + overlap + 1) // 2
+    bands = []
+    for filename, crop, brightness, saturation in specs[region]:
+        source = Image.open(SRC / filename).convert('RGB')
+        if crop is None:
+            crop = (0, 0, source.width, source.height - 70)
+        source = source.crop(crop)
+        source = ImageEnhance.Color(source).enhance(saturation)
+        source = ImageEnhance.Brightness(source).enhance(brightness)
+        bands.append(ImageOps.fit(source, (size[0], height), Image.Resampling.LANCZOS))
+    canvas = Image.new('RGB', size)
+    canvas.paste(bands[0], (0, 0))
+    fade = Image.new('L', bands[1].size, 255)
+    draw = ImageDraw.Draw(fade)
+    for y in range(overlap):
+        draw.line((0, y, size[0] - 1, y), fill=round(255 * y / (overlap - 1)))
+    canvas.paste(bands[1], (0, size[1] - height), fade)
+    return canvas
 
 
 def tile_mask(grid, chars, size, blur=8):
@@ -63,25 +123,40 @@ def world(region):
     raw = json.loads(Path('data/regions/' + region + '.json').read_text(encoding='utf-8'))
     grid = raw['grid']
     size = (len(grid[0]) * TILE, len(grid) * TILE)
-    beth = Image.open(SRC / 'bethlehem_world.png').convert('RGB')
-    # One continuous picture of stony grass, colour-graded into both the warm
-    # earth and the olive grass. No embedded trees, buildings or phantom props.
-    dry_sample = Image.open(SRC / 'camp_ground.png').convert('RGB')
-    earth = reflected_texture(dry_sample, size)
-    shade = ImageOps.grayscale(earth)
-    grass = ImageOps.colorize(shade, black='#1f3022', white='#b1a04d',
-                              blackpoint=10, whitepoint=235)
-    # The crop contains only cobbles; the separate houses retain their own
-    # collision and are never flattened into the playable ground.
-    # At two texture pixels per world unit this native-size crop keeps the
-    # individual cobbles smaller than a person, rather than giant paving slabs.
-    paving_sample = beth.crop((525, 220, 600, 265))
-    paving = reflected_texture(paving_sample, size)
+    # The game map remains the authority for paths and collisions. Unlike a
+    # repeating tile or random quilt of one small swatch, these are unique
+    # ground paintings placed once per region and joined with one soft overlap.
+    grass = meadow_sections(region, size)
+    # Use a quieter, shadow-free portion of the existing stony ground for the
+    # walkable track. A warm earth grade brings it closer to the reference.
+    dry_sample = Image.open(SRC / 'camp_ground.png').convert('RGB').crop((0, 0, 360, 280))
+    dry_sample = dry_sample.resize((720, 560), Image.Resampling.LANCZOS)
+    earth_base = quilted_texture(dry_sample, size, seed=82, patch=(520, 400), overlap=(150, 120))
+    soil_sample = Image.open(SRC / 'reference_earth_ground.png').convert('RGB')
+    soil = quilted_texture(soil_sample, size, seed=38, patch=(560, 480), overlap=(160, 140))
+    earth_base = Image.blend(earth_base, soil, 0.35)
+    warm = ImageOps.colorize(ImageOps.grayscale(earth_base), black='#362b1c',
+                             white='#e9b178', blackpoint=5, whitepoint=245)
+    earth = Image.blend(earth_base, warm, 0.58)
+    # A larger, ground-only cobble source avoids mirror-repeating the same tiny
+    # crop into obvious symmetrical rows. Buildings remain independent nodes;
+    # the map mask continues to determine where the paving is visible.
+    paving_sample = Image.open(SRC / 'reference_paving_ground.png').convert('RGB')
+    # The generated source has stones almost as wide as a person at 2 px per
+    # world unit. Reduce it before quilting so the paving reads as small stones.
+    paving_sample = paving_sample.resize((paving_sample.width // 2, paving_sample.height // 2),
+                                         Image.Resampling.LANCZOS)
+    # The swatch itself contains repeating rows. Mix smaller, overlapping crops
+    # so no full row is carried intact into the playable paving.
+    cobbles = quilted_texture(paving_sample, size, seed=63, patch=(96, 84), overlap=(24, 20))
+    paving = Image.blend(earth, cobbles, 0.54)
     image = grass
-    image = Image.composite(earth, image, soften_path(tile_mask(grid, 'd,sm', size, 16)))
-    # Wheat uses grassy detail warmed toward the field palette rather than a
-    # repeated drawn wheat sprite in every tile.
-    wheat = Image.blend(grass, earth, 0.38)
+    image = Image.composite(earth, image, soften_path(tile_mask(grid, 'd,s', size, 14)))
+    # The camp's broad mud grid is a navigation/material description, not a
+    # demand for a bare rectangle. Keep grasses visible between the tents.
+    camp = Image.blend(grass, earth, 0.20)
+    image = Image.composite(camp, image, soften_path(tile_mask(grid, 'm', size, 18)))
+    wheat = Image.blend(grass, earth, 0.18)
     image = Image.composite(wheat, image, tile_mask(grid, 'w', size, 8))
     image = Image.composite(paving, image, soften_path(tile_mask(grid, 'p', size, 10)))
     if region == 'elah':
@@ -101,6 +176,7 @@ def world(region):
         image = Image.composite(river, image, river_mask)
     edge = ImageEnhance.Brightness(grass).enhance(0.65)
     image = Image.composite(edge, image, tile_mask(grid, '#', size, 2))
+    image = ImageEnhance.Contrast(image).enhance(1.06)
     image.save(OUT / ('world_' + region + '.png'), optimize=True)
 
 
@@ -120,11 +196,13 @@ def chroma(image):
 
 
 def props():
-    # Keep the original 26x18 canvas, foot anchor and 2x1 solid footprint.
+    # The old 26x18 tent read as a little box next to a person. Preserve its
+    # 2x1 collision footprint but use a larger, detailed visual canvas. Region
+    # anchors the visual at the same foot tile independently of its size.
     tent = chroma(Image.open(SRC / 'tent_prop.png'))
-    tent.thumbnail((26, 18), Image.Resampling.LANCZOS)
-    out = Image.new('RGBA', (26, 18))
-    out.alpha_composite(tent, ((26 - tent.width) // 2, 18 - tent.height))
+    tent = tent.resize((52, 34), Image.Resampling.LANCZOS)
+    out = Image.new('RGBA', (52, 36))
+    out.alpha_composite(tent, (0, 2))
     out.save(PROPS / 'tent.png', optimize=True)
 
     # Bethlehem's buildings retain their original 66x83 canvas and 2x2

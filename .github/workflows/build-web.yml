@@ -54,6 +54,12 @@ jobs:
       image: barichello/godot-ci:4.7.2
     steps:
       - uses: actions/checkout@v4
+      # The Godot image does not reliably contain Python, and its distro
+      # package mirror has intermittently failed. Static and pack checks must
+      # run, not silently skip and then fail later with exit 127.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Export templates into place
         run: |
@@ -103,8 +109,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! command -v python3 >/dev/null 2>&1; then
-            echo "::warning::python3 unavailable, static checks skipped"
-            exit 0
+            echo "::error::python3 unavailable; static checks cannot run"
+            exit 1
           fi
           # check_faces is deliberately stdlib-only: the lint container has no
           # pip, and a gate that cannot run in CI must not be skipped silently.
@@ -257,7 +263,7 @@ jobs:
         run: |
           FAILED=0
           : > chapter-contracts.txt
-          for T in context shepherd_stage shepherd_resume painted_world audio_contract; do
+          for T in context shepherd_stage shepherd_resume painted_world audio_contract journey_slots; do
             echo "===== $T =====" | tee -a chapter-contracts.txt
             mkdir -p "$RUNNER_TEMP/wic-tests/$T"
             XDG_DATA_HOME="$RUNNER_TEMP/wic-tests/$T" timeout 180 \
@@ -700,6 +706,9 @@ jobs:
       image: barichello/godot-ci:4.7.2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Export templates into place
         run: |
@@ -1137,6 +1146,8 @@ jobs:
           test -s build/shepherd-browser/result.json
           timeout 360 node tests/browser/chapter_layout.cjs
           test -s build/shepherd-browser/layout-result.json
+          timeout 240 node tests/browser/journey_slots.cjs
+          test -s build/shepherd-browser/journey-slots-result.json
       - name: Publish the chapter browser verdict
         if: always()
         run: |
@@ -1145,6 +1156,7 @@ jobs:
           for tag, path in (
               ('SHEPHERD_BROWSER', 'build/shepherd-browser/result.json'),
               ('CHAPTER_LAYOUT', 'build/shepherd-browser/layout-result.json'),
+              ('JOURNEY_SLOTS', 'build/shepherd-browser/journey-slots-result.json'),
           ):
               if not os.path.isfile(path):
                   print(f'::warning::No {tag} result was produced')
@@ -1163,6 +1175,7 @@ jobs:
             build/shepherd-browser/*.png
             build/shepherd-browser/result.json
             build/shepherd-browser/layout-result.json
+            build/shepherd-browser/journey-slots-result.json
           if-no-files-found: warn
       - name: Fail if the chapter browser journey failed
         if: steps.chapter_browser.outcome != 'success'

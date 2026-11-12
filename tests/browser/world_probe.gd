@@ -31,11 +31,15 @@ func _ready() -> void:
 	match place:
 		"brook": tile = Vector2i(16, 27)
 		"crossing": tile = Vector2i(16, 24)
+		"fold": tile = Vector2i(24, 35)
 		"ridge": tile = Vector2i(16, 9)
 		"sight": tile = Vector2i(16, 17)
 		"bethlehem": tile = Vector2i(16, 8)
 		"well": tile = Vector2i(10, 19)
-	main._place_at([tile.x, tile.y])
+	# "spawn" is the actual opening, including its deliberate spacing from
+	# Corin. Other probes stage a visual landmark without claiming progression.
+	if place != "spawn":
+		main._place_at([tile.x, tile.y])
 	main.region.player.velocity = Vector2.ZERO
 	if place == "armour":
 		# Visual fixture only: the real chapter turns this on after Saul's scene.

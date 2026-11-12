@@ -10,6 +10,13 @@ extends Node
 ## from both — see EventBus.gd — so the Mirror stays honest.
 
 const SAVE_PATH := "user://save.json"
+## The original save keeps its historic path. A replay is a second, independent
+## journey, not a reset or a copy over the player's only save. Selection is
+## stored separately so a page reload opens whichever journey was last active.
+const REPLAY_PATH := "user://replay.json"
+const SLOT_PATH := "user://journey_slot.json"
+const ORIGINAL_SLOT := "original"
+const REPLAY_SLOT := "replay"
 ## 2 = 2026-11-05: 1 Samuel 16 moved before 1 Samuel 17. Version-1 saves that
 ## are already inside David's chapter need `legacy_spine` (see _migrate below)
 ## so the new Bethlehem mission does not send them backwards.
@@ -20,11 +27,36 @@ const WAYS := ["step", "notice", "stay", "wait"]
 const VIRTUE_MAX := 12
 
 var data: Dictionary = {}
+var active_slot := ORIGINAL_SLOT
+## If no readable original or backup exists, don't autosave a fresh game over
+## recoverable bytes. The book explains that this session cannot be saved.
+var _save_protected := false
+var _save_ready := false
 
 
 func _ready() -> void:
+	_load_selected_on_startup()
+
+
+func _load_selected_on_startup() -> void:
+	_save_ready = false
+	_save_protected = false
 	new_game()
-	load_game()
+	active_slot = _read_selected_slot()
+	var loaded := load_game()
+	if not loaded and active_slot == REPLAY_SLOT:
+		# Keep a damaged replay intact and try the original for this session.
+		push_warning("GameState: replay could not be read; opening the original journey")
+		active_slot = ORIGINAL_SLOT
+		loaded = load_game()
+	if not loaded and _slot_files_exist(_slot_path(active_slot)):
+		_save_protected = true
+		push_warning("GameState: saved journey is unreadable; autosaving is disabled to protect it")
+	_save_ready = true
+
+
+func save_protected() -> bool:
+	return _save_protected
 
 
 func new_game() -> void:
@@ -220,44 +252,143 @@ const SAVE_TMP := SAVE_PATH + ".tmp"
 const SAVE_BAK := SAVE_PATH + ".bak"
 
 
-func save_game() -> void:
-	var text := JSON.stringify(data, "\t")
-	# Prove the bytes before they can replace a good save with a bad one.
-	if typeof(JSON.parse_string(text)) != TYPE_DICTIONARY:
-		push_error("GameState: refusing to write a save that does not parse")
+func _slot_path(slot: String) -> String:
+	return REPLAY_PATH if slot == REPLAY_SLOT else SAVE_PATH
+
+
+func _slot_files_exist(path: String) -> bool:
+	return FileAccess.file_exists(path) or FileAccess.file_exists(path + ".bak") \
+		or DirAccess.dir_exists_absolute(path) or DirAccess.dir_exists_absolute(path + ".bak")
+
+
+## Backups are copied to a separate temporary file first. A short write or a
+## failed rename must not truncate the last good backup in place.
+func _backup_valid_file(path: String) -> void:
+	var backup_tmp := path + ".bak.tmp"
+	var copied := DirAccess.copy_absolute(path, backup_tmp)
+	if copied != OK:
+		push_warning("GameState: could not prepare a backup for %s (%d)" % [path, copied])
 		return
-	var f := FileAccess.open(SAVE_TMP, FileAccess.WRITE)
+	if FileAccess.get_file_as_string(backup_tmp) != FileAccess.get_file_as_string(path) \
+			or _read_save(backup_tmp).is_empty():
+		push_warning("GameState: backup verification failed for %s" % path)
+		return
+	var moved := DirAccess.rename_absolute(backup_tmp, path + ".bak")
+	if moved != OK:
+		push_warning("GameState: could not replace the backup for %s (%d)" % [path, moved])
+
+
+## A complete temporary file is verified before replacing the destination. A
+## failed rename is always a failure, even if an older destination still exists.
+func _write_json(path: String, value: Dictionary) -> bool:
+	var text := JSON.stringify(value, "\t")
+	if not (JSON.parse_string(text) is Dictionary):
+		push_warning("GameState: refusing to write invalid JSON to %s" % path)
+		return false
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
-		push_warning("GameState: could not open %s for writing" % SAVE_TMP)
-		return
+		push_warning("GameState: could not open %s for writing" % tmp)
+		return false
 	f.store_string(text)
+	f.flush()
+	var write_error := f.get_error()
 	f.close()
-	if FileAccess.file_exists(SAVE_PATH):
-		# The copy is best-effort: if it fails, the rename below still lands a
-		# complete file, which is the part that matters.
-		DirAccess.copy_absolute(SAVE_PATH, SAVE_BAK)
-	var moved := DirAccess.rename_absolute(SAVE_TMP, SAVE_PATH)
-	if moved != OK and not FileAccess.file_exists(SAVE_PATH):
-		push_warning("GameState: could not move the save into place (%d)" % moved)
-		return
+	var check := FileAccess.open(tmp, FileAccess.READ)
+	if write_error != OK or check == null:
+		push_warning("GameState: could not write %s" % tmp)
+		return false
+	var written := check.get_as_text()
+	check.close()
+	if written != text or not (JSON.parse_string(written) is Dictionary):
+		push_warning("GameState: temporary save verification failed")
+		return false
+	if FileAccess.file_exists(path) and not _read_save(path).is_empty():
+		# Never back up a corrupt primary over the last good backup. If a backup
+		# cannot be updated, atomic replacement still leaves the old backup intact.
+		_backup_valid_file(path)
+	var moved := DirAccess.rename_absolute(tmp, path)
+	if moved != OK:
+		push_warning("GameState: could not move %s into place (%d)" % [path, moved])
+		return false
+	return true
+
+
+func save_game() -> bool:
+	if not _save_ready or _save_protected:
+		return false
+	if not _write_json(_slot_path(active_slot), data):
+		return false
 	EventBus.game_saved.emit()
+	return true
 
 
-## Load the save, or the previous good one. A file that exists but does not
-## parse is the one case a backup is for: silently booting a fresh game over a
-## player's chapter is data loss, and it looks like the game forgot everything.
-func load_game() -> bool:
-	var parsed := _read_save(SAVE_PATH)
-	if parsed.is_empty() and FileAccess.file_exists(SAVE_PATH):
-		parsed = _read_save(SAVE_BAK)
+func _read_slot_save(path: String) -> Dictionary:
+	var parsed := _read_save(path)
+	if parsed.is_empty():
+		parsed = _read_save(path + ".bak")
 		if not parsed.is_empty():
-			push_warning("GameState: save.json was unreadable; restored the backup")
+			push_warning("GameState: %s was unreadable; using its backup" % path)
+	return parsed
+
+
+func _read_selected_slot() -> String:
+	var selection := _read_slot_save(SLOT_PATH)
+	return REPLAY_SLOT if str(selection.get("active", "")) == REPLAY_SLOT else ORIGINAL_SLOT
+
+
+## File existence, not successful parsing, prevents a damaged replay from ever
+## being silently overwritten by a new one.
+func has_replay() -> bool:
+	return _slot_files_exist(REPLAY_PATH)
+
+
+func replay_is_active() -> bool:
+	return active_slot == REPLAY_SLOT
+
+
+## Start one replay, or switch between the two saved journeys. The caller first
+## captures the current world position. Both slots are saved independently and
+## the selection is changed only after the destination is safely readable.
+func switch_journey() -> bool:
+	var target := ORIGINAL_SLOT if replay_is_active() else REPLAY_SLOT
+	var target_path := _slot_path(target)
+	if not save_game():
+		return false
+	var previous: Dictionary = data.duplicate(true)
+	var destination := _read_slot_save(target_path)
+	if destination.is_empty() and target == REPLAY_SLOT and not has_replay():
+		new_game()
+		# A replay should not suddenly turn sound or accessibility options on.
+		data["settings"] = (previous.get("settings", {}) as Dictionary).duplicate(true)
+		if not _write_json(target_path, data):
+			data = previous
+			return false
+		destination = _read_slot_save(target_path)
+		data = previous
+	if destination.is_empty():
+		push_warning("GameState: the other journey is not readable; keeping the current one")
+		return false
+	if not _write_json(SLOT_PATH, {"active": target}):
+		return false
+	active_slot = target
+	_apply_saved_data(destination)
+	return true
+
+
+## Load the selected journey, or its own previous good file. Old saves have no
+## slot selector, so they continue to load from save.json without migration.
+func load_game() -> bool:
+	var parsed := _read_slot_save(_slot_path(active_slot))
 	if parsed.is_empty():
 		return false
-	# The shape a fresh game has, kept so a malformed field can be put back
-	# instead of trusted.
+	_apply_saved_data(parsed)
+	return true
+
+
+func _apply_saved_data(parsed: Dictionary) -> void:
+	new_game()
 	var defaults: Dictionary = data.duplicate(true)
-	# merge over defaults so a save from an older version still has every key
 	for k in data:
 		if parsed.has(k):
 			data[k] = parsed[k]
@@ -266,7 +397,6 @@ func load_game() -> bool:
 	_migrate(from)
 	data["version"] = SAVE_VERSION
 	EventBus.game_loaded.emit()
-	return true
 
 
 ## A save outlives the code that wrote it. When the chapter spine changed —
@@ -337,19 +467,27 @@ func _read_save(path: String) -> Dictionary:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return {}
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	var text := f.get_as_text()
 	f.close()
-	if not (parsed is Dictionary):
+	# Unlike JSON.parse_string(), parse() lets an unreadable save be recovered
+	# without printing a runtime error for a failure we deliberately handle.
+	var json := JSON.new()
+	if json.parse(text) != OK or not (json.data is Dictionary):
 		return {}
-	return parsed as Dictionary
+	return json.data as Dictionary
 
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return FileAccess.file_exists(_slot_path(active_slot))
 
 
+## Explicit developer/reset API. The in-game replay never calls erase().
 func erase() -> void:
-	for p in [SAVE_PATH, SAVE_BAK, SAVE_TMP]:
-		if FileAccess.file_exists(p):
-			DirAccess.remove_absolute(p)
+	for path in [SAVE_PATH, REPLAY_PATH, SLOT_PATH]:
+		for p in [path, path + ".bak", path + ".tmp", path + ".bak.tmp"]:
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+	active_slot = ORIGINAL_SLOT
+	_save_protected = false
+	_save_ready = true
 	new_game()

@@ -20,10 +20,10 @@ class_name Player
 ## parts, no physics-engine surprises, and doorways behave predictably.
 
 const TILE := 16.0
-## The authored overworld uses 16-unit tiles. The approved field has its own
-## 0.35 scale; keep painted people smaller on the compact tile maps so they do
-## not tower over tents or overlap adjacent NPCs.
-const WORLD_RIG_SCALE := 0.23
+## The approved field keeps its own 0.35 scale. The tile-world figures are a
+## little larger than before, but their foot anchors and collision stay fixed.
+## Props with oversized legacy canvases are balanced independently in Region.
+const WORLD_RIG_SCALE := 0.28
 const FIELD_RIG_SCALE := 0.35
 
 @export var walk_speed := 60.0        # px/s  → 3.75 tiles/s

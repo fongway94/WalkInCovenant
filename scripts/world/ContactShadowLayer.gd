@@ -76,6 +76,9 @@ func _draw() -> void:
 		if mode == "painted_field":
 			_draw_field_shadow(n, p, rx)
 			continue
+		if mode == "painted_world":
+			_draw_world_shadow(n, p, rx)
+			continue
 		if mode == "cinematic":
 			# One light direction for the whole picture: upper-left sun,
 			# shadows run to the lower right. Length scales with the object so
@@ -105,6 +108,28 @@ func _draw() -> void:
 			draw_colored_polygon(pts, Color(0.10, 0.09, 0.06, 0.50))
 		else:
 			draw_colored_polygon(pts, Color(0.20, 0.13, 0.08, 0.34))
+
+
+## The overworld's independent props cast a longer, soft shadow in the same
+## direction as the approved field. Flat objects keep only their contact shadow.
+## This separate mode deliberately leaves the approved field rendering intact.
+func _draw_world_shadow(node: Node2D, p: Vector2, radius: float) -> void:
+	var low := false
+	if node is Sprite2D:
+		var sprite := node as Sprite2D
+		var path := sprite.texture.resource_path if sprite.texture != null else ""
+		for key in ["fire", "altar_stones", "rock", "boulder", "wool_tuft", "wheat_sheaf"]:
+			if path.ends_with("/" + key + ".png"):
+				low = true
+				break
+	if not low:
+		draw_set_transform(p + Vector2(radius * 1.1, radius * 0.32), 0.16, Vector2(2.35, 0.28))
+		draw_circle(Vector2.ZERO, radius, Color(0.07, 0.09, 0.07, 0.12))
+		draw_set_transform(p + Vector2(radius * 0.65, radius * 0.18), 0.16, Vector2(1.75, 0.22))
+		draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.06, 0.16))
+	draw_set_transform(p, 0.0, Vector2(0.85, 0.22))
+	draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.045, 0.38))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Soft, grounded casts from the approved field prototype. Lighting direction

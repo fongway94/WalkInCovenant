@@ -15,7 +15,7 @@ import struct
 import sys
 
 
-PROBES = ("setpiece", "shepherd", "shepherd_resume", "world")
+PROBES = ("setpiece", "shepherd", "shepherd_resume", "world", "journey_slots")
 
 
 def paths_in_pack(path: Path) -> set[str]:

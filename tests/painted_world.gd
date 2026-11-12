@@ -118,7 +118,7 @@ func _run() -> void:
 	_check(chatter_count >= 14 and chatter_complete and chatter_fits,
 		"all %d authored English and Chinese chatter lines retain their words and fit" % chatter_count)
 	_check(r.goliath_sprite.position == original_giant_pos
-		and is_equal_approx(r.goliath_sprite.scale.x, 0.35)
+		and is_equal_approx(r.goliath_sprite.scale.x, 0.40)
 		and r.goliath_sprite.offset == Vector2(0, -64),
 		"the larger champion retains his original foot anchor")
 	for key in ["tent", "olive_tree", "rock", "boulder", "jar", "well"]:
@@ -129,20 +129,102 @@ func _run() -> void:
 				break
 		_check(prop != null and prop.texture.resource_path.ends_with("props_painted/%s.png" % key),
 			"%s selects its painted map prop" % key)
+	var missing_props: Array = []
+	var anchors_ok := true
+	for entry in r._prop_sprites:
+		var sprite: Sprite2D = entry["sprite"]
+		var key := str(entry["key"])
+		if not sprite.texture.resource_path.ends_with("props_painted/%s.png" % key):
+			missing_props.append(key)
+		anchors_ok = anchors_ok and is_equal_approx(sprite.offset.y, -sprite.texture.get_height() * 0.5)
+	_check(missing_props.is_empty(), "every actual Elah map prop has painted art: %s" % str(missing_props))
+	_check(anchors_ok, "painted map props are foot-anchored at their unchanged tiles")
+	var sort_ok := r._ys.y_sort_enabled and r._prop_sprites.size() == r.model.props.size()
+	var shadows_ok := true
+	var fire: Sprite2D = null
+	for i in range(r._prop_sprites.size()):
+		var prop_entry: Dictionary = r._prop_sprites[i]
+		var placed: Dictionary = r.model.props[i]
+		var visual: Sprite2D = prop_entry["sprite"]
+		var meta: Dictionary = placed["_meta"]
+		var expected_x := (float(placed["at"][0]) + float(meta["w_tiles"]) * 0.5) * 16.0
+		var expected_y := (float(placed["at"][1]) + 1.0) * 16.0
+		sort_ok = sort_ok and visual.get_parent() == r._ys \
+			and absf(visual.position.x - expected_x) <= 0.81 \
+			and absf(visual.position.y - expected_y) <= 0.41
+		var shadow: Dictionary = prop_entry["shadow"]
+		var expected_width := float(visual.texture.get_width()) / float(visual.hframes) * visual.scale.x * 0.42
+		shadows_ok = shadows_ok and shadow["node"] == visual and shadow["offset"] == Vector2.ZERO \
+			and is_equal_approx(float(shadow["w"]), expected_width)
+		if str(prop_entry["key"]) == "fire":
+			fire = visual
+	_check(sort_ok, "each painted prop y-sorts at its authored footprint, including gentle sway")
+	_check(shadows_ok and bool(r._shadow_layer.get("enabled"))
+		and str(r._shadow_layer.get("mode")) == "painted_world",
+		"painted-world shadows follow scaled props at their feet")
+	_check(r.model.solid_at_tile(7, 43) and r.model.solid_at_tile(8, 43)
+		and r.model.solid_at_tile(15, 45) and r.model.solid_at_tile(12, 45)
+		and not r.model.solid_at_tile(27, 37),
+		"tent, fire and altar footprints block movement while the decorative bush does not")
+	var fire_timer: Timer = null
+	for child in r.get_children():
+		if child is Timer:
+			fire_timer = child
+	_check(fire != null and fire_timer != null and fire.hframes == 2
+		and fire.texture.get_size() == Vector2(64, 24), "the painted camp fire is a two-frame sheet")
+	if fire != null and fire_timer != null:
+		var previous_frame := fire.frame
+		await fire_timer.timeout
+		_check(fire.frame == (previous_frame + 1) % 2, "the camp fire advances through its painted frames")
+	var saved_model: RegionModel = r.model
+	r.model = null
+	r.set_paused(false)
+	var sway_sprite: Sprite2D = r._swayers[0]["sprite"]
+	var sway_start := sway_sprite.position
+	r._process(0.7)
+	var sway_moved := sway_sprite.position
+	r.set_paused(true)
+	r._process(0.7)
+	_check(not sway_moved.is_equal_approx(sway_start) and sway_sprite.position.is_equal_approx(sway_moved),
+		"vegetation sways in the world and freezes while dialogue pauses it")
+	r.model = saved_model
+	r.set_paused(false)
+	var sheep := FlockSheep.new()
+	sheep.setup("painted_test", [20, 35], [24, 34], "calm", player, r)
+	add_child(sheep)
+	sheep.apply_art_theme("cinematic")
+	_check(sheep._up_tex.resource_path.ends_with("props_painted/sheep.png")
+		and sheep._graze_tex.resource_path.ends_with("props_painted/sheep_graze.png")
+		and sheep._alert_tex.resource_path.ends_with("props_painted/sheep_alert.png"),
+		"a dynamically spawned flock animal uses all three painted poses")
+	sheep.apply_art_theme("classic")
+	_check(sheep._up_tex.resource_path.ends_with("art/props/sheep.png")
+		and sheep._sprite.scale == Vector2.ONE * 0.85 and sheep._sprite.offset == Vector2.ZERO,
+		"the flock animal restores its original classic appearance")
+	sheep.queue_free()
 	r.spawn_pickup("painted_contract_jar", "provision", "jar", 19, 39)
 	var item: Node2D = r.pickups.back()["node"]
 	var item_sprite: Sprite2D = item.get_child(0)
 	_check(item_sprite.texture.resource_path.ends_with("props_painted/jar.png"),
 		"a later-spawned provision inherits the painted theme")
+	r.spawn_pickup("painted_contract_wheat", "provision", "wheat_sheaf", 19, 38)
+	var wheat_sprite: Sprite2D = (r.pickups.back()["node"] as Node2D).get_child(0)
+	_check(wheat_sprite.texture.resource_path.ends_with("props_painted/wheat_sheaf.png")
+		and is_equal_approx(wheat_sprite.scale.x, 0.425),
+		"the later-spawned wheat provision uses its higher-resolution painted prop")
 	player.setup(r.model, "david")
 	r.enter_shepherd_field()
 	_check(is_equal_approx(player.david_visual.scale.x, Player.FIELD_RIG_SCALE)
 		and boy.field_sprite.visible and not boy.human_visual.visible,
 		"the field keeps its approved scale and independent hired boy")
+	_check(str(r._shadow_layer.get("mode")) == "painted_field",
+		"the approved field keeps its separate shadow treatment")
 	r.leave_shepherd_field()
 	_check(is_equal_approx(player.david_visual.scale.x, Player.WORLD_RIG_SCALE)
 		and boy.human_visual.visible and not boy.field_sprite.visible,
 		"leaving the field restores the painted world actor scale and boy")
+	_check(str(r._shadow_layer.get("mode")) == "painted_world",
+		"leaving the field restores the overworld shadow treatment")
 	player.set_armour(true)
 	_check(player.armour_visual != null and player.armour_visual.visible
 		and player.armour_visual.painted and player.armour_visual.scale == player.david_visual.scale
@@ -176,9 +258,14 @@ func _run() -> void:
 		"removing armour restores both visual anchors and full speed")
 	_check(r.terrain.painted_ground == null and player.sprite.visible and not player.david_visual.visible,
 		"classic theme restores the classic ground and David")
+	_check(not bool(r._shadow_layer.get("enabled")) and fire != null and fire.hframes == 2
+		and fire.texture.resource_path.ends_with("art/props/fire.png"),
+		"classic restores the original animated fire and disables painted shadows")
 	_check(corin.sprite.visible and not corin.human_visual.visible
-		and item_sprite.texture.resource_path.ends_with("art/props/jar.png"),
-		"classic restores NPC and late-spawned item textures")
+		and item_sprite.texture.resource_path.ends_with("art/props/jar.png")
+		and wheat_sprite.texture.resource_path.ends_with("art/props/wheat_sheaf.png")
+		and is_equal_approx(wheat_sprite.scale.x, 0.85),
+		"classic restores NPC and late-spawned item textures and scales")
 	_check(r.goliath_sprite.position == original_giant_pos
 		and r.goliath_sprite.scale == Vector2(2.0, 2.0)
 		and r.goliath_sprite.offset == Vector2(0, -8),
@@ -201,6 +288,13 @@ func _run() -> void:
 			break
 	_check(house != null and house.texture.resource_path.ends_with("props_painted/house.png")
 		and house.texture.get_size() == Vector2(66, 83), "Bethlehem house retains its authored canvas")
+	var beth_missing: Array = []
+	for entry in beth._prop_sprites:
+		var sprite: Sprite2D = entry["sprite"]
+		var key := str(entry["key"])
+		if not sprite.texture.resource_path.ends_with("props_painted/%s.png" % key):
+			beth_missing.append(key)
+	_check(beth_missing.is_empty(), "every Bethlehem map prop has painted art: %s" % str(beth_missing))
 	_check(beth.model._solid == beth_solid, "painted Bethlehem retains its original collision")
 	beth.queue_free()
 	await get_tree().process_frame

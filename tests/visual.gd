@@ -464,14 +464,29 @@ func _run() -> void:
 	get_tree().root.size = Vector2i(640, 360)
 	await _frames(8)
 
-	# 10. A real transition, caught mid fade, at normal speed so a 0.45 s
-	# tween is not over in three frames. This is the same ScreenFade the dusk
-	# and morning cuts use — no mocked colour rect.
+	# 10. Capture the real transition at a measured alpha instead of an assumed
+	# frame rate. Fourteen software-rendered frames can be early, near-black or
+	# already finished depending on runner load, which made the colour-bin check
+	# intermittent. Pause the real tween only for the screenshot, then resume it.
 	Engine.time_scale = 1.0
 	main.fade.run(0.45, Callable(), 0.35, Callable())
-	await _frames(14)
+	var fade_deadline := Time.get_ticks_msec() + 3000
+	while main.fade._busy and main.fade._rect.color.a < 0.30 and Time.get_ticks_msec() < fade_deadline:
+		await get_tree().process_frame
+	var fade_alpha: float = main.fade._rect.color.a
+	_check(main.fade._busy and fade_alpha >= 0.30 and fade_alpha < 0.75,
+		"the live transition reaches a visible mid-fade (alpha %.2f)" % fade_alpha)
+	var fade_tween: Tween = main.fade._tw
+	if fade_tween != null and fade_tween.is_valid():
+		fade_tween.pause()
 	await _shot("11_transition")
-	await _frames(60)
+	if fade_tween != null and fade_tween.is_valid():
+		fade_tween.play()
+	fade_deadline = Time.get_ticks_msec() + 3000
+	while main.fade._busy and Time.get_ticks_msec() < fade_deadline:
+		await get_tree().process_frame
+	_check(not main.fade._busy and main.fade._rect.color.a < 0.01,
+		"the same transition finishes and clears after the capture")
 	Engine.time_scale = 6.0
 	_finish()
 

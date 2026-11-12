@@ -64,6 +64,10 @@ func _ready() -> void:
 	add_child(_amb)
 	apply_settings()
 	EventBus.settings_changed.connect(func(_key, _value): apply_settings())
+	# Loading or switching a saved journey can replace the entire settings
+	# dictionary without emitting individual settings_changed signals. The
+	# persistent audio buses must reflect the destination journey immediately.
+	EventBus.game_loaded.connect(apply_settings)
 
 
 func _exit_tree() -> void:

@@ -1079,7 +1079,9 @@ func _run() -> void:
 	# for the length of this check, then put back — the ending is not undone.
 	var act_int: int = int(main.act)
 	var had_down := bool(GameState.data["flags"].get("goliath_down", false))
+	var had_ended := bool(GameState.data["flags"].get("elah_ended", false))
 	GameState.data["flags"]["goliath_down"] = false
+	GameState.data["flags"]["elah_ended"] = false
 	GameState.data["progress"] = {"act": "ready", "stones": 5, "provisions": 3,
 		"brothers": true, "pos": [16, 15]}
 	main.act = 0
@@ -1094,6 +1096,7 @@ func _run() -> void:
 	_drain(region.dialogue)
 	await _frames(2)
 	GameState.data["flags"]["goliath_down"] = had_down
+	GameState.data["flags"]["elah_ended"] = had_ended
 	main.act = act_int
 	# ...and put the runner back where the finished chapter had it. Simulating a
 	# reload by restarting the list would otherwise leave the live run on the
