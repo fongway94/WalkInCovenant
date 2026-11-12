@@ -25,6 +25,8 @@ import build_painted_props as painted_props  # noqa: E402
 import build_reference_world as continuation  # noqa: E402
 import build_reference_characters as characters  # noqa: E402
 import build_reference_variants as variants  # noqa: E402
+import build_refined_ground as refined_ground  # noqa: E402
+import build_refined_props as refined_props  # noqa: E402
 from prop_detail import DETAIL_FACTOR  # noqa: E402
 
 
@@ -124,6 +126,44 @@ def check_continuations():
     print("two map-aligned meadow continuations and untouched water: PASS")
 
 
+def check_refinement():
+    fig = refined_props.build()
+    assert fig.size == (96, 144) and fig.getchannel("A").getbbox() == (0, 46, 96, 144)
+    assert same_pixels(fig, refined_props.OUTPUT), "non-reproducible refined fig"
+    visible_key = [(r, g, b) for r, g, b, a in fig.get_flattened_data()
+                   if a > 200 and r > 140 and b > 140 and g < 70]
+    assert not visible_key, "visible magenta key in refined fig"
+    for region in ("elah", "bethlehem"):
+        pieces, masks = refined_ground.build(region)
+        raw = json.loads(Path("data/regions/" + region + ".json").read_text())
+        width = len(raw["grid"][0]) * refined_ground.TILE
+        height = len(raw["grid"]) * refined_ground.TILE
+        assert width == 2048 and height in (2048, 3072)
+        image = Image.new("RGB", (width, height))
+        for name, y in (("top", 0), ("bottom", height // 2)):
+            piece = pieces[name]
+            path = Path(f"art/scenes_painted/world_{region}_refined_{name}.png")
+            assert piece.size == (width, height // 2)
+            assert max(piece.size) <= 2048, "texture exceeds older phone WebGL limits"
+            assert same_pixels(piece, path), "non-reproducible refined ground: " + str(path)
+            image.paste(piece, (0, y))
+        # Water and crossing are *exactly* the earlier reference pixels at the
+        # new density. Use a max across RGB channels, not grayscale conversion,
+        # which can round a one-channel difference to zero. This also catches a
+        # misplaced cut between the pieces.
+        red, green, blue = ImageChops.difference(image, masks["base"]).split()
+        diff = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+        if region == "elah":
+            assert masks["water"].getbbox() is not None, "Elah water mask is empty"
+            assert ImageChops.subtract(masks["shore_core"], masks["water"]).getbbox() is not None, \
+                "Elah shoreline protection must extend beyond water tiles"
+        assert ImageChops.multiply(diff, masks["water"]).getbbox() is None, region + " changed water"
+        assert ImageChops.multiply(diff, masks["shore_core"]).getbbox() is None, region + " cut into shoreline"
+        assert ImageChops.multiply(diff, masks["grass"]).getbbox() is not None, region + " lacks new meadow detail"
+        assert ImageChops.multiply(diff, masks["path"]).getbbox() is not None, region + " lacks new path detail"
+    print("refined fig and four reproducible map-aligned ground pieces with untouched water: PASS")
+
+
 def check_people():
     outputs = dict(characters.build_all())
     actual = {p.name for p in Path("art/characters_reference").glob("*.png")}
@@ -194,5 +234,6 @@ if __name__ == "__main__":
     check_field()
     check_props()
     check_continuations()
+    check_refinement()
     check_people()
     check_variants()

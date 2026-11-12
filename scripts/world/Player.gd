@@ -192,12 +192,14 @@ func _update_armour_visual() -> void:
 	armour_visual.configure(rig != null, facing)
 	if rig != null:
 		armour_visual.scale = rig.scale
-		# The body bobs independently of the boots in the cutout gait. Follow
-		# the body while leaving its foot anchor and ground shadow untouched.
+		# Follow the body's bob AND lean while leaving the foot anchor and
+		# ground shadow untouched. Both use the same foot-centred pivot.
 		armour_visual.position = rig.position + rig.body.position * rig.scale
+		armour_visual.rotation = rig.body.rotation
 	else:
 		armour_visual.scale = Vector2.ONE
 		armour_visual.position = Vector2(sprite.offset.x, 0.0) if sprite != null else Vector2.ZERO
+		armour_visual.rotation = 0.0
 
 
 ## The armour is weight, not a wall: the player must still be able to cross the

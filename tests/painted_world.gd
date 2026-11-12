@@ -26,8 +26,12 @@ func _run() -> void:
 	var original_giant_pos := r.goliath_sprite.position
 	_check(ArtDirection.current() == "cinematic" and r._art_theme == "cinematic",
 		"the shared production default applies to Main on this platform")
-	_check(r.terrain.painted_ground != null and r.terrain.painted_ground.resource_path.ends_with("world_elah_reference.png"),
-		"default Elah uses its revised map-aligned ground")
+	_check(r.terrain.painted_ground != null and r.terrain.painted_ground_bottom != null
+		and r.terrain.painted_ground.resource_path.ends_with("world_elah_refined_top.png")
+		and r.terrain.painted_ground_bottom.resource_path.ends_with("world_elah_refined_bottom.png")
+		and r.terrain.painted_ground.get_size() == Vector2(2048, 1536)
+		and r.terrain.painted_ground_bottom.get_size() == Vector2(2048, 1536),
+		"default Elah uses both aligned, phone-sized refined ground pieces")
 	_check(r.model._solid == solid_before, "art selection does not alter collision")
 	_check(player.human_visual != null and player.human_visual.visible and not player.sprite.visible,
 		"the witness uses the painted rig")
@@ -61,6 +65,7 @@ func _run() -> void:
 			woman = n
 	_check(corin != null and corin.human_visual != null and corin.human_visual.visible
 		and not corin.sprite.visible, "Corin is an independent painted actor")
+	_check_gait_contract(r, player)
 	for spec in [[boy, "boy", Vector2i(1, 0), "profile"],
 			[boy, "boy", Vector2i(-1, 0), "profile"],
 			[boy, "boy", Vector2i(0, -1), "back"],
@@ -275,6 +280,24 @@ func _run() -> void:
 	_check(missing_props.is_empty(), "every actual Elah map prop has painted art: %s" % str(missing_props))
 	_check(anchors_ok and world_sizes_ok,
 		"map props retain foot anchors and their expected sizes, including the larger open tent")
+	var examples := {}
+	for entry in r._prop_sprites:
+		var key := str(entry["key"])
+		if not examples.has(key) and not (key == "tent" and entry["at"] == Region.ROYAL_TENT_AT):
+			examples[key] = entry["sprite"]
+	var person_h := player.visual_height()
+	_check(_visible_prop_height(examples.get("olive_tree")) > person_h * 1.8
+		and _visible_prop_height(examples.get("fig_tree")) > person_h * 1.3
+		and _visible_prop_height(examples.get("tent")) > person_h * 1.25,
+		"mature trees and ordinary tent peaks read larger than a person")
+	_check(_visible_prop_height(examples.get("jar")) < person_h * 0.5
+		and _visible_prop_height(examples.get("well")) > _visible_prop_height(examples.get("jar")) * 1.6
+		and _visible_prop_height(examples.get("bush")) < person_h,
+		"jar, well and shrub have deliberately different person-relative heights")
+	_check(examples.get("fig_tree") != null
+		and (examples["fig_tree"] as Sprite2D).texture.resource_path.ends_with("fig_tree_refined.png")
+		and is_equal_approx(royal_tent.scale.x, 0.30),
+		"the detailed fig uses its six-times canvas while Saul's doorway retains its calibrated scale")
 	var sort_ok := r._ys.y_sort_enabled and r._prop_sprites.size() == r.model.props.size()
 	var shadows_ok := true
 	var fire: Sprite2D = null
@@ -381,6 +404,7 @@ func _run() -> void:
 		+ player.david_visual.body.position * player.david_visual.scale
 	_check(absf(player.david_visual.position.x) > 0.5
 		and player.armour_visual.position.is_equal_approx(expected_overlay)
+		and is_equal_approx(player.armour_visual.rotation, player.david_visual.body.rotation)
 		and is_equal_approx(player.speed_scale(), 0.42),
 		"walking in armour staggers the painted body and its overlay together at reduced speed")
 	player.external_intent = Vector2.ZERO
@@ -401,7 +425,8 @@ func _run() -> void:
 	_check(not player.armour_visual.visible and player.sprite.offset == Vector2(0, -8)
 		and is_zero_approx(player.david_visual.position.x) and is_equal_approx(player.speed_scale(), 1.0),
 		"removing armour restores both visual anchors and full speed")
-	_check(r.terrain.painted_ground == null and player.sprite.visible and not player.david_visual.visible,
+	_check(r.terrain.painted_ground == null and r.terrain.painted_ground_bottom == null
+		and player.sprite.visible and not player.david_visual.visible,
 		"classic theme restores the classic ground and David")
 	_check(not bool(r._shadow_layer.get("enabled")) and fire != null and fire.hframes == 2
 		and fire.texture.resource_path.ends_with("art/props/fire.png"),
@@ -446,6 +471,12 @@ func _run() -> void:
 	beth.set_process(false)
 	var beth_solid := beth.model._solid.duplicate()
 	beth.apply_art_theme("cinematic")
+	_check(beth.terrain.painted_ground != null and beth.terrain.painted_ground_bottom != null
+		and beth.terrain.painted_ground.resource_path.ends_with("world_bethlehem_refined_top.png")
+		and beth.terrain.painted_ground_bottom.resource_path.ends_with("world_bethlehem_refined_bottom.png")
+		and beth.terrain.painted_ground.get_size() == Vector2(2048, 1024)
+		and beth.terrain.painted_ground_bottom.get_size() == Vector2(2048, 1024),
+		"Bethlehem also uses two contiguous refined ground pieces")
 	var house: Sprite2D = null
 	for entry in beth._prop_sprites:
 		if str(entry["key"]) == "house":
@@ -453,8 +484,8 @@ func _run() -> void:
 			break
 	_check(house != null and house.texture.resource_path.ends_with("props_painted/house.png")
 		and house.texture.get_size() == Vector2(66, 83) * ArtDirection.PAINTED_PROP_DETAIL_FACTOR
-		and (house.texture.get_size() * house.scale).is_equal_approx(Vector2(66, 83)),
-		"Bethlehem house retains its authored world-sized canvas")
+		and (house.texture.get_size() * house.scale).is_equal_approx(Vector2(66, 83) * 1.12),
+		"Bethlehem's larger house keeps its bottom-anchored source canvas")
 	var beth_missing: Array = []
 	var house_paths := {}
 	for entry in beth._prop_sprites:
@@ -636,6 +667,95 @@ func _run() -> void:
 	await get_tree().process_frame
 	print("painted world: %d checks, %d failures" % [checks, failures])
 	get_tree().quit(1 if failures > 0 else 0)
+
+
+func _check_gait_contract(r: Region, player: Player) -> void:
+	var rig = load("res://scripts/world/HumanVisual.gd").new()
+	rig.scale = Vector2.ONE * Player.WORLD_RIG_SCALE
+	add_child(rig)
+	rig.build("pilgrim")
+	var root_before: Vector2 = rig.position
+	rig.set_pose(Vector2i(1, 0), false, 0.0, 0.1)
+	_check(rig.body.position == Vector2.ZERO and is_zero_approx(rig.body.rotation)
+		and rig.boot_left.position == Vector2.ZERO and rig.boot_right.modulate.a == 0.0,
+		"idle side art reconstructs the still figure without a duplicate far foot")
+	rig.set_pose(Vector2i(1, 0), true, 60.0, 0.1)
+	var fast_phase: float = rig.phase
+	var near_swing: float = rig.boot_left.rotation - rig.body.rotation
+	var far_swing: float = rig.boot_right.rotation - rig.body.rotation
+	_check(rig.gait_amount > 0.0 and rig.gait_amount < 1.0
+		and absf(rig.body.rotation) > 0.001 and rig.body.position.y < 0.0
+		and near_swing * far_swing < 0.0 and rig.boot_right.modulate.a > 0.0,
+		"gait eases in, leans and swings the two side feet in opposition")
+	_check(rig.position == root_before, "animated posture never shifts the actor's foot anchor")
+	rig.phase = 0.0
+	rig.set_pose(Vector2i(1, 0), true, 30.0, 0.1)
+	_check(is_equal_approx(fast_phase, rig.phase * 2.0),
+		"one gait cycle is tied to distance rather than a fixed frame rate")
+	rig.set_pose(Vector2i(-1, 0), false, 0.0, 0.2)
+	_check(not rig.moving and rig.gait_amount == 0.0 and rig.direction == Vector2i(-1, 0)
+		and rig.body.position == Vector2.ZERO and is_zero_approx(rig.body.rotation)
+		and rig.boot_left.position == Vector2.ZERO and rig.boot_right.modulate.a == 0.0,
+		"stopping smoothly returns all parts to idle and retains the last facing")
+	rig.queue_free()
+
+	for actor in ["elder", "woman"]:
+		var dressed = load("res://scripts/world/HumanVisual.gd").new()
+		dressed.scale = Vector2.ONE * Player.WORLD_RIG_SCALE
+		add_child(dressed)
+		dressed.build(actor)
+		dressed.set_pose(Vector2i(1, 0), true, 34.0, 0.2)
+		_check(dressed.boot_left.texture != dressed.boot_right.texture
+			and dressed.boot_right.modulate == Color.WHITE,
+			"%s's two visible profile feet are not duplicated" % actor)
+		dressed.queue_free()
+	var seated = load("res://scripts/world/HumanVisual.gd").new()
+	add_child(seated)
+	seated.build("samuel")
+	seated.set_pose(Vector2i(1, 0), true, 60.0, 0.2)
+	_check(not seated.moving and seated.gait_amount == 0.0 and is_zero_approx(seated.body.rotation),
+		"the seated prophet never leans or walks when asked to move")
+	seated.queue_free()
+
+	# Exercise real NPC movement: compare phase advance against displacement,
+	# not against the patrol constant when this same person follows faster.
+	var actor := Npc.new()
+	actor.setup(r.model, {"id": "gait_probe", "actor": "corin", "at": [16, 34],
+		"patrol": [[16, 34], [17, 34]]}, player, r.dialogue, Callable(r, "set_paused"))
+	r._ys.add_child(actor)
+	actor.set_physics_process(false)
+	actor.apply_art_theme("cinematic")
+	actor.state = Npc.State.PATROL
+	actor._path = PackedVector2Array()
+	actor._path.append(actor.global_position + Vector2(100, 0))
+	actor._path_i = 0
+	var previous := actor.global_position
+	actor._physics_process(0.1)
+	var patrol_distance := actor.global_position.distance_to(previous)
+	var patrol_phase: float = actor.human_visual.phase
+	var saved_player := player.global_position
+	player.global_position = actor.global_position + Vector2(200, 0)
+	actor.state = Npc.State.FOLLOW
+	actor._path = PackedVector2Array()
+	actor._path.append(actor.global_position + Vector2(100, 0))
+	actor._path_i = 0
+	actor._repath = 10.0
+	previous = actor.global_position
+	actor._physics_process(0.1)
+	var follow_distance := actor.global_position.distance_to(previous)
+	var follow_phase: float = actor.human_visual.phase - patrol_phase
+	_check(follow_distance > patrol_distance
+		and is_equal_approx(patrol_phase, patrol_distance * TAU / 42.0)
+		and is_equal_approx(follow_phase, follow_distance * TAU / 42.0),
+		"patrol and follow gait speeds track their real different distances")
+	player.global_position = saved_player
+	actor.queue_free()
+
+
+func _visible_prop_height(sprite: Sprite2D) -> float:
+	if sprite == null or sprite.texture == null:
+		return 0.0
+	return float(sprite.texture.get_image().get_used_rect().size.y) * sprite.scale.y
 
 
 func _check(ok: bool, message: String) -> void:

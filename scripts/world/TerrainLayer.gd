@@ -18,7 +18,9 @@ const ANIM_FPS := 6.0
 var model: RegionModel = null
 var tex: Texture2D = null
 ## Optional map-aligned painted ground. Physics still comes from the model.
+## Refined maps use two joined textures so each side fits a 2048px GPU limit.
 var painted_ground: Texture2D = null
+var painted_ground_bottom: Texture2D = null
 var atlas_cols: int = 16
 
 var _view := Rect2i()
@@ -41,6 +43,13 @@ func set_depth_mode(m: String) -> void:
 
 func set_painted_ground(texture: Texture2D) -> void:
 	painted_ground = texture
+	painted_ground_bottom = null
+	queue_redraw()
+
+
+func set_painted_ground_pieces(top: Texture2D, bottom: Texture2D) -> void:
+	painted_ground = top
+	painted_ground_bottom = bottom if top != null else null
 	queue_redraw()
 
 
@@ -96,8 +105,15 @@ func _draw() -> void:
 	if model == null or tex == null:
 		return
 	if painted_ground != null:
-		draw_texture_rect(painted_ground,
-			Rect2(0, 0, model.width * TILE, model.height * TILE), false)
+		var extent := Vector2(model.width * TILE, model.height * TILE)
+		if painted_ground_bottom == null:
+			draw_texture_rect(painted_ground, Rect2(Vector2.ZERO, extent), false)
+		else:
+			# Both pieces were cut from one image; their common edge maps to the
+			# exact middle of the region, not two independently tiled surfaces.
+			var half := Vector2(extent.x, extent.y * 0.5)
+			draw_texture_rect(painted_ground, Rect2(Vector2.ZERO, half), false)
+			draw_texture_rect(painted_ground_bottom, Rect2(Vector2(0, half.y), half), false)
 		return
 	for y in range(_view.position.y, _view.position.y + _view.size.y):
 		for x in range(_view.position.x, _view.position.x + _view.size.x):

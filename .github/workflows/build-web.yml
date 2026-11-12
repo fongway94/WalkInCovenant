@@ -480,6 +480,30 @@ jobs:
           grep -aE 'framebuffer delta|occluded lower-body control|fixture finished' reference-visual.txt \
             | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
 
+      - name: Capture the chapter's real walking and refined terrain
+        run: |
+          mkdir -p "$RUNNER_TEMP/wic-refinement" build
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-refinement"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/refinement_visual_probe.tscn > refinement-visual.txt 2>&1 || STATUS=$?
+          cat refinement-visual.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|did not actually|did not ease|could not capture' refinement-visual.txt | head -8 || true)
+          STEPS=$(grep -ac 'captured real player steps' refinement-visual.txt || true)
+          STOPS=$(grep -ac 'captured eased stop' refinement-visual.txt || true)
+          PATROLS=$(grep -ac 'captured real NPC patrol' refinement-visual.txt || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || [ "$STEPS" -ne 12 ] \
+              || [ "$STOPS" -ne 3 ] || [ "$PATROLS" -ne 2 ] \
+              || ! grep -q 'refinement visual fixture finished (0 failures)' refinement-visual.txt; then
+            echo "::error::Refinement motion capture failed (exit $STATUS, steps $STEPS, stops $STOPS, patrols $PATROLS): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+
       - name: Console and runtime error gate
         if: always()
         run: |

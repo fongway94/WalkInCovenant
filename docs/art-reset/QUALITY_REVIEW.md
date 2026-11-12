@@ -1,5 +1,7 @@
 # Chapter-wide sunset-field playtest review
 
+> This review describes the **published** revision `e66ba37`. A later, unpublished local movement, scale and ground pass is documented in [the refinement review](REFINEMENT_REVIEW.md).
+
 This is the **David and Goliath chapter playtest**, not a finished multi-campaign game or a claim of final art approval. The user asked for the whole playable chapter—not only the shepherd field—to move toward the supplied reference, including character proportions, apparent size and detail, and authorized this fixed build for a public phone playtest.
 
 **Play it:** https://fongway94.github.io/WalkInCovenant/ . The published artifact came from [passing CI for game revision `e66ba37`](https://github.com/fongway94/WalkInCovenant/actions/runs/43226870730). The [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43229031904) checked that the public game pack matched that artifact, verified the service-worker revision and passed a strict public Chromium play-check. This review records evidence, not human approval; no physical phone has been tested.

@@ -1,9 +1,10 @@
 extends Node2D
 ## A shared foot-anchored painterly David rig for the player and David NPC.
 ## Side/back are generated, keyed sources; the front is the approved reference.
-## Left mirrors the side art, including its lighting. This is a subtle layered
-## cutout gait, not a claim of fully hand-animated directional sprite sheets.
+## Left mirrors the side art, including its lighting. The posture and feet use
+## a speed-matched layered gait, not hand-animated directional sprite sheets.
 
+const GAIT := preload("res://scripts/world/ReferenceGait.gd")
 const ROOT := "res://art/characters_painted/"
 const REFERENCE := "res://art/proto/sprites/david_reference_"
 
@@ -32,8 +33,9 @@ func build() -> void:
 	boot_left = _part()
 	boot_right = _part()
 	body = _part()
-	add_child(boot_left)
+	# The right boot is the subdued far foot in the single-boot side view.
 	add_child(boot_right)
+	add_child(boot_left)
 	add_child(body)
 	_select_pose("front", false)
 
@@ -51,7 +53,7 @@ func _select_pose(name: String, flipped: bool) -> void:
 		var pose: Array = _poses[name]
 		body.texture = pose[0]
 		boot_left.texture = pose[1]
-		boot_right.texture = pose[2]
+		boot_right.texture = pose[1] if name == "profile" else pose[2]
 		_pose_name = name
 	body.flip_h = flipped
 	boot_left.flip_h = flipped
@@ -71,12 +73,9 @@ func set_pose(facing: Vector2i, walking: bool, speed: float, delta: float) -> vo
 	elif direction.x != 0:
 		pose = "profile"
 	_select_pose(pose, direction.x < 0)
-	moving = walking
-	gait_amount = move_toward(gait_amount, 1.0 if walking else 0.0, maxf(0.0, delta) * 8.0)
-	if walking:
-		phase += delta * clampf(speed / 60.0, 0.5, 1.7) * 9.0
-	var wave := sin(phase) * gait_amount
-	var side := -1.0 if direction.x < 0 else 1.0
-	body.position = Vector2(0, -absf(wave) * 0.6)
-	boot_left.position = Vector2(side * wave * 2.0, -maxf(0.0, wave) * 1.2)
-	boot_right.position = Vector2(-side * wave * 2.0, -maxf(0.0, -wave) * 1.2)
+	moving = walking and speed > 0.1
+	gait_amount = move_toward(gait_amount, 1.0 if moving else 0.0, maxf(0.0, delta) * 8.0)
+	if moving:
+		phase = GAIT.advance(phase, speed, delta, scale.x)
+	GAIT.apply(body, boot_left, boot_right, direction, pose, phase, gait_amount,
+		80.0, pose == "profile", false)

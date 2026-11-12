@@ -1,0 +1,37 @@
+# Chapter movement, scale and ground refinement
+
+This is the **local working-branch refinement**, not the currently published playtest. The public site remains on the previously approved game revision `e66ba37`. The comparison baseline below is the matching game tree at `1de5452`; no later build has been published.
+
+## The world at the same camera positions
+
+The following pairs are actual 1000×450 native Godot framebuffers from the same staged positions and lighting. The pass changes scenery scale as well as the ground; these are not isolated ground-only comparisons. WebP images are lossless.
+
+| Before | After |
+|:---|:---|
+| ![Camp before](refinement-review/camp-before.webp) | ![Camp after](refinement-review/camp-after.webp) |
+| ![Bethlehem before](refinement-review/bethlehem-before.webp) | ![Bethlehem after](refinement-review/bethlehem-after.webp) |
+
+[Revised stream crossing](refinement-review/crossing-after.webp) · [Saul in the real browser journey](refinement-review/saul-journey.webp) · [Actual release-Web camp at an emulated 844×390 viewport](refinement-review/phone-camp.webp)
+
+Elah and Bethlehem now use sharper, map-aligned ground split into two pieces per region. The revised masks retain the original river, crossing and irregular shoreline; the ridge has a softened, uneven verge. New ground uses several non-repeating meadow bands rather than stamped flower clusters. The existing field painting, map coordinates and collision remain unchanged. The ordinary tents, houses, trees, well, jars and shrubs have been rebalanced visually, with a new mature fig tree. Saul's open-front tent keeps its separately calibrated scale and sorting. Some scenery and paving still repeat.
+
+## Motion
+
+The clips pair **real physics-step framebuffer crops**, taken at the same 24 Hz fixture cadence while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation.
+
+| Witness, side walk | David, side walk in the field |
+|:---|:---|
+| ![Before and after witness walk](refinement-review/witness-walk.webp) | ![Before and after David walk](refinement-review/david-walk.webp) |
+
+The shared gait eases in and out, adds a small weight shift and lean, and advances with travel distance. It uses layered cutouts and a subdued second profile foot, **not hand-authored walk cycles**. Samuel remains seated; long hems and capes keep most of their silhouette, and the armour overlay follows David's body. The visual fixture also captured both actors from all four directions, a run, three stops, two NPC patrols (the woman's is fixture-only), and armour from three sides.
+
+## Verification and limits
+
+- Fresh real-input Chromium journey from the witness through the ending passed, including a one-sheep save/reload, Saul and armour, brook and duel; a separate staged interruption checked sheep cleanup. No unexpected page or console errors.
+- Strict release-Web validation: **30/30** checks; emulated responsive/touch layout: **36**; replay and unreadable-save recovery: **34**. Touch was emulated, not tested on a physical phone.
+- An isolated local service-worker upgrade from the earlier export to the refined export loaded the new pack and preserved a real conversation, its earned word, the chapter act and a changed sound setting in IndexedDB. This was a simulation, not a live-site upgrade.
+- Native gameplay suites passed: painted world **129/129**, shepherd stage **54/54**, resume **24/24**, context **35/35**, save slots **38/38**, audio contract **21/21**, deep **144**, plus smoke and content tests. Native software OpenGL rendered the 18-frame regression and the reference/prototype fixtures.
+- Reproducibility checks passed for four split grounds, the new fig and **27** character views / **108** layers. The ground check also verifies unchanged water and protected shoreline pixels. The local Web and Android-preset release PCKs contained **856** indexed resources and excluded test fixtures; the separate disposable browser pack contained **963**. An Android PCK is not an APK.
+- The new movement capture fixture passed with **12** real player walks/runs, **3** eased stops and **2** NPC patrols. A CI gate checks its completion and failure count; the captures themselves require visual review.
+
+The local Web PCK is about **30.03 MiB**, versus **20.27 MiB** for the earlier local export; the largest ground texture dimension is 2048 pixels. Mobile memory, download time and performance have not been measured on a physical device. Animation, generated angles and visual quality still need human judgment; there has been no listening test. Immediate engine shutdown can still report ObjectDB/resource warnings.

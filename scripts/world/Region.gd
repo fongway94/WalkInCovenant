@@ -21,10 +21,13 @@ const SWAY_KEYS := ["wheat_sheaf", "bush", "wool_tuft"]
 ## their legacy sheet. These are visual scales only; collision still comes from
 ## data/props.json. Every sprite is bottom anchored at its original map tile.
 const PAINTED_PROP_SCALE := {
-	"tent": 0.90, "jar": 0.72, "well": 1.25,
+	# Tent peaks, doorways and mature trees need to read at human scale. Shrubs
+	# and jars are correspondingly smaller; none of these values changes physics.
+	"tent": 1.08, "house": 1.12, "olive_tree": 1.10, "fig_tree": 2.40,
+	"jar": 0.60, "well": 1.45,
 	"fire": 0.50, "altar_stones": 0.50, "fold": 0.50,
 	"trough": 0.50, "staff": 0.50, "wheat_sheaf": 0.50,
-	"bush": 0.50, "wool_tuft": 0.50, "signpost": 0.50,
+	"bush": 0.40, "wool_tuft": 0.50, "signpost": 0.50,
 	"sheep": 0.50, "sheep_graze": 0.50, "sheep_alert": 0.50,
 }
 ## This authored Elah tent is Saul's backdrop. Its open-front art must sort at
@@ -201,7 +204,14 @@ func _prop_texture_path(key: String, theme: String) -> String:
 
 func _prop_visual_scale(key: String, theme: String, path: String) -> float:
 	if theme == "cinematic" and path.begins_with("res://art/props_painted/"):
-		return float(PAINTED_PROP_SCALE.get(key, 1.0)) / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		# The royal backdrop's doorway is authored around Saul's fixed position;
+		# changing its scale would cover his feet. Keep that one independently
+		# calibrated while increasing the other camp tents.
+		if path.ends_with("/tent_royal_open.png"):
+			return 0.90 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		# The distinct refined fig is six times the old 16x24 canvas, not three.
+		var detail := 6.0 if path.ends_with("/fig_tree_refined.png") else ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		return float(PAINTED_PROP_SCALE.get(key, 1.0)) / detail
 	return 1.0
 
 
@@ -224,6 +234,8 @@ func _map_prop_texture_path(key: String, theme: String, at: Vector2i) -> String:
 				variant = "res://art/props_painted/tent_camp_b.png"
 	elif key == "house" and posmod(at.x, 2) == 0:
 		variant = "res://art/props_painted/house_reference_alt.png"
+	elif key == "fig_tree":
+		variant = "res://art/props_painted/fig_tree_refined.png"
 	return variant if variant != "" and ResourceLoader.exists(variant) else chosen
 
 
@@ -910,12 +922,17 @@ func apply_art_theme(theme: String) -> void:
 	if tex != null:
 		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	terrain.set_depth_mode(theme if themed else "none")
-	# The revised meadow is still map-aligned: terrain collision and exits
-	# continue to come from the region JSON, never from the background pixels.
+	# The sharper two-piece ground is still map-aligned: collision and exits
+	# continue to come from region JSON, never from the background pixels. Both
+	# parts are required; otherwise retain the earlier single-texture fallback.
+	var refined_top := "res://art/scenes_painted/world_%s_refined_top.png" % region_id
+	var refined_bottom := "res://art/scenes_painted/world_%s_refined_bottom.png" % region_id
 	var painted := "res://art/scenes_painted/world_%s_reference.png" % region_id
 	if not ResourceLoader.exists(painted):
 		painted = "res://art/scenes_painted/world_%s.png" % region_id
-	if theme == "cinematic" and ResourceLoader.exists(painted):
+	if theme == "cinematic" and ResourceLoader.exists(refined_top) and ResourceLoader.exists(refined_bottom):
+		terrain.set_painted_ground_pieces(load(refined_top) as Texture2D, load(refined_bottom) as Texture2D)
+	elif theme == "cinematic" and ResourceLoader.exists(painted):
 		terrain.set_painted_ground(load(painted) as Texture2D)
 	else:
 		terrain.set_painted_ground(null)

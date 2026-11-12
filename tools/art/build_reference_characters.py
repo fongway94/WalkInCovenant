@@ -25,6 +25,16 @@ CANVAS = (70, 98)
 # feet/stool ground anchor; HumanVisual.gd reports the same visible height.
 SEATED_HEIGHT = 76
 
+# Profile boots are isolated without cutting the trailing cape or the skirt.
+# Two pictures already show distinct feet; their side poses use both layers
+# rather than a duplicate of a single cutout. Coordinates are 70x98 pixels.
+PROFILE_FOOT_BOUNDS = {
+    "pilgrim": (28, 84, 58, 97), "corin": (26, 84, 52, 97),
+    "boy": (22, 84, 48, 97), "jesse": (26, 84, 54, 97),
+    "eliab": (26, 84, 52, 97), "king": (36, 84, 64, 97),
+}
+PROFILE_PAIRED = {"elder", "woman"}
+
 # Each view is a separate generated source. Fit its original aspect to the
 # shared foot-anchored canvas; do not splice faces or costumes across angles.
 ACTORS = {
@@ -120,18 +130,21 @@ def make_layers(image, actor, pose):
                 "boot_left": empty.copy(), "boot_right": empty.copy()}
     body_alpha = alpha.copy()
     outputs = {"idle": image}
+    # The woman's skirt and the rear of two capes fall below the usual cut.
+    # Leave those hems on the body; animate only the visible shoes under them.
+    cut_y = 90 if actor == "woman" or (pose == "back" and actor in {"pilgrim", "king"}) else 84
     for name in ("left", "right"):
         selection = Image.new("L", CANVAS)
         draw = ImageDraw.Draw(selection)
-        if pose == "profile":
-            # Profiles show a single boot or overlapping boots. Never tear a
-            # continuous side-on boot silhouette down the middle.
+        if pose == "profile" and actor not in PROFILE_PAIRED:
+            # A single overlapping profile foot: isolate it from the trailing
+            # cloth. The rig may add a shaded second cutout only while walking.
             if name == "left":
-                draw.rectangle((0, 84, 69, 97), fill=255)
+                draw.rectangle(PROFILE_FOOT_BOUNDS[actor], fill=255)
         elif name == "left":
-            draw.rectangle((0, 84, 34, 97), fill=255)
+            draw.rectangle((0, cut_y, 34, 97), fill=255)
         else:
-            draw.rectangle((35, 84, 69, 97), fill=255)
+            draw.rectangle((35, cut_y, 69, 97), fill=255)
         part_alpha = ImageChops.multiply(alpha, selection)
         part = image.copy()
         part.putalpha(part_alpha)

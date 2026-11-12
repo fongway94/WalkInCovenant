@@ -480,6 +480,7 @@ func _sync_talk() -> void:
 
 func _physics_process(delta: float) -> void:
 	_sync_talk()
+	var previous_position := global_position
 	match state:
 		State.IDLE:
 			_moving = false
@@ -489,7 +490,10 @@ func _physics_process(delta: float) -> void:
 			_do_follow(delta)
 		State.TALK:
 			_moving = false
-	_update_anim(delta)
+	# Followers and guides travel faster than patrols. Drive the painted gait
+	# from actual displacement, including a stop when a path has no next step.
+	var visual_speed := global_position.distance_to(previous_position) / delta if delta > 0.0 else 0.0
+	_update_anim(delta, visual_speed)
 
 
 func _tile_here() -> Vector2i:
@@ -772,14 +776,15 @@ func _dir_row() -> int:
 		_: return 3
 
 
-func _update_anim(delta: float) -> void:
+func _update_anim(delta: float, visual_speed: float) -> void:
 	if sprite == null:
 		return
 	var row := _dir_row()
+	var walking := _moving and visual_speed > 0.1
 	if david_visual != null and david_visual.visible:
-		david_visual.set_pose(facing, _moving, PATROL_SPEED, delta)
+		david_visual.set_pose(facing, walking, visual_speed, delta)
 	if human_visual != null and human_visual.visible:
-		human_visual.set_pose(facing, _moving, PATROL_SPEED, delta)
+		human_visual.set_pose(facing, walking, visual_speed, delta)
 	if _moving:
 		var base: Texture2D = sprite.texture
 		var walk_path := "%s/%s_walk.png" % [art_dir, actor_id]
