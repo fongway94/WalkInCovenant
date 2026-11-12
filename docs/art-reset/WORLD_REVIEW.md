@@ -31,4 +31,4 @@ Please look especially at whether the Bethlehem well's grass scale and the diffe
 
 The current local build passed a fresh automated browser journey from the opening to the ending, replay/recovery and bilingual-control checks, browser layout and release checks, headless regressions, and a native software-rendered frame suite. The full-story path used real keyboard input; the replay and layout checks include emulated touch. See `docs/AGENT_CONTINUATION.md` for scope and counts.
 
-The new build has **not** been reviewed on a physical phone or Android device, and its audio has not been reviewed by ear. The public phone-playtest site is still the previously approved deployment; publishing this proposal needs separate approval.
+The new build has **not** been reviewed on a physical phone or Android device, and its audio has not been reviewed by ear. The user approved publishing this proposal for a phone playtest at https://fongway94.github.io/WalkInCovenant/; that is not approval of the wider-world art. Any further deployment needs separate approval.
