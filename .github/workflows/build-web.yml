@@ -140,8 +140,16 @@ jobs:
         if: always()
         run: |
           [ -f static.txt ] || exit 0
-          tr '\n' '|' < static.txt | cut -c1-3000 \
-            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          # A passing check must not create a red error annotation. Put every
+          # exit status first so a long diagnostic cannot hide a later failure
+          # when the annotation is truncated.
+          LEVEL=error
+          [ "${{ steps.static.outcome }}" != "success" ] || LEVEL=notice
+          {
+            awk '/^===== / {check=$2} /^exit=/ {printf "%s:%s | ", check, substr($0, 6)}' static.txt
+            tr '\n' '|' < static.txt
+          } | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::%s::%s\n' "$LEVEL" "$line"; done
 
       - name: Fail the job if a static check failed
         if: steps.static.outcome != 'success'
