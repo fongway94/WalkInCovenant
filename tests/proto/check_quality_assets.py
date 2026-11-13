@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 import tempfile
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parents[2]
 os.chdir(ROOT)
@@ -34,6 +34,17 @@ def same_pixels(generated, path):
     with Image.open(path) as saved:
         return (generated.mode == saved.mode and generated.size == saved.size
                 and generated.tobytes() == saved.tobytes())
+
+
+def adjacent_luma_difference(image):
+    """Mean local edge strength, used only as a blur regression indicator."""
+    gray = image.convert("L")
+    width, height = gray.size
+    horizontal = ImageChops.difference(gray.crop((0, 0, width - 1, height)),
+                                       gray.crop((1, 0, width, height)))
+    vertical = ImageChops.difference(gray.crop((0, 0, width, height - 1)),
+                                     gray.crop((0, 1, width, height)))
+    return (ImageStat.Stat(horizontal).mean[0] + ImageStat.Stat(vertical).mean[0]) / 2.0
 
 
 def source_point_to_field(x, y):
@@ -147,21 +158,47 @@ def check_refinement():
             assert max(piece.size) <= 2048, "texture exceeds older phone WebGL limits"
             assert same_pixels(piece, path), "non-reproducible refined ground: " + str(path)
             image.paste(piece, (0, y))
-        # Water and crossing are *exactly* the earlier reference pixels at the
-        # new density. Use a max across RGB channels, not grayscale conversion,
-        # which can round a one-channel difference to zero. This also catches a
-        # misplaced cut between the pieces.
-        red, green, blue = ImageChops.difference(image, masks["base"]).split()
+        # Compare independently against the original reference, not the
+        # builder's sharpened land base: otherwise sharpening the protected
+        # shoreline could make both output and expected pixels wrong together.
+        reference = Image.open(Path("art/scenes_painted") /
+                               ("world_" + region + "_reference.png")).convert("RGB")
+        reference = reference.resize((width, height), Image.Resampling.LANCZOS)
+        assert reference.tobytes() == masks["reference_base"].tobytes()
+        # Use the max across RGB channels, not grayscale, which can round a
+        # one-channel difference to zero. Both halves are reassembled here.
+        red, green, blue = ImageChops.difference(image, reference).split()
         diff = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+        water = refined_ground.material_mask(raw["grid"], "~=e", (width, height))
+        shore_core = refined_ground.material_mask(raw["grid"], "~=e", (width, height), padding=24)
+        assert masks["water"].tobytes() == water.tobytes(), region + " changed protected materials"
+        assert masks["shore_core"].tobytes() == shore_core.tobytes(), region + " changed shoreline core"
         if region == "elah":
-            assert masks["water"].getbbox() is not None, "Elah water mask is empty"
-            assert ImageChops.subtract(masks["shore_core"], masks["water"]).getbbox() is not None, \
+            assert water.getbbox() is not None, "Elah water mask is empty"
+            assert ImageChops.subtract(shore_core, water).getbbox() is not None, \
                 "Elah shoreline protection must extend beyond water tiles"
-        assert ImageChops.multiply(diff, masks["water"]).getbbox() is None, region + " changed water"
-        assert ImageChops.multiply(diff, masks["shore_core"]).getbbox() is None, region + " cut into shoreline"
+        assert ImageChops.multiply(diff, water).getbbox() is None, region + " changed water"
+        assert ImageChops.multiply(diff, shore_core).getbbox() is None, region + " cut into shoreline"
         assert ImageChops.multiply(diff, masks["grass"]).getbbox() is not None, region + " lacks new meadow detail"
         assert ImageChops.multiply(diff, masks["path"]).getbbox() is not None, region + " lacks new path detail"
-    print("refined fig and four reproducible map-aligned ground pieces with untouched water: PASS")
+
+        # Fixed, ground-only crops from the previously published textures. This
+        # numerical check catches a return to the blurred source processing, or
+        # an extreme change in contrast/colour; it is not a substitute for
+        # viewing actual frames or checking for shimmer while moving.
+        part, box = {"elah": ("bottom", (700, 950, 1000, 1250)),
+                     "bethlehem": ("top", (100, 400, 400, 700))}[region]
+        before = Image.open(Path("tests/fixtures/ground_clarity") /
+                            (region + "-published.png")).convert("RGB")
+        after = pieces[part].crop(box)
+        baseline_edge = adjacent_luma_difference(before)
+        edge = adjacent_luma_difference(after)
+        assert 1.25 * baseline_edge < edge < 1.95 * baseline_edge, \
+            f"{region} clarity regression: before {baseline_edge:.2f}, after {edge:.2f}"
+        old_mean, new_mean = ImageStat.Stat(before).mean, ImageStat.Stat(after).mean
+        assert max(abs(a - b) for a, b in zip(old_mean, new_mean)) < 3.0, \
+            region + " ground palette shifted in clarity crop"
+    print("refined fig, clearer split ground, stable palettes and untouched water/shore: PASS")
 
 
 def check_people():

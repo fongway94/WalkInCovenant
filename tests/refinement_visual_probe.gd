@@ -184,6 +184,11 @@ func _run() -> void:
 	r.player.global_position = Vector2(264, 448)
 	r.cam.global_position = r.cam._clamp(Vector2(264, 432))
 	await _shot("crossing")
+	# The two Elah texture halves meet at y=384 world units. Centre the join
+	# in a real frame so filtering or placement seams can be reviewed by eye.
+	r.player.global_position = Vector2(264, 384)
+	r.cam.global_position = r.cam._clamp(Vector2(264, 384))
+	await _shot("elah-seam")
 	r.player.global_position = Vector2(240, 174)
 	r.cam.global_position = r.cam._clamp(Vector2(264, 145))
 	await _shot("ridge")
@@ -239,6 +244,10 @@ func _run() -> void:
 	r.player.global_position = Vector2(264, 240)
 	r.cam.global_position = Vector2(264, 190)
 	await _shot("bethlehem")
+	# Bethlehem's corresponding texture join is at y=256 world units.
+	r.player.global_position = Vector2(264, 256)
+	r.cam.global_position = r.cam._clamp(Vector2(264, 256))
+	await _shot("bethlehem-seam")
 	r.player.global_position = Vector2(264, 208)
 	r.cam.global_position = r.cam._clamp(Vector2(264, 132))
 	await _shot("houses")

@@ -8,6 +8,12 @@ The user authorized publication of the refined chapter, now available at https:/
 
 The active branch is `arena/905f79d4-walkincovenant`, based on `cec25b525d44dff3b96970415fa2232a13e9d676`. Inspect CI and Pages for the **exact** revision before making claims about a later build. Automated public-browser checks do not establish physical-device appearance, audible quality or art approval.
 
+## Unpublished ground-clarity follow-up
+
+The user reported that the published ground still looked blurry compared with the objects and asked for it to look equally sharp. The working tree now has a **local-only** clarity pass: the existing meadow/soil source edges are sharpened before nearest-neighbour fitting, and retained land/paving pixels are treated similarly. The runtime was already using nearest filtering. This makes existing detail more legible but does not reconstruct missing detail or increase texture resolution. The original water, crossing tiles and a padded shoreline core remain pixel-identical; some older soft grass remains in that protected brook strip. Map data, collision, props and the separately painted shepherd field have not changed. [Ground clarity review](art-reset/GROUND_CLARITY_REVIEW.md) includes matching native before/after views, a 2× crop, the two split-texture joins and an emulated DPR-2 browser view.
+
+The four ground outputs reproduce with Pillow 13.0.0; fixed published crops guard edge strength and palette, and independent masks verify the protected reference pixels. Pack validation now requires all four dynamically loaded ground pieces to prevent silently falling back to softer art. Local native gameplay, content/static tests, the motion/seam capture, strict release-Web **30/30**, emulated layout/touch **36**, and a fresh real-input browser journey through the ending passed. A separate local service-worker upgrade from the earlier local refinement export loaded the new pack and preserved a real earned conversation/word, chapter act and changed sound setting; it was not a live-site upgrade. The local Web and Android-preset PCKs contain **856** entries and the disposable test pack **963**; the local Web PCK is **29.60 MiB**. No phone, APK, listening or human art-approval test was performed; immediate-shutdown resource warnings remain. The preview is ephemeral and must not be confused with the public Pages site. No fresh hosted CI or authorization for publication has been obtained for this pass.
+
 ## Published refinement
 
 The approved `d8526c3` pass improves gait, prop proportions and ground detail over the earlier published revision. [The refinement review](art-reset/REFINEMENT_REVIEW.md) includes paired staged framebuffers, motion clips from fixed-step production movement, a real browser journey view, and its verification and limits. Further branch work should not be assumed to be public or deployed without new authorization.
@@ -20,7 +26,7 @@ Local checks for this pass: fresh Chromium journey through the ending **37** ass
 
 The initial hosted run [43246174951](https://github.com/fongway94/WalkInCovenant/actions/runs/43246174951) passed the visual capture and export but failed timed practice in the browser journey with zero hits; later layout/replay jobs within that step did not run. A local 400-ms added-input-latency negative control made the old practice driver miss all 14 shots. The revised `tests/browser/practice_driver.cjs` observes real registered hits/misses and adapts its lead without changing the game; `practice_latency.cjs` passed locally with 0, 100, 200, 300 and 400 ms added delay. This suggests, but does not prove, the cause of the hosted failure. The CI chapter job now exercises 0/200/400 ms before the full journey; all passed in [run 43251709210](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210).
 
-At the time of the pass, port 8114 serves an ephemeral local release preview from `build/refinement-test/serve/`. The test-only launchers were removed from that served directory after regression runs and the fixture URL returned 404; the release pack passed its boundary check. `build/` and local processes do not persist as source, and the preview is not the public phone link.
+The previous port-8114 preview from `build/refinement-test/serve/` is historical. At the time of the ground-clarity follow-up, port 8088 serves the local release export in `build/web-ground-hd/`; the disposable test-pack route is removed after the browser checks. `build/` and local processes do not persist as source, and neither preview is the public phone link.
 
 ## Previous published chapter-wide reference pass
 
@@ -34,7 +40,7 @@ The previous tent hid Saul's lower body. `Region.gd` now selects an open-front t
 
 [Quality review and framebuffer captures](art-reset/QUALITY_REVIEW.md) records actual staged and browser views. Local checks: full fresh browser journey to the ending, replay/recovery **34**, layout/bilingual/emulated touch **36** (DPR-2 1688×780 backing at 844×390 CSS), strict release **30/30**; no unexpected browser errors/warnings. Headless stage **54**, resume **24**, painted **116**, slots **38**, context **35**, audio **21**, deep **144**, smoke/content passed. Native software OpenGL rendered **18 frames**, and the isolated prototype passed at **1280×720**. Its earlier exploratory 1000×450 run failed viewport-specific assertions and is not a valid pass. No baselines were replaced. Local Web and Android-preset release PCKs each had **844** indexed resources, the separate disposable probe pack **947**. A PCK is not an Android APK; no physical-phone, listening or human art approval is implied. Immediate-shutdown ObjectDB/resource warnings remain.
 
-The old port-8103 preview and its test-only `/__probe__/` are historical, not a durable release. The current local refinement preview is described above.
+The old port-8103 preview and its test-only `/__probe__/` are historical, not a durable release. The local ground-clarity preview is described above.
 
 ## Current implementation
 

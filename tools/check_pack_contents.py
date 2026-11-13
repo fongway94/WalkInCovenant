@@ -35,6 +35,12 @@ REQUIRED_ART = {
     "art/characters_reference/boy_front_idle.png.import",
     "art/scenes_painted/world_elah_reference.png.import",
     "art/scenes_painted/world_bethlehem_reference.png.import",
+    # These are dynamically selected as a pair; without either half Region
+    # silently falls back to the older, softer single-texture ground.
+    "art/scenes_painted/world_elah_refined_top.png.import",
+    "art/scenes_painted/world_elah_refined_bottom.png.import",
+    "art/scenes_painted/world_bethlehem_refined_top.png.import",
+    "art/scenes_painted/world_bethlehem_refined_bottom.png.import",
     "art/scenes_painted/shepherd_field_reference.png.import",
     "art/scenes_painted/shepherd_field_reference_tree.png.import",
     "art/scenes_painted/shepherd_field_reference_fence.png.import",

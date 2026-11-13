@@ -9,6 +9,11 @@ original map materials; the brook and crossing retain the old pixels. This is
 visual art only: navigation, collision, props and story positions remain in
 region JSON. The shepherd-field reference is deliberately untouched.
 
+The source paintings are sharpened before nearest-neighbour resizing, so their
+existing small details survive without an extra smooth resampling pass. This
+improves perceived edge clarity; it does not invent high-resolution detail.
+The original shoreline and water retain their previous Lanczos-scaled pixels.
+
 Each output is at most 2048 pixels on a side, to avoid requiring a larger WebGL
 texture limit. The runtime places the two halves at their original world extent.
 Requires Pillow 13.0.0. Run from the repository root; --check is read-only.
@@ -72,6 +77,17 @@ def ridge_mask_for(grid, size):
     return mask.filter(ImageFilter.GaussianBlur(26))
 
 
+def fit_ground_detail(source, size):
+    """Retain the painting's small edges instead of smoothing them twice.
+
+    Sharpen at the *source* scale, not after enlargement. Nearest-neighbour
+    fitting then preserves those painted edges without adding interpolated blur.
+    This is deliberately limited to land artwork, not the protected water.
+    """
+    source = source.filter(ImageFilter.UnsharpMask(radius=1.0, percent=140, threshold=3))
+    return ImageOps.fit(source, size, Image.Resampling.NEAREST)
+
+
 def meadow(region, size):
     width, height = size
     sources = MEADOWS[region]
@@ -84,7 +100,7 @@ def meadow(region, size):
         # remaining irregular grass and flowers at their natural proportions.
         trim = 80 if region == "elah" else 48
         source = source.crop((0, 0, source.width, source.height - trim))
-        image = ImageOps.fit(source, (width, band_h), Image.Resampling.LANCZOS)
+        image = fit_ground_detail(source, (width, band_h))
         if mirrored:
             image = ImageOps.mirror(image)
         if index == 0:
@@ -117,7 +133,7 @@ def path_texture(size):
                       source.crop((middle, 0, source.width, source.height))])
     strip = Image.new("RGB", (strip_w, height))
     for i, crop in enumerate(crops):
-        section = ImageOps.fit(crop, (strip_w, band_h), Image.Resampling.LANCZOS)
+        section = fit_ground_detail(crop, (strip_w, band_h))
         y = i * (band_h - overlap)
         if i == 0:
             strip.paste(section, (0, y))
@@ -178,16 +194,23 @@ def build(region):
     previous = Image.open(SCENES / ("world_" + region + "_reference.png")).convert("RGB")
     if previous.size != (size[0] // 2, size[1] // 2):
         raise ValueError("previous ground no longer matches the region: " + region)
-    base = previous.resize(size, Image.Resampling.LANCZOS)
+    reference_base = previous.resize(size, Image.Resampling.LANCZOS)
     # Protect the river tiles exactly AND the irregular painted shoreline that
     # extends into adjacent grass tiles. Without that extra feathered margin,
     # replacing the meadow cuts the winding bank into a straight tile edge.
-    # Water and crossing pixels are enlarged, never repainted or reinterpreted.
+    # Water and crossing pixels keep the previous pass's exact pixels.
     water = material_mask(grid, "~=e", size)
     shore_core = material_mask(grid, "~=e", size, padding=24)
     shoreline = material_mask(grid, "~=e", size, feather=20, padding=40)
     protected = ImageChops.lighter(shore_core, shoreline)
     safe = ImageChops.invert(protected)
+
+    # The reference also remains visible on paving and the edges of paths.
+    # Sharpen those existing land pixels, too, but cross-fade to the unchanged
+    # reference before reaching the shoreline. No map or collision changes.
+    sharper_base = previous.filter(ImageFilter.UnsharpMask(radius=1.0, percent=100, threshold=3))
+    sharper_base = sharper_base.resize(size, Image.Resampling.NEAREST)
+    base = Image.composite(sharper_base, reference_base, safe)
     grass_mask = ImageChops.multiply(material_mask(grid, ".fgwm", size, 18), safe)
     meadow_texture = meadow(region, size)
     image = Image.composite(meadow_texture, base, grass_mask)
@@ -205,7 +228,7 @@ def build(region):
         ridge_mask = ImageChops.multiply(ridge_mask_for(grid, size), safe)
         ridge = Image.new("RGB", size)
         earth = Image.open(ROOT / "reference_earth_ground.png").convert("RGB")
-        ridge.paste(ImageOps.fit(earth, (size[0], 11 * TILE), Image.Resampling.LANCZOS), (0, 0))
+        ridge.paste(fit_ground_detail(earth, (size[0], 11 * TILE)), (0, 0))
         ridge = match_mean(ridge, base, ridge_mask)
         image = Image.composite(ridge, image, ridge_mask)
 
@@ -223,7 +246,8 @@ def build(region):
     middle = size[1] // 2
     pieces = {"top": image.crop((0, 0, size[0], middle)),
               "bottom": image.crop((0, middle, size[0], size[1]))}
-    return pieces, {"base": base, "water": water, "shore_core": shore_core,
+    return pieces, {"base": base, "reference_base": reference_base,
+                    "water": water, "shore_core": shore_core,
                     "grass": grass_mask, "path": path_mask}
 
 

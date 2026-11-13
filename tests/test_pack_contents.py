@@ -64,6 +64,10 @@ class PackBoundaryTests(unittest.TestCase):
                         "art/characters_reference/eliab_back_body.png.import",
                         "art/characters_reference/king_front_body.png.import",
                         "art/scenes_painted/world_elah_reference.png.import",
+                        "art/scenes_painted/world_elah_refined_top.png.import",
+                        "art/scenes_painted/world_elah_refined_bottom.png.import",
+                        "art/scenes_painted/world_bethlehem_refined_top.png.import",
+                        "art/scenes_painted/world_bethlehem_refined_bottom.png.import",
                         "art/props_painted/tent_royal_open.png.import",
                         "art/props_painted/brook_stone_a.png.import"):
                 with self.subTest(mode=mode, art=art), self.assertRaisesRegex(ValueError, "missing runtime art resources"):
