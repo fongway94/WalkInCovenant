@@ -34,6 +34,8 @@ jobs:
       - name: Compare artifact and public files
         run: |
           set -u
+          echo "::notice::artifact files: $(ls artifact/web | paste -sd' ' -)"
+          echo "::notice::artifact sw.js: $(stat -c%s artifact/web/sw.js 2>/dev/null || echo absent) manifest: $(stat -c%s artifact/web/manifest.webmanifest 2>/dev/null || echo absent)"
           ART=$(sha256sum artifact/web/index.pck | cut -d' ' -f1)
           echo "::notice::artifact index.pck sha256=$ART size=$(stat -c%s artifact/web/index.pck)"
           for f in index.html index.pck sw.js manifest.webmanifest; do
