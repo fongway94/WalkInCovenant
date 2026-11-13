@@ -35,12 +35,12 @@ const PAINTED_PROP_SCALE := {
 ## the pair out in several places.
 const TALL_TREE_KEYS := ["olive_tree", "fig_tree"]
 ## Authored visual scales for those canvases (before PAINTED_PROP_DETAIL_FACTOR).
-## 276px x 0.891/3 = 82 world units and 272px x 0.860/3 = 78: about three times
+## 276px x 0.891304/3 = 82 world units and 272px x 0.860294/3 = 78: about three times
 ## the 27.4-unit person, measured to the top of the canopy. The trunk base,
 ## 1x1 collision footprint, contact shadow and y-sort point stay on the map
 ## tile. Keeping these out of PAINTED_PROP_SCALE leaves the legacy painted
 ## canvases (used only as a fallback) at their reviewed sizes.
-const TALL_TREE_SCALE := {"olive_tree": 0.891, "fig_tree": 0.860}
+const TALL_TREE_SCALE := {"olive_tree": 0.891304, "fig_tree": 0.860294}
 ## This authored Elah tent is Saul's backdrop. Its open-front art must sort at
 ## its back wall, behind the king in the doorway, while the visible base and
 ## shadow stay on the original footprint. No collision or actor position moves.

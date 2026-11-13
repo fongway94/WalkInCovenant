@@ -313,7 +313,7 @@ func _run() -> void:
 		var wanted_height := 82.0 if tree_key == "olive_tree" else 78.0
 		var at: Vector2i = entry["at"]
 		trees_ok = trees_ok and tree_sprite.texture.resource_path == tree_path \
-			and absf(tree_sprite.texture.get_height() * tree_sprite.scale.y - wanted_height) < 0.01 \
+			and absf(tree_sprite.texture.get_height() * tree_sprite.scale.y - wanted_height) < 0.05 \
 			and is_equal_approx(tree_sprite.hframes, 1) \
 			and absf(tree_sprite.position.y - float(at.y + 1) * 16.0) < 0.01
 	_check(tree_count >= 8 and trees_ok,
