@@ -815,7 +815,10 @@ jobs:
   # A separate check-run for the four river/tree/figure review frames. GitHub
   # caps a check-run at ~50 annotations, so each 500x225 frame is reprinted in
   # its own step from its own artifact rather than crowding the main frames.
-  publish-art-review:
+  # Separate check-runs for the four river/tree/figure review frames. GitHub
+  # caps a check-run at ~50 annotations; four 500x225 frames in one job lost
+  # chunks (run 43445093258), so two frames share each of two jobs.
+  publish-art-review-a:
     needs: visual
     runs-on: ubuntu-latest
     permissions:
@@ -861,6 +864,17 @@ jobs:
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
+
+  publish-art-review-b:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: art-review
+          path: build/art-review
       - name: Publish tree-scale review frame
         env:
           WIC_REVIEW_FRAME: 03_tree_scale.png
