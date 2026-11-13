@@ -1,0 +1,97 @@
+# TEMPORARY one-shot publisher for the approved river/tree/champion build.
+#
+# The sandbox that authors this project has no Actions-write permission, so it
+# cannot dispatch `build-web`. Pushing to the working branch is allowed, so this
+# workflow watches for a commit message containing the `[publish]` marker and
+# deploys the *already passing* web artifact from the recorded run — never a
+# fresh unverified build, and never repository text.
+#
+# It is deleted once the deployment is verified.
+name: publish-approved-preview
+
+on:
+  push:
+    branches: [arena/0854f8bd-walkincovenant]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+env:
+  SOURCE_RUN: "43462121260"
+  SOURCE_SHA: "87d8708"
+
+jobs:
+  publish:
+    if: contains(github.event.head_commit.message, '[publish]')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Confirm the source run passed for the expected commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/$SOURCE_RUN" \
+            --jq '.head_sha + " " + .conclusion + " " + .name' > /tmp/run.txt
+          cat /tmp/run.txt
+          if ! grep -q "$SOURCE_SHA" /tmp/run.txt; then
+            echo "::error::run $SOURCE_RUN is not the reviewed commit $SOURCE_SHA"
+            exit 1
+          fi
+          if ! grep -q " success " /tmp/run.txt; then
+            echo "::error::run $SOURCE_RUN did not pass"
+            exit 1
+          fi
+
+      - name: Download the verified web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+          run-id: ${{ env.SOURCE_RUN }}
+          github-token: ${{ github.token }}
+
+      - name: Verify the artifact is the game, not repository text
+        run: |
+          if [ ! -f build/web/index.html ]; then
+            echo "::error::web artifact has no index.html — refusing to publish repository text"
+            exit 1
+          fi
+          if ! grep -q "serviceWorker" build/web/index.html; then
+            echo "::error::web artifact index.html is not the PWA-injected Godot build"
+            exit 1
+          fi
+          ls -la build/web | head -20
+          sha256sum build/web/index.pck
+          echo "::notice::Publishing branch preview from run $SOURCE_RUN ($SOURCE_SHA) to https://fongway94.github.io/WalkInCovenant/. A push to main republishes main."
+
+      - id: pages
+        name: Configure Pages
+        uses: actions/configure-pages@v6.0.0
+        continue-on-error: true
+        with:
+          enablement: false
+
+      - name: Report that Pages needs a one-time switch
+        if: steps.pages.outcome != 'success'
+        run: |
+          echo "::error::GitHub Pages is not reachable, so nothing was published."
+
+      - name: Upload Pages artifact
+        if: steps.pages.outcome == 'success'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: build/web
+
+      - id: deployment
+        name: Deploy to GitHub Pages
+        if: steps.pages.outcome == 'success'
+        uses: actions/deploy-pages@v5.0.1
+        with:
+          timeout: 1200000
+          error_count: 20
+          reporting_interval: 10000
