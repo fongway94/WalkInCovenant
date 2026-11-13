@@ -762,7 +762,7 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
@@ -783,7 +783,7 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
@@ -804,7 +804,7 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
@@ -841,7 +841,7 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
@@ -859,7 +859,7 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
@@ -888,7 +888,7 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
@@ -906,7 +906,7 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
