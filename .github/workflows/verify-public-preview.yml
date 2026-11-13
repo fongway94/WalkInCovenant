@@ -39,8 +39,11 @@ jobs:
           echo "::notice::artifact index.pck sha256=$ART"
           for f in index.html index.pck sw.js manifest.webmanifest; do
             code=$(curl -s -o /tmp/$f -w '%{http_code}' --max-time 60 "$SITE/$f")
-            echo "$f -> HTTP $code ($(stat -c%s /tmp/$f 2>/dev/null || echo 0) bytes)"
+            echo "$f -> HTTP $code ($(stat -c%s /tmp/$f 2>/dev/null || echo 0) bytes, artifact $(stat -c%s artifact/web/$f 2>/dev/null || echo absent))"
+            curl -sI --max-time 60 "$SITE/$f" | tr -d '\r' | grep -iE 'content-length|content-type|content-encoding|last-modified|age:' | sed "s|^|    $f header: |"
           done
+          echo "public index.html first bytes:"; head -c 300 /tmp/index.html; echo
+          echo "artifact index.html first bytes:"; head -c 300 artifact/web/index.html; echo
           PUB=$(sha256sum /tmp/index.pck | cut -d' ' -f1)
           echo "::notice::public index.pck sha256=$PUB"
           if [ "$ART" = "$PUB" ]; then
