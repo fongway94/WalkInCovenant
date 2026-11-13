@@ -18,10 +18,14 @@ WHAT IS AND IS NOT CHANGED:
 * The shallow ford keeps its pale sand bar and its wide pale band, because the
   new surface is built from the old water's own low frequencies, cooled toward
   the stream's teal only in the darker, deeper parts.
-* Fine ripples, broad current strokes, warm glints and the long horizontal
-  sheen come from three independent water paintings, sampled in unique crops
-  (the same anti-repetition scheme the meadow uses). No crop is reused and
-  adjacent patches never share a source.
+* The surface is built in the meadow's four-note palette: square-sampled fine
+  grain, broad current bands stretched along the flow, short broken dashes,
+  colour dabs (teal in the deep water, sand in the shallows) and warm glints.
+  Grain and dabs come from three independent water paintings sampled in unique
+  crops (the same anti-repetition scheme the meadow uses); no crop is reused
+  and adjacent patches never share a source.
+* Water within a few pixels of a stone or the bank is darkened, so stones sit in
+  the stream rather than on top of it. Only water pixels darken.
 * Collision, shore geometry, the crossing's walkable tiles, props and saves are
   untouched. This is a texture pass on `world_elah_refined_*` only.
 
@@ -52,11 +56,15 @@ OVERLAP = 110
 # Water is smoother than grass: detail is added at a lower gain and the source
 # field is stretched horizontally first so the strokes read as current rather
 # than as generic texture.
-FINE_GAIN = 0.30
-COARSE_GAIN = 0.08
+FINE_GAIN = 0.42
+COARSE_GAIN = 0.16
 TEAL = (92, 124, 136)
-TEAL_AMOUNT = 0.18
-STRETCH = 1.7
+TEAL_AMOUNT = 0.14
+# Only the broad current bands are stretched along the flow; the fine grain is
+# sampled square, so the surface keeps the meadow's painterly dabs instead of a
+# lacquered horizontal sheen.
+COARSE_STRETCH = 2.4
+BANK_SHADE = 0.30
 
 
 def _rect_mask(size, top, bottom):
@@ -188,32 +196,93 @@ def _cool(base):
 
 
 def _current_strokes(image, mask, seed=3301):
-    """Long, soft horizontal sheen and undertow lines: the stream's direction."""
+    """Broken dashes and undertow lines: the stream's direction, not a sheen.
+
+    The dashes are deliberately short and gapped. Continuous 150-pixel lines
+    read as scratches once the ground beside them was painted at a fine grain.
+    """
     width, height = image.size
     layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
     rng = random.Random(seed)
     accepted = mask.load()
-    for _ in range(520):
+    for _ in range(1400):
         x = rng.uniform(0, width)
-        y = rng.uniform(0.08 * height, 0.95 * height)
+        y = rng.uniform(0.05 * height, 0.97 * height)
         xi, yi = int(x), int(y)
         if xi < 2 or xi >= width - 2 or yi < 1 or yi >= height - 1:
             continue
         if accepted[xi, yi] < 216:
             continue
-        length = rng.randint(24, 150)
-        amplitude = rng.uniform(0.0, 1.6)
-        phase = rng.uniform(0.0, 6.28)
-        if rng.random() < 0.72:
-            colour = (248, 246, 226, rng.randint(10, 34))
+        length = rng.randint(14, 64)
+        angle = rng.uniform(-0.16, 0.16)
+        if rng.random() < 0.70:
+            colour = (248, 246, 226, rng.randint(9, 30))
         else:
-            colour = (54, 74, 80, rng.randint(8, 26))
-        points = [(x + step, y + amplitude * math.sin(phase + step / 22.0))
-                  for step in range(0, length, 4)]
-        draw.line(points, fill=colour, width=1)
+            colour = (54, 74, 80, rng.randint(7, 22))
+        dash = 0
+        while dash < length:
+            end = min(length, dash + rng.randint(3, 11))
+            points = [(x + step * math.cos(angle),
+                       y + step * math.sin(angle) + rng.uniform(-0.12, 0.12))
+                      for step in range(dash, end + 1, 2)]
+            if len(points) > 1:
+                draw.line(points, fill=colour, width=1)
+            dash = end + rng.randint(2, 7)
     return Image.alpha_composite(image.convert("RGBA"),
                                  layer.filter(ImageFilter.GaussianBlur(0.6))).convert("RGB")
+
+
+def _colour_dabs(image, mask, seed=7717):
+    """Short dabs of colour in the meadow's four-note palette.
+
+    Luminance detail alone left the surface glassy: the grass beside it is built
+    from warm and cool dabs at this scale, so the water gets them too, weighted
+    toward teal where the water is deep and toward sand where it is shallow (the
+    pale ford keeps its warm tone).
+    """
+    width, height = image.size
+    depth = image.convert("L").filter(ImageFilter.GaussianBlur(6)).load()
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    rng = random.Random(seed)
+    accepted = mask.load()
+    palette = ((86, 118, 132), (236, 226, 198), (120, 134, 142), (206, 186, 150))
+    for _ in range(2400):
+        x = rng.uniform(0, width - 12)
+        y = rng.uniform(0.05 * height, 0.97 * height)
+        xi, yi = int(x), int(y)
+        if accepted[xi, yi] < 216:
+            continue
+        shade = depth[xi, yi]
+        if shade < 130:
+            index = rng.choice((0, 0, 2, 2, 3))
+        elif shade > 168:
+            index = rng.choice((1, 1, 3, 3, 2))
+        else:
+            index = rng.choice((0, 1, 2, 3))
+        colour = palette[index] + (rng.randint(12, 30),)
+        length = rng.randint(4, 20)
+        angle = rng.uniform(-0.2, 0.2)
+        draw.line((x, y, x + length * math.cos(angle), y + length * math.sin(angle)),
+                  fill=colour, width=1)
+    return Image.alpha_composite(image.convert("RGBA"),
+                                 layer.filter(ImageFilter.GaussianBlur(0.9))).convert("RGB")
+
+
+def _bank_shading(image, mask):
+    """Wet shadow where the water meets stone and bank.
+
+    Only water pixels darken, so the audit's stone and shoreline pixels stay
+    byte-identical; the zone is inset from the band rectangle so the repaint
+    does not draw a straight dark seam across open water.
+    """
+    inner = mask.filter(ImageFilter.MinFilter(15))
+    edge = ImageChops.subtract(mask, inner).filter(ImageFilter.GaussianBlur(4))
+    inset = _rect_mask(mask.size, WATER_ROWS[0] * 64 - BAND_TOP - 48 + 22,
+                       (WATER_ROWS[-1] + 1) * 64 - BAND_TOP + 58 - 22)
+    weight = ImageChops.multiply(edge, inset).point(lambda value: round(value * BANK_SHADE))
+    return Image.composite(Image.new("RGB", image.size, (34, 50, 56)), image, weight)
 
 
 def _sun_glints(image, mask, seed=5521):
@@ -248,11 +317,13 @@ def paint(image):
     base = _cool(base)
 
     field = detail_field(band.size)
-    stretched = field.resize((round(width / STRETCH), height),
-                             Image.Resampling.LANCZOS).resize(
+    coarse = field.resize((round(width / COARSE_STRETCH), height),
+                          Image.Resampling.LANCZOS).resize(
         band.size, Image.Resampling.BICUBIC)
-    painted = _add_luminance(base, _luminance_detail(stretched, 7), FINE_GAIN)
-    painted = _add_luminance(painted, _luminance_detail(stretched, 30), COARSE_GAIN)
+    painted = _add_luminance(base, _luminance_detail(field, 6), FINE_GAIN)
+    painted = _add_luminance(painted, _luminance_detail(coarse, 30), COARSE_GAIN)
+    painted = _bank_shading(painted, mask)
+    painted = _colour_dabs(painted, weights)
     painted = _current_strokes(painted, weights)
     painted = _sun_glints(painted, weights)
 
