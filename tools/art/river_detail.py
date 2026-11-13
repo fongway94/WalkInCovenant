@@ -56,8 +56,8 @@ OVERLAP = 110
 # Water is smoother than grass: detail is added at a lower gain and the source
 # field is stretched horizontally first so the strokes read as current rather
 # than as generic texture.
-FINE_GAIN = 0.42
-COARSE_GAIN = 0.16
+FINE_GAIN = 0.22
+COARSE_GAIN = 0.22
 TEAL = (92, 124, 136)
 TEAL_AMOUNT = 0.14
 # Only the broad current bands are stretched along the flow; the fine grain is
@@ -187,6 +187,21 @@ def _add_luminance(base, detail, gain):
     return ImageChops.add(base, Image.merge("RGB", (detail, detail, detail)), 1.0, -128)
 
 
+def _attenuate(detail, base, lo=150, hi=205, keep=0.45):
+    """Fade fine grain where the water is bright: shallow ford water is calm.
+
+    The pale bar is the shallowest, smoothest part of the ford; full-strength
+    high-frequency grain there read as cracked ice rather than water.
+    """
+    lum = base.convert("L")
+    span = float(hi - lo)
+    weight = lum.point(lambda value: 0 if value <= lo else
+                       255 if value >= hi else round(255 * min(1.0, (value - lo) / span)))
+    weight = weight.point(lambda value: round(255 - (255 - value) * (1.0 - keep)))
+    neutral = Image.new("L", detail.size, 128)
+    return Image.composite(neutral, detail, weight)
+
+
 def _cool(base):
     """Cool the deeper water, leaving the bright ford sand pale and warm."""
     weight = base.convert("L").point(
@@ -206,7 +221,7 @@ def _current_strokes(image, mask, seed=3301):
     draw = ImageDraw.Draw(layer)
     rng = random.Random(seed)
     accepted = mask.load()
-    for _ in range(1400):
+    for _ in range(2000):
         x = rng.uniform(0, width)
         y = rng.uniform(0.05 * height, 0.97 * height)
         xi, yi = int(x), int(y)
@@ -248,7 +263,7 @@ def _colour_dabs(image, mask, seed=7717):
     rng = random.Random(seed)
     accepted = mask.load()
     palette = ((86, 118, 132), (236, 226, 198), (120, 134, 142), (206, 186, 150))
-    for _ in range(2400):
+    for _ in range(3200):
         x = rng.uniform(0, width - 12)
         y = rng.uniform(0.05 * height, 0.97 * height)
         xi, yi = int(x), int(y)
@@ -261,7 +276,7 @@ def _colour_dabs(image, mask, seed=7717):
             index = rng.choice((1, 1, 3, 3, 2))
         else:
             index = rng.choice((0, 1, 2, 3))
-        colour = palette[index] + (rng.randint(12, 30),)
+        colour = palette[index] + (rng.randint(16, 36),)
         length = rng.randint(4, 20)
         angle = rng.uniform(-0.2, 0.2)
         draw.line((x, y, x + length * math.cos(angle), y + length * math.sin(angle)),
@@ -320,7 +335,8 @@ def paint(image):
     coarse = field.resize((round(width / COARSE_STRETCH), height),
                           Image.Resampling.LANCZOS).resize(
         band.size, Image.Resampling.BICUBIC)
-    painted = _add_luminance(base, _luminance_detail(field, 6), FINE_GAIN)
+    grain = _luminance_detail(field, 6)
+    painted = _add_luminance(base, _attenuate(grain, base), FINE_GAIN)
     painted = _add_luminance(painted, _luminance_detail(coarse, 30), COARSE_GAIN)
     painted = _bank_shading(painted, mask)
     painted = _colour_dabs(painted, weights)
