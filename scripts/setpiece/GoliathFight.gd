@@ -134,10 +134,9 @@ func _apply_theme_textures() -> void:
 	if art_theme == "cinematic":
 		_gol.texture = PAINTED_GOLIATH
 		_david.texture = PAINTED_DAVID
-		# The painted champion is a 128px cutout stretched over the duel stage.
-		# Nearest sampling turned the brush edges into hard steps that did not
-		# match the painted backdrop; the classic sheets stay nearest-filtered.
-		_gol.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		# The champion is the duel sprite at 2x, so both themes now keep the
+		# cast's nearest sampling instead of smoothing his inked edges away.
+		_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		_david.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	else:
 		_gol.texture = DUEL_GOLIATH

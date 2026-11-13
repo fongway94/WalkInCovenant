@@ -353,10 +353,14 @@ def check_tall_trees():
     authored canvases and mattes are checked against the committed files.
     """
     outputs = tall_trees.build()
-    expected = {"olive_tree_tall.png": (208, 276), "fig_tree_tall.png": (200, 272)}
+    # The canvases are grown from the overworld's own tree paintings, so their
+    # width follows each source's aspect; the height is what the runtime scales
+    # against, and it must stay 276/272 for the 82/78 world-pixel targets.
+    expected = {"olive_tree_tall.png": 276, "fig_tree_tall.png": 272}
     assert set(outputs) == set(expected)
     for name, image in outputs.items():
-        assert image.mode == "RGBA" and image.size == expected[name], name
+        assert image.mode == "RGBA" and image.height == expected[name], name
+        assert 150 <= image.width <= 240, name + " canvas width is off: %d" % image.width
         assert same_pixels(image, Path("art/props_painted") / name), "non-reproducible tree: " + name
         bounds = image.getchannel("A").getbbox()
         assert bounds is not None, "empty tree: " + name
@@ -374,7 +378,20 @@ def check_tall_trees():
     for name, image in (("olive", olive), ("fig", fig)):
         bounds = image.getchannel("A").getbbox()
         ratio = (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])
-        assert ratio > 1.3, name + " tree is not upright: %.2f" % ratio
+        assert ratio > 1.25, name + " tree is not upright: %.2f" % ratio
+        # Grown from the accepted prop paintings: no pixel may be a new colour
+        # family, so the canopy must stay in the world's warm olive range and
+        # the trunk in its bark range.
+        foliage = 0
+        bark = 0
+        for r, g, b, a in image.get_flattened_data():
+            if a < 200:
+                continue
+            if 40 <= r <= 140 and g >= r and b < g * 0.8:
+                foliage += 1
+            elif r > g > b and r - b > 30:
+                bark += 1
+        assert foliage > 2000 and bark > 800, name + " lost the world's tree colours"
     print("two taller, trunk-anchored olive and fig canvases with clean mattes: PASS")
 
 

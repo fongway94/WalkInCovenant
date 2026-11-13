@@ -18,14 +18,19 @@ WHAT IS AND IS NOT CHANGED:
 * The shallow ford keeps its pale sand bar and its wide pale band, because the
   new surface is built from the old water's own low frequencies, cooled toward
   the stream's teal only in the darker, deeper parts.
-* The surface is built in the meadow's four-note palette: square-sampled fine
-  grain, broad current bands stretched along the flow, short broken dashes,
-  colour dabs (teal in the deep water, sand in the shallows) and warm glints.
-  Grain and dabs come from three independent water paintings sampled in unique
-  crops (the same anti-repetition scheme the meadow uses); no crop is reused
-  and adjacent patches never share a source.
+* The surface is sampled from three independent water paintings in unique crops
+  (the same anti-repetition scheme the meadow uses) and built in five layers:
+  fine grain, mid grain, broad current bands stretched along the flow, short
+  broken dashes and small colour dabs. The grain fades out on the bright ford so
+  the shallows stay calm instead of cracking into ice.
+* The water keeps the stream's own colour: measured, the muted pass sat at about
+  16% saturation and 123 degrees, i.e. wet stone, so the deep water is pulled
+  toward 108 degrees and a higher saturation floor while the pale ford stays
+  warm. A gentle vertical gradient darkens the water under the far bank.
 * Water within a few pixels of a stone or the bank is darkened, so stones sit in
-  the stream rather than on top of it. Only water pixels darken.
+  the stream rather than on top of it, and three fading rings of disturbed water
+  are drawn around every stone's real hole in the mask. Only water pixels
+  change.
 * Collision, shore geometry, the crossing's walkable tiles, props and saves are
   untouched. This is a texture pass on `world_elah_refined_*` only.
 
@@ -56,10 +61,11 @@ OVERLAP = 110
 # Water is smoother than grass: detail is added at a lower gain and the source
 # field is stretched horizontally first so the strokes read as current rather
 # than as generic texture.
-FINE_GAIN = 0.22
-COARSE_GAIN = 0.22
+FINE_GAIN = 0.30
+MID_GAIN = 0.26
+COARSE_GAIN = 0.20
 TEAL = (92, 124, 136)
-TEAL_AMOUNT = 0.14
+TEAL_AMOUNT = 0.30
 # Only the broad current bands are stretched along the flow; the fine grain is
 # sampled square, so the surface keeps the meadow's painterly dabs instead of a
 # lacquered horizontal sheen.
@@ -263,7 +269,7 @@ def _colour_dabs(image, mask, seed=7717):
     rng = random.Random(seed)
     accepted = mask.load()
     palette = ((86, 118, 132), (236, 226, 198), (120, 134, 142), (206, 186, 150))
-    for _ in range(3200):
+    for _ in range(5200):
         x = rng.uniform(0, width - 12)
         y = rng.uniform(0.05 * height, 0.97 * height)
         xi, yi = int(x), int(y)
@@ -277,12 +283,73 @@ def _colour_dabs(image, mask, seed=7717):
         else:
             index = rng.choice((0, 1, 2, 3))
         colour = palette[index] + (rng.randint(16, 36),)
-        length = rng.randint(4, 20)
+        length = rng.randint(2, 12)
         angle = rng.uniform(-0.2, 0.2)
         draw.line((x, y, x + length * math.cos(angle), y + length * math.sin(angle)),
                   fill=colour, width=1)
     return Image.alpha_composite(image.convert("RGBA"),
                                  layer.filter(ImageFilter.GaussianBlur(0.9))).convert("RGB")
+
+
+def _ripple_rings(image, mask):
+    """Rings of disturbed water around every stone in the stream.
+
+    Painted water breaks into rings where it runs past an obstacle. Three
+    shrinking rings are built from the stone holes themselves (dilations of the
+    inverse mask), so each ring follows the real shoreline of that rock, fades
+    with distance, and is broken up by the surface grain so it never reads as a
+    drawn circle. Only water pixels are touched.
+    """
+    stones = ImageChops.invert(mask).filter(ImageFilter.MinFilter(5))
+    grain = image.convert("L").filter(ImageFilter.GaussianBlur(1))
+    out = image
+    for outer_size, inner_size, strength in ((11, 7, 0.55), (19, 15, 0.40), (29, 25, 0.28)):
+        outer = stones.filter(ImageFilter.MaxFilter(outer_size))
+        inner = stones.filter(ImageFilter.MaxFilter(inner_size))
+        ring = ImageChops.subtract(outer, inner)
+        ring = ImageChops.multiply(ring, mask).filter(ImageFilter.GaussianBlur(1.6))
+        # Break the ring where the surface is already busy so it stays painterly.
+        ring = ImageChops.multiply(ring, grain.point(
+            lambda value: round(max(0.35, min(1.0, abs(value - 140) / 90)) * 255)))
+        ring = ring.point(lambda value: round(value * strength * 0.34))
+        out = Image.composite(Image.new("RGB", image.size, (246, 246, 232)), out, ring)
+    return out
+
+
+def _depth_tone(image, mask):
+    """Darker, cooler water toward the far bank; a lighter lip at the near one.
+
+    A field of flat mid-grey reads as concrete however much grain it carries. A
+    gentle vertical gradient restores the sense of a channel: shaded water under
+    the far bank, sunlit shallows at the viewer's side.
+    """
+    width, height = image.size
+    ramp = Image.linear_gradient("L").resize((width, height), Image.BILINEAR)
+    far = ramp.point(lambda value: round((255 - value) / 255 * 0.26 * 255))
+    near = ramp.point(lambda value: round(max(0, value - 190) / 65 * 0.16 * 255))
+    far = ImageChops.multiply(far, mask)
+    near = ImageChops.multiply(near, mask)
+    image = Image.composite(Image.new("RGB", image.size, (48, 76, 88)), image, far)
+    return Image.composite(Image.new("RGB", image.size, (250, 246, 226)), image, near)
+
+
+def _tint(image, mask):
+    """Give the water its own blue-green voice without leaving the palette.
+
+    The ground pass muted the brook toward the meadow's ochre; measured, the
+    water sat at about 16% saturation and 123 degrees, i.e. wet stone. Water in
+    the chapter's own palette is cooler and clearly more saturated, so the deep
+    water is pulled toward 138 degrees and at least 28% saturation while the
+    bright ford stays pale and warm.
+    """
+    hsv = image.convert("HSV")
+    hue, sat, val = hsv.split()
+    depth = val.point(lambda value: round(max(0.0, min(1.0, (162 - value) / 42.0)) * 255))
+    weight = ImageChops.multiply(depth, mask)
+    hue = Image.blend(hue, Image.new("L", hue.size, 108), 0.38)
+    sat = ImageChops.lighter(sat, weight.point(lambda value: round(value * 0.30)))
+    tinted = Image.merge("HSV", (hue, sat, val)).convert("RGB")
+    return Image.composite(tinted, image, mask)
 
 
 def _bank_shading(image, mask):
@@ -335,10 +402,15 @@ def paint(image):
     coarse = field.resize((round(width / COARSE_STRETCH), height),
                           Image.Resampling.LANCZOS).resize(
         band.size, Image.Resampling.BICUBIC)
-    grain = _luminance_detail(field, 6)
-    painted = _add_luminance(base, _attenuate(grain, base), FINE_GAIN)
+    fine = _luminance_detail(field, 3)
+    mid = _luminance_detail(field, 9)
+    painted = _add_luminance(base, _attenuate(fine, base), FINE_GAIN)
+    painted = _add_luminance(painted, _attenuate(mid, base), MID_GAIN)
     painted = _add_luminance(painted, _luminance_detail(coarse, 30), COARSE_GAIN)
+    painted = _tint(painted, mask)
+    painted = _depth_tone(painted, mask)
     painted = _bank_shading(painted, mask)
+    painted = _ripple_rings(painted, mask)
     painted = _colour_dabs(painted, weights)
     painted = _current_strokes(painted, weights)
     painted = _sun_glints(painted, weights)

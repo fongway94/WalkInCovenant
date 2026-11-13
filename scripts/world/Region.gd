@@ -307,12 +307,10 @@ func _apply_giant_theme(theme: String) -> void:
 		# node and contact shadow stay at the same original foot position.
 		s.offset = Vector2(0, -64)
 		s.scale = Vector2.ONE * 0.40
-		# The painted figure is drawn well below its 128px source: nearest
-		# sampling dropped brush edges into ragged steps and made the champion
-		# read as a different kind of image from the people below him. Smooth
-		# sampling matches the hand-painted treatment; the classic pixel sheet
-		# keeps its nearest filter.
-		s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		# The champion is the duel's own pixel sprite at 2x, so it uses the
+		# same nearest sampling as the people below him: any smoothing would
+		# turn those inked edges into the soft bronze look he was replaced for.
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	else:
 		s.texture = load("res://art/characters/goliath_idle.png")
 		s.hframes = 2

@@ -5,12 +5,11 @@ Each source is one generated image, made against the user-approved field. The
 backgrounds are modest-sized, aspect-preserving crops; the warrior is isolated
 from magenta and fitted to a square with transparent margins. Requires Pillow.
 
-The warrior source was replaced after the user reported that the figure on the
-north ridge did not match the painterly people: the previous source was glossy,
-thin-limbed and softly shaded like a smooth illustration, while the cast are
-matte gouache cutouts with inked edges. The new source keeps the same pose and
-spear/shield layout, so the foot anchor, forehead aim band, defeat rotation and
-striking cut still line up with the existing layout.
+The ridge warrior now comes from the duel's own champion sprite, doubled with
+nearest-neighbour sampling. Two earlier generated paintings were rejected by the
+user for not matching the cast: the first was glossy and thin-limbed, the second
+detailed bronze armour. The cast are matte pixel-gouache cutouts with inked
+edges, so the champion must be one of them.
 """
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageOps
@@ -18,9 +17,9 @@ from PIL import Image, ImageDraw, ImageOps
 SRC = Path('tools/art/sources')
 OUT = Path('art/scenes_painted')
 
-# The matte, inked figure that matches the painted cast. The earlier glossy
-# source is retained in git history; nothing else in the duel depends on it.
-WARRIOR_SOURCE = 'warrior_goliath_v2.png'
+# The duel's own champion sprite, painted in the cast's language. The earlier
+# generated bronze source is retained in git history; nothing else depends on it.
+DUEL_CHAMPION = Path('art/duel/goliath.png')
 
 
 def background(name):
@@ -50,42 +49,30 @@ def despill(image):
 
 
 def warrior():
-    image = Image.open(SRC / WARRIOR_SOURCE).convert('RGBA')
-    px = image.load()
-    for y in range(image.height):
-        for x in range(image.width):
-            r, g, b, a = px[x, y]
-            # Detect chroma key rather than exact RGB; the generator has a small
-            # amount of purple in anti-aliased edge pixels. Never key bronze.
-            if (r > 85 and b > 85 and g < 110 and min(r, b) - g > 70) or (
-                    r > 45 and b > r * 0.68 and g < min(r, b) * 0.42 and min(r, b) - g > 28):
-                px[x, y] = (0, 0, 0, 0)
-    image = despill(image)
-    box = image.getchannel('A').getbbox()
-    if box is None:
-        raise ValueError('warrior source was empty')
-    image = image.crop(box)
-    width = max(1, round(image.width * 128 / image.height))
-    if width > 128:
-        raise ValueError('warrior is unexpectedly wider than tall')
-    image = image.resize((width, 128), Image.Resampling.LANCZOS)
-    out = Image.new('RGBA', (128, 128))
-    out.alpha_composite(image, ((128 - width) // 2, 0))
+    """Use the game's own duel champion for the ridge, twice as large.
+
+    WHY: the ridge figure was a smooth bronze painting. Beside the cast — matte
+    pixel-gouache cutouts with inked edges — it read as a different game, which
+    the user reported twice. The duel already ships a champion painted in the
+    cast's language, so the ridge uses that exact sprite at 2x nearest
+    neighbour: same pose, same palette, same chunky edges as the people he
+    stands over. Doubling keeps the 128x128 canvas, foot anchor, offset and
+    scale the world, tests and the duel's aim bands were tuned against.
+    """
+    source = Image.open(DUEL_CHAMPION).convert('RGBA')
+    if source.size != (64, 64):
+        raise ValueError('duel champion changed size: %s' % (source.size,))
+    out = source.resize((128, 128), Image.Resampling.NEAREST)
     out.save(OUT / 'goliath.png', optimize=True)
 
-    # The source holds a vertical spear. During a thrust a separate spear is
-    # drawn from the hand; keep the hand/arm but remove the baked shaft above
-    # and below it so there are not two spears on screen. These polygons are
-    # tied to the 128x128 fitted source, not the game layout.
+    # The duel draws its own thrust spear from the hand, so the baked vertical
+    # shaft is removed for the strike frame. The cut is a narrow band around the
+    # shaft only: a wider polygon clipped his left shin in the thrust frame.
     striking = out.copy()
     alpha = striking.getchannel('A')
     mask = ImageDraw.Draw(alpha)
-    # Keep these cuts to the thin shaft: a wider polygon clipped his left
-    # shin, which is visible in the duel's thrust frame. The shaft occupies
-    # x=31..36 above the gripping hand and x=33..36 below it; the leg starts
-    # at x>=40, so a narrow band removes only the spear.
-    mask.rectangle((0, 0, 38, 46), fill=0)
-    mask.rectangle((31, 59, 38, 119), fill=0)
+    mask.rectangle((92, 0, 126, 58), fill=0)
+    mask.rectangle((99, 84, 121, 127), fill=0)
     striking.putalpha(alpha)
     striking.save(OUT / 'goliath_striking.png', optimize=True)
 
