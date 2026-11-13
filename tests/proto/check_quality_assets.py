@@ -8,10 +8,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import statistics
 import sys
 import tempfile
 
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageStat
 
 ROOT = Path(__file__).resolve().parents[2]
 os.chdir(ROOT)
@@ -45,6 +46,14 @@ def adjacent_luma_difference(image):
     vertical = ImageChops.difference(gray.crop((0, 0, width, height - 1)),
                                      gray.crop((0, 1, width, height)))
     return (ImageStat.Stat(horizontal).mean[0] + ImageStat.Stat(vertical).mean[0]) / 2.0
+
+
+def row_boundary_difference(image, y):
+    """Mean RGB change between neighbouring rows of a reconstructed image."""
+    width = image.width
+    change = ImageChops.difference(image.crop((0, y - 1, width, y)),
+                                   image.crop((0, y, width, y + 1)))
+    return sum(ImageStat.Stat(change).mean) / 3.0
 
 
 def source_point_to_field(x, y):
@@ -137,7 +146,30 @@ def check_continuations():
     print("two map-aligned meadow continuations and untouched water: PASS")
 
 
+def check_paving_join():
+    # An identical overlap must reconstruct the complete image exactly; odd
+    # widths must not leave a black final column, and bad inputs fail closed.
+    for width in (25, 26):
+        full = Image.new("RGB", (width, 11))
+        pixels = full.load()
+        for y in range(full.height):
+            for x in range(width):
+                pixels[x, y] = ((x * 13 + y * 3) % 256,
+                                (x * 7 + y * 11) % 256, (x * 5 + y * 17) % 256)
+        first = full.crop((0, 0, 17, full.height))
+        second = full.crop((12, 0, width, full.height))
+        joined = refined_ground.join_painted_sections(first, second, 5)
+        assert joined.size == full.size and joined.tobytes() == full.tobytes(), "paving join lost pixels"
+    try:
+        refined_ground.join_painted_sections(Image.new("RGB", (8, 8)), Image.new("RGB", (8, 9)), 4)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("paving join accepted incompatible image heights")
+
+
 def check_refinement():
+    check_paving_join()
     fig = refined_props.build()
     assert fig.size == (96, 144) and fig.getchannel("A").getbbox() == (0, 46, 96, 144)
     assert same_pixels(fig, refined_props.OUTPUT), "non-reproducible refined fig"
@@ -158,6 +190,14 @@ def check_refinement():
             assert max(piece.size) <= 2048, "texture exceeds older phone WebGL limits"
             assert same_pixels(piece, path), "non-reproducible refined ground: " + str(path)
             image.paste(piece, (0, y))
+        # A discontinuity at the top/bottom texture join would create an
+        # anomalous full-width jump. This is only a regression indicator; the
+        # actual Godot frames must also be checked for rendered seams.
+        middle = height // 2
+        neighbours = [row_boundary_difference(image, y)
+                      for y in range(middle - 30, middle + 31) if y != middle]
+        join = row_boundary_difference(image, middle)
+        assert join < 2.2 * statistics.median(neighbours) + 1.0, region + " texture join discontinuity"
         # Compare independently against the original reference, not the
         # builder's sharpened land base: otherwise sharpening the protected
         # shoreline could make both output and expected pixels wrong together.
@@ -173,32 +213,103 @@ def check_refinement():
         shore_core = refined_ground.material_mask(raw["grid"], "~=e", (width, height), padding=24)
         assert masks["water"].tobytes() == water.tobytes(), region + " changed protected materials"
         assert masks["shore_core"].tobytes() == shore_core.tobytes(), region + " changed shoreline core"
-        if region == "elah":
-            assert water.getbbox() is not None, "Elah water mask is empty"
-            assert ImageChops.subtract(shore_core, water).getbbox() is not None, \
-                "Elah shoreline protection must extend beyond water tiles"
-        assert ImageChops.multiply(diff, water).getbbox() is None, region + " changed water"
-        assert ImageChops.multiply(diff, shore_core).getbbox() is None, region + " cut into shoreline"
-        assert ImageChops.multiply(diff, masks["grass"]).getbbox() is not None, region + " lacks new meadow detail"
-        assert ImageChops.multiply(diff, masks["path"]).getbbox() is not None, region + " lacks new path detail"
 
-        # Fixed, ground-only crops from the previously published textures. This
-        # numerical check catches a return to the blurred source processing, or
-        # an extreme change in contrast/colour; it is not a substitute for
-        # viewing actual frames or checking for shimmer while moving.
+        # The original ford mask also covers dry grass well inland. Only that
+        # grass is allowed to change: independently protect the entire visible
+        # river/shore band inside the crossing, plus the padded water/reed tiles.
+        if region == "elah":
+            assert water.getbbox() is not None and masks["water_band"] == (398 * 4, 462 * 4)
+            assert ImageChops.subtract(shore_core, water).getbbox() is not None
+            band = Image.new("L", (width, height))
+            ImageDraw.Draw(band).rectangle((0, 398 * 4, width - 1, 462 * 4 - 1), fill=255)
+            crossing = refined_ground.material_mask(raw["grid"], "=", (width, height), padding=24)
+            outer_water = refined_ground.material_mask(raw["grid"], "~e", (width, height), padding=24)
+            protected = ImageChops.lighter(outer_water, ImageChops.multiply(crossing, band))
+            assert ImageChops.multiply(diff, protected).getbbox() is None, "changed river or shoreline pixels"
+            assert ImageChops.multiply(masks["inland"], protected).getbbox() is None
+            assert masks["inland"].getbbox() is not None, "missing inland bank transition"
+            approach = masks["approach"]
+            assert approach.getpixel((16 * refined_ground.TILE, 470 * 4)) > 128, "missing ford path approach"
+            assert ImageChops.subtract(approach, masks["inland"]).getbbox() is None
+            assert approach.crop((0, 0, width, 462 * 4)).getbbox() is None, "approach entered the protected band"
+            assert ImageChops.multiply(approach, protected).getbbox() is None
+            mutated = list(raw["grid"])
+            mutated[24] = mutated[24][:12] + "." + mutated[24][13:]
+            fallback, bounds = refined_ground.crossing_inland_mask(mutated, (width, height))
+            assert fallback.getbbox() is None and bounds is None, "changed river grid must fail closed"
+            fallback, bounds = refined_ground.crossing_inland_mask(raw["grid"], (width, height), "0" * 64)
+            assert fallback.getbbox() is None and bounds is None, "changed shore painting must fail closed"
+            mutated = list(raw["grid"])
+            mutated[30] = mutated[30].replace(",", ".")
+            fallback = refined_ground.crossing_south_approach(mutated, (width, height), masks["inland"],
+                                                              masks["water_band"])
+            assert fallback.getbbox() is None, "changed ford path must fail closed"
+        else:
+            assert masks["inland"].getbbox() is None and masks["water_band"] is None
+            assert masks["approach"].getbbox() is None
+
+        # Everywhere else in the old protected shoreline core remains exact.
+        changed_inland = masks["inland"].point(lambda value: 255 if value else 0)
+        still_protected = ImageChops.subtract(shore_core, changed_inland)
+        assert ImageChops.multiply(diff, still_protected).getbbox() is None, region + " cut into protected shoreline"
+
+        # Verify genuinely new grass/soil/paving, and forbid changes outside
+        # those material masks. This also compares against the prior public
+        # ground, not merely the older reference bitmap.
+        red, green, blue = ImageChops.difference(image, masks["baseline"]).split()
+        new_diff = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+        for name in ("updated_grass", "rocky", "soil"):
+            assert ImageChops.multiply(new_diff, masks[name]).getbbox() is not None, region + " lacks " + name
+        # Rocky tiles are scattered throughout both regions; they must not
+        # retain isolated blurry squares or bleed onto the protected shore.
+        shore = refined_ground.material_mask(raw["grid"], "~=e", (width, height), feather=20, padding=40)
+        safe = ImageChops.invert(ImageChops.lighter(shore_core, shore))
+        expected_rocky = ImageChops.multiply(
+            refined_ground.material_mask(raw["grid"], "r", (width, height), feather=18), safe)
+        assert masks["rocky"].tobytes() == expected_rocky.tobytes(), region + " rocky mask changed"
+        for y, row in enumerate(raw["grid"]):
+            for x, char in enumerate(row):
+                if char != "r":
+                    continue
+                box = (x * refined_ground.TILE, y * refined_ground.TILE,
+                       (x + 1) * refined_ground.TILE, (y + 1) * refined_ground.TILE)
+                if safe.crop(box).getbbox() is not None:
+                    assert ImageChops.multiply(new_diff.crop(box), masks["rocky"].crop(box)).getbbox() is not None, \
+                        f"{region} rocky ground ({x}, {y}) lacks detail"
+        if region == "bethlehem":
+            assert ImageChops.multiply(new_diff, masks["paving"]).getbbox() is not None, "missing detailed paving"
+        allowed = ImageChops.lighter(ImageChops.lighter(masks["updated_grass"], masks["soil"]), masks["paving"])
+        allowed = allowed.point(lambda value: 255 if value else 0)
+        assert ImageChops.multiply(new_diff, ImageChops.invert(allowed)).getbbox() is None, \
+            region + " changed outside the ground material masks"
+        expected_crops = ((width + 223) // 224) * ((height + 223) // 224)
+        assert masks["grass_crops"] == expected_crops and masks["soil_crops"] == expected_crops, \
+            region + " reused an identical source crop"
+
+        # Ground-only crops from two earlier published builds anchor the
+        # palette and catch a return to low detail or excessive contrast. Edge
+        # energy alone cannot establish artistic quality or absence of shimmer.
         part, box = {"elah": ("bottom", (700, 950, 1000, 1250)),
                      "bethlehem": ("top", (100, 400, 400, 700))}[region]
-        before = Image.open(Path("tests/fixtures/ground_clarity") /
-                            (region + "-published.png")).convert("RGB")
+        old = Image.open(Path("tests/fixtures/ground_clarity") /
+                         (region + "-published.png")).convert("RGB")
+        before = Image.open(Path("tests/fixtures/ground_materials") /
+                            (region + "-f2afae9.png")).convert("RGB")
+        offset_y = 0 if part == "top" else height // 2
+        previous = masks["baseline"].crop((box[0], box[1] + offset_y, box[2], box[3] + offset_y))
+        assert previous.tobytes() == before.tobytes(), region + " previous public ground changed"
         after = pieces[part].crop(box)
-        baseline_edge = adjacent_luma_difference(before)
-        edge = adjacent_luma_difference(after)
-        assert 1.25 * baseline_edge < edge < 1.95 * baseline_edge, \
-            f"{region} clarity regression: before {baseline_edge:.2f}, after {edge:.2f}"
-        old_mean, new_mean = ImageStat.Stat(before).mean, ImageStat.Stat(after).mean
+        previous_edge, edge = adjacent_luma_difference(before), adjacent_luma_difference(after)
+        assert 1.15 * previous_edge < edge < 1.75 * previous_edge, \
+            f"{region} detail regression: before {previous_edge:.2f}, after {edge:.2f}"
+        earlier_edge = adjacent_luma_difference(old)
+        assert 1.75 * earlier_edge < edge < 2.75 * earlier_edge, region + " extreme edge contrast"
+        old_mean, new_mean = ImageStat.Stat(old).mean, ImageStat.Stat(after).mean
         assert max(abs(a - b) for a, b in zip(old_mean, new_mean)) < 3.0, \
             region + " ground palette shifted in clarity crop"
-    print("refined fig, clearer split ground, stable palettes and untouched water/shore: PASS")
+        mean_change = sum(ImageStat.Stat(ImageChops.difference(before, after)).mean) / 3
+        assert 5.0 < mean_change < 35.0, region + " ground detail changed too little or too much"
+    print("refined fig and rebuilt grass, earth, paving with protected river/shore: PASS")
 
 
 def check_people():
