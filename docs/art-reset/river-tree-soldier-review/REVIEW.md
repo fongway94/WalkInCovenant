@@ -7,7 +7,7 @@ user's separate approval.
 
 | # | Request | What changed | Where |
 |---|---------|--------------|-------|
-| 1 | River detail at the ground's painterly level, shoreline and crossing included | Water surface rebuilt with square-sampled fine grain, stretched current bands, short broken dashes, four-note colour dabs and wet shading against stones and banks | `tools/art/river_detail.py`, `art/scenes_painted/world_elah_refined_bottom.png` |
+| 1 | River detail at the ground's painterly level, shoreline and crossing included | Water surface rebuilt with square-sampled grain in the deep water, stretched current bands, short broken dashes, four-note colour dabs and wet shading against stones and banks; the bright ford is left calm | `tools/art/river_detail.py`, `art/scenes_painted/world_elah_refined_bottom.png` |
 | 2 | Trees visibly **taller** than people, not wider | Tall olive/fig canvases scaled to 82 / 78 world pixels against a 27.4-pixel person (about 3x), feet and trunk anchors unchanged | `art/props_painted/olive_tree_tall.png`, `fig_tree_tall.png`, `scripts/world/Region.gd` |
 | 3 | The mismatched figure seen walking north | The ridge Goliath repainted in the painterly bronze style used by the duel | `art/scenes_painted/goliath.png`, `goliath_striking.png` |
 
@@ -27,8 +27,8 @@ user's separate approval.
 
 The four in-game frames are real framebuffers from `tests/art_review_probe.tscn`,
 captured under Xvfb with software OpenGL in CI run
-[43458686659](https://github.com/fongway94/WalkInCovenant/actions/runs/43458686659)
-(commit `a968c5b`). They arrive here through the run's annotations, so they are
+[43462121260](https://github.com/fongway94/WalkInCovenant/actions/runs/43462121260)
+(commit `87d8708`). They arrive here through the run's annotations, so they are
 500x225 at 24 colours derived from the 1000x450 capture; the art-scale panels
 (1b, 3b) are native pixels.
 
@@ -51,7 +51,7 @@ captured under Xvfb with software OpenGL in CI run
 
 ## Verification
 
-Hosted [run 43458686659](https://github.com/fongway94/WalkInCovenant/actions/runs/43458686659)
+Hosted [run 43462121260](https://github.com/fongway94/WalkInCovenant/actions/runs/43462121260)
 passed lint (static, xref, API, font, pack, painted-world and the chapter
 contracts), the visual job with the four new review frames, both art-review
 publication jobs, export-web, the release browser suite, the chapter browser suite
