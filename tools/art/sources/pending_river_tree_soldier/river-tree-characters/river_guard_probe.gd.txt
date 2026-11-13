@@ -1,0 +1,101 @@
+extends Node
+var main = null
+var failures := 0
+
+func _ready() -> void:
+	_run()
+
+func _frames(count: int) -> void:
+	for _i in range(count):
+		await get_tree().process_frame
+
+func _freeze(r: Region) -> void:
+	r.set_process(false)
+	r.player.set_physics_process(false)
+	r.player.velocity = Vector2.ZERO
+	r.cam.set_process(false)
+	for npc in r.npcs:
+		npc.set_process(false)
+		npc.set_physics_process(false)
+		if npc.data.has("at"):
+			var at: Array = npc.data["at"]
+			npc.global_position = Vector2(int(at[0]) * 16.0 + 8.0, (int(at[1]) + 1) * 16.0 - 2.0)
+			npc.facing = Vector2i(0, 1)
+			if npc.human_visual != null:
+				npc.human_visual.set_pose(npc.facing, false, 0.0, 0.2)
+		if npc._bubble != null:
+			npc._bubble.visible = false
+
+func _shot(r: Region, name: String, player: Vector2, camera: Vector2) -> void:
+	r.player.global_position = player
+	r.cam.global_position = r.cam._clamp(camera)
+	await _frames(4)
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var file := "res://build/river-tree-characters/river-frames/" + name + ".png"
+	if image == null or image.save_png(file) != OK:
+		printerr("capture failed ", name)
+		failures += 1
+	print("captured ", name)
+
+func _water(r: Region, name: String) -> void:
+	if name == "before":
+		r.terrain.set_painted_ground_pieces(load("res://art/scenes_painted/world_elah_refined_top.png"),
+			load("res://art/scenes_painted/world_elah_refined_bottom.png"))
+		return
+	var folder := "res://build/river-tree-characters/river-candidates/" + name + "/"
+	var top := Image.load_from_file(ProjectSettings.globalize_path(folder + "elah-top.png"))
+	var bottom := Image.load_from_file(ProjectSettings.globalize_path(folder + "elah-bottom.png"))
+	r.terrain.set_painted_ground_pieces(ImageTexture.create_from_image(top), ImageTexture.create_from_image(bottom))
+
+func _trees(r: Region, olive: float, fig: float) -> void:
+	for entry in r._prop_sprites:
+		var key := str(entry["key"])
+		if key != "olive_tree" and key != "fig_tree":
+			continue
+		var s: Sprite2D = entry["sprite"]
+		var detail := 6.0 if s.texture.resource_path.ends_with("fig_tree_refined.png") else 3.0
+		var visual := olive / detail if key == "olive_tree" else fig / detail
+		s.scale = Vector2.ONE * visual
+		s.offset = Vector2(0, -float(s.texture.get_height()) * 0.5)
+		entry["shadow"]["w"] = float(s.texture.get_width()) * visual * 0.42
+
+func _run() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/river-tree-warrior-probe/frames"))
+	GameState.new_game()
+	GameState.data["settings"]["reduce_motion"] = true
+	I18n.set_lang("en")
+	main = (load("res://scenes/main/Main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await _frames(55)
+	main.card.hide_now()
+	main.set_process(false)
+	var r: Region = main.region
+	_freeze(r)
+	for name in ["before", "ctx55", "ctx55-guard5", "ctx55-guard11", "ctx55-guard17", "ctx72-guard11"]:
+		_water(r, name)
+		await _shot(r, "river-" + name, Vector2(264, 448), Vector2(264, 432))
+	_water(r, "before")
+	for spec in [["before", 1.1, 2.4], ["medium", 1.4, 3.8], ["large", 1.55, 4.2], ["huge", 1.7, 4.8]]:
+		_trees(r, spec[1], spec[2])
+		await _shot(r, "trees-" + spec[0], Vector2(264, 536), Vector2(264, 536))
+		await _shot(r, "fig-near-" + spec[0], Vector2(180, 528), Vector2(240, 528))
+		await _shot(r, "camp-" + spec[0], Vector2(280, 690), Vector2(272, 688))
+	await _shot(r, "champion-before", Vector2(240, 164), Vector2(264, 100))
+	var giant := Image.load_from_file(ProjectSettings.globalize_path("res://build/river-tree-warrior-probe/goliath-pixel-128.png"))
+	r.goliath_sprite.texture = ImageTexture.create_from_image(giant)
+	r.goliath_sprite.offset = Vector2(0, -64)
+	r.goliath_sprite.scale = Vector2.ONE * 0.40
+	await _shot(r, "champion-after", Vector2(240, 164), Vector2(264, 100))
+	main._swap_region("bethlehem")
+	await _frames(12)
+	main.card.hide_now()
+	r = main.region
+	r.dialogue.hide_box()
+	_freeze(r)
+	for spec in [["before", 1.1, 2.4], ["medium", 1.4, 3.8], ["large", 1.55, 4.2], ["huge", 1.7, 4.8]]:
+		_trees(r, spec[1], spec[2])
+		await _shot(r, "well-" + spec[0], Vector2(240, 352), Vector2(210, 320))
+		await _shot(r, "bethlehem-" + spec[0], Vector2(264, 240), Vector2(264, 190))
+	print("river/tree/champion fixture finished (", failures, " failures)")
+	get_tree().quit(1 if failures else 0)
