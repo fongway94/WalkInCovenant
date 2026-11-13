@@ -815,9 +815,10 @@ jobs:
   # A separate check-run for the four river/tree/figure review frames. GitHub
   # caps a check-run at ~50 annotations, so each 500x225 frame is reprinted in
   # its own step from its own artifact rather than crowding the main frames.
-  # Separate check-runs for the four river/tree/figure review frames. GitHub
-  # caps a check-run at ~50 annotations; four 500x225 frames in one job lost
-  # chunks (run 43445093258), so two frames share each of two jobs.
+  # Review frames for the river, trees and ridge figure. GitHub allows ten
+  # annotations per step and truncates an annotation at 4096 characters, so a
+  # 500x225 frame is split into two steps of at most ten 4000-character
+  # chunks, and two frames share each of two check runs.
   publish-art-review-a:
     needs: visual
     runs-on: ubuntu-latest
@@ -828,9 +829,10 @@ jobs:
         with:
           name: art-review
           path: build/art-review
-      - name: Publish river review frame
+      - name: Publish river review frame (part 1)
         env:
           WIC_REVIEW_FRAME: 01_river.png
+          WIC_CHUNK_FROM: "0"
         run: |
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
@@ -841,14 +843,18 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 8200
+          CH = 4000
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-          for i, part in enumerate(parts):
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
-      - name: Publish trees review frame
+      - name: Publish river review frame (part 2)
         env:
-          WIC_REVIEW_FRAME: 02_trees.png
+          WIC_REVIEW_FRAME: 01_river.png
+          WIC_CHUNK_FROM: "10"
         run: |
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
@@ -859,9 +865,56 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 8200
+          CH = 4000
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-          for i, part in enumerate(parts):
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish trees review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 02_trees.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish trees review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 02_trees.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
 
@@ -875,9 +928,10 @@ jobs:
         with:
           name: art-review
           path: build/art-review
-      - name: Publish tree-scale review frame
+      - name: Publish tree-scale review frame (part 1)
         env:
           WIC_REVIEW_FRAME: 03_tree_scale.png
+          WIC_CHUNK_FROM: "0"
         run: |
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
@@ -888,14 +942,18 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 8200
+          CH = 4000
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-          for i, part in enumerate(parts):
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
-      - name: Publish north-figure review frame
+      - name: Publish tree-scale review frame (part 2)
         env:
-          WIC_REVIEW_FRAME: 04_north_figure.png
+          WIC_REVIEW_FRAME: 03_tree_scale.png
+          WIC_CHUNK_FROM: "10"
         run: |
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
@@ -906,9 +964,56 @@ jobs:
               .resize((500, 225), Image.Resampling.LANCZOS) \
               .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
           raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
-          CH = 8200
+          CH = 4000
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
-          for i, part in enumerate(parts):
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish north-figure review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 04_north_figure.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish north-figure review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 04_north_figure.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
               print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
 
