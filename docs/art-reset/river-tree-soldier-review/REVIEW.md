@@ -1,9 +1,10 @@
 # River, tree height and the northern figure
 
 Three requested changes are implemented on branch `arena/0854f8bd-walkincovenant`
-and verified by hosted CI. Nothing is deployed: the branch build produces the Web
-pack, but the `deploy` job only runs for `main`, and publication still needs the
-user's separate approval.
+and verified by hosted CI. The user approved publishing, and the reviewed build is
+now live at https://fongway94.github.io/WalkInCovenant/ (Pages deployment
+`7771808949`, 2026-11-13 17:24 UTC). It replaced the previous site; a push to
+`main` republishes `main`.
 
 | # | Request | What changed | Where |
 |---|---------|--------------|-------|
@@ -65,6 +66,23 @@ codepoints, `check_faces`, `check_art_reset`, `check_craft_props`,
 trees, meadow, paving and painterly water with protected bank),
 `tools/pack_art.py`, `test_pack_contents` (9 tests), `test_api_reference`
 (5 tests) and `node --test tests/browser/seeded_boot.test.cjs` all pass.
+
+## Publication record
+
+* Published artifact: the `web` artifact of run 43462121260 (commit `87d8708`).
+* Live `index.pck` SHA-256: `d1751ce0ba8cedaaff1c6250cd6005e1ece41faf37bd6a7ea2411d7b70e01116`,
+  36,531,020 bytes, `GDPC` magic.
+* Verified byte-identical to the artifact (PCK and `index.html`) by
+  [run 43472774388](https://github.com/fongway94/WalkInCovenant/actions/runs/43472774388)
+  after the redeploy. The 404s that run warns about for `sw.js` and
+  `manifest.webmanifest` are expected: this engine emits `index.service.worker.js`
+  and `index.manifest.json`, both present in the artifact.
+* Getting there needed two settings the app token cannot change: the branch had to
+  be added to the `github-pages` environment's deployment-branch policy, and Pages
+  → Build and deployment → Source had to stay on **GitHub Actions**. While it was
+  briefly on "Deploy from a branch", Pages served a Jekyll build of the repository
+  instead of the game; restoring the source and redeploying fixed it.
+* The temporary one-shot publisher and verifier workflows were deleted after use.
 
 Not verified: appearance on a physical phone, and human art approval. Automated
 checks establish geometry, protection of shoreline pixels and reproducibility,
