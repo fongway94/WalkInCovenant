@@ -270,6 +270,12 @@ func _run() -> void:
 		if not geometry.has(key):
 			world_sizes_ok = false
 			continue
+		# The two mature trees deliberately left the "legacy canvas x visual
+		# scale" contract when they became taller; they are checked separately
+		# below against their authored world heights. Every other prop still
+		# keeps its pre-detail legacy bounds.
+		if key in Region.TALL_TREE_KEYS:
+			continue
 		var old_size: Array = geometry[key]["size"]
 		var old_scale := float(Region.PAINTED_PROP_SCALE.get(key, 1.0))
 		var expected := Vector2(float(old_size[0]) / sprite.hframes, float(old_size[1])) * old_scale
@@ -286,18 +292,40 @@ func _run() -> void:
 		if not examples.has(key) and not (key == "tent" and entry["at"] == Region.ROYAL_TENT_AT):
 			examples[key] = entry["sprite"]
 	var person_h := player.visual_height()
-	_check(_visible_prop_height(examples.get("olive_tree")) > person_h * 1.8
-		and _visible_prop_height(examples.get("fig_tree")) > person_h * 1.3
+	# The user asked for trees that are visibly TALLER, not merely wider. The
+	# old olive was about 1.9 person-heights; these authored canvases put the
+	# canopy top near 3x, with the trunk base on the same map tile.
+	var olive_h := _visible_prop_height(examples.get("olive_tree"))
+	var fig_h := _visible_prop_height(examples.get("fig_tree"))
+	_check(olive_h > person_h * 2.8 and fig_h > person_h * 2.6
+		and olive_h / person_h < 3.4 and fig_h / person_h < 3.2
 		and _visible_prop_height(examples.get("tent")) > person_h * 1.25,
-		"mature trees and ordinary tent peaks read larger than a person")
+		"mature trees stand about three people tall and tents still read larger than a person")
+	var trees_ok := true
+	var tree_count := 0
+	for entry in r._prop_sprites:
+		var tree_key := str(entry["key"])
+		if not Region.TALL_TREE_KEYS.has(tree_key):
+			continue
+		tree_count += 1
+		var tree_sprite: Sprite2D = entry["sprite"]
+		var tree_path := "res://art/props_painted/%s_tree_tall.png" % tree_key.trim_suffix("_tree")
+		var wanted_height := 82.0 if tree_key == "olive_tree" else 78.0
+		var at: Vector2i = entry["at"]
+		trees_ok = trees_ok and tree_sprite.texture.resource_path == tree_path \
+			and absf(tree_sprite.texture.get_height() * tree_sprite.scale.y - wanted_height) < 0.01 \
+			and is_equal_approx(tree_sprite.hframes, 1) \
+			and absf(tree_sprite.position.y - float(at.y + 1) * 16.0) < 0.01
+	_check(tree_count >= 8 and trees_ok,
+		"every tall tree uses its authored canvas and keeps its trunk-base anchor (%d)" % tree_count)
 	_check(_visible_prop_height(examples.get("jar")) < person_h * 0.5
 		and _visible_prop_height(examples.get("well")) > _visible_prop_height(examples.get("jar")) * 1.6
 		and _visible_prop_height(examples.get("bush")) < person_h,
 		"jar, well and shrub have deliberately different person-relative heights")
 	_check(examples.get("fig_tree") != null
-		and (examples["fig_tree"] as Sprite2D).texture.resource_path.ends_with("fig_tree_refined.png")
+		and (examples["fig_tree"] as Sprite2D).texture.resource_path.ends_with("fig_tree_tall.png")
 		and is_equal_approx(royal_tent.scale.x, 0.30),
-		"the detailed fig uses its six-times canvas while Saul's doorway retains its calibrated scale")
+		"the tall fig is selected while Saul's doorway retains its calibrated scale")
 	var sort_ok := r._ys.y_sort_enabled and r._prop_sprites.size() == r.model.props.size()
 	var shadows_ok := true
 	var fire: Sprite2D = null

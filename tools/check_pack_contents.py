@@ -53,6 +53,13 @@ REQUIRED_ART = {
     "art/props_painted/brook_stone_b.png.import",
     "art/props_painted/brook_stone_c.png.import",
     "art/props_painted/jar.png.import",
+    # Tall mature trees and the repainted ridge champion are selected by
+    # computed paths in Region.gd; a pack without them would silently fall back
+    # to the old squat olive and the mismatched glossy figure.
+    "art/props_painted/olive_tree_tall.png.import",
+    "art/props_painted/fig_tree_tall.png.import",
+    "art/scenes_painted/goliath.png.import",
+    "art/scenes_painted/goliath_striking.png.import",
 }
 
 

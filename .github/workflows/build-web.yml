@@ -512,6 +512,41 @@ jobs:
             exit 1
           fi
 
+      # The three review changes (brook surface, tall trees, the north ridge
+      # figure) are captured in the SAME framings as the previous session's
+      # saved "before" images, at 1000x450, so a before/after pair differs only
+      # in art. These frames are too large for this job's annotation budget;
+      # publish-art-review reprints them from the artifact.
+      - name: Capture river, tall-tree and north-figure review frames
+        id: art_review
+        continue-on-error: true
+        run: |
+          mkdir -p build "$RUNNER_TEMP/wic-art-review"
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-art-review"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/art_review_probe.tscn > art-review.txt 2>&1 || STATUS=$?
+          cat art-review.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|could not capture|was not applied|figure is missing' art-review.txt | head -8 || true)
+          CAPTURED=$(grep -ac '^captured ' art-review.txt || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || [ "$CAPTURED" -ne 4 ] \
+              || ! grep -q 'art review fixture finished (0 failures)' art-review.txt; then
+            echo "::error::Art review capture failed (exit $STATUS, frames $CAPTURED): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: art-review
+          path: build/art-review
+          if-no-files-found: ignore
+
       - name: Console and runtime error gate
         if: always()
         run: |
@@ -771,6 +806,92 @@ jobs:
               print("::notice::WICFRAME|%s|%d|%d|%s"
                     % (name, i, len(parts), part))
           print("published %d chunks for %s" % (len(parts), name))
+          PY
+
+  # A separate check-run for the four river/tree/figure review frames. GitHub
+  # caps a check-run at ~50 annotations, so each 500x225 frame is reprinted in
+  # its own step from its own artifact rather than crowding the main frames.
+  publish-art-review:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: art-review
+          path: build/art-review
+      - name: Publish river review frame
+        env:
+          WIC_REVIEW_FRAME: 01_river.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish trees review frame
+        env:
+          WIC_REVIEW_FRAME: 02_trees.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish tree-scale review frame
+        env:
+          WIC_REVIEW_FRAME: 03_tree_scale.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish north-figure review frame
+        env:
+          WIC_REVIEW_FRAME: 04_north_figure.png
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          for i, part in enumerate(parts):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
 
   # ── export the web build ─────────────────────────────────────────────────

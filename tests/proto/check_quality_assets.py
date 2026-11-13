@@ -28,6 +28,8 @@ import build_reference_characters as characters  # noqa: E402
 import build_reference_variants as variants  # noqa: E402
 import build_refined_ground as refined_ground  # noqa: E402
 import build_refined_props as refined_props  # noqa: E402
+import build_tall_trees as tall_trees  # noqa: E402
+import river_detail  # noqa: E402
 from prop_detail import DETAIL_FACTOR  # noqa: E402
 
 
@@ -225,14 +227,35 @@ def check_refinement():
             crossing = refined_ground.material_mask(raw["grid"], "=", (width, height), padding=24)
             outer_water = refined_ground.material_mask(raw["grid"], "~e", (width, height), padding=24)
             protected = ImageChops.lighter(outer_water, ImageChops.multiply(crossing, band))
-            assert ImageChops.multiply(diff, protected).getbbox() is None, "changed river or shoreline pixels"
-            assert ImageChops.multiply(masks["inland"], protected).getbbox() is None
+            # The visible water is now deliberately repainted in the ground's
+            # painterly language (river_detail.py). The bank, reeds, the ford's
+            # pale approach and every sunlit stone must still be pixel-identical
+            # to the reference: only pixels inside the painted-water mask may
+            # differ, and that mask is confined to the reviewed brook band.
+            painted = masks["painted_water"].point(lambda value: 255 if value else 0)
+            assert painted.getbbox() is not None, "missing painterly water surface"
+            shore_without_water = ImageChops.subtract(protected, painted)
+            assert ImageChops.multiply(diff, shore_without_water).getbbox() is None, \
+                "changed bank, reeds or stone pixels beside the water"
+            assert ImageChops.multiply(diff, painted).getbbox() is not None, \
+                "painterly water pass changed nothing"
+            confined = Image.new("L", (width, height))
+            band_top = river_detail.WATER_ROWS[0] * 64 - 48
+            band_bottom = (river_detail.WATER_ROWS[-1] + 1) * 64 + 57
+            ImageDraw.Draw(confined).rectangle((0, band_top, width - 1, band_bottom), fill=255)
+            assert ImageChops.subtract(painted, confined).getbbox() is None, \
+                "water repaint escaped the brook band"
+            for x, y in ((800, 1660), (790, 1715), (790, 1780), (1240, 1730), (1300, 1640)):
+                assert painted.getpixel((x, y)) == 0, "a sunlit stone was repainted"
+            for x, y in ((1900, 1700), (300, 1750), (600, 1700), (1050, 1720)):
+                assert painted.getpixel((x, y)) == 255, "water sample was skipped"
             assert masks["inland"].getbbox() is not None, "missing inland bank transition"
             approach = masks["approach"]
             assert approach.getpixel((16 * refined_ground.TILE, 470 * 4)) > 128, "missing ford path approach"
             assert ImageChops.subtract(approach, masks["inland"]).getbbox() is None
             assert approach.crop((0, 0, width, 462 * 4)).getbbox() is None, "approach entered the protected band"
-            assert ImageChops.multiply(approach, protected).getbbox() is None
+            assert ImageChops.multiply(approach, painted).getbbox() is None, \
+                "ford approach was repainted as water"
             mutated = list(raw["grid"])
             mutated[24] = mutated[24][:12] + "." + mutated[24][13:]
             fallback, bounds = refined_ground.crossing_inland_mask(mutated, (width, height))
@@ -244,6 +267,13 @@ def check_refinement():
             fallback = refined_ground.crossing_south_approach(mutated, (width, height), masks["inland"],
                                                               masks["water_band"])
             assert fallback.getbbox() is None, "changed ford path must fail closed"
+            # The water pass is tied to this grid and texture size; any other
+            # layout keeps the old water instead of a guessed repaint.
+            assert river_detail.supports(raw["grid"], (width, height))
+            changed_grid = list(raw["grid"])
+            changed_grid[26] = changed_grid[26].replace("~", ".")
+            assert not river_detail.supports(changed_grid, (width, height))
+            assert not river_detail.supports(raw["grid"], (1024, 1536))
         else:
             assert masks["inland"].getbbox() is None and masks["water_band"] is None
             assert masks["approach"].getbbox() is None
@@ -251,6 +281,8 @@ def check_refinement():
         # Everywhere else in the old protected shoreline core remains exact.
         changed_inland = masks["inland"].point(lambda value: 255 if value else 0)
         still_protected = ImageChops.subtract(shore_core, changed_inland)
+        still_protected = ImageChops.subtract(
+            still_protected, masks["painted_water"].point(lambda value: 255 if value else 0))
         assert ImageChops.multiply(diff, still_protected).getbbox() is None, region + " cut into protected shoreline"
 
         # Verify genuinely new grass/soil/paving, and forbid changes outside
@@ -279,6 +311,7 @@ def check_refinement():
         if region == "bethlehem":
             assert ImageChops.multiply(new_diff, masks["paving"]).getbbox() is not None, "missing detailed paving"
         allowed = ImageChops.lighter(ImageChops.lighter(masks["updated_grass"], masks["soil"]), masks["paving"])
+        allowed = ImageChops.lighter(allowed, masks["painted_water"])
         allowed = allowed.point(lambda value: 255 if value else 0)
         assert ImageChops.multiply(new_diff, ImageChops.invert(allowed)).getbbox() is None, \
             region + " changed outside the ground material masks"
@@ -309,7 +342,40 @@ def check_refinement():
             region + " ground palette shifted in clarity crop"
         mean_change = sum(ImageStat.Stat(ImageChops.difference(before, after)).mean) / 3
         assert 5.0 < mean_change < 35.0, region + " ground detail changed too little or too much"
-    print("refined fig and rebuilt grass, earth, paving with protected river/shore: PASS")
+    print("refined fig, tall trees and rebuilt grass, earth, paving and painterly water with protected bank: PASS")
+
+
+def check_tall_trees():
+    """The mature trees must be reproducible, foot-anchored and key-clean.
+
+    The visible-height contract itself lives in the runtime test
+    (tests/painted_world.gd) where the real Sprite2D scales exist; here the
+    authored canvases and mattes are checked against the committed files.
+    """
+    outputs = tall_trees.build()
+    expected = {"olive_tree_tall.png": (208, 276), "fig_tree_tall.png": (200, 272)}
+    assert set(outputs) == set(expected)
+    for name, image in outputs.items():
+        assert image.mode == "RGBA" and image.size == expected[name], name
+        assert same_pixels(image, Path("art/props_painted") / name), "non-reproducible tree: " + name
+        bounds = image.getchannel("A").getbbox()
+        assert bounds is not None, "empty tree: " + name
+        assert bounds[3] == image.height, "tree lost its trunk-base anchor: " + name
+        assert bounds[1] == 0 and bounds[0] <= 12 and bounds[2] >= image.width - 12, \
+            "tree canvas cropped the canopy: " + name
+        visible_key = [(r, g, b) for r, g, b, a in image.get_flattened_data()
+                       if a > 200 and r > 140 and b > 140 and g < 70]
+        assert not visible_key, "visible magenta key in " + name
+    olive = outputs["olive_tree_tall.png"]
+    fig = outputs["fig_tree_tall.png"]
+    # Taller than wide: the old olive's alpha was 141x147 (about square), which
+    # is exactly why it read as a big shrub. A mature tree must be clearly
+    # upright even before the runtime scale is applied.
+    for name, image in (("olive", olive), ("fig", fig)):
+        bounds = image.getchannel("A").getbbox()
+        ratio = (bounds[3] - bounds[1]) / (bounds[2] - bounds[0])
+        assert ratio > 1.3, name + " tree is not upright: %.2f" % ratio
+    print("two taller, trunk-anchored olive and fig canvases with clean mattes: PASS")
 
 
 def check_people():
@@ -383,5 +449,6 @@ if __name__ == "__main__":
     check_props()
     check_continuations()
     check_refinement()
+    check_tall_trees()
     check_people()
     check_variants()

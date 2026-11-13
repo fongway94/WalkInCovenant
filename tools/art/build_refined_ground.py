@@ -25,6 +25,8 @@ import random
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps, ImageStat
 
+import river_detail
+
 ROOT = Path("tools/art/sources")
 SCENES = Path("art/scenes_painted")
 WORLD_PIXEL_SCALE = 4
@@ -519,13 +521,23 @@ def build(region):
         paving = match_mean(paving_image(size, box), baseline, paving_mask)
         image = Image.composite(paving, image, paving_mask)
 
+    # The brook is water, not land: it gets its own painterly surface pass so
+    # its detail matches the meadow beside it. Only painted water pixels are
+    # replaced; the bank, stones, foam rims and ford approach keep their exact
+    # pixels. Unknown grids keep the old water (fail closed).
+    painted_water = Image.new("L", size)
+    if region == "elah" and river_detail.supports(grid, size):
+        image, band_mask = river_detail.paint(image)
+        painted_water.paste(band_mask, (0, river_detail.BAND_TOP))
+
     middle = size[1] // 2
     pieces = {"top": image.crop((0, 0, size[0], middle)),
               "bottom": image.crop((0, middle, size[0], size[1]))}
     masks.update({"baseline": baseline, "updated_grass": grass_mask, "rocky": rocky,
                   "inland": inland, "approach": approach, "water_band": water_band,
                   "soil": soil_mask, "paving": paving_mask,
-                  "grass_crops": grass_crops, "soil_crops": soil_crops})
+                  "grass_crops": grass_crops, "soil_crops": soil_crops,
+                  "painted_water": painted_water})
     return pieces, masks
 
 

@@ -30,6 +30,17 @@ const PAINTED_PROP_SCALE := {
 	"bush": 0.40, "wool_tuft": 0.50, "signpost": 0.50,
 	"sheep": 0.50, "sheep_graze": 0.50, "sheep_alert": 0.50,
 }
+## The two mature tree keys share a taller authored canvas and an upright
+## silhouette; tests and the prop selector use this list instead of spelling
+## the pair out in several places.
+const TALL_TREE_KEYS := ["olive_tree", "fig_tree"]
+## Authored visual scales for those canvases (before PAINTED_PROP_DETAIL_FACTOR).
+## 276px x 0.891/3 = 82 world units and 272px x 0.860/3 = 78: about three times
+## the 27.4-unit person, measured to the top of the canopy. The trunk base,
+## 1x1 collision footprint, contact shadow and y-sort point stay on the map
+## tile. Keeping these out of PAINTED_PROP_SCALE leaves the legacy painted
+## canvases (used only as a fallback) at their reviewed sizes.
+const TALL_TREE_SCALE := {"olive_tree": 0.891, "fig_tree": 0.860}
 ## This authored Elah tent is Saul's backdrop. Its open-front art must sort at
 ## its back wall, behind the king in the doorway, while the visible base and
 ## shadow stay on the original footprint. No collision or actor position moves.
@@ -209,6 +220,10 @@ func _prop_visual_scale(key: String, theme: String, path: String) -> float:
 		# calibrated while increasing the other camp tents.
 		if path.ends_with("/tent_royal_open.png"):
 			return 0.90 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		# The tall trees are selected by their own scale, so a missing tall
+		# canvas falls back to the reviewed legacy size instead of shrinking.
+		if path.ends_with("/olive_tree_tall.png") or path.ends_with("/fig_tree_tall.png"):
+			return float(TALL_TREE_SCALE.get(key, 1.0)) / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
 		# The distinct refined fig is six times the old 16x24 canvas, not three.
 		var detail := 6.0 if path.ends_with("/fig_tree_refined.png") else ArtDirection.PAINTED_PROP_DETAIL_FACTOR
 		return float(PAINTED_PROP_SCALE.get(key, 1.0)) / detail
@@ -234,8 +249,10 @@ func _map_prop_texture_path(key: String, theme: String, at: Vector2i) -> String:
 				variant = "res://art/props_painted/tent_camp_b.png"
 	elif key == "house" and posmod(at.x, 2) == 0:
 		variant = "res://art/props_painted/house_reference_alt.png"
+	elif key == "olive_tree":
+		variant = "res://art/props_painted/olive_tree_tall.png"
 	elif key == "fig_tree":
-		variant = "res://art/props_painted/fig_tree_refined.png"
+		variant = "res://art/props_painted/fig_tree_tall.png"
 	return variant if variant != "" and ResourceLoader.exists(variant) else chosen
 
 
@@ -290,12 +307,19 @@ func _apply_giant_theme(theme: String) -> void:
 		# node and contact shadow stay at the same original foot position.
 		s.offset = Vector2(0, -64)
 		s.scale = Vector2.ONE * 0.40
+		# The painted figure is drawn well below its 128px source: nearest
+		# sampling dropped brush edges into ragged steps and made the champion
+		# read as a different kind of image from the people below him. Smooth
+		# sampling matches the hand-painted treatment; the classic pixel sheet
+		# keeps its nearest filter.
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	else:
 		s.texture = load("res://art/characters/goliath_idle.png")
 		s.hframes = 2
 		s.vframes = 4
 		s.offset = Vector2(0, -8)
 		s.scale = Vector2.ONE * 2.0
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	s.frame = 0
 
 
