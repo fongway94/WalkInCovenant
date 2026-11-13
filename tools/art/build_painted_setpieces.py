@@ -80,8 +80,12 @@ def warrior():
     striking = out.copy()
     alpha = striking.getchannel('A')
     mask = ImageDraw.Draw(alpha)
-    mask.rectangle((0, 0, 45, 47), fill=0)
-    mask.polygon([(33, 58), (44, 58), (45, 127), (31, 127)], fill=0)
+    # Keep these cuts to the thin shaft: a wider polygon clipped his left
+    # shin, which is visible in the duel's thrust frame. The shaft occupies
+    # x=31..36 above the gripping hand and x=33..36 below it; the leg starts
+    # at x>=40, so a narrow band removes only the spear.
+    mask.rectangle((0, 0, 38, 46), fill=0)
+    mask.rectangle((31, 59, 38, 119), fill=0)
     striking.putalpha(alpha)
     striking.save(OUT / 'goliath_striking.png', optimize=True)
 
