@@ -117,16 +117,24 @@ jobs:
           : > static.txt
           for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset check_craft_props check_cinematic_art; do
             echo "===== $T =====" >> static.txt
-            python3 "tools/$T.py" >> static.txt 2>&1
-            echo "exit=$?" >> static.txt
+            # GitHub invokes bash with -e. Run each check as an if condition so
+            # a failure is recorded and later checks still reach the report.
+            if python3 "tools/$T.py" >> static.txt 2>&1; then
+              echo "exit=0" >> static.txt
+            else
+              echo "exit=$?" >> static.txt
+            fi
           done
           # pack_art also needs Pillow. It is installed above for check_faces;
           # keep the explicit guard so a worker without a wheel reports WHY
           # instead of failing the whole lint job with a traceback.
           echo "===== pack_art =====" >> static.txt
           if python3 -c "import PIL" 2>/dev/null; then
-            python3 tools/pack_art.py --check >> static.txt 2>&1
-            echo "exit=$?" >> static.txt
+            if python3 tools/pack_art.py --check >> static.txt 2>&1; then
+              echo "exit=0" >> static.txt
+            else
+              echo "exit=$?" >> static.txt
+            fi
           else
             echo "skip: Pillow not installed on this runner (art is committed, layout is verified locally)" >> static.txt
             echo "exit=0" >> static.txt

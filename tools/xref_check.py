@@ -138,6 +138,11 @@ def inherited(scripts, s, seen=None):
 
 
 def main():
+    # An own-class member can reach all_members() before is_engine() is ever
+    # called. Initialise the version before either path, or a filesystem walk
+    # that finds that member first can cache missing docs under a None version.
+    if api_check.REF is None:
+        api_check.REF = api_check.godot_version()
     scripts = load_scripts()
     autos = autoloads()
     known = set(scripts.keys()) | set(autos.keys())

@@ -50,6 +50,34 @@ class OfflineGodotReference(unittest.TestCase):
         self.assertNotIn("skipped", output.getvalue())
         self.assertGreaterEqual(sum(doc is not None for doc in api_check.docs.values()), 50)
 
+    def test_first_cross_reference_can_be_an_inherited_engine_member(self):
+        # Filesystem traversal order differs across machines. If the first
+        # lookup is an inherited member rather than an engine type annotation,
+        # the reference version must already be initialized before fetch_doc().
+        root = pathlib.Path(self.directory.name)
+        (root / "project.godot").write_text("[autoload]\n", encoding="utf-8")
+        (root / "probe.gd").write_text(
+            "class_name OrderedProbe\n"
+            "extends Node\n"
+            "func probe():\n"
+            "\tvar actor: OrderedProbe = OrderedProbe.new()\n"
+            "\tactor.queue_free()\n"
+            "\tvar layer: CanvasLayer = CanvasLayer.new()\n"
+            "\tlayer.visible = true\n",
+            encoding="utf-8",
+        )
+        old_root = xref_check.ROOT
+        output = io.StringIO()
+        try:
+            xref_check.ROOT = str(root)
+            with contextlib.redirect_stdout(output):
+                status = xref_check.main()
+        finally:
+            xref_check.ROOT = old_root
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertNotIn("skipped", output.getvalue())
+        self.assertEqual(self.fetches, [], "the first inherited lookup must use the pinned reference")
+
     def test_offline_cross_reference_still_rejects_an_unknown_class(self):
         root = pathlib.Path(self.directory.name)
         (root / "project.godot").write_text("[autoload]\n", encoding="utf-8")
