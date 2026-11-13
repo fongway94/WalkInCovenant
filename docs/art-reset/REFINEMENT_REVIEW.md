@@ -1,6 +1,6 @@
 # Chapter movement, scale and ground refinement
 
-This refinement is the current [public chapter playtest](https://fongway94.github.io/WalkInCovenant/), published with the user's approval from game revision `d8526c3`. Its [passing CI build](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43316898488). The comparison baseline below is the tree at `1de5452`, which has the same game content as the previously published `e66ba37`.
+This refinement was published with the user's approval from game revision `d8526c3`. Its [passing CI build](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43316898488). The [public chapter playtest](https://fongway94.github.io/WalkInCovenant/) now also includes the subsequent [ground-clarity follow-up](GROUND_CLARITY_REVIEW.md). The comparison baseline below is the tree at `1de5452`, which has the same game content as the earlier published `e66ba37`.
 
 ## The world at the same camera positions
 
@@ -17,7 +17,7 @@ Elah and Bethlehem now use sharper, map-aligned ground split into two pieces per
 
 ## Motion
 
-The clips pair **rendered framebuffer crops** from a staged fixture that invokes the production movement code in fixed 1/24-second steps while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation. Their embedded “published” and “local” labels describe the time of capture: the left is the earlier `e66ba37` game, and the right is the refinement now published as `d8526c3`.
+The clips pair **rendered framebuffer crops** from a staged fixture that invokes the production movement code in fixed 1/24-second steps while the camera follows each actor. The backgrounds move because the actors actually travel. They are enlarged with nearest-neighbour sampling, not redrawn animation. Their embedded “published” and “local” labels describe the time of capture: the left is the earlier `e66ba37` game, and the right is the refinement published as `d8526c3`, before the later ground-only clarity pass.
 
 | Witness, side walk | David, side walk in the field |
 |:---|:---|
