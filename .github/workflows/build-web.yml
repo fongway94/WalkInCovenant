@@ -1775,6 +1775,16 @@ jobs:
         run: |
           test -f build/proto/overflow/part_7.txt && cat build/proto/overflow/part_7.txt || echo "no overflow part 7"
 
+  # Gates on the `github-pages` environment exactly like the deploy job, so a
+  # dispatch learns in seconds whether this branch is allowed to deploy at all.
+  pages-policy-probe:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_preview
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - run: echo "this branch may enter the github-pages environment"
+
   deploy:
     # No release or approved preview should publish until the rendered and
     # browser regressions have finished successfully as well as the export.
