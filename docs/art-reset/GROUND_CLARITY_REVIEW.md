@@ -1,10 +1,10 @@
 # Ground clarity follow-up
 
-**Status: published with the user's approval.** The [public game](https://fongway94.github.io/WalkInCovenant/) uses game-source revision `f2afae9`. Its [passing CI](https://github.com/fongway94/WalkInCovenant/actions/runs/43342207189) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43344202582). This follow-up changes the overworld ground in Elah and Bethlehem; the separately painted shepherd field, objects, paths, collision and story positions are unchanged.
+**Status: previously published with the user's approval.** Game-source revision `f2afae9` passed [CI](https://github.com/fongway94/WalkInCovenant/actions/runs/43342207189), which supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43344202582). The [public game](https://fongway94.github.io/WalkInCovenant/) now includes the later [painterly-ground pass](PAINTERLY_GROUND_REVIEW.md). This earlier follow-up changed the overworld ground in Elah and Bethlehem; the separately painted shepherd field, objects, paths, collision and story positions were unchanged.
 
 ## Before and after in the game
 
-These are real 1000×450 Godot framebuffers from the same staged camera and lighting, not source-image mockups. “Before” is the previous public `d8526c3` ground; “after” is the now-published clarity pass. The enlarged grass crops use nearest-neighbour scaling. The actors are frozen for comparison; a flame can differ between captures.
+These are real 1000×450 Godot framebuffers from the same staged camera and lighting, not source-image mockups. “Before” is the earlier `d8526c3` ground; “after” is the `f2afae9` clarity pass, before the later painterly-ground update. The enlarged grass crops use nearest-neighbour scaling. The actors are frozen for comparison; a flame can differ between captures.
 
 ![Camp ground before and after](ground-clarity-review/camp-comparison.png)
 

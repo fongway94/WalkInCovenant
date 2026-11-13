@@ -1,6 +1,6 @@
 # Painterly ground materials — review
 
-**Status: implemented on the working branch, not yet published.** The public game is still `f2afae9`. The user's previous approval applied to that release, not this later artwork.
+**Status: published with the user's approval.** The [public game](https://fongway94.github.io/WalkInCovenant/) uses game-source revision `0fb4c82`. Its [passing CI](https://github.com/fongway94/WalkInCovenant/actions/runs/43371609984) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43375913095).
 
 ## Diagnosis
 
@@ -8,7 +8,7 @@ The previous ground pieces already had four texture pixels per world unit, lossl
 
 ## In-game comparison
 
-These are actual 1000×450 Godot framebuffers from the same staged positions, camera and lighting. “Before” uses the `f2afae9` public textures; “after” uses the rebuilt textures. The 2× detail crops use nearest-neighbour scaling. Actors are held at the same positions; animated effects can differ between captures.
+These are actual 1000×450 Godot framebuffers from the same staged positions, camera and lighting. “Before” uses the previous `f2afae9` public textures; “after” uses the rebuilt, now-published textures. The 2× detail crops use nearest-neighbour scaling. Actors are held at the same positions; animated effects can differ between captures.
 
 [![Camp: before and after](painterly-ground-review/camp-comparison.png)](painterly-ground-review/camp-comparison.png)
 
@@ -35,5 +35,6 @@ Texture joins: [Elah before](painterly-ground-review/elah-seam-before.webp) / [a
 - At the texture split, the mean row-to-row difference was **1.00×** the nearby median in Elah and **1.08×** in Bethlehem. High-frequency change had correlations close to zero at the 224- and 448-pixel patch offsets sampled in both axes. These metrics supplement, but do not replace, inspection of the frames.
 - Native Godot gameplay checks passed: painted world **129/129**, context **35/35**, shepherd stage **54/54**, resume **24/24**, slots **38/38**, audio **21/21**, deep **144**, plus smoke and content validation. The actual-frame fixture completed **12** walks/runs, **3** eased stops and **2** patrols with no fixture failures.
 - The final local release-Web export passed strict Chromium validation **30/30** without console, page or request errors. A fresh real-input browser journey reached the ending, and the responsive layout/emulated-touch suite passed **36** checks. Touch and DPR were emulated, not tested on a physical phone.
+- A local service-worker upgrade from the previous local export loaded the new pack and retained an earned conversation/word, chapter act and changed sound setting. It was not a live-site upgrade. Publication separately verified that the public PCK matches the passing CI artifact (SHA-256 `3689b9ae86a0349b7d9df014ec34aa5e8f0e551b14e888cc27c5782cb0534411`) and that the public service worker has the new revision. Strict public Chromium validation passed **30/30**, with no console, page or request errors.
 - The Web and Android-preset resource packs each contain **856** indexed resources, and the disposable test pack contains **963**. The local Web PCK is **34.62 MiB**, up from **29.60 MiB** in the previous local export; texture dimensions and maximum side remain unchanged. An Android PCK is not an APK.
 - No physical-phone performance, human art approval or listening test has been performed. Dense fine detail can still shimmer at other viewport sizes or under video compression; the walk capture and desktop/emulated browser checks are not a guarantee for every device. The native capture harness can report its existing resource warnings at immediate shutdown.

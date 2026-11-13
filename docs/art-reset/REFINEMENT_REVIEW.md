@@ -1,6 +1,6 @@
 # Chapter movement, scale and ground refinement
 
-This refinement was published with the user's approval from game revision `d8526c3`. Its [passing CI build](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43316898488). The [public chapter playtest](https://fongway94.github.io/WalkInCovenant/) now also includes the subsequent [ground-clarity follow-up](GROUND_CLARITY_REVIEW.md). The comparison baseline below is the tree at `1de5452`, which has the same game content as the earlier published `e66ba37`.
+This refinement was published with the user's approval from game revision `d8526c3`. Its [passing CI build](https://github.com/fongway94/WalkInCovenant/actions/runs/43251709210) supplied the exact Web artifact used by the [one-time publication](https://github.com/fongway94/WalkInCovenant/actions/runs/43316898488). The [public chapter playtest](https://fongway94.github.io/WalkInCovenant/) now also includes the later [ground-clarity](GROUND_CLARITY_REVIEW.md) and [painterly-ground](PAINTERLY_GROUND_REVIEW.md) passes. The comparison baseline below is the tree at `1de5452`, which has the same game content as the earlier published `e66ba37`.
 
 ## The world at the same camera positions
 
