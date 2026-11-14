@@ -688,8 +688,11 @@ func _run() -> void:
 		"duel figures respect their layout sizes")
 	var idle := GoliathFight.PAINTED_GOLIATH.get_image()
 	var striking := GoliathFight.PAINTED_GOLIATH_STRIKING.get_image()
-	_check(idle.get_pixel(34, 5).a > 0.9 and striking.get_pixel(34, 5).a == 0.0
-		and striking.get_pixel(36, 49).a > 0.9,
+	# The champion is the duel's own 64px sprite doubled, so these points are on
+	# his shaft (above the grip) and inside his hand.
+	_check(idle.get_pixel(106, 20).a > 0.9 and striking.get_pixel(106, 20).a == 0.0
+		and idle.get_pixel(108, 40).a > 0.9 and striking.get_pixel(108, 40).a == 0.0
+		and striking.get_pixel(104, 70).a > 0.9,
 		"striking pose removes the baked spear while retaining the hand")
 	duel.queue_free()
 	await get_tree().process_frame

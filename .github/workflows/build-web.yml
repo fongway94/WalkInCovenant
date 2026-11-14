@@ -305,14 +305,22 @@ jobs:
             grep -aE ': [0-9]+ checks, 0 failures' chapter-contracts.txt \
               | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
           else
-            # One annotation per real failure line, not one joined blob: the
-            # joined message was cut before the failing assertion was visible,
-            # leaving only suite headings to the authoring sandbox, which
-            # cannot read the raw job log.
-            grep -aE '=====|FAIL|SCRIPT ERROR|Parse Error|Failed to load script|checks, [1-9]' chapter-contracts.txt \
+            # One annotation per real failure line, not one joined blob, and
+            # no suite headings: the authoring sandbox cannot read the raw job
+            # log, and a list of headings alone says nothing about what failed.
+            grep -aE 'FAIL|SCRIPT ERROR|Parse Error|Failed to load script|checks, [1-9]|assert' chapter-contracts.txt \
               | head -8 | cut -c-700 \
               | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
           fi
+
+      - name: Publish the tail of the contract log
+        if: always() && steps.chapter_contracts.outcome != 'success'
+        run: |
+          [ -f chapter-contracts.txt ] || exit 0
+          # Last resort when no line matched the failure patterns: the tail
+          # still shows which suite stopped and what the engine printed.
+          tail -8 chapter-contracts.txt | cut -c-700 \
+            | while IFS= read -r line; do printf '::warning::tail: %s\n' "$line"; done
 
       - name: Publish the regression suite
         if: always()
