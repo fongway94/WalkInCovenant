@@ -129,9 +129,14 @@ def spear_handles(image, shaft_x, grip):
     # replaces did, and what GoliathFight._redraw() expects to hide.
     striking = standing.copy()
     eraser = ImageDraw.Draw(striking)
-    eraser.rectangle((shaft_x - 6, 0, shaft_x + 6, grip[0] - 1), fill=(0, 0, 0, 0))
-    eraser.rectangle((shaft_x - 3, grip[1] + 1, shaft_x + 3, CANVAS - 1),
+    # Erase the shaft and its head exactly, never a wider band: the fist wraps
+    # the shaft, and fingers clipped off with it were a real regression in the
+    # first pass of this frame.
+    eraser.rectangle((shaft_x - 2, 0, shaft_x + 2, grip[0] - 1), fill=(0, 0, 0, 0))
+    eraser.rectangle((shaft_x - 2, grip[1] + 1, shaft_x + 2, CANVAS - 1),
                      fill=(0, 0, 0, 0))
+    eraser.polygon([(shaft_x - 5, 14), (shaft_x + 5, 14), (shaft_x, 0)],
+                   fill=(0, 0, 0, 0))
     return standing, striking
 
 
