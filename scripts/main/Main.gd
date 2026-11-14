@@ -4,12 +4,9 @@ extends Node2D
 ## Overworld → talk / gather / cross the line → BECOME → the fight → RETURN.
 ## Story logic stays in data; Main only routes the moments between systems.
 
-## Working-branch live Pages preview only: the Web export boots in the
-## user-selected Direction B theme, while desktop/headless/visual CI stay
-## classic. The one decision lives in scripts/systems/ArtDirection.gd so
-## late-created setpieces agree with the overworld. This is a RUNTIME theme
-## call, not a default asset replacement; setting Web preview back to
-## "classic" there restores the original look exactly.
+## The initial art theme lives in scripts/systems/ArtDirection.gd so every
+## platform and late-created setpiece agrees with the overworld. Classic remains
+## available through apply_art_theme() for comparisons and regression tests.
 
 var region: Region = null
 ## Which region the previous one was, so the new one can put the player by the
@@ -20,6 +17,9 @@ var _from_region := ""
 var chapter: Node = null
 var _travelling := false
 var hud: Hud = null
+## Preserve the actual task in both languages while a dialogue freezes story
+## guidance; changing language must not tick or advance the mission.
+var _objective_source: Variant = ""
 var touch: TouchControls = null
 var become: BecomeController = null
 var fight: GoliathFight = null
@@ -123,6 +123,7 @@ func _ready() -> void:
 	journal = Journal.new()
 	add_child(journal)
 	journal.closed.connect(_close_journal)
+	journal.journey_requested.connect(_switch_journey)
 	# The language switch lives on the HUD, which is always on screen — including
 	# around an open book. One connection, made once, so a reprinted page cannot
 	# re-connect itself into a second call.
@@ -149,6 +150,10 @@ func _ready() -> void:
 	add_child(runner)
 
 	_build_region(_boot_region_id(), "")
+	# A damaged original is deliberately never overwritten with a fresh game.
+	# Tell the player immediately that this session cannot save its progress.
+	if GameState.save_protected():
+		call_deferred("_open_journal")
 
 
 ## Which region the save is in. A journey writes it; a cold boot reads it, so a
@@ -258,6 +263,16 @@ func _process(delta: float) -> void:
 	# People answer to where the story has got to (`Npc.by_act`). One push per
 	# frame, idempotent, so nothing downstream has to subscribe to anything.
 	region.set_act(act_id())
+	# The witness becomes David for his part of the story, then returns to the
+	# witness after the fight. Recompute on resume and region changes as well.
+	var hero_act := act >= Act.SHEPHERD and act <= Act.FIGHT and region.region_id == "elah"
+	var actor := "david" if hero_act else "pilgrim"
+	if region.player != null and region.player.char_id != actor:
+		region.player.setup(region.model, actor)
+	if hero_act and hud._role_override == null:
+		hud.set_role(CampaignModel.current_hero_name(), 1)
+	elif not hero_act and hud._role_override != null:
+		hud.clear_role()
 	_tick_first_call()
 	var stuck: bool = region.is_paused() and not region.dialogue.is_open() \
 		and not _in_battle and fight == null and practice == null \
@@ -309,15 +324,9 @@ func _update_touch_ownership() -> void:
 ## dismissed, so the valley was a field with five rocks in it. The chain is
 ## deliberately short and always names the NEXT single action:
 ##   Corin → the brook → the line → the fight → the ending.
-## One switch for the ART DIRECTION RESET prototype. Desktop, headless tests and
-## the Xvfb visual harness stay classic; the working-branch WEB preview uses the
-## user-selected B theme at runtime (see _preview_art_theme). No default asset
-## file is replaced, no frame/save/behaviour moves, and visual.gd still applies
-## B explicitly for its one comparison frame (docs/ART-RESET.md §12.10).
-func _preview_art_theme() -> String:
-	# One shared decision: Web preview = B, Xvfb/headless/desktop = classic.
-	# Setpieces ask ArtDirection themselves so a late-created duel does not
-	# fall back to classic after Main has already applied B to the region.
+## One shared initial theme. Setpieces ask ArtDirection themselves so a
+## late-created duel, practice or brook agrees with the current chapter.
+func _initial_art_theme() -> String:
 	return ArtDirection.current()
 
 
@@ -331,10 +340,67 @@ func apply_art_theme(theme: String) -> void:
 		region.dialogue.apply_art_skin(theme)
 
 
+## Keep the displayed task's source, not just the language currently on screen.
+## This lets a switch re-letter a frozen objective without recomputing guidance
+## (which can start escorts or story beats) under an open dialogue.
+func _show_objective(source: Variant) -> void:
+	_objective_source = source
+	if hud != null:
+		hud.set_objective(I18n.t(source))
+
+
+func _counted_objective(source: Variant, count: int, total: int, divider: String) -> Dictionary:
+	var text := {}
+	for language in ["zh", "en"]:
+		text[language] = "%s  %d%s%d" % [I18n.t_for(source, language), count, divider, total]
+	return text
+
+
+func _named_objective(source: Variant, name: Variant) -> Dictionary:
+	var text := {}
+	for language in ["zh", "en"]:
+		text[language] = I18n.t_for(source, language) % I18n.t_for(name, language)
+	return text
+
+
+## A chapter's guidance is a read-only description, so it can also initialise
+## the new region's HUD once before an arrival dialogue freezes that guidance.
+func _show_chapter_guidance() -> bool:
+	if chapter == null or not chapter.has_method("guidance") \
+			or region == null or region.player == null or hud == null:
+		return false
+	var next: Dictionary = chapter.call("guidance")
+	if next.is_empty():
+		return false
+	_show_objective(next.get("line_i18n", next.get("line", "")))
+	var p: Player = region.player
+	var t: Vector2 = next.get("target", p.global_position)
+	hud.point_at(t - p.global_position,
+		bool(next.get("point", false)) and t.distance_to(p.global_position) > 24.0)
+	if region.dialogue != null and region.dialogue.is_open():
+		hud.set_prompt("")
+	else:
+		hud.set_prompt(str(next.get("prompt", region.context_prompt())))
+	return true
+
+
 func _update_guidance() -> void:
 	if hud == null or region == null or region.player == null:
 		return
 	if region.dialogue != null and region.dialogue.is_open():
+		# The shepherd objective is safe to translate without advancing a
+		# mission, whether this is the opening, a curio, or the home beat.
+		# Other acts re-letter their frozen objective without running guidance.
+		if act == Act.SHEPHERD and region.model.objectives.has("shepherd"):
+			if _flock_active and _sheep_total > 0:
+				_show_objective(_flock_guidance_line())
+			elif _sheep_total > 0 and sheep_home >= _sheep_total:
+				_show_completed_flock_guidance()
+			else:
+				_show_objective(region.model.objectives.get("shepherd", {}))
+				hud.point_at(Vector2.ZERO, false)
+		else:
+			_show_objective(_objective_source)
 		hud.set_prompt("")
 		return
 	# The chapter is over. The default branch below still walks the witness's
@@ -344,25 +410,18 @@ func _update_guidance() -> void:
 	# had already set elah_ended, which reads as another task instead of a
 	# conclusion (BUG-062). One sentence, no arrow, no prompt, every frame.
 	if act == Act.DONE or bool(GameState.flag("elah_ended")):
-		hud.set_objective(I18n.t(region.model.objectives.get("done", {})))
+		_show_objective(region.model.objectives.get("done", {}))
 		hud.point_at(Vector2.ZERO, false)
 		hud.set_prompt("")
 		return
+	if _show_chapter_guidance():
+		return
 	var p: Player = region.player
-	if chapter != null and chapter.has_method("guidance"):
-		var next: Dictionary = chapter.call("guidance")
-		if not next.is_empty():
-			hud.set_objective(str(next.get("line", "")))
-			var t: Vector2 = next.get("target", p.global_position)
-			hud.point_at(t - p.global_position,
-				bool(next.get("point", false)) and t.distance_to(p.global_position) > 24.0)
-			hud.set_prompt(str(next.get("prompt", "")))
-			return
 	var obj: Dictionary = region.model.objectives
 	var target := p.global_position
 	var point := false
 	var key := "done"
-	var line := ""
+	var line: Variant = null
 
 	match act:
 		Act.SHEPHERD:
@@ -373,7 +432,7 @@ func _update_guidance() -> void:
 				# player never has to remember a sentence from a closed box.
 				target = _nearest_pickup("flock", p.global_position)
 				point = true
-				line = "%s  %d/%d" % [I18n.t(obj.get(key, {})), sheep_home, _sheep_total]
+				line = _flock_guidance_line()
 		Act.SAUL:
 			key = "saul"
 			var king := _npc("saul")
@@ -407,7 +466,7 @@ func _update_guidance() -> void:
 				key = "provision"
 				target = _nearest_pickup("provision", p.global_position)
 				point = true
-				line = "%s  %d／%d" % [I18n.t(obj.get(key, {})), provisions, _provision_total]
+				line = _counted_objective(obj.get(key, {}), provisions, _provision_total, "／")
 			else:
 				key = "brothers"
 				target = brothers
@@ -434,7 +493,7 @@ func _update_guidance() -> void:
 				# brought you to.
 				target = corin.global_position if corin.is_leading() else nxt.global_position
 				point = true
-				line = I18n.t(obj.get(key, {})) % nxt.display_name()
+				line = _named_objective(obj.get(key, {}), nxt.data.get("name", nxt.npc_id()))
 				if corin.lead_target != nxt:
 					corin.lead_to(nxt, func(): _lead_arrived())
 			elif GameState.flag("elah_saw_him") != true:
@@ -468,9 +527,9 @@ func _update_guidance() -> void:
 		var co: Npc = _npc("corin")
 		if co != null and co.lead_target != null:
 			co.clear_lead()
-	if line == "":
-		line = I18n.t(obj.get(key, {}))
-	hud.set_objective(line)
+	if line == null:
+		line = obj.get(key, {})
+	_show_objective(line)
 	hud.point_at(target - p.global_position, point and target.distance_to(p.global_position) > 24.0)
 
 	# Teach the one button that matters, at the moment it matters: standing next
@@ -481,11 +540,7 @@ func _update_guidance() -> void:
 		# walk in it still has to be able to take it off.
 		hud.set_prompt(I18n.t({"en": "A  ·  take it off", "zh": "A  ·  脱下来"}))
 		return
-	var near := region.nearest_interactable()
-	if near != null and near.can_talk():
-		hud.set_prompt(I18n.t({"en": "A  ·  talk", "zh": "A  ·  交谈"}))
-	else:
-		hud.set_prompt("")
+	hud.set_prompt(region.context_prompt())
 
 
 # ── missions ─────────────────────────────────────────────────────────────
@@ -647,7 +702,7 @@ func _autosave() -> void:
 	_save_progress()
 
 
-func _save_progress() -> void:
+func _save_progress() -> bool:
 	var t := _tile_of(region.player.global_position)
 	GameState.data["pos"] = [t.x, t.y]
 	GameState.data["region"] = str(region.region_id)
@@ -658,7 +713,7 @@ func _save_progress() -> void:
 		"brothers": _brothers_met,
 		"pos": [t.x, t.y],
 	}
-	GameState.save_game()
+	return GameState.save_game()
 
 
 func _tile_of(pos: Vector2) -> Vector2i:
@@ -677,12 +732,36 @@ func _speaker(who: String) -> Dictionary:
 	return {"name": I18n.t(nm), "actor": str(nm.get("actor", who))}
 
 
+## Put Eliab at the brothers' post when the errand starts. He is a visual
+## participant in the automatic scene, not a second, empty conversation. This
+## is idempotent because the errand opening can be replayed after a reload.
+func _spawn_errand_brother() -> Npc:
+	if region == null or region.region_id != "elah":
+		return null
+	var existing := _npc("eliab")
+	if existing != null:
+		return existing
+	var post: Array = region.model.david_act.get("brothers_at", [16, 40])
+	if post.size() != 2:
+		return null
+	var at := region.model.nearest_open(Vector2i(int(post[0]) - 1, int(post[1]) - 1))
+	var speakers: Dictionary = region.model.david_act.get("speakers", {})
+	var person: Dictionary = speakers.get("eliab", {})
+	return region.spawn_npc({"id": "eliab", "actor": "eliab", "at": [at.x, at.y],
+		"name": {"en": str(person.get("en", "Eliab")), "zh": str(person.get("zh", "以利押"))},
+		"story_only": true})
+
+
 ## The brothers see him arrive with bread and want him gone. This is the last
 ## beat before the fight and it is straight out of 1 Samuel 17:28.
 func _brothers_beat() -> void:
 	if _brothers_met:
 		return
 	_brothers_met = true
+	var brother := _spawn_errand_brother()
+	if brother != null and region.player != null:
+		brother.face_toward(region.player.global_position)
+		region.player.face_toward(brother.global_position)
 	region.set_paused(true)
 	var lines: Array = region.model.david_act.get("brothers", [])
 	region.dialogue.show_lines(lines, _speaker, func():
@@ -738,7 +817,7 @@ func _armour_on() -> void:
 	var a: Dictionary = region.model.david_act.get("armour", {})
 	region.set_paused(true)
 	region.player.set_armour(true)
-	hud.set_objective(I18n.t(region.model.objectives.get("armour", {})))
+	_show_objective(region.model.objectives.get("armour", {}))
 	AudioDirector.play_sfx("hit", -8.0)
 	var lines: Array = a.get("wear_lines", [])
 	if lines.is_empty():
@@ -853,7 +932,7 @@ func _on_stones_picked(chosen: int) -> void:
 func _ready_for_the_line() -> void:
 	act = Act.READY
 	region.set_paused(false)
-	hud.set_objective(I18n.t(region.model.objectives.get("ready", {})))
+	_show_objective(region.model.objectives.get("ready", {}))
 	EventBus.toast_requested.emit(I18n.t({
 		"en": "The line is north. They have stopped shouting.",
 		"zh": "界线在北边。他们不喊了。"}))
@@ -911,6 +990,13 @@ func _npc(id: String) -> Npc:
 func _on_region_ready() -> void:
 	touch.bind(region.player)
 	hud.bind(region)
+	# A synchronous arrival box must never inherit the previous region's task.
+	_show_objective("")
+	hud.point_at(Vector2.ZERO, false)
+	hud.set_prompt("")
+	# Dialogue handles screen taps before Godot's GUI. Give the visible HUD
+	# buttons their own hits so switching language or sound cannot skip a line.
+	region.dialogue.set_passthrough_controls(hud, [hud.lang_btn, hud.sound_btn, hud.journal_btn])
 	# The five stones are laid out in the brook when David walks down to it
 	# (1 Samuel 17:40), not at load: the HUD's pouch counter must not be on
 	# screen while the witness is still watching the valley.
@@ -933,6 +1019,7 @@ func _on_region_ready() -> void:
 		# Not "begin at the top": begin at the first thing that has not happened.
 		# Otherwise a finished region replays its whole mission list on re-entry.
 		runner.start_at(runner.first_unmet(_mission_ctx()))
+		_show_chapter_guidance()
 		if chapter != null and chapter.has_method("arrived"):
 			chapter.call("arrived")
 	else:
@@ -941,13 +1028,12 @@ func _on_region_ready() -> void:
 			# A region with its own script knows where its own story stopped.
 			_resume_index = runner.first_unmet(_mission_ctx())
 		_begin_missions()
+		_show_chapter_guidance()
 		_opening()
-	# The live Pages preview must actually SHOW the user-selected B art at boot
-	# and after every region swap. Desktop/headless/visual CI stay classic, so
-	# the committed baselines and the classic default assets are unchanged.
-	var preview_theme := _preview_art_theme()
-	if preview_theme != "classic":
-		apply_art_theme(preview_theme)
+	# Apply the same initial art on every platform and after each region swap.
+	var initial_theme := _initial_art_theme()
+	if initial_theme != "classic":
+		apply_art_theme(initial_theme)
 
 
 ## A saved valley has to boot into the chapter it left. Reloading after the win
@@ -984,6 +1070,12 @@ func _resume_story() -> void:
 	provisions = int(pr.get("provisions", 0))
 	_brothers_met = bool(pr.get("brothers", false))
 	_restore_pos(pr)
+	# A finished original journey is free roam, not an unfinished aftermath.
+	# Do not re-enter its last mission or replay Corin's ending on every reload.
+	if region.region_id == "elah" and bool(GameState.flag("elah_ended")):
+		act = Act.DONE
+		_resume_index = runner.count()
+		return
 	# The giant is down. If the ending never played, Corin still owes it to you.
 	if bool(GameState.flag("goliath_down")):
 		_resume_index = runner.index_of("aftermath")
@@ -1049,6 +1141,9 @@ func background_lines() -> Array:
 func _tick_first_call() -> void:
 	if not _first_call_armed or region == null or region.player == null:
 		return
+	if act != Act.WITNESS or region.region_id != "elah":
+		_first_call_armed = false
+		return
 	if region.is_paused() or bool(GameState.flag("elah_first_call")):
 		return
 	var boot := Vector2(float(region.model.spawn.x) * 16.0 + 8.0,
@@ -1083,16 +1178,18 @@ func _on_pickup(id: String) -> void:
 	if id.begins_with("sheep_") and _flock_active:
 		sheep_home += 1
 		AudioDirector.play_sfx("pickup", -4.0)
-		# The feedback says what actually happened. A sheep that was driven
-		# home walked itself into the hurdle; one that was picked up was carried.
-		# Same counter, different sentence — the loop is legible in the HUD.
-		var line: Dictionary = {"en": "Carried in · %d/%d", "zh": "抱回圈了 · %d/%d"}
+		# A deliberate count starts the animal's visible walk home; a guided
+		# animal has already reached the fold. Keep the feedback honest to both.
+		var line: Dictionary = {"en": "Counted · on its way home %d/%d", "zh": "数好，往圈里走了 · %d/%d"}
 		if _sheep_guided(id):
 			line = {"en": "It came in on its own · %d/%d", "zh": "它自己进圈了 · %d/%d"}
 		EventBus.toast_requested.emit(I18n.t(line) % [sheep_home, _sheep_total])
 		_herd_boy_reacts(sheep_home)
 		if sheep_home >= _sheep_total:
 			_flock_finished()
+		# The last count can immediately open dialogue/practice, where periodic
+		# autosave is suspended. Persist the flag and act now, before a refresh.
+		_save_progress()
 		return
 	if id.begins_with("prov"):
 		provisions += 1
@@ -1253,8 +1350,8 @@ func _memory_beat() -> void:
 func _begin_become() -> void:
 	_in_battle = true
 	region.set_paused(true)
-	hud.set_objective(I18n.t({"en": "You are David. The line is behind you.",
-		"zh": "你就是大卫。界线在你身后。"}))
+	_show_objective({"en": "You are David. The line is behind you.",
+		"zh": "你就是大卫。界线在你身后。"})
 	become.begin(CampaignModel.current_hero(), CampaignModel.current_hero_plate(),
 		_start_david_act)
 
@@ -1271,7 +1368,7 @@ func _start_david_act() -> void:
 	# so leaving the flag set made the one crossing that matters — the one that
 	# starts the fight — the one crossing `_on_trigger` refused.
 	_in_battle = false
-	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
+	hud.set_role(CampaignModel.current_hero_name(), 1)
 	var da: Dictionary = region.model.david_act
 	if da.is_empty():
 		# A region may not have the act at all: then becoming David goes straight
@@ -1288,13 +1385,14 @@ func _start_david_act() -> void:
 	# "Before dark" is literally the light on the grass, not a caption.
 	fade.run(0.45, func():
 		_place_at(st)
-		region.set_time_of_day("dusk"), 0.35, func():
+		region.set_time_of_day("dusk")
+		region.enter_shepherd_field()
+		hud.refresh_place(), 0.35, func():
 		region.dialogue.show_lines(sh.get("lines", []), _speaker, _start_flock))
 
 
-## The flock is the one small mechanic the shepherd day needs. Walking to a
-## stray brings it in: no fetch list, no quiz, no reward screen. Each one is
-## remembered by Region's own `pickup:` flag, so a reload cannot put a sheep
+## The flock is the one small mechanic the shepherd day needs. Count a nearby
+## stray deliberately or guide it to the fold. Each one is remembered by Region's own `pickup:` flag, so a reload cannot put a sheep
 ## back on the slope or ask for it twice.
 func _start_flock() -> void:
 	var sh: Dictionary = region.model.david_act.get("shepherd", {})
@@ -1372,8 +1470,26 @@ func _on_flock_reacted(_id: String, mood: int) -> void:
 			"zh": "对了。跟在后面，它自己会往圈里走。"}))
 
 
+## The same translated count is used both during the task and over its final
+## dialogue. No story transition is evaluated while the box owns the moment.
+func _flock_guidance_line() -> Dictionary:
+	return _counted_objective(region.model.objectives.get("shepherd", {}),
+		sheep_home, _sheep_total, "/")
+
+
+func _show_completed_flock_guidance() -> void:
+	if hud == null or region == null or _sheep_total <= 0:
+		return
+	_show_objective(_flock_guidance_line())
+	hud.point_at(Vector2.ZERO, false)
+	hud.set_prompt("")
+
+
 func _flock_finished() -> void:
 	_flock_active = false
+	# The last pickup opens dialogue synchronously, before the next guidance
+	# tick. Update the count and clear its arrow first, including on resume.
+	_show_completed_flock_guidance()
 	# The hired boy (and anyone else with a `by_flag` line) now answers to a
 	# finished task instead of repeating "three are still out".
 	GameState.set_flag("elah_flock_done", true)
@@ -1442,7 +1558,24 @@ func _print_journal() -> void:
 	# out of the boot: the modern-day arrival and the controls, still in the
 	# region's own data, readable whenever the player is curious.
 	journal.open_panel(I18n.t(c.get("title", {})), hud.objective_lbl.text, refs,
-		stones, _stones_total, seals, titles, background_lines())
+		stones, _stones_total, seals, titles, background_lines(),
+		GameState.has_replay(), GameState.replay_is_active())
+
+
+## Save the actual world before changing slots. A replay is never a reset of the
+## existing save; each journey can be resumed from this same book. Do not let
+## the old Main autosave its world into the newly selected slot during reload.
+func _switch_journey() -> void:
+	if _travelling or region == null or journal == null or not journal.is_open():
+		return
+	_travelling = true
+	if not _save_progress() or not GameState.switch_journey():
+		_travelling = false
+		journal.journey_switch_failed()
+		return
+	set_process(false)
+	region.set_paused(true)
+	get_tree().call_deferred("reload_current_scene")
 
 
 ## The two HUD switches can be pressed with the book open. Everything on the
@@ -1531,7 +1664,10 @@ func _start_errand() -> void:
 	var st: Array = da.get("start_at", [])
 	region.set_paused(true)
 	fade.run(0.45, func():
+		region.leave_shepherd_field()
+		hud.refresh_place()
 		_place_at(st)
+		_spawn_errand_brother()
 		# The shepherd slope was dusk. Morning returns with the errand, so the
 	# two acts are visibly different days and the light is not a UI trick.
 		region.set_time_of_day("morning")
@@ -1557,8 +1693,8 @@ func _start_battle() -> void:
 	region.set_paused(true)
 	# The nameplate is the whole promise of this chapter: for the length of the
 	# fight the hands on the sling are David's (docs/FEEL.md §3).
-	hud.set_role(I18n.t(CampaignModel.current_hero_name()), 1)
-	hud.set_objective(I18n.t(region.model.objectives.get("fight", {})))
+	hud.set_role(CampaignModel.current_hero_name(), 1)
+	_show_objective(region.model.objectives.get("fight", {}))
 	AudioDirector.play_sfx("sling", -6.0)
 	var da: Dictionary = region.model.david_act
 	var intro: Array = da.get("battle_intro", [])
@@ -1639,14 +1775,13 @@ func _after_return() -> void:
 	# The chapter has an ENDING, and it is played, not implied. This used to drop
 	# the player back into a silent valley the instant the giant fell — the
 	# "suddenly nothing to do" of playtest 6, on a screen with no words on it.
-	hud.set_role(I18n.t({"en": "pilgrim", "zh": "朝圣者"}),
-		int(GameState.data.get("level", 1)))
+	hud.clear_role()
 	# Chapter 6 is witnessed, not narrated: the army's reaction is a person you
 	# can still walk up to. Corin's `after_win` lines are the aftermath; the
 	# ending card follows them.
 	if _npc("corin") != null:
 		act = Act.AFTERMATH
-		hud.set_objective(I18n.t(region.model.objectives.get("aftermath", {})))
+		_show_objective(region.model.objectives.get("aftermath", {}))
 	else:
 		act = Act.DONE
 		_play_ending()
@@ -1714,4 +1849,4 @@ func _end_and_free_roam() -> void:
 	region.player.external_intent = Vector2.ZERO
 	region.player.velocity = Vector2.ZERO
 	region.player.global_position = Vector2(16 * 16 + 8, 14 * 16)
-	hud.set_objective(I18n.t(region.model.objectives.get("done", {})))
+	_show_objective(region.model.objectives.get("done", {}))

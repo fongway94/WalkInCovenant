@@ -20,6 +20,11 @@ class_name Player
 ## parts, no physics-engine surprises, and doorways behave predictably.
 
 const TILE := 16.0
+## The approved field keeps its own 0.35 scale. The tile-world figures are a
+## little larger than before, but their foot anchors and collision stay fixed.
+## Props with oversized legacy canvases are balanced independently in Region.
+const WORLD_RIG_SCALE := 0.28
+const FIELD_RIG_SCALE := 0.35
 
 @export var walk_speed := 60.0        # px/s  → 3.75 tiles/s
 @export var run_speed := 96.0         # px/s  → 6.00 tiles/s
@@ -39,6 +44,15 @@ var art_dir := "res://art/characters"
 ## When a shared ContactShadowLayer draws the ground shade, suppress the small
 ## rectangle in _draw() so figures are not double-shadowed.
 var external_shadow := false
+## A self-contained field can replace the grid collision without changing the
+## region model or the player's feet box. Cleared when that scene ends.
+var collision_override: Callable = Callable()
+var world_speed_scale := 1.0
+## A separate stage does not inherit the invisible valley's terrain or bounds.
+var surface_speed_override := -1.0
+var footstep_override := ""
+var clamp_to_model := true
+var field_visual := false
 var mode: Mode = Mode.IDLE
 var facing := Vector2i(0, 1)          # down
 var velocity := Vector2.ZERO
@@ -48,6 +62,12 @@ var external_intent := Vector2.ZERO
 
 # animation
 var sprite: Sprite2D = null
+## Shared painted rig is used only while this actor is David.
+var david_visual = null
+var human_visual = null
+## A sibling drawn above whichever body is visible. The overlay follows the
+## body's scale, pose and stagger but never moves the collision or shadow.
+var armour_visual = null
 var walk_tex: Texture2D = null
 var idle_tex: Texture2D = null
 var _frame := 0.0
@@ -72,8 +92,11 @@ signal arrived_at(pos: Vector2)
 func setup(m: RegionModel, char_id: String) -> void:
 	model = m
 	self.char_id = char_id
-	walk_tex = load("%s/%s_walk.png" % [art_dir, char_id])
-	idle_tex = load("%s/%s_idle.png" % [art_dir, char_id])
+	# Keep the REQUESTED theme even when this particular actor has no themed
+	# sheet. Otherwise becoming David permanently downgraded a later pilgrim.
+	var sheet_dir := _sheet_dir(char_id)
+	walk_tex = load("%s/%s_walk.png" % [sheet_dir, char_id])
+	idle_tex = load("%s/%s_idle.png" % [sheet_dir, char_id])
 	if sprite == null:
 		sprite = Sprite2D.new()
 		sprite.centered = true
@@ -83,18 +106,100 @@ func setup(m: RegionModel, char_id: String) -> void:
 	sprite.hframes = 2
 	sprite.vframes = 4
 	sprite.frame = 0
+	_sync_visual()
+
+
+## The painted rig is opt-in for the cinematic theme or the approved field;
+## the classic sheet remains available when the theme changes back.
+func _sync_visual() -> void:
+	var use_painted := char_id == "david" and (field_visual or art_dir.ends_with("_cinematic"))
+	if use_painted and david_visual == null:
+		david_visual = load("res://scripts/world/DavidVisual.gd").new()
+		add_child(david_visual)
+		david_visual.build()
+	if david_visual != null:
+		david_visual.scale = Vector2.ONE * (FIELD_RIG_SCALE if field_visual else WORLD_RIG_SCALE)
+		david_visual.visible = use_painted
+		if use_painted:
+			david_visual.set_pose(facing, false, 0.0, 0.0)
+	var use_pilgrim := char_id == "pilgrim" and art_dir.ends_with("_cinematic")
+	if use_pilgrim and human_visual == null:
+		human_visual = load("res://scripts/world/HumanVisual.gd").new()
+		human_visual.scale = Vector2.ONE * WORLD_RIG_SCALE
+		add_child(human_visual)
+		human_visual.build("pilgrim")
+	if human_visual != null:
+		human_visual.visible = use_pilgrim
+		if use_pilgrim:
+			human_visual.set_pose(facing, false, 0.0, 0.0)
+	if sprite != null:
+		sprite.visible = not use_painted and not use_pilgrim
+	if armour_visual != null:
+		# A new body rig may have been added after the overlay during a theme or
+		# character change. The armour must always be painted on top of it.
+		move_child(armour_visual, -1)
+		_update_armour_visual()
+
+
+func set_field_visual(enabled: bool) -> void:
+	field_visual = enabled
+	_sync_visual()
+
+
+## Screen-space overlays can avoid the visible, foot-anchored character in
+## either the painted or classic theme without guessing from the hidden sprite.
+func visual_height() -> float:
+	if david_visual != null and david_visual.visible:
+		return 98.0 * david_visual.scale.y
+	if human_visual != null and human_visual.visible:
+		return 98.0 * human_visual.scale.y
+	return 16.0
 
 
 func set_armour(on: bool) -> void:
 	armour = on
 	_armour_t = 0.0
-	if not on and sprite != null:
-		# The stagger is written into sprite.offset while the armour is on, and
-		# only the armour branch ever touched it — so taking the plate off could
-		# leave the figure drawn up to 1.6 px off its feet for the rest of the
-		# session (BUG-005).
-		sprite.offset = Vector2(0, -8)
-	queue_redraw()
+	if on and armour_visual == null:
+		armour_visual = load("res://scripts/world/ArmourVisual.gd").new()
+		add_child(armour_visual)
+	# Both the classic sprite and painted rig must return to their feet when the
+	# armour comes off (BUG-005), including when the theme changed mid-stagger.
+	_set_stagger(0.0)
+	_update_armour_visual()
+
+
+func _set_stagger(offset_x: float) -> void:
+	if sprite != null:
+		sprite.offset = Vector2(offset_x, -8.0)
+	if david_visual != null:
+		david_visual.position.x = offset_x
+	if human_visual != null:
+		human_visual.position.x = offset_x
+	_update_armour_visual()
+
+
+func _update_armour_visual() -> void:
+	if armour_visual == null:
+		return
+	armour_visual.visible = armour
+	if not armour:
+		return
+	var rig = null
+	if david_visual != null and david_visual.visible:
+		rig = david_visual
+	elif human_visual != null and human_visual.visible:
+		rig = human_visual
+	armour_visual.configure(rig != null, facing)
+	if rig != null:
+		armour_visual.scale = rig.scale
+		# Follow the body's bob AND lean while leaving the foot anchor and
+		# ground shadow untouched. Both use the same foot-centred pivot.
+		armour_visual.position = rig.position + rig.body.position * rig.scale
+		armour_visual.rotation = rig.body.rotation
+	else:
+		armour_visual.scale = Vector2.ONE
+		armour_visual.position = Vector2(sprite.offset.x, 0.0) if sprite != null else Vector2.ZERO
+		armour_visual.rotation = 0.0
 
 
 ## The armour is weight, not a wall: the player must still be able to cross the
@@ -155,18 +260,20 @@ func _physics_process(delta: float) -> void:
 		mode = Mode.IDLE
 		_decelerate(delta)
 		_apply_magnetism(delta)
+		if armour:
+			_set_stagger(0.0)
 		_update_anim(0.0, delta)
 		return
 
 	mode = Mode.MOVING
 	var push: float = external_intent.length()
 	var running := Input.is_action_pressed("run") or push >= run_push
-	var base := (run_speed if running else walk_speed) * speed_scale()
+	var base := (run_speed if running else walk_speed) * speed_scale() * world_speed_scale
 	if external_intent != Vector2.ZERO and not running:
 		# Analog tilt walks slower the gentler it is, but never crawls: the
 		# floor keeps the first millimetres of stick travel at walking pace.
 		base *= clampf(0.72 + 0.28 * push * 1.2, 0.72, 1.0)
-	var surface := model.speed_at(global_position.x, global_position.y)
+	var surface := _surface_speed()
 	var target := intent * base * surface
 	velocity = velocity.move_toward(target, accel * delta)
 
@@ -184,18 +291,28 @@ func _physics_process(delta: float) -> void:
 	if _foot_t >= step_int and velocity.length() > 4:
 		_foot_t = 0.0
 		_foot_side = 1 - _foot_side
-		var s := model.sfx_at(global_position.x, global_position.y)
+		var s := _surface_sound()
 		if s != "":
 			AudioDirector.play_sfx(s, -6.0 + (2.0 if _foot_side == 0 else 0.0))
 
 	_update_anim(velocity.length(), delta)
 	if armour:
 		_armour_t += delta
-		if sprite != null:
-			# A stumble, not a wobble: the plate is trying to pull him sideways.
-			sprite.offset = Vector2(sin(_armour_t * 11.0) * 1.6, -8.0)
-		queue_redraw()
+		# A stumble, not a wobble: the plate pulls the displayed figure sideways
+		# without moving the player's collision or shared ground shadow.
+		_set_stagger(sin(_armour_t * 11.0) * 1.6)
 
+
+func _surface_speed() -> float:
+	if surface_speed_override >= 0.0:
+		return surface_speed_override
+	return model.speed_at(global_position.x, global_position.y)
+
+
+func _surface_sound() -> String:
+	if footstep_override != "":
+		return footstep_override
+	return model.sfx_at(global_position.x, global_position.y)
 
 func _decelerate(delta: float) -> void:
 	velocity = velocity.move_toward(Vector2.ZERO, decel * delta)
@@ -206,32 +323,37 @@ func _decelerate(delta: float) -> void:
 ## Axis-separated sweep against the region grid, with a corner nudge so
 ## one-tile doorways never eat the player.
 func _move_with_collision(delta: float) -> void:
-	var dx := velocity.x * delta
-	var dy := velocity.y * delta
-	if dx != 0:
-		var nx := global_position.x + dx
-		if _box_free(nx, global_position.y):
-			global_position.x = nx
-		elif _box_free(nx, global_position.y - 3):
-			global_position.x = nx; global_position.y -= 3     # corner nudge
-		elif _box_free(nx, global_position.y + 3):
-			global_position.x = nx; global_position.y += 3
-		else:
-			velocity.x = 0
-	if dy != 0:
-		var ny := global_position.y + dy
-		if _box_free(global_position.x, ny):
-			global_position.y = ny
-		elif _box_free(global_position.x - 3, ny):
-			global_position.y = ny; global_position.x -= 3
-		elif _box_free(global_position.x + 3, ny):
-			global_position.y = ny; global_position.x += 3
-		else:
-			velocity.y = 0
-	# clamp inside the region
-	global_position.x = clampf(global_position.x, 4, model.width * TILE - 4)
-	global_position.y = clampf(global_position.y, 4, model.height * TILE - 2)
-
+	# Sample short steps in the field, including at low frame rates, so a single
+	# long frame cannot jump through the much thinner painted obstacle traces.
+	var steps := 1
+	if collision_override.is_valid():
+		steps = maxi(1, ceili(maxf(absf(velocity.x), absf(velocity.y)) * delta / 2.0))
+	for i in range(steps):
+		var dx := velocity.x * delta / float(steps)
+		var dy := velocity.y * delta / float(steps)
+		if dx != 0:
+			var nx := global_position.x + dx
+			if _box_free(nx, global_position.y):
+				global_position.x = nx
+			elif _box_free(nx, global_position.y - 3):
+				global_position.x = nx; global_position.y -= 3
+			elif _box_free(nx, global_position.y + 3):
+				global_position.x = nx; global_position.y += 3
+			else:
+				velocity.x = 0
+		if dy != 0:
+			var ny := global_position.y + dy
+			if _box_free(global_position.x, ny):
+				global_position.y = ny
+			elif _box_free(global_position.x - 3, ny):
+				global_position.y = ny; global_position.x -= 3
+			elif _box_free(global_position.x + 3, ny):
+				global_position.y = ny; global_position.x += 3
+			else:
+				velocity.y = 0
+	if clamp_to_model:
+		global_position.x = clampf(global_position.x, 4, model.width * TILE - 4)
+		global_position.y = clampf(global_position.y, 4, model.height * TILE - 2)
 
 ## Feet box: 8 wide, 4 tall, centred on the node. Small on purpose.
 func _box_free(px: float, py: float) -> bool:
@@ -242,7 +364,11 @@ func _box_free(px: float, py: float) -> bool:
 	# other scripts mention Player, the engine blamed THEM instead.
 	for ox in [-3.0, 3.0]:
 		for oy in [-3.0, 0.0]:
-			if model.solid_at(px + ox, py + oy):
+			var sample := Vector2(px + ox, py + oy)
+			if collision_override.is_valid():
+				if not bool(collision_override.call(sample)):
+					return false
+			elif model.solid_at(sample.x, sample.y):
 				return false
 	return true
 
@@ -258,10 +384,14 @@ func _apply_magnetism(delta: float) -> void:
 	var cy := (floorf(global_position.y / TILE) * TILE) + TILE * 0.5
 	if absf(velocity.x) > absf(velocity.y):
 		var d := cy - global_position.y
-		global_position.y += clampf(d, -magnet * delta, magnet * delta)
+		var target_y := global_position.y + clampf(d, -magnet * delta, magnet * delta)
+		if _box_free(global_position.x, target_y):
+			global_position.y = target_y
 	else:
 		var d := cx - global_position.x
-		global_position.x += clampf(d, -magnet * delta, magnet * delta)
+		var target_x := global_position.x + clampf(d, -magnet * delta, magnet * delta)
+		if _box_free(target_x, global_position.y):
+			global_position.x = target_x
 
 
 # ── animation ────────────────────────────────────────────────────────────
@@ -277,6 +407,10 @@ func _update_anim(speed: float, delta: float) -> void:
 	if sprite == null:
 		return
 	var moving := speed > 4.0 and mode == Mode.MOVING
+	if david_visual != null and david_visual.visible:
+		david_visual.set_pose(facing, moving, speed, delta)
+	if human_visual != null and human_visual.visible:
+		human_visual.set_pose(facing, moving, speed, delta)
 	var row := _dir_row()
 	if moving:
 		sprite.texture = walk_tex
@@ -290,6 +424,7 @@ func _update_anim(speed: float, delta: float) -> void:
 		_frame = float(int(_anim_t) % 2)
 	sprite.vframes = 4
 	sprite.frame = int(row * sprite.hframes + _frame)
+	_update_armour_visual()
 
 
 func _draw() -> void:
@@ -298,27 +433,16 @@ func _draw() -> void:
 	# ContactShadowLayer owns all ground shade instead (one light direction).
 	if not external_shadow:
 		draw_rect(Rect2(-5, -2, 10, 3), Color(0.05, 0.08, 0.10, 0.35))
-	# Saul's armour, in the sprite's own 16px space: a bronze helmet and a coat
-	# of mail over the figure, legs left alone so the walk still reads. It is
-	# drawn, not baked, because the outfit changes during the chapter.
-	if armour:
-		draw_rect(Rect2(-5, -17, 10, 3), Color(0.50, 0.36, 0.14, 0.92))
-		draw_rect(Rect2(-6, -14, 12, 7), Color(0.72, 0.55, 0.24, 0.92))
-		draw_rect(Rect2(-6, -9, 12, 2), Color(0.50, 0.36, 0.14, 0.92))
-		draw_rect(Rect2(5, -8, 1.5, 7), Color(0.78, 0.78, 0.80, 0.9))
 
 
-## Swap to the crafted sheets only when BOTH exist for this actor. Classic is
-## always the fallback, so no other chapter or save can lose a character.
+## Swap to the crafted sheets only when BOTH exist for this actor. Remember
+## the selected theme even if this actor temporarily requires a classic sheet.
 func apply_art_theme(theme: String) -> void:
-	var d := "res://art/characters"
-	var alt := "res://art/characters_%s" % theme
-	if (theme == "storybook" or theme == "cinematic") \
-			and ResourceLoader.exists("%s/%s_idle.png" % [alt, char_id]) \
-			and ResourceLoader.exists("%s/%s_walk.png" % [alt, char_id]):
-		d = alt
-	art_dir = d
-	external_shadow = d != "res://art/characters"
+	art_dir = "res://art/characters"
+	if theme == "storybook" or theme == "cinematic":
+		art_dir = "res://art/characters_%s" % theme
+	var d := _sheet_dir(char_id)
+	external_shadow = theme == "storybook" or theme == "cinematic"
 	walk_tex = load("%s/%s_walk.png" % [d, char_id])
 	idle_tex = load("%s/%s_idle.png" % [d, char_id])
 	if sprite != null:
@@ -326,6 +450,15 @@ func apply_art_theme(theme: String) -> void:
 		sprite.hframes = 2
 		sprite.vframes = 4
 		sprite.frame = 0
+	_sync_visual()
+	queue_redraw()
+
+
+func _sheet_dir(actor: String) -> String:
+	if ResourceLoader.exists("%s/%s_walk.png" % [art_dir, actor]) \
+			and ResourceLoader.exists("%s/%s_idle.png" % [art_dir, actor]):
+		return art_dir
+	return "res://art/characters"
 
 
 func face_toward(target: Vector2) -> void:
@@ -337,5 +470,7 @@ func face_toward(target: Vector2) -> void:
 	# Player and reported itself as "Could not parse global class Player".
 	var sx: float = signf(d.x) if absf(d.x) > absf(d.y) else 0.0
 	var sy: float = signf(d.y) if absf(d.y) >= absf(d.x) else 0.0
-	facing = _dir_from(Vector2(sx, sy))
+	if sx != 0.0 or sy != 0.0:
+		facing = _dir_from(Vector2(sx, sy))
 	mode = Mode.IDLE
+	_update_anim(0.0, 0.0)

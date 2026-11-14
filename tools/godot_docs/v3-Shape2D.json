@@ -1,0 +1,1 @@
+{"inherits": "Resource", "members": ["collide", "collide_and_get_contacts", "collide_with_motion", "collide_with_motion_and_get_contacts", "custom_solver_bias", "draw", "get_rect"], "methods": {"collide": [0, 0], "collide_and_get_contacts": [0, 0], "collide_with_motion": [0, 0], "collide_with_motion_and_get_contacts": [0, 0], "draw": [0, 0], "get_rect": [0, 0]}, "virtuals": []}

@@ -77,8 +77,8 @@
   "################################"
  ],
  "spawn": [
-  16,
-  45
+  17,
+  44
  ],
  "music": "valley",
  "goliath": [
@@ -1258,8 +1258,8 @@
    "zh": "走上去，走到界线那里。全军都在看着。"
   },
   "done": {
-   "en": "Chapter complete · the valley is quiet now",
-   "zh": "本章完成 · 山谷安静了"
+   "en": "Story complete · open the book to replay",
+   "zh": "故事结束 · 打开手记重玩"
   },
   "provision": {
    "en": "Pick up the three things your father gave you",
@@ -1485,7 +1485,7 @@
    "eliab": {
     "en": "Eliab",
     "zh": "以利押",
-    "actor": "soldier"
+    "actor": "eliab"
    },
    "david": {
     "en": "David",

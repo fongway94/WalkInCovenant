@@ -39,8 +39,11 @@ func _draw() -> void:
 		return
 	for t in targets:
 		var d: Dictionary = t
-		var n: Node2D = d["node"]
-		if n == null or not is_instance_valid(n) or not n.visible:
+		var item = d["node"]
+		if not is_instance_valid(item):
+			continue
+		var n: Node2D = item
+		if not n.is_visible_in_tree():
 			continue
 		var w: float = float(d["w"])
 		var h: float = float(d["h"])

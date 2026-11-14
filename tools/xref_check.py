@@ -28,6 +28,7 @@ This tool checks the whole graph at once:
 Usage:  python3 tools/xref_check.py        # exits non-zero on any finding
 """
 import os
+from pathlib import Path
 import re
 import sys
 
@@ -72,7 +73,7 @@ class Script:
     def __init__(self, path):
         self.path = path
         self.rel = os.path.relpath(path, ROOT)
-        src = open(path, encoding="utf-8").read()
+        src = Path(path).read_text(encoding="utf-8")
         self.src = src
         self.lines = src.split("\n")
         m = re.search(r"^class_name\s+(\w+)", src, re.M)
@@ -111,7 +112,7 @@ def load_scripts():
 
 def autoloads():
     """{name: script} from project.godot's [autoload] section."""
-    txt = open(os.path.join(ROOT, "project.godot"), encoding="utf-8").read()
+    txt = Path(ROOT, "project.godot").read_text(encoding="utf-8")
     sec = re.search(r"^\[autoload\](.*?)(?=^\[|\Z)", txt, re.M | re.S)
     out = {}
     if sec:
@@ -137,6 +138,11 @@ def inherited(scripts, s, seen=None):
 
 
 def main():
+    # An own-class member can reach all_members() before is_engine() is ever
+    # called. Initialise the version before either path, or a filesystem walk
+    # that finds that member first can cache missing docs under a None version.
+    if api_check.REF is None:
+        api_check.REF = api_check.godot_version()
     scripts = load_scripts()
     autos = autoloads()
     known = set(scripts.keys()) | set(autos.keys())

@@ -31,6 +31,62 @@
   "before": {
    "en": "How you came here",
    "zh": "来路"
+  },
+  "journey": {
+   "en": "Your journeys",
+   "zh": "你的旅程"
+  },
+  "original_note": {
+   "en": "David and Goliath is the available story. A replay is saved separately from this journey.",
+   "zh": "本版可玩的是大卫与歌利亚的故事。重玩的进度会另外保存。"
+  },
+  "replay_active_note": {
+   "en": "You are on the replay. Your original journey is saved separately.",
+   "zh": "你正在重玩。原来的旅程另有保存。"
+  },
+  "start_replay": {
+   "en": "Start replay",
+   "zh": "从头重玩"
+  },
+  "resume_replay": {
+   "en": "Resume replay",
+   "zh": "继续重玩"
+  },
+  "return_original": {
+   "en": "Original journey",
+   "zh": "返回原旅程"
+  },
+  "start_replay_question": {
+   "en": "Start David's story again from the beginning? Your current journey will be kept separately. You can return to it from this book.",
+   "zh": "从头重玩大卫的故事？现在的旅程会另外保存，可随时从手记返回。"
+  },
+  "resume_replay_question": {
+   "en": "Continue your saved replay? Your original journey will remain saved.",
+   "zh": "继续已保存的重玩旅程？原来的旅程会保留。"
+  },
+  "return_original_question": {
+   "en": "Return to your original journey? Your replay progress will remain saved too.",
+   "zh": "返回原来的旅程？重玩的进度也会保留。"
+  },
+  "confirm": {
+   "en": "Yes, continue",
+   "zh": "确认继续"
+  },
+  "cancel": {
+   "en": "Cancel",
+   "zh": "取消"
+  },
+  "journey_error": {
+   "en": "Could not switch journeys. Your current journey is still open; the other save may be unreadable or storage unavailable.",
+   "zh": "无法切换旅程。现在的旅程仍在；另一个存档可能无法读取，或存储空间不可用。"
+  },
+  "save_protected_title": {
+   "en": "Saving paused",
+   "zh": "存档已暂停"
+  },
+  "save_protected_note": {
+   "en": "Your saved journey could not be read. Its files were not overwritten, but progress this session will not be saved. Do not clear browser data.",
+   "zh": "存档无法读取，原文件未被覆盖。本次进度不会保存，请勿清除浏览器数据。"
   }
  }
 }

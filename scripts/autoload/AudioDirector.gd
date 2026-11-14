@@ -64,22 +64,40 @@ func _ready() -> void:
 	add_child(_amb)
 	apply_settings()
 	EventBus.settings_changed.connect(func(_key, _value): apply_settings())
+	# Loading or switching a saved journey can replace the entire settings
+	# dictionary without emitting individual settings_changed signals. The
+	# persistent audio buses must reflect the destination journey immediately.
+	EventBus.game_loaded.connect(apply_settings)
+
+
+func _exit_tree() -> void:
+	# Stop live streams before the audio server is torn down. On an immediate
+	# process exit the mixer's queued playback may still be reported at shutdown;
+	# stopping here does not wait for an audio-server tick.
+	for player in _sfx_players:
+		if is_instance_valid(player):
+			player.stop()
+			player.stream = null
+	for player in [_music, _music_old, _amb]:
+		if is_instance_valid(player):
+			player.stop()
+			player.stream = null
 
 
 ## One switch for both beds, applied at the bus so nothing can slip past it —
 ## including sounds added later by someone who never read this file.
 func apply_settings() -> void:
 	var st: Dictionary = GameState.data["settings"]
-	var on := bool(st.get("sound", true)) and bool(st.get("music", true))
-	_mute_bus("Music", not on)
-	_mute_bus("SFX", not bool(st.get("sound", true)))
-	# Coming back from mute. Muting is done at the bus, so a track that was
-	# already playing simply becomes audible again — but a track REQUESTED while
-	# muted was never loaded (`play_music` stops instead of loading), and it
-	# records its key anyway, which means nothing asks for it again until the
-	# player changes region. Mute the game, walk into Bethlehem, unmute: silence
-	# for the rest of the chapter, with the 音 switch apparently working
-	# (BUG-025).
+	var sound_on := bool(st.get("sound", true))
+	var on := sound_on and bool(st.get("music", true))
+	# Settings changes can arrive while the app is in the background. They must
+	# not override the focus mute until the focus-in notification restores it.
+	_mute_bus("Music", not on or _muted_by_focus)
+	_mute_bus("SFX", not sound_on or _muted_by_focus)
+	# Coming back from mute. A track already playing becomes audible again at
+	# the bus; a track requested while music was disabled was never loaded, but
+	# its key was recorded. Load it now instead of waiting for another region
+	# change (BUG-025).
 	if on and _music.stream == null and _current_music != "":
 		var key := _current_music
 		_current_music = ""
@@ -127,6 +145,10 @@ func _notification(what: int) -> void:
 
 
 func play_sfx(name: String, db: float = -6.0, pitch_jitter: float = 0.04) -> void:
+	_play_sfx_at_pitch(name, db, 1.0, pitch_jitter)
+
+
+func _play_sfx_at_pitch(name: String, db: float, pitch: float, jitter: float) -> void:
 	if not GameState.data["settings"].get("sound", true):
 		return
 	var stream := _load(SFX_DIR + name + ".ogg")
@@ -138,19 +160,17 @@ func play_sfx(name: String, db: float = -6.0, pitch_jitter: float = 0.04) -> voi
 	var p: AudioStreamPlayer = _sfx_players[_round_robin]
 	p.stream = stream
 	p.volume_db = db
-	p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
+	p.pitch_scale = pitch + randf_range(-jitter, jitter)
 	p.play()
 
 
 ## Dialogue blip, pitched per speaker so characters are audible as distinct.
 func blip(speaker_id: String) -> void:
-	var pitch := 1.0
 	var h := hash(speaker_id) % 7
-	pitch = 0.9 + h * 0.06
-	play_sfx("blip", -10.0, 0.0)
-	# pitch override: reuse the last pool player
-	var p: AudioStreamPlayer = _sfx_players[_round_robin]
-	p.pitch_scale = pitch
+	var pitch := 0.9 + h * 0.06
+	# Select pitch before starting playback. If sound is muted or the blip is
+	# missing, leave the last unrelated pooled player completely untouched.
+	_play_sfx_at_pitch("blip", -10.0, pitch, 0.0)
 
 
 func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
@@ -158,7 +178,7 @@ func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
 		return
 	_current_music = region_or_key
 	if not GameState.data["settings"].get("music", true):
-		_stop_music()
+		_stop_music(crossfade)
 		return
 	var stream := _load(MUSIC_DIR + region_or_key + ".ogg")
 	if stream == null:
@@ -166,7 +186,7 @@ func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
 	if stream == null:
 		# A region with no track gets silence, not the last region's theme
 		# playing on over the new place.
-		_stop_music()
+		_stop_music(crossfade)
 		return
 	_loop(stream)
 	var fade := crossfade > 0.0 and _music.stream != null
@@ -180,32 +200,33 @@ func play_music(region_or_key: String, crossfade: float = 1.0) -> void:
 	else:
 		_music.stop()
 		_music_old.stop()
+		_music_old.stream = null
 	_music.stream = stream
 	_music.volume_db = SILENT_DB if fade else _music_target()
 	_music.play()
 
 
-## Handing over: the track that is playing moves to the fade-out player and
-## keeps sounding while `_process` walks it down; the caller then fills `_music`
-## with whatever comes next. Two fixed roles, so a second call mid-fade has
-## somewhere consistent to put things.
+## Handing over: swap the two player roles, not their streams. The current
+## player keeps its playback and position while `_process` fades it out; the
+## cleared spare becomes `_music` for the next track. Restarting the outgoing
+## stream on the spare would jump it back to the beginning of the recording.
 func _start_fade_out() -> void:
-	_music_old.stop()
-	_music_old.stream = _music.stream
-	_music_old.volume_db = _music.volume_db
-	_music_old.play()
-	_music.stop()
-	# Cleared, not just stopped: an empty `_music` is how `_process` knows there
-	# is no current track, and how `music_db()` knows not to report a level for
-	# silence.
-	_music.stream = null
+	var spare: AudioStreamPlayer = _music_old
+	spare.stop()
+	spare.stream = null
+	_music_old = _music
+	_music = spare
 
 
-func _stop_music() -> void:
-	# A track you are leaving fades; a track that was never there does not.
-	if _music.stream != null:
+func _stop_music(crossfade: float = 1.0) -> void:
+	# A track you are leaving fades for the requested time; an explicit zero
+	# cuts both players immediately. No current track means no new fade.
+	if _music.stream != null and crossfade > 0.0:
+		_ramp = maxf(1.0, absf(MUSIC_DB - SILENT_DB) / maxf(crossfade, 0.05))
 		_start_fade_out()
 	else:
+		_music.stop()
+		_music.stream = null
 		_music_old.stop()
 		_music_old.stream = null
 

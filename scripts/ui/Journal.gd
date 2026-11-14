@@ -10,8 +10,11 @@ class_name Journal
 ## the region for the verses, `data/achievements.json` for the marks.
 
 signal closed
+## The book only asks; Main captures the live position and switches saves.
+signal journey_requested
 
 const UI_PATH := "res://data/ui.json"
+const CONFIRM_DELAY_MS := 550
 
 var _panel: PanelContainer = null
 var _title: Label = null
@@ -19,6 +22,10 @@ var _body: VBoxContainer = null
 var _labels: Dictionary = {}
 var _open := false
 var _close_btn: Button = null
+var _journey_btn: Button = null
+var _confirming := false
+var _confirm_ready_at := 0
+var _journey_error := false
 ## What the panel was opened with, kept so it can be printed again in another
 ## language. The book is read at leisure; the switch sits on the HUD around it.
 var _args: Dictionary = {}
@@ -67,7 +74,10 @@ func _build() -> void:
 	_panel.anchor_left = 0.0; _panel.anchor_right = 1.0
 	_panel.anchor_top = 0.0; _panel.anchor_bottom = 1.0
 	_panel.offset_left = 12; _panel.offset_right = -12
-	_panel.offset_top = 12; _panel.offset_bottom = -12
+	# Keep the HUD's language/sound buttons completely above the panel. Their
+	# centres used to be covered, so the advertised live translation could not
+	# actually be tapped while the book was open on a phone.
+	_panel.offset_top = 24; _panel.offset_bottom = -8
 	add_child(_panel)
 
 	var vbox := VBoxContainer.new()
@@ -90,13 +100,23 @@ func _build() -> void:
 	_body.add_theme_constant_override("separation", 3)
 	scroll.add_child(_body)
 
-	var close := Button.new()
-	close.text = _t("close")
-	close.custom_minimum_size = Vector2(0, 24)
-	close.add_theme_font_size_override("font_size", 10)
-	close.pressed.connect(close_panel)
-	vbox.add_child(close)
-	_close_btn = close
+	# The journey control stays visible even on a short landscape screen; it is
+	# not buried under the scrollable verses and background.
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 6)
+	vbox.add_child(buttons)
+	_journey_btn = Button.new()
+	_journey_btn.custom_minimum_size = Vector2(0, 24)
+	_journey_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_journey_btn.add_theme_font_size_override("font_size", 9)
+	_journey_btn.pressed.connect(_on_journey_button)
+	buttons.add_child(_journey_btn)
+	_close_btn = Button.new()
+	_close_btn.custom_minimum_size = Vector2(0, 24)
+	_close_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_close_btn.add_theme_font_size_override("font_size", 10)
+	_close_btn.pressed.connect(close_panel)
+	buttons.add_child(_close_btn)
 
 
 func _row(text: String, size: int, col: Color, indent: int = 0) -> Label:
@@ -124,11 +144,15 @@ func _heading(text: String) -> void:
 ## the story. `verse_refs` are resolved by the caller from the region data.
 func open_panel(title: String, objective: String, verse_refs: Array,
 		stones: int, stones_total: int, seals: Array, seal_titles: Dictionary,
-		background: Array = []) -> void:
+		background: Array = [], has_replay: bool = false, replay_active: bool = false) -> void:
+	if not _open:
+		_confirming = false
+		_journey_error = false
 	_args = {
 		"title": title, "objective": objective, "refs": verse_refs,
 		"stones": stones, "total": stones_total,
 		"seals": seals, "titles": seal_titles, "background": background,
+		"has_replay": has_replay, "replay_active": replay_active,
 	}
 	_render()
 
@@ -148,8 +172,12 @@ func _render() -> void:
 	var seals: Array = _args.get("seals", [])
 	var seal_titles: Dictionary = _args.get("titles", {})
 	_title.text = title
-	if _close_btn != null:
-		_close_btn.text = _t("close")
+	var replay_active := bool(_args.get("replay_active", false))
+	var has_replay := bool(_args.get("has_replay", false))
+	var action_key := "return_original" if replay_active else ("resume_replay" if has_replay else "start_replay")
+	_close_btn.text = _t("cancel") if _confirming else _t("close")
+	_journey_btn.text = _t("confirm") if _confirming else _t(action_key)
+	_journey_btn.disabled = GameState.save_protected()
 	# Detach before freeing: queue_free() leaves the old rows in the layout until
 	# the frame ends, so a reprint showed the page twice for one frame and the
 	# panel jumped while the text under it changed.
@@ -157,8 +185,22 @@ func _render() -> void:
 		_body.remove_child(c)
 		c.queue_free()
 
+	if _confirming:
+		_heading(_t("journey"))
+		_row(_t(action_key + "_question"), 10, Color(0.95, 0.93, 0.86))
+		_panel.visible = true
+		_open = true
+		return
+	if GameState.save_protected():
+		_heading(_t("save_protected_title"))
+		_row(_t("save_protected_note"), 9, Color(1.0, 0.78, 0.68))
+	if _journey_error:
+		_row(_t("journey_error"), 9, Color(1.0, 0.75, 0.65))
 	_heading(_t("objective"))
 	_row(objective, 10, Color(0.90, 0.93, 0.94))
+	_heading(_t("journey"))
+	var note_key := "replay_active_note" if replay_active else "original_note"
+	_row(_t(note_key), 9, Color(0.85, 0.88, 0.86))
 
 	_heading(_t("verses"))
 	if verse_refs.is_empty():
@@ -236,8 +278,34 @@ func _on_language_changed(_lang: String) -> void:
 		_render()
 
 
+func _on_journey_button() -> void:
+	if not _open or GameState.save_protected():
+		return
+	if not _confirming:
+		_journey_error = false
+		_confirming = true
+		# One physical tap can be followed by an emulated mouse event. It must
+		# never both ask and confirm a switch of journeys.
+		_confirm_ready_at = Time.get_ticks_msec() + CONFIRM_DELAY_MS
+		_render()
+		return
+	if Time.get_ticks_msec() >= _confirm_ready_at:
+		journey_requested.emit()
+
+
+## Keep the book open with an explanation when storage is unavailable.
+func journey_switch_failed() -> void:
+	_confirming = false
+	_journey_error = true
+	_render()
+
+
 func close_panel() -> void:
 	if not _open:
+		return
+	if _confirming:
+		_confirming = false
+		_render()
 		return
 	hide_panel()
 	closed.emit()
@@ -245,5 +313,6 @@ func close_panel() -> void:
 
 func hide_panel() -> void:
 	_open = false
+	_confirming = false
 	if _panel:
 		_panel.visible = false

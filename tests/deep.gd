@@ -281,11 +281,20 @@ func _check_goliath() -> void:
 	_check(g != null, "the giant is on the ridge")
 	if g == null:
 		return
+	var previous_theme: String = main.region._art_theme
+	if previous_theme == "cinematic":
+		_check(g.hframes == 1 and g.vframes == 1 and is_equal_approx(g.scale.x, 0.40)
+			and is_equal_approx(g.scale.y, 0.40) and g.offset == Vector2(0, -64),
+			"the painted giant uses one correctly scaled and foot-anchored figure")
+	# The original BUG-003 regression still applies when the user selects the
+	# reversible classic comparison; restore production afterwards.
+	main.region.apply_art_theme("classic")
 	_check(g.hframes == 2 and g.vframes == 4,
-		"his sheet is sliced into frames (%dx%d, want 2x4)" % [g.hframes, g.vframes])
+		"his classic sheet is sliced into frames (%dx%d, want 2x4)" % [g.hframes, g.vframes])
 	_check(g.frame == 0, "and he is drawn as one pose, not eight (frame %d)" % g.frame)
 	_check(is_equal_approx(g.scale.x, 2.0) and is_equal_approx(g.scale.y, 2.0),
-		"and stands two tiles tall")
+		"and the classic giant stands two tiles tall")
+	main.region.apply_art_theme(previous_theme)
 
 
 # ── BUG-004: a person you have met stays met ──────────────────────────────

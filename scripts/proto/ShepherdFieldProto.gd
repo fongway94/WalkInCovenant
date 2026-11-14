@@ -5,17 +5,53 @@ extends Node2D
 ## sheep homes are measured on the painting itself.
 
 const BG_PATH := "res://art/proto/shepherd_field_empty.png"
-const FG_PATH := "res://art/proto/shepherd_field_fg.png"
-const DAVID_PATH := "res://art/proto/sprites/david.png"
-const SHEEP_PATH := "res://art/proto/sprites/sheep.png"
+const FG_PATH := "res://art/proto/shepherd_field_fg_cutout.png"
+const UPPER_TREE_PATH := "res://art/proto/shepherd_field_upper_tree.png"
+const UPPER_FENCE_PATH := "res://art/proto/shepherd_field_upper_fence.png"
+const TREE_GROUND_Y := 202.0
+const FENCE_GROUND_Y := 268.0
+const TREE_DEPTH_Z := 1
+const FENCE_DEPTH_Z := 3
+# Clip transparent horizontal margins, but preserve the full backdrop height
+# and the same world origin. Bounds contain the masks and fall on 20px units.
+const TREE_DEPTH_REGION := Rect2(880, 0, 380, 666)
+const FENCE_DEPTH_REGION := Rect2(840, 0, 140, 666)
+const DAVID_BODY_PATH := "res://art/proto/sprites/david_reference_body.png"
+const DAVID_LEFT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_left.png"
+const DAVID_RIGHT_BOOT_PATH := "res://art/proto/sprites/david_reference_boot_right.png"
+# Each variant contains the still reference pose and two subtle baked strides.
+# The frames share one canvas/anchor, so switching adds no extra sprite draws.
+const SHEEP_PATHS := [
+	[
+		"res://art/proto/sprites/sheep_reference_a.png",
+		"res://art/proto/sprites/sheep_reference_a_stride_a.png",
+		"res://art/proto/sprites/sheep_reference_a_stride_b.png",
+	],
+	[
+		"res://art/proto/sprites/sheep_reference_b.png",
+		"res://art/proto/sprites/sheep_reference_b_stride_a.png",
+		"res://art/proto/sprites/sheep_reference_b_stride_b.png",
+	],
+]
 const WORLD := Rect2(0, 0, 1440, 666)
-const DAVID_SCALE := 0.6
-const SHEEP_SCALE := 0.8
+# The actor art is hand-matted from the approved reference and enlarged with
+# nearest-neighbour sampling to suit the edited 1440px backdrop. In the
+# reference, sheep are about half the shepherd's height, not white stickers.
+const DAVID_SCALE := 1.0
+const SHEEP_SCALE := 0.66
+# 640 logical pixels across, showing roughly 1,164 world pixels. The window
+# is still free to resize; the painting, collisions and actors stay in world
+# space. 320 is supported for the CI resolution comparison only.
+const PROTO_WIDTH := 640
+const CAMERA_ZOOM := 0.55
 const DAVID_SPEED := 70.0
 const SHEEP_WALK := 14.0
 const SHEEP_FLEE := 40.0
-const SHEEP_FLEE_RANGE := 46.0
-const INTERACT_RANGE := 46.0
+# Keep a taller visual clearance behind David: otherwise a northward sheep
+# overlaps his head even though their feet are 60-70 world pixels apart.
+const SHEEP_FLEE_X := 70.0
+const SHEEP_FLEE_Y := 105.0
+const INTERACT_RANGE := 76.0
 const FIELD := Rect2(330, 150, 760, 400)
 const SHEEP_HOMES := [
 	Vector2(700, 300), Vector2(790, 400), Vector2(620, 470),
@@ -28,6 +64,8 @@ const OBSTACLES := [
 	[1408, 0, 32, 666],
 	[0, 530, 200, 136],
 	[1008, 150, 74, 52],
+	[1082, 170, 26, 32],
+	[1154, 165, 25, 28],
 	[1080, 350, 130, 150],
 	[856, 226, 120, 42],
 	[618, 230, 34, 22],
@@ -40,29 +78,57 @@ const OBSTACLES := [
 
 var david: CharacterBody2D
 var david_sprite: Sprite2D
+var david_boot_left: Sprite2D
+var david_boot_right: Sprite2D
+var david_visual
+var david_facing := Vector2i(0, 1)
+var camera: Camera2D
+var hud_panel: PanelContainer
 var sheep: Array = []
 var counted := 0
 var label: Label
 var _t := 0.0
+var _browser_probe := false
+var _browser_full_depth := false
+var _browser_probe_start_x := 0.0
 
 
 func _ready() -> void:
+	# These flags are supplied only by the temporary CI Web launcher.
+	var launch_args := OS.get_cmdline_user_args()
+	_browser_probe = OS.has_feature("web") and launch_args.has("--prototype-browser-probe")
+	_browser_full_depth = _browser_probe and launch_args.has("--prototype-full-depth")
 	seed(42)
 	y_sort_enabled = true
 	var bg := Sprite2D.new()
+	bg.name = "Backdrop"
 	bg.texture = load(BG_PATH) as Texture2D
 	bg.centered = false
+	bg.z_index = -100
 	add_child(bg)
 	_build_obstacles()
+	_build_depth_layer("UpperTreeDepth", UPPER_TREE_PATH, TREE_DEPTH_Z, TREE_DEPTH_REGION)
+	_build_depth_layer("FenceDepth", UPPER_FENCE_PATH, FENCE_DEPTH_Z, FENCE_DEPTH_REGION)
 	_build_david()
-	for home in SHEEP_HOMES:
-		_add_sheep(home)
+	for i in range(SHEEP_HOMES.size()):
+		_add_sheep(SHEEP_HOMES[i], i)
 	var fg := Sprite2D.new()
 	fg.texture = load(FG_PATH) as Texture2D
 	fg.centered = false
+	# The image is a cropped, alpha-matted foreground beginning at world y=250.
+	fg.position = Vector2(0, 250)
 	fg.z_index = 100
 	add_child(fg)
 	_build_hud()
+	# Normal gameplay always starts at 640 logical pixels, with no test marker.
+	var width := PROTO_WIDTH
+	if _browser_probe and launch_args.has("--prototype-width=320"):
+		width = 320
+	set_prototype_resolution(width)
+	if _browser_probe:
+		_browser_probe_start_x = david.position.x
+		var full_flag := "true" if _browser_full_depth else "false"
+		JavaScriptBridge.eval("window.__prototypeReady = %d; window.__prototypeFullDepth = %s; window.__prototypeMoved = false;" % [width, full_flag], true)
 
 
 func _build_obstacles() -> void:
@@ -77,24 +143,58 @@ func _build_obstacles() -> void:
 		add_child(body)
 
 
+func _build_depth_layer(layer_name: String, path: String, depth_z: int, region: Rect2) -> void:
+	# The texture has the backdrop's world size. Clipping only transparent x
+	# margins reduces overdraw; the sprite remains at world origin and draws at
+	# the region's world coordinates. Full height retains the backdrop's y quad.
+	# The frame harness checks that snapped sampling still matches the backdrop.
+	# Actors select z bands using their feet; y-sort orders actors in each band.
+	var image := Sprite2D.new()
+	image.name = layer_name
+	image.texture = load(path) as Texture2D
+	image.centered = false
+	# The temporary browser benchmark can select the previous full-quad path
+	# for a same-runner A/B; ordinary prototype play always uses the region.
+	if not _browser_full_depth:
+		image.region_enabled = true
+		image.region_rect = region
+		image.offset = region.position
+	image.z_index = depth_z
+	add_child(image)
+
+
+func _update_actor_depth(actor: Node2D) -> void:
+	if actor.position.y >= FENCE_GROUND_Y:
+		actor.z_index = FENCE_DEPTH_Z + 1
+	elif actor.position.y >= TREE_GROUND_Y:
+		actor.z_index = TREE_DEPTH_Z + 1
+	else:
+		actor.z_index = TREE_DEPTH_Z - 1
+
+
 func _build_david() -> void:
 	david = CharacterBody2D.new()
 	david.position = Vector2(700, 470)
+	_update_actor_depth(david)
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 6.0
 	shape.shape = circle
 	shape.position = Vector2(0, -6)
 	david.add_child(shape)
-	david.add_child(_shadow(14.0, 0.8))
-	david_sprite = Sprite2D.new()
-	var tex := load(DAVID_PATH) as Texture2D
-	david_sprite.texture = tex
-	david_sprite.scale = Vector2.ONE * DAVID_SCALE
-	david_sprite.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
-	david.add_child(david_sprite)
-	var cam := Camera2D.new()
-	cam.zoom = Vector2(0.5, 0.5)
+	david.add_child(_shadow(16.0))
+	# The same foot-anchored rig as production; retains public test access to
+	# the boot/body pieces while direction changes now use actual poses.
+	david_visual = load("res://scripts/world/DavidVisual.gd").new()
+	david_visual.scale = Vector2.ONE * DAVID_SCALE
+	david.add_child(david_visual)
+	david_visual.build()
+	david_boot_left = david_visual.boot_left
+	david_boot_right = david_visual.boot_right
+	david_sprite = david_visual.body
+	camera = Camera2D.new()
+	var cam := camera
+	cam.zoom = Vector2.ONE * CAMERA_ZOOM
 	cam.limit_left = 0
 	cam.limit_top = 0
 	cam.limit_right = 1440
@@ -106,46 +206,114 @@ func _build_david() -> void:
 	cam.make_current()
 
 
-func _add_sheep(home: Vector2) -> void:
+func _david_part(path: String) -> Sprite2D:
+	var part := Sprite2D.new()
+	var tex := load(path) as Texture2D
+	part.texture = tex
+	part.scale = Vector2.ONE * DAVID_SCALE
+	# A centered sprite's origin is already at its centre. Its bottom centre
+	# belongs at the physics body's feet/contact shadow.
+	part.offset = Vector2(0, -tex.get_height() * 0.5)
+	return part
+
+
+func _add_sheep(home: Vector2, variant: int) -> void:
 	var node := Node2D.new()
 	node.position = home
-	node.add_child(_shadow(16.0, 0.6))
+	_update_actor_depth(node)
+	node.add_child(_shadow(16.0, true))
 	var spr := Sprite2D.new()
-	var tex := load(SHEEP_PATH) as Texture2D
+	var frames: Array[Texture2D] = []
+	for path in SHEEP_PATHS[variant % SHEEP_PATHS.size()]:
+		frames.append(load(path) as Texture2D)
+	var tex: Texture2D = frames[0]
 	spr.texture = tex
 	spr.scale = Vector2.ONE * SHEEP_SCALE
-	spr.offset = Vector2(-tex.get_width() * 0.5, -tex.get_height())
+	spr.offset = Vector2(0, -tex.get_height() * 0.5)
 	node.add_child(spr)
 	add_child(node)
-	sheep.append({"node": node, "sprite": spr, "home": home, "target": home,
+	sheep.append({"node": node, "sprite": spr, "frames": frames, "home": home, "target": home,
 		"idle": 1.0, "hop": 0.0, "counted": false, "phase": randf() * TAU})
 
 
-func _shadow(radius: float, alpha: float) -> Node2D:
+func _shadow(radius: float, wide_hooves: bool = false) -> Node2D:
 	var n := Node2D.new()
-	n.z_index = -1
-	n.draw.connect(_draw_shadow.bind(n, radius, alpha))
+	n.name = "GroundShadow"
+	# Keep this at the same z as the actor and add it BEFORE the sprite: a
+	# negative z places it behind the opaque backdrop, not just behind feet.
+	if wide_hooves:
+		n.draw.connect(_draw_sheep_shadow.bind(n, radius))
+	else:
+		n.draw.connect(_draw_shadow.bind(n, radius))
 	n.queue_redraw()
 	return n
 
 
-func _draw_shadow(n: Node2D, radius: float, alpha: float) -> void:
-	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
-	n.draw_circle(Vector2.ZERO, radius, Color(0.10, 0.07, 0.03, alpha))
+func _draw_shadow(n: Node2D, radius: float) -> void:
+	# The reference's sunlight comes from the upper left; its long shadows
+	# travel down and right. A soft cool cast and a darker, smaller contact
+	# ellipse share the actor's real ground position.
+	n.draw_set_transform(Vector2(radius * 0.75, radius * 0.20), 0.14, Vector2(1.8, 0.32))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.09, 0.11, 0.13))
+	n.draw_set_transform(Vector2(radius * 0.55, radius * 0.15), 0.14, Vector2(1.35, 0.24))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.10, 0.17))
+	n.draw_set_transform(Vector2(0, 0), 0.0, Vector2(0.85, 0.24))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.06, 0.48))
+
+
+func _draw_sheep_shadow(n: Node2D, radius: float) -> void:
+	# Sheep feet span much wider than David's. A small, dark central oval made
+	# the outer hooves appear detached; broaden and soften the contact instead.
+	# Keep the cast toward the lower right even when a sheep faces left.
+	n.draw_set_transform(Vector2(radius * 0.65, radius * 0.12), 0.14, Vector2(2.25, 0.26))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.09, 0.11, 0.10))
+	n.draw_set_transform(Vector2(radius * 0.25, 0.0), 0.10, Vector2(1.95, 0.20))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.07, 0.08, 0.10, 0.10))
+	n.draw_set_transform(Vector2(0.0, -radius * 0.18), 0.0, Vector2(2.0, 0.17))
+	n.draw_circle(Vector2.ZERO, radius, Color(0.05, 0.055, 0.06, 0.24))
 
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	hud_panel = PanelContainer.new()
+	hud_panel.anchor_left = 1.0
+	hud_panel.anchor_right = 1.0
+	hud_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.09, 0.09, 0.74)
+	style.border_color = Color(0.73, 0.61, 0.39, 0.32)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	hud_panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(hud_panel)
 	label = Label.new()
-	label.position = Vector2(6, 4)
-	label.add_theme_font_size_override("font_size", 8)
-	layer.add_child(label)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_color_override("font_color", Color(0.96, 0.89, 0.72))
+	label.add_theme_color_override("font_outline_color", Color(0.05, 0.06, 0.06, 0.95))
+	hud_panel.add_child(label)
 	_refresh_hud()
 
 
 func _refresh_hud() -> void:
-	label.text = "Sheep counted %d/%d - Space beside a sheep" % [counted, sheep.size()]
+	label.text = "Flock %d/%d  |  Space" % [counted, sheep.size()]
+
+
+## Local to this isolated scene; does not edit project.godot or production UI.
+## CI switches between these sizes without changing camera framing to compare
+## actual render detail and text. Canvas-items stretch still uses the window.
+func set_prototype_resolution(width: int) -> void:
+	var factor := float(width) / 640.0
+	get_tree().root.content_scale_size = Vector2i(width, int(float(width) * 9.0 / 16.0))
+	camera.zoom = Vector2.ONE * CAMERA_ZOOM * factor
+	hud_panel.offset_left = -164.0 * factor
+	hud_panel.offset_right = -10.0 * factor
+	hud_panel.offset_top = 9.0 * factor
+	hud_panel.offset_bottom = 33.0 * factor
+	label.add_theme_font_size_override("font_size", maxi(6, roundi(12.0 * factor)))
+	label.add_theme_constant_override("outline_size", maxi(1, roundi(2.0 * factor)))
 
 
 func _physics_process(delta: float) -> void:
@@ -153,10 +321,16 @@ func _physics_process(delta: float) -> void:
 	david.velocity = dir * DAVID_SPEED
 	david.move_and_slide()
 	david.position = david.position.clamp(WORLD.position, WORLD.end)
+	_update_actor_depth(david)
+	if _browser_probe and absf(david.position.x - _browser_probe_start_x) > 20.0:
+		JavaScriptBridge.eval("window.__prototypeMoved = true;", true)
+		_browser_probe = false
 	if dir.length() > 0.1:
-		david_sprite.position.y = -absf(sin(_t * 12.0)) * 1.5
-	else:
-		david_sprite.position.y = 0.0
+		if absf(dir.x) > absf(dir.y):
+			david_facing = Vector2i(signi(int(signf(dir.x))), 0)
+		else:
+			david_facing = Vector2i(0, signi(int(signf(dir.y))))
+	david_visual.set_pose(david_facing, dir.length() > 0.1, DAVID_SPEED, delta)
 
 
 func _process(delta: float) -> void:
@@ -170,8 +344,9 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 	var spr: Sprite2D = s["sprite"]
 	var vel := Vector2.ZERO
 	var away: Vector2 = node.position - david.position
-	if away.length() < SHEEP_FLEE_RANGE and away.length() > 0.5:
-		vel = away.normalized() * SHEEP_FLEE
+	var clearance := Vector2(away.x / SHEEP_FLEE_X, away.y / SHEEP_FLEE_Y)
+	if clearance.length() < 1.0:
+		vel = (away.normalized() if away.length() > 0.5 else Vector2.RIGHT) * SHEEP_FLEE
 		s["idle"] = 0.0
 	elif float(s["idle"]) > 0.0:
 		s["idle"] = float(s["idle"]) - delta
@@ -183,20 +358,36 @@ func _update_sheep(s: Dictionary, delta: float) -> void:
 		else:
 			vel = to_target.normalized() * SHEEP_WALK
 	var next_pos: Vector2 = node.position + vel * delta
+	var moved := false
 	if FIELD.has_point(next_pos) and not _blocked(next_pos):
 		node.position = next_pos
+		moved = vel.length_squared() > 0.01
+	_update_actor_depth(node)
 	if vel.x != 0.0:
-		spr.flip_h = vel.x > 0.0
+		spr.flip_h = vel.x < 0.0
 	var hop := float(s["hop"])
 	var bob := 0.0
+	var frame_index := 0
 	if hop > 0.0:
 		s["hop"] = hop - delta
 		var k := clampf(1.0 - hop / 0.6, 0.0, 1.0)
 		bob = -sin(k * PI) * 10.0
-	elif vel.length() > 0.0:
-		bob = -absf(sin(_t * 9.0 + float(s["phase"]))) * 1.2
+	elif moved:
+		var stride := sin(_t * 9.0 + float(s["phase"]))
+		# The feet already provide the gait. A smaller body lift keeps the
+		# planted legs near their contact shadow, except during a real hop.
+		bob = -absf(stride) * 0.45
+		if stride > 0.25:
+			frame_index = 1
+		elif stride < -0.25:
+			frame_index = 2
 	else:
 		bob = sin(_t * 1.8 + float(s["phase"])) * 0.4
+	# The original pose is retained during idle, blocking and a hop. The two
+	# walking textures move only the reference's feet, with a shared anchor.
+	var frames: Array = s["frames"]
+	if spr.texture != frames[frame_index]:
+		spr.texture = frames[frame_index]
 	spr.position = Vector2(0, bob)
 
 
@@ -239,6 +430,7 @@ func interact() -> bool:
 func set_david(p: Vector2) -> void:
 	david.position = p
 	david.velocity = Vector2.ZERO
+	_update_actor_depth(david)
 
 
 func nearest_sheep_pos() -> Vector2:

@@ -1,0 +1,112 @@
+extends Node
+var main = null
+var originals := {}
+var textures := {}
+var giant_original: Texture2D = null
+var failures := 0
+
+func _ready() -> void:
+	_run()
+
+func _frames(count: int) -> void:
+	for _i in range(count):
+		await get_tree().process_frame
+
+func _freeze(r: Region) -> void:
+	r.set_process(false)
+	r.player.set_physics_process(false)
+	r.player.velocity = Vector2.ZERO
+	r.cam.set_process(false)
+	for npc in r.npcs:
+		npc.set_process(false)
+		npc.set_physics_process(false)
+		if npc.data.has("at"):
+			var at: Array = npc.data["at"]
+			npc.global_position = Vector2(int(at[0]) * 16.0 + 8.0, (int(at[1]) + 1) * 16.0 - 2.0)
+			npc.facing = Vector2i.DOWN
+			if npc.human_visual != null:
+				npc.human_visual.set_pose(npc.facing, false, 0.0, 0.2)
+		if npc._bubble != null:
+			npc._bubble.visible = false
+
+func _save_originals(r: Region) -> void:
+	originals.clear()
+	for entry in r._prop_sprites:
+		var sprite: Sprite2D = entry["sprite"]
+		if str(entry["key"]) in ["olive_tree", "fig_tree"]:
+			originals[sprite] = [sprite.texture, sprite.scale, sprite.offset]
+	giant_original = r.goliath_sprite.texture if r.goliath_sprite else null
+
+func _trees(r: Region, variant: String) -> void:
+	for entry in r._prop_sprites:
+		var s: Sprite2D = entry["sprite"]
+		var key := str(entry["key"])
+		if not originals.has(s):
+			continue
+		var old: Array = originals[s]
+		s.texture = old[0]
+		s.scale = old[1]
+		s.offset = old[2]
+		if variant == "painted-v2":
+			s.texture = textures["olive"] if key == "olive_tree" else textures["fig"]
+		elif variant == "painted-natural":
+			s.texture = textures["olive-natural"] if key == "olive_tree" else textures["fig-natural"]
+		elif variant == "painted-mixed":
+			s.texture = textures["olive"] if key == "olive_tree" else textures["fig-natural"]
+		if variant != "baseline":
+			s.offset = Vector2(0, -float(s.texture.get_height()) * 0.5)
+
+func _shot(r: Region, name: String, player: Vector2, camera: Vector2) -> void:
+	r.player.global_position = player
+	r.cam.global_position = r.cam._clamp(camera)
+	await _frames(4)
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var file := "res://build/river-tree-characters/choice-frames/" + name + ".png"
+	if image == null or image.save_png(file) != OK:
+		printerr("capture failed ", name)
+		failures += 1
+	print("captured ", name)
+
+func _run() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/river-tree-characters/choice-frames"))
+	for name in ["olive", "fig", "olive-natural", "fig-natural", "champion-style", "champion-retry"]:
+		var path: String = "res://build/river-tree-characters/sprites/" + str(name) + ".png"
+		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+		textures[name] = ImageTexture.create_from_image(image)
+	var extra := Image.load_from_file(ProjectSettings.globalize_path("res://build/river-tree-warrior-probe/goliath-pixel-128.png"))
+	textures["champion-pixel"] = ImageTexture.create_from_image(extra)
+	GameState.new_game()
+	GameState.data["settings"]["reduce_motion"] = true
+	I18n.set_lang("en")
+	main = (load("res://scenes/main/Main.tscn") as PackedScene).instantiate()
+	add_child(main)
+	await _frames(55)
+	main.card.hide_now()
+	main.set_process(false)
+	var r: Region = main.region
+	_freeze(r)
+	_save_originals(r)
+	for variant in ["baseline", "painted-v2", "painted-natural", "painted-mixed"]:
+		_trees(r, variant)
+		await _shot(r, "trees-" + variant, Vector2(264, 536), Vector2(264, 536))
+		await _shot(r, "olive-" + variant, Vector2(112, 608), Vector2(192, 580))
+		await _shot(r, "fig-" + variant, Vector2(176, 528), Vector2(216, 510))
+		await _shot(r, "camp-" + variant, Vector2(280, 690), Vector2(272, 688))
+	_trees(r, "baseline")
+	for variant in ["original", "champion-pixel", "champion-style", "champion-retry"]:
+		r.goliath_sprite.texture = giant_original if variant == "original" else textures[variant]
+		await _shot(r, "champion-" + variant, Vector2(240, 164), Vector2(264, 100))
+	main._swap_region("bethlehem")
+	await _frames(12)
+	main.card.hide_now()
+	r = main.region
+	r.dialogue.hide_box()
+	_freeze(r)
+	_save_originals(r)
+	for variant in ["baseline", "painted-v2", "painted-natural", "painted-mixed"]:
+		_trees(r, variant)
+		await _shot(r, "well-" + variant, Vector2(240, 352), Vector2(210, 320))
+		await _shot(r, "bethlehem-" + variant, Vector2(264, 240), Vector2(264, 190))
+	print("choice frames finished (", failures, " failures)")
+	get_tree().quit(1 if failures else 0)

@@ -4,6 +4,8 @@
 
 # No .import files are committed: CI runs `godot --headless --import` before
 # every suite and export, which regenerates them from the committed PNGs.
+*.import
+*.gd.uid
 
 # Android export build directory
 /android/

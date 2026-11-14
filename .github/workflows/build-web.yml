@@ -1,4 +1,4 @@
-# Build the web export on every push and publish it to GitHub Pages.
+# Build the web export on every push; publish main or an explicitly approved preview.
 #
 # WHY THIS EXISTS: the sandbox that authors this project cannot run Godot
 # (release binaries live on a host outside its network). GitHub Actions can.
@@ -23,8 +23,8 @@ on:
     # automatic tooling gives each session a fresh branch name, so listing one
     # name meant the audit's own pushes ran no build at all and every gate in
     # docs/BUGS.md would have been reported from a commit CI never saw. Every
-    # branch builds; `main` and the preview branch listed in the `deploy` job
-    # also publish. The live URL is how the game is playtested before a merge.
+    # branch builds; `main` publishes automatically. A branch preview requires
+    # an explicit `publish_preview` dispatch after the user's approval.
     branches: [main, 'arena/**']
   workflow_dispatch:
     inputs:
@@ -54,6 +54,12 @@ jobs:
       image: barichello/godot-ci:4.7.2
     steps:
       - uses: actions/checkout@v4
+      # The Godot image does not reliably contain Python, and its distro
+      # package mirror has intermittently failed. Static and pack checks must
+      # run, not silently skip and then fail later with exit 127.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Export templates into place
         run: |
@@ -103,24 +109,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! command -v python3 >/dev/null 2>&1; then
-            echo "::warning::python3 unavailable, static checks skipped"
-            exit 0
+            echo "::error::python3 unavailable; static checks cannot run"
+            exit 1
           fi
           # check_faces is deliberately stdlib-only: the lint container has no
           # pip, and a gate that cannot run in CI must not be skipped silently.
           : > static.txt
           for T in gd_lint check_export xref_check api_check check_font check_audio check_chars check_faces check_art_reset check_craft_props check_cinematic_art; do
             echo "===== $T =====" >> static.txt
-            python3 "tools/$T.py" >> static.txt 2>&1
-            echo "exit=$?" >> static.txt
+            # GitHub invokes bash with -e. Run each check as an if condition so
+            # a failure is recorded and later checks still reach the report.
+            if python3 "tools/$T.py" >> static.txt 2>&1; then
+              echo "exit=0" >> static.txt
+            else
+              echo "exit=$?" >> static.txt
+            fi
           done
           # pack_art also needs Pillow. It is installed above for check_faces;
           # keep the explicit guard so a worker without a wheel reports WHY
           # instead of failing the whole lint job with a traceback.
           echo "===== pack_art =====" >> static.txt
           if python3 -c "import PIL" 2>/dev/null; then
-            python3 tools/pack_art.py --check >> static.txt 2>&1
-            echo "exit=$?" >> static.txt
+            if python3 tools/pack_art.py --check >> static.txt 2>&1; then
+              echo "exit=0" >> static.txt
+            else
+              echo "exit=$?" >> static.txt
+            fi
           else
             echo "skip: Pillow not installed on this runner (art is committed, layout is verified locally)" >> static.txt
             echo "exit=0" >> static.txt
@@ -134,14 +148,28 @@ jobs:
         if: always()
         run: |
           [ -f static.txt ] || exit 0
-          tr '\n' '|' < static.txt | cut -c1-3000 \
-            | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          # A passing check must not create a red error annotation. Put every
+          # exit status first so a long diagnostic cannot hide a later failure
+          # when the annotation is truncated.
+          LEVEL=error
+          [ "${{ steps.static.outcome }}" != "success" ] || LEVEL=notice
+          {
+            awk '/^===== / {check=$2} /^exit=/ {printf "%s:%s | ", check, substr($0, 6)}' static.txt
+            tr '\n' '|' < static.txt
+          } | cut -c1-3000 \
+            | while IFS= read -r line; do printf '::%s::%s\n' "$LEVEL" "$line"; done
 
       - name: Fail the job if a static check failed
         if: steps.static.outcome != 'success'
         run: |
           echo "a static check failed"
           exit 1
+
+      - name: Test the release and probe pack boundary
+        run: python3 -m unittest discover -s tests -p 'test_pack_contents.py' -v
+
+      - name: Test the Godot reference with a cold offline cache
+        run: python3 -m unittest discover -s tests -p 'test_api_reference.py' -v
 
       - name: Import resources and build the global class cache
         run: |
@@ -165,6 +193,24 @@ jobs:
 
       - name: Boot the project headless (parse + smoke check)
         run: sh tools/ci_bootcheck.sh 10
+
+      # An Android PCK can be exported without the SDK or templates. This only
+      # checks the resource boundary; it does not build or install an APK.
+      - name: Verify the Android resource-pack boundary
+        run: |
+          OUT="build/android-pack-$$"
+          mkdir -p "$OUT"
+          touch build/.gdignore
+          timeout 180 godot --headless --path . --export-pack Android "$OUT/index.pck" > android-pack.txt 2>&1
+          STATUS=$?
+          if [ "$STATUS" -ne 0 ] || [ ! -s "$OUT/index.pck" ] || \
+             grep -aEq 'SCRIPT ERROR|Parse Error|Failed to load script' android-pack.txt; then
+            grep -aE 'ERROR|Parse Error|Failed to load script' android-pack.txt | head -20 || true
+            echo "Android resource-pack export failed (exit $STATUS)"
+            exit 1
+          fi
+          python3 tools/check_pack_contents.py release "$OUT/index.pck"
+          echo "Android resource boundary checked; APK and device are not tested"
 
       - name: Content lint (regions, reachability, bilingual)
         id: lint
@@ -226,6 +272,55 @@ jobs:
           fi
           cat deep.txt
           exit $STATUS
+
+      # These suites exercise the production context resolver, painted field,
+      # save/resume, reversible cinematic art and audio player/bus lifecycle.
+      # Run sequentially with separate save roots: they each create new games.
+      - name: Shepherd, painted-world and audio regressions
+        id: chapter_contracts
+        continue-on-error: true
+        run: |
+          FAILED=0
+          : > chapter-contracts.txt
+          for T in context shepherd_stage shepherd_resume painted_world audio_contract journey_slots; do
+            echo "===== $T =====" | tee -a chapter-contracts.txt
+            mkdir -p "$RUNNER_TEMP/wic-tests/$T"
+            XDG_DATA_HOME="$RUNNER_TEMP/wic-tests/$T" timeout 180 \
+              godot --headless --path . "res://tests/$T.tscn" > "chapter-$T.txt" 2>&1
+            STATUS=$?
+            cat "chapter-$T.txt" | tee -a chapter-contracts.txt
+            if [ "$STATUS" -ne 0 ] || \
+               ! grep -aEq ': [0-9]+ checks, 0 failures' "chapter-$T.txt" || \
+               grep -aEq 'SCRIPT ERROR|Parse Error|Failed to load script' "chapter-$T.txt"; then
+              FAILED=1
+            fi
+          done
+          exit "$FAILED"
+
+      - name: Publish shepherd, painted-world and audio regression results
+        if: always()
+        run: |
+          [ -f chapter-contracts.txt ] || exit 0
+          if [ "${{ steps.chapter_contracts.outcome }}" = "success" ]; then
+            grep -aE ': [0-9]+ checks, 0 failures' chapter-contracts.txt \
+              | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+          else
+            # One annotation per real failure line, not one joined blob, and
+            # no suite headings: the authoring sandbox cannot read the raw job
+            # log, and a list of headings alone says nothing about what failed.
+            grep -aE 'FAIL|SCRIPT ERROR|Parse Error|Failed to load script|checks, [1-9]|assert' chapter-contracts.txt \
+              | head -8 | cut -c-700 \
+              | while IFS= read -r line; do printf '::error::%s\n' "$line"; done
+          fi
+
+      - name: Publish the tail of the contract log
+        if: always() && steps.chapter_contracts.outcome != 'success'
+        run: |
+          [ -f chapter-contracts.txt ] || exit 0
+          # Last resort when no line matched the failure patterns: the tail
+          # still shows which suite stopped and what the engine printed.
+          tail -8 chapter-contracts.txt | cut -c-700 \
+            | while IFS= read -r line; do printf '::warning::tail: %s\n' "$line"; done
 
       - name: Publish the regression suite
         if: always()
@@ -328,6 +423,12 @@ jobs:
           echo "an interruption or reload regression check failed"
           exit 1
 
+      - name: Fail the job if shepherd, painted-world or audio checks failed
+        if: steps.chapter_contracts.outcome != 'success'
+        run: |
+          echo "a shepherd, painted-world or audio regression check failed"
+          exit 1
+
   # ── rendered frames: the one capability the headless suites cannot have ──
   # The three GDScript suites run --headless, where Godot has no rendering
   # device and get_viewport().get_texture() cannot produce a picture. This job
@@ -377,6 +478,86 @@ jobs:
           cat visual.txt
           echo "render exit=$STATUS"
           exit $STATUS
+
+      - name: Check Saul and nearby chatter in the rendered camp
+        run: |
+          mkdir -p "$RUNNER_TEMP/wic-reference" build
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-reference"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/reference_visual_probe.tscn > reference-visual.txt 2>&1 || STATUS=$?
+          cat reference-visual.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|not visible|covers Saul|did not detect' reference-visual.txt | head -8 || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || ! grep -q 'reference visual fixture finished' reference-visual.txt; then
+            echo "::error::Reference camp render failed (exit $STATUS): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+          grep -aE 'framebuffer delta|occluded lower-body control|fixture finished' reference-visual.txt \
+            | while IFS= read -r line; do printf '::notice::%s\n' "$line"; done
+
+      - name: Capture the chapter's real walking and refined terrain
+        run: |
+          mkdir -p "$RUNNER_TEMP/wic-refinement" build
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-refinement"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/refinement_visual_probe.tscn > refinement-visual.txt 2>&1 || STATUS=$?
+          cat refinement-visual.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|did not actually|did not ease|could not capture' refinement-visual.txt | head -8 || true)
+          STEPS=$(grep -ac 'captured real player steps' refinement-visual.txt || true)
+          STOPS=$(grep -ac 'captured eased stop' refinement-visual.txt || true)
+          PATROLS=$(grep -ac 'captured real NPC patrol' refinement-visual.txt || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || [ "$STEPS" -ne 12 ] \
+              || [ "$STOPS" -ne 3 ] || [ "$PATROLS" -ne 2 ] \
+              || ! grep -q 'refinement visual fixture finished (0 failures)' refinement-visual.txt; then
+            echo "::error::Refinement motion capture failed (exit $STATUS, steps $STEPS, stops $STOPS, patrols $PATROLS): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+
+      # The three review changes (brook surface, tall trees, the north ridge
+      # figure) are captured in the SAME framings as the previous session's
+      # saved "before" images, at 1000x450, so a before/after pair differs only
+      # in art. These frames are too large for this job's annotation budget;
+      # publish-art-review reprints them from the artifact.
+      - name: Capture river, tall-tree and north-figure review frames
+        id: art_review
+        continue-on-error: true
+        run: |
+          mkdir -p build "$RUNNER_TEMP/wic-art-review"
+          touch build/.gdignore
+          export XDG_DATA_HOME="$RUNNER_TEMP/wic-art-review"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          STATUS=0
+          timeout 180 xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot --path . --windowed --resolution 1000x450 \
+            --rendering-driver opengl3 --audio-driver Dummy \
+            res://tests/art_review_probe.tscn > art-review.txt 2>&1 || STATUS=$?
+          cat art-review.txt
+          BAD=$(grep -aE 'SCRIPT ERROR|Parse Error|Failed to load script|Invalid get index|null instance|Attempt to call function|Could not resolve|could not capture|was not applied|figure is missing' art-review.txt | head -8 || true)
+          CAPTURED=$(grep -ac '^captured ' art-review.txt || true)
+          if [ "$STATUS" -ne 0 ] || [ -n "$BAD" ] || [ "$CAPTURED" -ne 4 ] \
+              || ! grep -q 'art review fixture finished (0 failures)' art-review.txt; then
+            echo "::error::Art review capture failed (exit $STATUS, frames $CAPTURED): $(printf '%s' "$BAD" | tr '\n' '|')"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: art-review
+          path: build/art-review
+          if-no-files-found: ignore
 
       - name: Console and runtime error gate
         if: always()
@@ -540,6 +721,17 @@ jobs:
           path: build/frames
           if-no-files-found: ignore
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-camp-review
+          path: |
+            build/reference-pass-captures/saul-front.png
+            build/reference-pass-captures/saul-chatter.png
+            build/reference-pass-captures/saul-tent-behind.png
+            build/reference-pass-captures/saul-tent-front.png
+          if-no-files-found: ignore
+
       - name: Fail the job if rendering failed
         if: steps.render.outcome != 'success'
         run: |
@@ -578,7 +770,7 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
@@ -599,7 +791,7 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
@@ -620,12 +812,217 @@ jobs:
           Image.open(f).convert("RGB").quantize(
               colors=48, dither=0).save(src, optimize=True)
           raw = base64.b64encode(open(src, "rb").read()).decode()
-          CH = 4000
+          CH = 8200
           parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
           for i, part in enumerate(parts):
               print("::notice::WICFRAME|%s|%d|%d|%s"
                     % (name, i, len(parts), part))
           print("published %d chunks for %s" % (len(parts), name))
+          PY
+
+  # A separate check-run for the four river/tree/figure review frames. GitHub
+  # caps a check-run at ~50 annotations, so each 500x225 frame is reprinted in
+  # its own step from its own artifact rather than crowding the main frames.
+  # Review frames for the river, trees and ridge figure. GitHub allows ten
+  # annotations per step and truncates an annotation at 4096 characters, so a
+  # 500x225 frame is split into two steps of at most ten 4000-character
+  # chunks, and two frames share each of two check runs.
+  publish-art-review-a:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: art-review
+          path: build/art-review
+      - name: Publish river review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 01_river.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish river review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 01_river.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish trees review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 02_trees.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish trees review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 02_trees.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+
+  publish-art-review-b:
+    needs: visual
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: art-review
+          path: build/art-review
+      - name: Publish tree-scale review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 03_tree_scale.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish tree-scale review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 03_tree_scale.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish north-figure review frame (part 1)
+        env:
+          WIC_REVIEW_FRAME: 04_north_figure.png
+          WIC_CHUNK_FROM: "0"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
+          PY
+      - name: Publish north-figure review frame (part 2)
+        env:
+          WIC_REVIEW_FRAME: 04_north_figure.png
+          WIC_CHUNK_FROM: "10"
+        run: |
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import base64, os
+          from PIL import Image
+          name = os.environ["WIC_REVIEW_FRAME"][:-4]
+          Image.open("build/art-review/" + os.environ["WIC_REVIEW_FRAME"]).convert("RGB") \
+              .resize((500, 225), Image.Resampling.LANCZOS) \
+              .quantize(colors=24, dither=0).save("/tmp/" + name + ".png", optimize=True)
+          raw = base64.b64encode(open("/tmp/" + name + ".png", "rb").read()).decode()
+          CH = 4000
+          parts = [raw[i:i + CH] for i in range(0, len(raw), CH)]
+          lo = int(os.environ["WIC_CHUNK_FROM"])
+          if lo == 0 and len(parts) > 20:
+              print("::warning::%s needs %d chunks, more than two steps carry" % (name, len(parts)))
+          for i, part in enumerate(parts[lo:lo + 10], start=lo):
+              print("::notice::WICFRAME|%s|%d|%d|%s" % (name, i, len(parts), part))
           PY
 
   # ── export the web build ─────────────────────────────────────────────────
@@ -636,6 +1033,9 @@ jobs:
       image: barichello/godot-ci:4.7.2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Export templates into place
         run: |
@@ -747,6 +1147,18 @@ jobs:
           fi
           echo "export contains no script parse errors"
 
+      # The release PCK must never contain the save-seeding test scenes. The
+      # browser chapter job creates its own disposable pack in another job.
+      - name: Verify the Web release contains no test probes
+        run: |
+          python3 tools/check_pack_contents.py release build/web/index.pck
+          for F in build/web/*-probe.html build/web/*-override.cfg build/web/proto.html; do
+            if [ -e "$F" ]; then
+              echo "::error::test launcher in release output: $F"
+              exit 1
+            fi
+          done
+
       - name: Verify PWA (engine-native service worker + manifest)
         env:
           WIC_BUILD_STAMP: ${{ github.sha }}
@@ -801,6 +1213,9 @@ jobs:
       WIC_STRICT: 0
     steps:
       - uses: actions/checkout@v4
+
+      - name: Test seeded browser save setup
+        run: node --test tests/browser/seeded_boot.test.cjs
 
       - uses: actions/download-artifact@v4
         with:
@@ -1002,6 +1417,107 @@ jobs:
           name: browser-evidence
           path: build/browser
 
+  # A separate test-only PCK exercises a fresh, real-input chapter journey,
+  # with a reload after counting one sheep, and an explicitly staged cleanup
+  # interruption. Nothing from build/web-probes is published or added to the
+  # release artifact; only screenshots and the verdict are kept.
+  chapter-browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+      - name: Install Godot 4.7.2 for the test pack
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q -o /tmp/godot.zip -d /tmp/godot-bin
+          GODOT=$(find /tmp/godot-bin -type f -name 'Godot_v4.7.2*' | head -1)
+          cp "$GODOT" /tmp/godot
+          chmod +x /tmp/godot
+          /tmp/godot --version
+      - name: Import and create the separate test-only pack
+        run: |
+          # The downloaded release is already in build/. Never let Godot
+          # import its generated shell or an earlier test pack as source art.
+          mkdir -p build
+          touch build/.gdignore
+          /tmp/godot --headless --path . --import
+          python3 tools/build_browser_probes.py --godot /tmp/godot
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+      - name: Walk the fresh chapter, interrupt a sheep return, and check layout
+        id: chapter_browser
+        continue-on-error: true
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          WIC_PROBE_URL: http://127.0.0.1:8083/
+          WIC_FRESH_JOURNEY: '1'
+          WIC_FULL_JOURNEY: '1'
+          WIC_SHEPHERD_OUT: build/shepherd-browser
+        run: |
+          mkdir -p build/shepherd-browser
+          python3 -m http.server 8083 --bind 127.0.0.1 --directory build/web-probes > build/chapter-server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8083/shepherd-resume-probe.html > /dev/null
+          # Exercise the real practice input at different browser/input delays;
+          # the probe observes state but never sets the marker or the score.
+          for DELAY in 0 200 400; do
+            WIC_PRACTICE_DELAY="$DELAY" timeout 130 node tests/browser/practice_latency.cjs
+            test -s "build/shepherd-browser/practice-latency-$DELAY.json"
+          done
+          timeout 900 node tests/browser/shepherd_journey.cjs
+          test -s build/shepherd-browser/result.json
+          timeout 360 node tests/browser/chapter_layout.cjs
+          test -s build/shepherd-browser/layout-result.json
+          timeout 240 node tests/browser/journey_slots.cjs
+          test -s build/shepherd-browser/journey-slots-result.json
+      - name: Publish the chapter browser verdict
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, os
+          for tag, path in (
+              ('PRACTICE_LATENCY_0', 'build/shepherd-browser/practice-latency-0.json'),
+              ('PRACTICE_LATENCY_200', 'build/shepherd-browser/practice-latency-200.json'),
+              ('PRACTICE_LATENCY_400', 'build/shepherd-browser/practice-latency-400.json'),
+              ('SHEPHERD_BROWSER', 'build/shepherd-browser/result.json'),
+              ('CHAPTER_LAYOUT', 'build/shepherd-browser/layout-result.json'),
+              ('JOURNEY_SLOTS', 'build/shepherd-browser/journey-slots-result.json'),
+          ):
+              if not os.path.isfile(path):
+                  print(f'::warning::No {tag} result was produced')
+                  continue
+              with open(path, encoding='utf-8') as f:
+                  result = json.load(f)
+              level = 'notice' if result.get('ok') else 'error'
+              text = json.dumps(result, ensure_ascii=True, separators=(',', ':'))
+              print(f'::{level}::{tag}|{text[:3500]}')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chapter-browser-evidence
+          path: |
+            build/shepherd-browser/*.png
+            build/shepherd-browser/result.json
+            build/shepherd-browser/layout-result.json
+            build/shepherd-browser/journey-slots-result.json
+            build/shepherd-browser/practice-latency-*.json
+          if-no-files-found: warn
+      - name: Fail if the chapter browser journey failed
+        if: steps.chapter_browser.outcome != 'success'
+        run: exit 1
+
   # ── publish to GitHub Pages ──────────────────────────────────────────────
   # Creating a Pages site requires repository admin, which neither this
   # workflow's GITHUB_TOKEN nor an automated agent token is granted:
@@ -1013,6 +1529,88 @@ jobs:
   # Isolated art prototype (docs/ART-RESET.md §13): real Godot renders of the
   # playable shepherd field, published as PROTOFRAME / PROTOLOG annotations.
   # It never deploys and never gates production; it only produces evidence.
+  # Browser performance probe for the isolated field only. A temporary HTML
+  # launcher preloads override.cfg against the downloaded, unchanged PCK; it
+  # never changes the production scene, export artifact, Pages or user saves.
+  proto-browser:
+    needs: export-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: build/web
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --prefix /tmp/wicpw --no-audit --no-fund playwright
+          /tmp/wicpw/node_modules/.bin/playwright install --with-deps chromium
+      - name: Prepare a temporary prototype-only launcher
+        run: python3 tools/proto/prepare_browser.py build/web
+      - name: Measure the isolated Web prototype
+        id: probe
+        continue-on-error: true
+        env:
+          NODE_PATH: /tmp/wicpw/node_modules
+          PROTO_OUT: build/proto-browser
+          PROTO_URL: http://127.0.0.1:8081/proto.html
+        run: |
+          mkdir -p build/proto-browser
+          python3 -m http.server 8081 --bind 127.0.0.1 --directory build/web > build/proto-browser/server.log 2>&1 &
+          SRV=$!
+          trap 'kill $SRV 2>/dev/null || true' EXIT
+          curl --retry 10 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8081/proto.html > /dev/null
+          node tests/proto/browser_perf.cjs
+      - name: Prepare 640x360 prototype Web frames
+        if: always()
+        run: |
+          python3 -m pip install --quiet pillow
+          if ls build/proto-browser/browser_*.png >/dev/null 2>&1; then
+            python3 tools/proto/encode_frames.py build/proto-browser
+            if [ -n "$(cat build/proto-browser/overflow/part_*.txt)" ]; then
+              echo "::error::prototype browser frames exceeded the single-job budget"
+              exit 1
+            fi
+          fi
+      - name: Publish the joined browser result
+        if: always()
+        run: |
+          if [ -f build/proto-browser/result.json ]; then
+            echo "::notice::PROTOBROWSER|$(cat build/proto-browser/result.json)"
+          else
+            echo "::error::prototype browser probe produced no result.json"
+          fi
+      - name: Publish prototype Web frame part 0
+        if: always()
+        run: test -f build/proto-browser/parts/part_0.txt && cat build/proto-browser/parts/part_0.txt || echo "no part 0"
+      - name: Publish prototype Web frame part 1
+        if: always()
+        run: test -f build/proto-browser/parts/part_1.txt && cat build/proto-browser/parts/part_1.txt || echo "no part 1"
+      - name: Publish prototype Web frame part 2
+        if: always()
+        run: test -f build/proto-browser/parts/part_2.txt && cat build/proto-browser/parts/part_2.txt || echo "no part 2"
+      - name: Publish prototype Web frame part 3
+        if: always()
+        run: test -f build/proto-browser/parts/part_3.txt && cat build/proto-browser/parts/part_3.txt || echo "no part 3"
+      - name: Publish prototype Web frame part 4
+        if: always()
+        run: test -f build/proto-browser/parts/part_4.txt && cat build/proto-browser/parts/part_4.txt || echo "no part 4"
+      - name: Publish prototype Web frame part 5
+        if: always()
+        run: test -f build/proto-browser/parts/part_5.txt && cat build/proto-browser/parts/part_5.txt || echo "no part 5"
+      - name: Publish prototype Web frame part 6
+        if: always()
+        run: test -f build/proto-browser/parts/part_6.txt && cat build/proto-browser/parts/part_6.txt || echo "no part 6"
+      - name: Publish prototype Web frame part 7
+        if: always()
+        run: test -f build/proto-browser/parts/part_7.txt && cat build/proto-browser/parts/part_7.txt || echo "no part 7"
+      - name: Fail when the prototype browser probe failed
+        if: always() && steps.probe.outcome != 'success'
+        run: exit 1
+
   proto-frames:
     runs-on: ubuntu-latest
     permissions:
@@ -1056,19 +1654,46 @@ jobs:
             printf '%s\n' "$BAD" | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           fi
-
-      - name: Publish prototype log lines
-        if: always()
-        run: |
-          # One annotation for all log lines: the per-job annotation budget is small.
-          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
-          echo "::notice::PROTOLOG|${LINE}"
+          # The render command captures output even on timeout. A missing PASS
+          # must not turn a crash, failed assertion or empty run green.
+          if ! grep -aq '^PROTO PASS$' proto.txt; then
+            echo "::error::prototype harness did not pass (see PROTOLOG)"
+            exit 1
+          fi
 
       - name: Publish prototype frames
         if: always()
         run: |
-          python3 -m pip install --quiet pillow
+          # The source-art reproducibility checks below use the same version.
+          python3 -m pip install --quiet pillow==13.0.0
           python3 tools/proto/encode_frames.py build/proto
+
+      - name: Verify reference and source-rebuilt textures
+        if: always()
+        run: |
+          python3 tests/proto/check_sheep_art.py
+          python3 tools/proto/clean_backdrop_edge.py --check
+          python3 tests/proto/check_quality_assets.py
+
+      # The wider composition exceeded one job's annotation budget at useful
+      # WebP quality. A second job publishes the remaining chunks; no capture is
+      # regenerated and both still come from this real Godot framebuffer.
+      - name: Store remaining prototype frame chunks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proto-frame-overflow
+          path: build/proto/overflow/
+          retention-days: 1
+          if-no-files-found: warn
+
+      - name: Publish prototype log lines
+        if: always()
+        run: |
+          # One annotation for all log lines, including encoding quality.
+          LINE=$(grep -a "^PROTO" proto.txt | tr '\n' ';' || true)
+          ENCODING=$(cat build/proto/encoding.txt 2>/dev/null || true)
+          echo "::notice::PROTOLOG|${LINE}${ENCODING}"
 
       - name: Publish prototype frame part 0
         if: always()
@@ -1110,8 +1735,58 @@ jobs:
         run: |
           test -f build/proto/parts/part_7.txt && cat build/proto/parts/part_7.txt || echo "no part 7"
 
+  # Continuation of proto-frames' annotations, not a second render. Each job
+  # stays below GitHub's annotation cap and retains enough WebP detail to review.
+  proto-frame-overflow:
+    needs: proto-frames
+    # Failed visual assertions still need their frames for diagnosis. The
+    # producer uploads its chunks under `always()` before it finishes.
+    if: always() && needs.proto-frames.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: proto-frame-overflow
+          path: build/proto/overflow
+
+      - name: Publish prototype overflow part 0
+        run: |
+          test -f build/proto/overflow/part_0.txt && cat build/proto/overflow/part_0.txt || echo "no overflow part 0"
+
+      - name: Publish prototype overflow part 1
+        run: |
+          test -f build/proto/overflow/part_1.txt && cat build/proto/overflow/part_1.txt || echo "no overflow part 1"
+
+      - name: Publish prototype overflow part 2
+        run: |
+          test -f build/proto/overflow/part_2.txt && cat build/proto/overflow/part_2.txt || echo "no overflow part 2"
+
+      - name: Publish prototype overflow part 3
+        run: |
+          test -f build/proto/overflow/part_3.txt && cat build/proto/overflow/part_3.txt || echo "no overflow part 3"
+
+      - name: Publish prototype overflow part 4
+        run: |
+          test -f build/proto/overflow/part_4.txt && cat build/proto/overflow/part_4.txt || echo "no overflow part 4"
+
+      - name: Publish prototype overflow part 5
+        run: |
+          test -f build/proto/overflow/part_5.txt && cat build/proto/overflow/part_5.txt || echo "no overflow part 5"
+
+      - name: Publish prototype overflow part 6
+        run: |
+          test -f build/proto/overflow/part_6.txt && cat build/proto/overflow/part_6.txt || echo "no overflow part 6"
+
+      - name: Publish prototype overflow part 7
+        run: |
+          test -f build/proto/overflow/part_7.txt && cat build/proto/overflow/part_7.txt || echo "no overflow part 7"
+
   deploy:
-    needs: export-web
+    # No release or approved preview should publish until the rendered and
+    # browser regressions have finished successfully as well as the export.
+    needs: [export-web, visual, browser, chapter-browser]
     # `main` is the release. The named working branch is an opt-in PREVIEW: the
     # repo's `github-pages` environment has a custom deployment-branch policy
     # that lists it, so `actions/deploy-pages` is accepted from this ref.
@@ -1124,15 +1799,10 @@ jobs:
     # Pages Jekyll-build the repository ROOT and serve README.md instead of the
     # game. It happened on 2026-11-06 (pages build 1345363804) and is why the
     # artifact check below exists. `build_type` must stay `workflow`.
-    # `main` publishes automatically. On 2026-11-10 the user explicitly asked to
-    # "serve this branch to live for me to feel", so this named working branch
-    # also publishes on every push while that live-preview authorisation is in
-    # effect. Any OTHER branch still needs workflow_dispatch + publish_preview
-    # AND must be listed in the github-pages environment branch policy. This is
-    # a preview, not a release: it temporarily replaces the one Pages URL, and
-    # the next `main` push republishes main. No merge to `main` is implied.
-    # Branch preview deploys are PAUSED: the user asked for no deploy until they approve
-    # the visual prototype. Explicit workflow_dispatch with publish_preview still works.
+    # Branch pushes only build; an explicit dispatch with publish_preview and
+    # a permitted environment ref is required to replace the Pages site. The
+    # field prototype's approval does not by itself approve later chapter art or
+    # this full build: do not dispatch a preview without the user's approval.
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     environment:

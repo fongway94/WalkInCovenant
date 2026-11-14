@@ -1,0 +1,25 @@
+{
+  "_note": "Visible bounds and canvas at bc22294, before the 3x source rebuild.",
+  "props": {
+    "altar_stones": {"size": [32, 32], "bounds": [0, 15, 32, 32]},
+    "boulder": {"size": [33, 31], "bounds": [0, 9, 33, 31]},
+    "bush": {"size": [70, 58], "bounds": [0, 10, 70, 58]},
+    "fig_tree": {"size": [16, 24], "bounds": [0, 7, 16, 24]},
+    "fire": {"size": [64, 24], "bounds": [1, 0, 63, 24]},
+    "fold": {"size": [32, 24], "bounds": [0, 0, 32, 24]},
+    "house": {"size": [66, 83], "bounds": [0, 22, 66, 83]},
+    "jar": {"size": [18, 26], "bounds": [0, 7, 18, 26]},
+    "olive_tree": {"size": [65, 49], "bounds": [9, 0, 56, 49]},
+    "rock": {"size": [34, 33], "bounds": [0, 8, 34, 33]},
+    "sheep": {"size": [28, 24], "bounds": [0, 3, 28, 24]},
+    "sheep_alert": {"size": [28, 24], "bounds": [0, 3, 28, 24]},
+    "sheep_graze": {"size": [28, 24], "bounds": [0, 0, 28, 24]},
+    "signpost": {"size": [32, 32], "bounds": [6, 0, 25, 32]},
+    "staff": {"size": [16, 36], "bounds": [1, 0, 15, 36]},
+    "tent": {"size": [52, 36], "bounds": [0, 2, 52, 36]},
+    "trough": {"size": [32, 20], "bounds": [1, 0, 31, 20]},
+    "well": {"size": [16, 16], "bounds": [1, 0, 14, 16]},
+    "wheat_sheaf": {"size": [16, 24], "bounds": [0, 14, 16, 24]},
+    "wool_tuft": {"size": [16, 12], "bounds": [0, 0, 15, 12]}
+  }
+}

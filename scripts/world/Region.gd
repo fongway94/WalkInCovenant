@@ -17,6 +17,35 @@ const TALK_RANGE := 22.0
 ## Props that breathe. One pixel, slow, phase-offset per instance; frozen while
 ## a dialogue box owns the picture. No marker, no reward, no gameplay meaning.
 const SWAY_KEYS := ["wheat_sheaf", "bush", "wool_tuft"]
+## Painted props may have a higher-resolution canvas or a larger visual than
+## their legacy sheet. These are visual scales only; collision still comes from
+## data/props.json. Every sprite is bottom anchored at its original map tile.
+const PAINTED_PROP_SCALE := {
+	# Tent peaks, doorways and mature trees need to read at human scale. Shrubs
+	# and jars are correspondingly smaller; none of these values changes physics.
+	"tent": 1.08, "house": 1.12, "olive_tree": 1.10, "fig_tree": 2.40,
+	"jar": 0.60, "well": 1.45,
+	"fire": 0.50, "altar_stones": 0.50, "fold": 0.50,
+	"trough": 0.50, "staff": 0.50, "wheat_sheaf": 0.50,
+	"bush": 0.40, "wool_tuft": 0.50, "signpost": 0.50,
+	"sheep": 0.50, "sheep_graze": 0.50, "sheep_alert": 0.50,
+}
+## The two mature tree keys share a taller authored canvas and an upright
+## silhouette; tests and the prop selector use this list instead of spelling
+## the pair out in several places.
+const TALL_TREE_KEYS := ["olive_tree", "fig_tree"]
+## Authored visual scales for those canvases (before PAINTED_PROP_DETAIL_FACTOR).
+## 276px x 0.891304/3 = 82 world units and 272px x 0.860294/3 = 78: about three times
+## the 27.4-unit person, measured to the top of the canopy. The trunk base,
+## 1x1 collision footprint, contact shadow and y-sort point stay on the map
+## tile. Keeping these out of PAINTED_PROP_SCALE leaves the legacy painted
+## canvases (used only as a fallback) at their reviewed sizes.
+const TALL_TREE_SCALE := {"olive_tree": 0.891304, "fig_tree": 0.860294}
+## This authored Elah tent is Saul's backdrop. Its open-front art must sort at
+## its back wall, behind the king in the doorway, while the visible base and
+## shadow stay on the original footprint. No collision or actor position moves.
+const ROYAL_TENT_AT := Vector2i(20, 42)
+const ROYAL_TENT_SORT_RAISE := 48.0
 ## Anything within this radius of an exit tile can be left through it.
 const EXIT_RANGE := 13.0
 ## How long after a box closes the A button is ignored. Long enough to swallow
@@ -38,6 +67,9 @@ var cam: CameraRig = null
 # an ERROR-level warning in Godot 4.7 and stops the script compiling.
 var npcs: Array[Npc] = []
 var pickups: Array = []         # {id, kind, node, got}
+## Optional object/discovery interactions share the same resolver as sheep,
+## people and exits. Registrations are scoped to this region instance.
+var context_targets: Array = []
 var triggers: Array = []        # {id, kind, data, spent, armed}
 var dialogue: DialogueBox = null
 ## Kept so a cinematic can frame him, and so a test can see that he is on screen.
@@ -67,6 +99,14 @@ var _curio_cool := 0.0
 ## {sprite, x, y, phase} — ambient sway, updated once a frame in _process.
 var _swayers: Array = []
 var _sway_t := 0.0
+## The painted field is temporary scene dressing around the real production
+## Region. Null outside the shepherd act; no save schema changes.
+var shepherd_field = null
+var _field_npcs: Array = []
+var _field_camera_bounds := Rect2()
+var _field_camera_zoom := Vector2.ONE
+var _field_magnet := 0.0
+var _field_giant_visible := false
 
 signal region_ready
 signal pickup_taken(id: String)
@@ -81,6 +121,9 @@ signal exit_taken(to: String)
 func _ready() -> void:
 	_load_meta()
 	_build()
+	# A field is a finite painting. Refit on browser resize or device rotation,
+	# while the camera's regular bounds still govern the tile-world regions.
+	get_viewport().size_changed.connect(_fit_field_camera)
 	region_ready.emit()
 
 
@@ -157,6 +200,62 @@ func _read_json(path: String) -> Dictionary:
 	return d
 
 
+## The same selection must be used for map props and items spawned later by a
+## mission. Each painted image keeps the source prop's canvas and footprint.
+func _prop_texture_path(key: String, theme: String) -> String:
+	var chosen := "res://art/props/%s.png" % key
+	var crafted := "res://art/props_%s/%s.png" % [theme, key]
+	var painted := "res://art/props_painted/%s.png" % key
+	if (theme == "storybook" or theme == "cinematic") and ResourceLoader.exists(crafted):
+		chosen = crafted
+	if theme == "cinematic" and ResourceLoader.exists(painted):
+		chosen = painted
+	return chosen
+
+
+func _prop_visual_scale(key: String, theme: String, path: String) -> float:
+	if theme == "cinematic" and path.begins_with("res://art/props_painted/"):
+		# The royal backdrop's doorway is authored around Saul's fixed position;
+		# changing its scale would cover his feet. Keep that one independently
+		# calibrated while increasing the other camp tents.
+		if path.ends_with("/tent_royal_open.png"):
+			return 0.90 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		# The tall trees are selected by their own scale, so a missing tall
+		# canvas falls back to the reviewed legacy size instead of shrinking.
+		if path.ends_with("/olive_tree_tall.png") or path.ends_with("/fig_tree_tall.png"):
+			return float(TALL_TREE_SCALE.get(key, 1.0)) / ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		# The distinct refined fig is six times the old 16x24 canvas, not three.
+		var detail := 6.0 if path.ends_with("/fig_tree_refined.png") else ArtDirection.PAINTED_PROP_DETAIL_FACTOR
+		return float(PAINTED_PROP_SCALE.get(key, 1.0)) / detail
+	return 1.0
+
+
+## Distinct instances at fixed map coordinates. Footprints and collision remain
+## authoritative. Saul's open tent has its own back-wall sort point, below.
+## Dynamically spawned items continue using _prop_texture_path.
+func _map_prop_texture_path(key: String, theme: String, at: Vector2i) -> String:
+	var chosen := _prop_texture_path(key, theme)
+	if theme != "cinematic":
+		return chosen
+	var variant := ""
+	if key == "tent":
+		if region_id == "elah" and at == ROYAL_TENT_AT:
+			variant = "res://art/props_painted/tent_royal_open.png"
+		else:
+			var index := posmod(posmod(at.x + at.y, 5), 3)
+			if index == 1:
+				variant = "res://art/props_painted/tent_camp_a.png"
+			elif index == 2:
+				variant = "res://art/props_painted/tent_camp_b.png"
+	elif key == "house" and posmod(at.x, 2) == 0:
+		variant = "res://art/props_painted/house_reference_alt.png"
+	elif key == "olive_tree":
+		variant = "res://art/props_painted/olive_tree_tall.png"
+	elif key == "fig_tree":
+		variant = "res://art/props_painted/fig_tree_tall.png"
+	return variant if variant != "" and ResourceLoader.exists(variant) else chosen
+
+
 func _spawn_props() -> void:
 	for p in model.props:
 		var key: String = p["type"]
@@ -174,13 +273,17 @@ func _spawn_props() -> void:
 		# anchor: bottom-left tile of footprint → centre the sprite over it
 		var cx: float = (tx + float(meta.get("w_tiles", 1)) * 0.5) * TILE
 		var cy: float = (ty + 1) * TILE
-		s.position = Vector2(cx, cy - h * 0.5)
+		# Y-sort at the feet, not at the image centre. Larger art can then
+		# overlap the scenery naturally without moving the actual footprint.
+		s.position = Vector2(cx, cy)
+		s.offset = Vector2(0, -h * 0.5)
 		s.z_index = 0
 		_ys.add_child(s)
-		_prop_sprites.append({"sprite": s, "key": key})
 		_shadow_layer.call("add_target", s, w * 0.42, 2.6)
+		var targets: Array = _shadow_layer.get("targets")
+		_prop_sprites.append({"sprite": s, "key": key, "at": Vector2i(tx, ty), "shadow": targets.back()})
 		if SWAY_KEYS.has(key):
-			_swayers.append({"sprite": s, "x": cx, "y": cy - h * 0.5,
+			_swayers.append({"sprite": s, "x": cx, "y": cy,
 				"phase": float(tx) * 0.37 + float(ty) * 0.19})
 		if fr > 1:
 			var t := Timer.new()
@@ -188,6 +291,34 @@ func _spawn_props() -> void:
 			t.autostart = true
 			t.timeout.connect(func(): s.frame = (s.frame + 1) % fr)
 			add_child(t)
+
+
+## Keep the ridge champion independent from the ground and restore the exact
+## original sheet geometry when the classic theme is selected.
+func _apply_giant_theme(theme: String) -> void:
+	if goliath_sprite == null or not is_instance_valid(goliath_sprite):
+		return
+	var s := goliath_sprite
+	if theme == "cinematic":
+		s.texture = load("res://art/scenes_painted/goliath.png")
+		s.hframes = 1
+		s.vframes = 1
+		# Roughly twice the height of a painted overworld person, while its
+		# node and contact shadow stay at the same original foot position.
+		s.offset = Vector2(0, -64)
+		s.scale = Vector2.ONE * 0.40
+		# The champion is the duel's own pixel sprite at 2x, so it uses the
+		# same nearest sampling as the people below him: any smoothing would
+		# turn those inked edges into the soft bronze look he was replaced for.
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	else:
+		s.texture = load("res://art/characters/goliath_idle.png")
+		s.hframes = 2
+		s.vframes = 4
+		s.offset = Vector2(0, -8)
+		s.scale = Vector2.ONE * 2.0
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.frame = 0
 
 
 ## He is not decoration and he is not an NPC: the witness cannot reach him, and
@@ -208,7 +339,8 @@ func _spawn_goliath() -> void:
 		return
 	var s := Sprite2D.new()
 	s.texture = tex
-	s.centered = false
+	s.centered = true
+	s.offset = Vector2(0, -8)  # node position is the middle of his feet
 	# ONE frame of the sheet, not the sheet. The character PNGs are 2 columns by
 	# 4 rows of 16x16 cells (idle: two frames per direction, four directions);
 	# a Sprite2D with the defaults draws the entire image, so the ridge used to
@@ -220,10 +352,11 @@ func _spawn_goliath() -> void:
 	# Two tiles tall against a one-tile player: the first thing the witness
 	# notices about him is the size, and it should be true on screen.
 	s.scale = Vector2(2.0, 2.0)
-	s.position = Vector2(model.goliath.x * TILE, (model.goliath.y + 1) * TILE - 32.0)
+	s.position = Vector2(model.goliath.x * TILE + 16.0, (model.goliath.y + 1) * TILE)
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_ys.add_child(s)
 	goliath_sprite = s
+	_shadow_layer.call("add_target", s, 18.0, 3.0)
 
 
 ## The duel's result reaches the WORLD, not just the HUD and the save. Called
@@ -263,6 +396,7 @@ func spawn_npc(d: Dictionary) -> Npc:
 	_ys.add_child(n)
 	npcs.append(n)
 	_shadow_layer.call("add_target", n, 12.0, 2.4)
+	n.apply_art_theme(_art_theme)
 	return n
 
 
@@ -299,23 +433,34 @@ func spawn_pickup(id: String, kind: String, sprite: String, tx: int, ty: int,
 			str(extra.get("temper", "calm")), player, self)
 		fs.reacted.connect(_on_sheep_reacted)
 		fs.arrived.connect(_on_sheep_arrived)
-		node = fs
+		if shepherd_field != null:
+			fs.apply_shepherd_field(shepherd_field.stray_position(id),
+				shepherd_field.world(shepherd_field.FOLD), pickups.size(),
+				Callable(shepherd_field, "walkable"), Callable(shepherd_field, "sheep_route"))
+			node = fs
+			fs.z_index = shepherd_field.depth_at(fs.global_position)
+		else:
+			fs.apply_art_theme(_art_theme)
+			node = fs
 	else:
 		node = Node2D.new()
 		node.global_position = Vector2(tx * TILE + 8, ty * TILE + 12)
-		var tex := load("res://art/props/%s.png" % sprite)
+		var path := _prop_texture_path(sprite, _art_theme)
+		var tex := load(path)
 		if tex != null:
 			var sp := Sprite2D.new()
 			sp.texture = tex
-			sp.scale = Vector2(0.85, 0.85)
+			sp.scale = Vector2.ONE * (0.85 * _prop_visual_scale(sprite, _art_theme, path))
 			node.add_child(sp)
 	_ys.add_child(node)
-	_shadow_layer.call("add_target", node, 10.0, 2.0)
+	var shadow_width := 12.0 if kind == "flock" and shepherd_field != null else 10.0
+	_shadow_layer.call("add_target", node, shadow_width, 2.0)
 	var catch_range := PICK_RANGE
 	if kind == "flock":
 		catch_range = FLOCK_PICK_RANGE
 	pickups.append({"id": id, "kind": kind, "node": node, "got": false,
 			"guided": false, "range": catch_range, "sprite_key": sprite,
+			"field_flock": kind == "flock" and shepherd_field != null,
 			"ref": extra.get("ref", ""), "data": extra})
 
 
@@ -418,28 +563,28 @@ func _process(delta: float) -> void:
 	# moment the box closes instead of being eaten.
 	if dialogue != null and dialogue.is_open():
 		return
-	if _unclaimed():
-		queue_redraw()
+	queue_redraw()
+	if shepherd_field != null:
+		_update_field_depth()
 	_check_curios(delta)
 	_check_pickups()
-	_check_triggers()
+	# The painted field is a distinct place; the valley's line triggers cannot
+	# fire at coincident tile coordinates behind its backdrop.
+	if shepherd_field == null:
+		_check_triggers()
 
 
 func _check_pickups() -> void:
 	for p in pickups:
-		if p["got"]:
+		if p["got"] or str(p.get("kind", "")) == "flock":
+			# Sheep require a deliberate action, or may reach the fold by herding.
+			# Other established quest pickups keep their original walk-over rule.
 			continue
 		var node: Node2D = p["node"]
 		if not is_instance_valid(node):
 			continue
-		var d: float = (node.global_position - player.global_position).length()
-		var rng := float(p.get("range", PICK_RANGE))
-		# A sheep that has just shied away is not caught in the same instant;
-		# it settles in 0.7 s. Everything else keeps the old 10 px rule exactly.
-		if node.has_method("wants_catch"):
-			if bool(node.call("wants_catch", d, rng)):
-				collect_pickup(str(p["id"]), bool(node.call("is_guided")))
-		elif d < rng:
+		var d: float = node.global_position.distance_to(player.global_position)
+		if d < float(p.get("range", PICK_RANGE)):
 			collect_pickup(str(p["id"]))
 
 
@@ -458,7 +603,13 @@ func _check_curios(delta: float) -> void:
 			continue
 		var at: Array = c.get("at", [0, 0])
 		var p := Vector2(int(at[0]) * TILE + 8, int(at[1]) * TILE + 8)
-		if p.distance_to(player.global_position) <= float(c.get("r", 2)) * TILE:
+		var radius := float(c.get("r", 2)) * TILE
+		if shepherd_field != null:
+			if id != "lions_ground":
+				continue
+			p = shepherd_field.world(shepherd_field.HURDLE_MEMORY)
+			radius = 12.0
+		if p.distance_to(player.global_position) <= radius:
 			_curio_done[id] = true
 			_curio_cool = 1.0
 			GameState.set_flag("curio_" + id, true)
@@ -561,53 +712,122 @@ func _near_exit() -> Dictionary:
 
 
 # ── interaction ─────────────────────────────────────────────────────────
-## The single interact query: nearest NPC in range and roughly in front.
-## Returns Npc, not Variant: a Variant return makes every `var x := call()`
-## at the call site an ERROR-level inference in Godot 4.7.
-func nearest_interactable() -> Npc:
-	# Two passes: someone standing still first, an escort second. Corin follows
-	# you for the whole chapter, so with one pass he was always the nearest
-	# person and the A button re-opened him instead of the villager you had
-	# walked up to.
-	for pass_ in range(2):
-		var best: Npc = null
-		var bd := TALK_RANGE
-		for n in npcs:
-			if (pass_ == 0) == (n.state == Npc.State.FOLLOW):
+## A scene may register an object or discovery without adding another input
+## handler. `available` is optional; stale/freed nodes are ignored automatically.
+## The callback must own its own one-shot/save state, just like collect_pickup.
+func register_context_target(node: Node2D, id: String, label: Dictionary,
+		radius: float, action: Callable, available: Callable = Callable()) -> void:
+	context_targets.append({"node": node, "id": id, "label": label,
+		"radius": radius, "action": action, "available": available})
+
+
+## The same closest valid target drives the highlight, HUD and input. This is a
+## fresh query, not a cached node: a sheep may move or leave between frames.
+## Distances are measured from feet. Strict < gives deterministic ties.
+func context_target() -> Dictionary:
+	if _paused or model == null or player == null \
+			or (dialogue != null and dialogue.is_open()):
+		return {}
+	var best: Dictionary = {}
+	var best_distance := INF
+	for it in pickups:
+		var p: Dictionary = it
+		if str(p.get("kind", "")) != "flock" or bool(p.get("got", false)):
+			continue
+		var node: Node2D = p.get("node")
+		if not is_instance_valid(node) or not node.visible:
+			continue
+		var d := node.global_position.distance_to(player.global_position)
+		if d < best_distance and node.has_method("wants_catch") \
+				and bool(node.call("wants_catch", d, float(p.get("range", FLOCK_PICK_RANGE)))):
+			best_distance = d
+			best = {"kind": "flock", "id": str(p["id"]), "node": node,
+				"position": node.global_position,
+				"label": {"zh": "数羊", "en": "Count Sheep"}}
+	for n in npcs:
+		if not is_instance_valid(n) or not n.visible or not n.can_talk():
+			continue
+		var d := n.global_position.distance_to(player.global_position)
+		if d < TALK_RANGE and d < best_distance:
+			best_distance = d
+			best = {"kind": "npc", "id": n.npc_id(), "node": n,
+				"position": n.global_position, "label": {"zh": "交谈", "en": "Talk"}}
+	if shepherd_field == null:
+		for e in model.exits:
+			var at: Array = e.get("at", [])
+			if at.size() != 2:
 				continue
-			var d := (n.global_position - player.global_position).length()
-			if d < bd:
-				bd = d; best = n
-		if best != null:
-			return best
-	return null
+			var point := Vector2(float(at[0]) * TILE + 8.0, float(at[1]) * TILE + 8.0)
+			var d := point.distance_to(player.global_position)
+			if d < EXIT_RANGE and d < best_distance:
+				best_distance = d
+				best = {"kind": "exit", "id": str(e.get("to", "")), "position": point,
+					"label": {"zh": "出发", "en": "Travel"}}
+	for entry in context_targets:
+		var c: Dictionary = entry
+		var node: Node2D = c.get("node")
+		if not is_instance_valid(node) or not node.visible:
+			continue
+		var available: Callable = c.get("available", Callable())
+		if available.is_valid() and not bool(available.call()):
+			continue
+		var action: Callable = c.get("action", Callable())
+		if not action.is_valid():
+			continue
+		var d := node.global_position.distance_to(player.global_position)
+		if d < float(c.get("radius", 0.0)) and d < best_distance:
+			best_distance = d
+			best = {"kind": "context", "id": str(c.get("id", "")), "node": node,
+				"position": node.global_position, "label": c.get("label", {}), "action": action}
+	return best
 
 
-## The world's half of the One Button. A press means: leave if you are standing
-## on an exit, otherwise talk to the person you are nearest to.
-##
-## Everything that guards this exists because the same physical tap can arrive
-## here twice (touch + emulated mouse, or the A button's synthetic action on top
-## of the touch that made it). TapGate decides once; `can_talk()` makes a second
-## arrival harmless even if it gets past the gate; and the box's own open guard
-## is the last line of defence (AUDIT §2).
+func context_prompt() -> String:
+	var target := context_target()
+	if target.is_empty():
+		return ""
+	return "A / Z  ·  %s" % I18n.t(target.get("label", {}))
+
+
+## Compatibility helper for callers that need a person specifically. Unlike
+## the old two-pass escort preference, this returns the genuinely nearest
+## available person; the shared target query above also considers other kinds.
+func nearest_interactable() -> Npc:
+	var best: Npc = null
+	var bd := TALK_RANGE
+	for n in npcs:
+		if not is_instance_valid(n) or not n.visible or not n.can_talk():
+			continue
+		var d := n.global_position.distance_to(player.global_position)
+		if d < bd:
+			bd = d
+			best = n
+	return best
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if _paused or _interact_lock > 0.0:
+	if _paused or _interact_lock > 0.0 or not event.is_action_pressed("interact"):
 		return
-	if not event.is_action_pressed("interact"):
+	var target := context_target()
+	if target.is_empty() or not TapGate.take():
 		return
-	var ex := _near_exit()
-	if not ex.is_empty():
-		get_viewport().set_input_as_handled()
-		exit_taken.emit(str(ex.get("to", "")))
-		return
-	var n := nearest_interactable()
-	if n == null or not n.can_talk():
-		return
-	if not TapGate.take():
-		return
-	player.face_toward(n.global_position)
-	n.talk()
+	match str(target.get("kind", "")):
+		"flock":
+			var animal: Node2D = target.get("node")
+			player.face_toward(animal.global_position)
+			# A button press is a deliberate count/carry; only an animal that
+			# arrives on its own is marked guided by _on_sheep_arrived.
+			AudioDirector.play_sfx("sheep", -12.0)
+			collect_pickup(str(target.get("id", "")), false)
+		"npc":
+			var n: Npc = target.get("node")
+			player.face_toward(n.global_position)
+			n.talk()
+		"exit":
+			exit_taken.emit(str(target.get("id", "")))
+		"context":
+			var action: Callable = target.get("action", Callable())
+			action.call()
 	get_viewport().set_input_as_handled()
 
 
@@ -642,8 +862,26 @@ func snap_camera() -> void:
 ## for stones. Playtest 8: "the required item cannot be seen on the map" — the
 ## sprite is 10 px on grass, so it needs to announce itself.
 func _draw() -> void:
+	# A broken ring and a chevron provide shape as well as colour. Only the
+	# current target is selected; unselected sheep have no quest-dot clutter.
+	var target := context_target()
+	if not target.is_empty():
+		var pos: Vector2 = target.get("position", Vector2.ZERO)
+		var col := Color(1.0, 0.93, 0.72, 0.92)
+		draw_arc(pos + Vector2(0, 2), 8.0, 0.15, PI - 0.15, 18, Color(col, 0.85), 1.2)
+		draw_arc(pos + Vector2(0, 2), 8.0, PI + 0.15, TAU - 0.15, 18, Color(col, 0.5), 1.0)
+		var target_node = target.get("node")
+		var mark_height := 24.0 if str(target.get("kind", "")) == "flock" else 23.0
+		if target_node is Npc:
+			mark_height = target_node.visual_height() + 7.0
+		var mark_y := pos.y - mark_height
+		var chevron := PackedVector2Array()
+		chevron.append(Vector2(pos.x - 3.0, mark_y))
+		chevron.append(Vector2(pos.x, mark_y + 3.0))
+		chevron.append(Vector2(pos.x + 3.0, mark_y))
+		draw_polyline(chevron, col, 1.2)
 	for it in pickups:
-		if bool(it.get("got", false)):
+		if bool(it.get("got", false)) or str(it.get("kind", "")) == "flock":
 			continue
 		var node: Node2D = it["node"]
 		if not is_instance_valid(node):
@@ -706,20 +944,46 @@ func apply_art_theme(theme: String) -> void:
 	if tex != null:
 		terrain.setup(model, tex, int(_tiles_meta.get("columns", 16)))
 	terrain.set_depth_mode(theme if themed else "none")
-	# Crafted props are OPT-IN per key: anything without a crafted variant keeps
-	# its classic sprite, so no prop ever disappears and no footprint changes.
+	# The sharper two-piece ground is still map-aligned: collision and exits
+	# continue to come from region JSON, never from the background pixels. Both
+	# parts are required; otherwise retain the earlier single-texture fallback.
+	var refined_top := "res://art/scenes_painted/world_%s_refined_top.png" % region_id
+	var refined_bottom := "res://art/scenes_painted/world_%s_refined_bottom.png" % region_id
+	var painted := "res://art/scenes_painted/world_%s_reference.png" % region_id
+	if not ResourceLoader.exists(painted):
+		painted = "res://art/scenes_painted/world_%s.png" % region_id
+	if theme == "cinematic" and ResourceLoader.exists(refined_top) and ResourceLoader.exists(refined_bottom):
+		terrain.set_painted_ground_pieces(load(refined_top) as Texture2D, load(refined_bottom) as Texture2D)
+	elif theme == "cinematic" and ResourceLoader.exists(painted):
+		terrain.set_painted_ground(load(painted) as Texture2D)
+	else:
+		terrain.set_painted_ground(null)
+	_apply_giant_theme(theme)
+	# A prop's texture and visual scale are reversible. Its bottom stays on
+	# the original tile, and its shadow follows its displayed width.
 	for p in _prop_sprites:
 		var d: Dictionary = p
 		var s: Sprite2D = d["sprite"]
 		var key: String = d["key"]
-		var classic := "res://art/props/%s.png" % key
-		var crafted := "res://art/props_%s/%s.png" % [theme, key]
-		var chosen := classic
-		if themed and ResourceLoader.exists(crafted):
-			chosen = crafted
-		var pt := load(chosen) as Texture2D
+		var at: Vector2i = d["at"]
+		var prop_path := _map_prop_texture_path(key, theme, at)
+		var pt := load(prop_path) as Texture2D
 		if pt != null:
 			s.texture = pt
+			var visual_scale := _prop_visual_scale(key, theme, prop_path)
+			s.scale = Vector2.ONE * visual_scale
+			var shadow: Dictionary = d["shadow"]
+			shadow["w"] = float(pt.get_width()) / float(s.hframes) * visual_scale * 0.42
+			var sort_raise := 0.0
+			if key == "tent" and region_id == "elah" and at == ROYAL_TENT_AT:
+				if prop_path.ends_with("/tent_royal_open.png"):
+					sort_raise = ROYAL_TENT_SORT_RAISE
+				# Reversible when switching back to classic. Compensate the sprite
+				# offset and shadow so only its sort point changes, not its base.
+				s.position.y = float(at.y + 1) * TILE - sort_raise
+			s.offset = Vector2(0, -float(pt.get_height()) / float(s.vframes) * 0.5
+				+ sort_raise / visual_scale)
+			shadow["offset"] = Vector2(0, sort_raise)
 	# The two actors in this scene have crafted 16px sheets. Other actors keep
 	# their classic sheets (their own apply_art_theme checks for both files).
 	if player != null and is_instance_valid(player):
@@ -731,26 +995,174 @@ func apply_art_theme(theme: String) -> void:
 	# same picture; swap their textures too, without touching their state.
 	for it in pickups:
 		var p: Dictionary = it
-		var node: Node2D = p.get("node")
-		if node == null or not is_instance_valid(node):
+		# Collected pickups remain as records after their nodes are freed. Check
+		# the untyped reference before assigning it to a typed Node2D; assigning
+		# a previously freed object itself raises a runtime error in Godot.
+		var node = p.get("node")
+		if not is_instance_valid(node):
 			continue
 		if node.has_method("apply_art_theme"):
-			node.call("apply_art_theme", theme)
+			if shepherd_field == null or str(p.get("kind", "")) != "flock":
+				node.call("apply_art_theme", theme)
 		else:
 			var key := str(p.get("sprite_key", "rock"))
-			var chosen := "res://art/props/%s.png" % key
-			var crafted := "res://art/props_%s/%s.png" % [theme, key]
-			if themed and ResourceLoader.exists(crafted):
-				chosen = crafted
+			var chosen := _prop_texture_path(key, theme)
 			for c in node.get_children():
 				if c is Sprite2D:
 					var sp: Sprite2D = c
 					sp.texture = load(chosen)
+					sp.scale = Vector2.ONE * (0.85 * _prop_visual_scale(key, theme, chosen))
 	if _shadow_layer != null:
 		_shadow_layer.call("set_enabled", themed)
-		_shadow_layer.call("set_mode", theme if themed else "storybook")
+		var shadow_mode := "painted_world" if terrain.painted_ground != null else (theme if themed else "storybook")
+		_shadow_layer.call("set_mode", shadow_mode)
 	if _rim_layer != null:
-		_rim_layer.call("set_enabled", theme == "cinematic")
+		_rim_layer.call("set_enabled", theme == "cinematic" and terrain.painted_ground == null)
+	if shepherd_field != null:
+		_apply_field_light()
+
+
+## Enter the approved, uniformly scaled painterly field while retaining the
+## production player, dialogue, interaction resolver and save flags.
+func enter_shepherd_field() -> void:
+	if shepherd_field != null:
+		return
+	shepherd_field = load("res://scripts/world/ShepherdFieldStage.gd").new()
+	add_child(shepherd_field)
+	shepherd_field.build()
+	terrain.visible = false
+	for p in _prop_sprites:
+		(p["sprite"] as Sprite2D).visible = false
+	_field_giant_visible = goliath_sprite != null and goliath_sprite.visible
+	if goliath_sprite != null:
+		goliath_sprite.visible = false
+	_field_npcs.clear()
+	for n in npcs:
+		_field_npcs.append({"node": n, "position": n.global_position, "visible": n.visible,
+			"z": n.z_index})
+		if n.npc_id() == "hired_boy":
+			n.global_position = shepherd_field.world(shepherd_field.HIRED_BOY)
+			n.visible = true
+			n.set_shepherd_field_appearance(true)
+		else:
+			n.visible = false
+			n.set_physics_process(false)
+			n.world_paused = true
+	_field_camera_bounds = cam.bounds
+	_field_camera_zoom = cam.zoom
+	_field_magnet = player.magnet
+	cam.bounds = shepherd_field.world_bounds()
+	_fit_field_camera()
+	player.setup(model, "david")
+	player.set_field_visual(true)
+	player.global_position = shepherd_field.world(shepherd_field.START)
+	player.velocity = Vector2.ZERO
+	player.collision_override = Callable(shepherd_field, "walkable")
+	player.world_speed_scale = 0.45
+	player.surface_speed_override = 1.0
+	player.footstep_override = "step_grass"
+	player.clamp_to_model = false
+	player.magnet = 0.0
+	_apply_field_light()
+	_update_field_depth()
+	snap_camera()
+
+
+func _fit_field_camera() -> void:
+	if shepherd_field == null or cam == null:
+		return
+	var zoom_value: float = shepherd_field.camera_zoom_for(get_viewport().get_visible_rect().size)
+	cam.zoom = Vector2.ONE * zoom_value
+	if player != null:
+		cam.set_follow(player)
+
+
+func _apply_field_light() -> void:
+	# The painting already contains the late sunlight; do not double-tint it.
+	if _mod != null:
+		_mod.color = Color.WHITE
+	player.external_shadow = true
+	_shadow_layer.call("set_enabled", true)
+	_shadow_layer.call("set_mode", "painted_field")
+	_rim_layer.call("set_enabled", false)
+
+
+func _update_field_depth() -> void:
+	if shepherd_field == null:
+		return
+	player.z_index = shepherd_field.depth_at(player.global_position)
+	for n in npcs:
+		if n.visible:
+			n.z_index = shepherd_field.depth_at(n.global_position)
+	for p in pickups:
+		var item = p.get("node")
+		if str(p.get("kind", "")) == "flock" and is_instance_valid(item):
+			var node: Node2D = item
+			node.z_index = shepherd_field.depth_at(node.global_position)
+
+
+## Restore the valley at the next story cut. Kept explicit so the old map's
+## collision/camera/actors never remain hidden after the shepherd scene.
+func leave_shepherd_field() -> void:
+	if shepherd_field == null:
+		return
+	player.collision_override = Callable()
+	player.world_speed_scale = 1.0
+	player.surface_speed_override = -1.0
+	player.footstep_override = ""
+	player.clamp_to_model = true
+	player.set_field_visual(false)
+	player.magnet = _field_magnet
+	player.z_index = 0
+	cam.bounds = _field_camera_bounds
+	cam.zoom = _field_camera_zoom
+	terrain.visible = true
+	for p in _prop_sprites:
+		(p["sprite"] as Sprite2D).visible = true
+	if goliath_sprite != null:
+		goliath_sprite.visible = _field_giant_visible and not bool(GameState.flag("goliath_down"))
+	for state in _field_npcs:
+		var n: Npc = state["node"]
+		if not is_instance_valid(n):
+			continue
+		n.global_position = state["position"]
+		n.visible = bool(state["visible"])
+		n.z_index = int(state["z"])
+		if n.npc_id() == "hired_boy":
+			n.set_shepherd_field_appearance(false)
+		n.world_paused = _paused
+		n.set_physics_process(not _paused)
+	_field_npcs.clear()
+	# The field is a different world, not an overlay on the valley. A last
+	# sheep can still be in its short return animation when the story cuts
+	# away; do not let it or its shadow remain on the restored tile map. Save
+	# flags stay in GameState, and re-entering can spawn any unfinished sheep.
+	var remaining: Array = []
+	for item in pickups:
+		var entry: Dictionary = item
+		if not bool(entry.get("field_flock", false)):
+			remaining.append(entry)
+			continue
+		var animal = entry.get("node")
+		if is_instance_valid(animal):
+			_shadow_layer.call("remove_target", animal)
+			animal.queue_free()
+	_shadow_layer.call("remove_target", null) # prune sheep that already finished their tween
+	pickups = remaining
+	shepherd_field.queue_free()
+	shepherd_field = null
+	_apply_time(str(GameState.data.get("time_of_day", "morning")))
+	player.external_shadow = _art_theme != "classic"
+	_shadow_layer.call("set_enabled", _art_theme != "classic")
+	var shadow_mode := "painted_world" if terrain.painted_ground != null else (_art_theme if _art_theme != "classic" else "storybook")
+	_shadow_layer.call("set_mode", shadow_mode)
+	_rim_layer.call("set_enabled", _art_theme == "cinematic" and terrain.painted_ground == null)
+
+
+func place_name() -> String:
+	if shepherd_field != null:
+		return I18n.t({"zh": "伯利恒牧场", "en": "Bethlehem Fields"})
+	return I18n.t(model.display_name) if model != null else ""
 
 
 func is_paused() -> bool:
@@ -763,5 +1175,6 @@ func set_paused(v: bool) -> void:
 		player.set_process(!v)
 		player.set_physics_process(!v)
 	for n in npcs:
-		n.set_physics_process(!v)
-		n.world_paused = v
+		var hidden_in_field := shepherd_field != null and not n.visible
+		n.set_physics_process(not v and not hidden_in_field)
+		n.world_paused = v or hidden_in_field

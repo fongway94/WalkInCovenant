@@ -19,6 +19,7 @@ Usage:  python3 tools/api_check.py            # exits non-zero on any finding
 """
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -88,7 +89,7 @@ own_classes = set()
 
 
 def godot_version():
-    txt = open(os.path.join(ROOT, "project.godot"), encoding="utf-8").read()
+    txt = Path(ROOT, "project.godot").read_text(encoding="utf-8")
     m = re.search(r'config/features=PackedStringArray\("([^"]+)"', txt)
     if m:
         return m.group(1)
@@ -136,7 +137,7 @@ def vendor_version():
         p = os.path.join(VENDOR, "VERSION")
         VENDOR_VERSION = ""
         if os.path.isfile(p):
-            VENDOR_VERSION = open(p, encoding="utf-8").read().strip()
+            VENDOR_VERSION = Path(p).read_text(encoding="utf-8").strip()
     return VENDOR_VERSION
 
 
@@ -148,11 +149,11 @@ def fetch_doc(cls):
     if REF is not None and vendor_version() == REF:
         vend = os.path.join(VENDOR, "v3-" + cls + ".json")
         if os.path.isfile(vend):
-            docs[cls] = json.load(open(vend, encoding="utf-8"))
+            docs[cls] = json.loads(Path(vend).read_text(encoding="utf-8"))
             return docs[cls]
     path = os.path.join(CACHE, "v3-" + cls + ".json")
     if os.path.isfile(path):
-        docs[cls] = json.load(open(path, encoding="utf-8"))
+        docs[cls] = json.loads(Path(path).read_text(encoding="utf-8"))
         return docs[cls]
 
     xml = gh("doc/classes/%s.xml" % cls)
@@ -183,7 +184,7 @@ def fetch_doc(cls):
            "methods": methods, "virtuals": sorted(virtuals)}
     docs[cls] = doc
     os.makedirs(CACHE, exist_ok=True)
-    json.dump(doc, open(path, "w", encoding="utf-8"))
+    Path(path).write_text(json.dumps(doc), encoding="utf-8")
     return doc
 
 
@@ -294,7 +295,7 @@ def types_in(lines, a, b, sig, global_types, preloads):
 
 def scan(path):
     rel = os.path.relpath(path, ROOT)
-    src = open(path, encoding="utf-8").read()
+    src = Path(path).read_text(encoding="utf-8")
     lines = src.split("\n")
 
     preloads = set(re.findall(r"^const\s+(\w+)\s*=\s*preload\(", src, re.M))
@@ -400,7 +401,7 @@ def main():
             if f.endswith(".gd"):
                 own_classes |= set(re.findall(
                     r"^class_name\s+(\w+)",
-                    open(os.path.join(base, f), encoding="utf-8").read(), re.M))
+                    Path(base, f).read_text(encoding="utf-8"), re.M))
     print("api_check: verifying against Godot %s class reference" % REF)
 
     gd = []

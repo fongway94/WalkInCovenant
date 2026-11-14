@@ -1,8 +1,10 @@
 # BROWSER VALIDATION — the exported game, opened in Chromium
 
-> **Status:** release candidate evidence, **not** a declaration of completion.
-> This file records what a real browser actually did with the Godot 4.7 Web
-> export, what it proved, and what it did not.
+> **Historical release-candidate evidence, not a declaration of completion.**
+> The runs described here predate the current painted chapter changes. For the
+> later fresh-save browser journey, separate test-pack boundary and outstanding
+> reviews, see [AGENT_CONTINUATION.md](AGENT_CONTINUATION.md). This file records
+> what the earlier Godot 4.7 Web export proved and what it did not.
 
 ## 0. Why this lives in CI
 

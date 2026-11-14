@@ -20,6 +20,9 @@ const SWEEP := 1.20            # seconds for one pass of the marker
 const RESOLVE_TIME := 0.70     # how long the verdict stays up
 const BAND_START := 0.26       # generous: half the world is not a test
 const BAND_STEP := 0.03
+const PAINTED_BG := preload("res://art/scenes_painted/practice.png")
+const PAINTED_DAVID := preload("res://art/proto/sprites/david_reference.png")
+const PAINTED_JAR := preload("res://art/props_painted/jar.png")
 
 enum Phase { AIM, RESOLVE, DONE }
 
@@ -44,11 +47,13 @@ var _player: TextureRect = null
 func _ready() -> void:
 	layer = 22
 	_build()
-	art_theme = ArtDirection.current()
+	apply_art_theme(ArtDirection.current())
 
 
 func apply_art_theme(theme: String) -> void:
 	art_theme = theme
+	if _player != null:
+		_player.texture = PAINTED_DAVID if theme == "cinematic" else _frame("res://art/characters/david_idle.png")
 	if _layer != null and is_instance_valid(_layer):
 		_layer.queue_redraw()
 
@@ -74,7 +79,11 @@ func _build() -> void:
 	_player = TextureRect.new()
 	_player.texture = _frame("res://art/characters/david_idle.png")
 	_player.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Ignore the source's native minimum size so the 44px layout is respected.
+	# Otherwise the 70x98 painted figure grows across the instruction line.
+	_player.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_player.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_player.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_player.anchor_left = 0.0; _player.anchor_right = 0.0
 	_player.anchor_top = 1.0; _player.anchor_bottom = 1.0
 	_player.offset_left = 22; _player.offset_right = 22 + 44
@@ -115,13 +124,27 @@ func _process(delta: float) -> void:
 				else:
 					phase = Phase.AIM
 					_band = maxf(0.12, _band - BAND_STEP)
+	# Controls cache their drawing until explicitly invalidated. The marker,
+	# jar state and A-button cue otherwise freeze on the first frame even
+	# though the timing logic keeps running behind the static picture.
+	if _layer != null:
+		_layer.queue_redraw()
 
 
 func _on_gui(event: InputEvent) -> void:
-	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+	var clicked := false
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		clicked = mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT
+	elif event is InputEventScreenTouch:
+		clicked = (event as InputEventScreenTouch).pressed
+	if not clicked:
+		return
+	# A touch may also be delivered as an emulated mouse click. Treat the two
+	# as one release, just as the duel and brook already do.
+	if TapGate.take():
 		press()
-	elif event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
-		press()
+	get_viewport().set_input_as_handled()
 
 
 ## The keyboard and the pad. This scene only listened to the GUI, so on a desktop
@@ -187,27 +210,32 @@ func _say(text: String, secs: float = 1.4) -> void:
 
 
 # ── drawing ──────────────────────────────────────────────────────────────
+## Use the same source-detailed clay as the world, without changing the
+## target positions, timing, or the shards drawn after a successful hit.
+func _draw_painted_jar(foot: Vector2) -> void:
+	_layer.draw_circle(foot + Vector2(1, 0), 6.5, Color(0.08, 0.10, 0.06, 0.28))
+	# The 18x26 canvas includes transparent space above the visible jar; its
+	# bottom therefore stays exactly on the existing target foot position.
+	_layer.draw_texture_rect(PAINTED_JAR, Rect2(foot + Vector2(-9, -26), Vector2(18, 26)), false)
+
+
 func _draw_all() -> void:
 	var vs: Vector2 = _layer.size
 	if vs.x <= 0.0:
 		return
 	var font := ThemeDB.fallback_font
 	var b := art_theme == "cinematic"
-	var bg_col := Color(0.20, 0.16, 0.11, 0.86) if b \
-		else Color(0.10, 0.12, 0.14, 0.82)
-	_layer.draw_rect(Rect2(Vector2.ZERO, vs), bg_col)
 	var ground := vs.y - 30.0
-	var ground_col := Color(0.42, 0.32, 0.18, 0.92) if b \
-		else Color(0.22, 0.24, 0.15, 0.9)
-	_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 30)), ground_col)
-	# the wall the jars stand against
 	var wall := Rect2(Vector2(vs.x * 0.5 - 92, ground - 46), Vector2(184, 46))
-	var wall_col := Color(0.58, 0.45, 0.28, 0.95) if b \
-		else Color(0.32, 0.29, 0.24, 0.95)
-	var wall_top := Color(0.80, 0.64, 0.36, 0.95) if b \
-		else Color(0.44, 0.40, 0.32, 0.95)
-	_layer.draw_rect(wall, wall_col)
-	_layer.draw_rect(Rect2(wall.position, Vector2(wall.size.x, 2)), wall_top)
+	if b:
+		PaintedBackdrop.draw_cover(_layer, PAINTED_BG, vs)
+		_layer.draw_rect(Rect2(0, 0, vs.x, 29), Color(0.06, 0.09, 0.06, 0.48))
+		_layer.draw_rect(Rect2(0, vs.y - 27, vs.x, 27), Color(0.06, 0.07, 0.05, 0.30))
+	else:
+		_layer.draw_rect(Rect2(Vector2.ZERO, vs), Color(0.10, 0.12, 0.14, 0.82))
+		_layer.draw_rect(Rect2(Vector2(0, ground), Vector2(vs.x, 30)), Color(0.22, 0.24, 0.15, 0.9))
+		_layer.draw_rect(wall, Color(0.32, 0.29, 0.24, 0.95))
+		_layer.draw_rect(Rect2(wall.position, Vector2(wall.size.x, 2)), Color(0.44, 0.40, 0.32, 0.95))
 
 	var left := 22.0
 	var right := vs.x - 22.0
@@ -221,6 +249,8 @@ func _draw_all() -> void:
 				else Color(0.48, 0.44, 0.38, 0.9)
 			_layer.draw_rect(Rect2(Vector2(cx - 3, ground - 4), Vector2(6, 4)), shard_a)
 			_layer.draw_rect(Rect2(Vector2(cx - 9, ground - 2), Vector2(4, 2)), shard_b)
+		elif b:
+			_draw_painted_jar(Vector2(cx, ground))
 		else:
 			var body := Rect2(Vector2(cx - 5, ground - 20), Vector2(10, 20))
 			var clay := Color(0.72, 0.48, 0.26, 1.0) if b \

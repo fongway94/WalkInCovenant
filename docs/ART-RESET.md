@@ -1,17 +1,17 @@
 # ART DIRECTION RESET — real diagnosis, three prototypes, one honest verdict
 
-> **Status: comparison produced, direction retargeted to the user's Direction B,
-> the working branch is LIVE for human playtest, and B v4 — quiet ground, a
-> lighter HUD and B-skinned setpieces — is shipping there (§12.11). The visual
-> overhaul is NOT complete and exact parity with a painterly concept is NOT
-> claimed. All 16px-grid animation, collision, gameplay and save format hold.**
+> **Historical comparison.** The user later approved the painterly shepherd-field
+> prototype, and that field plus additional painted chapter art are now in the
+> working tree. The later art and full chapter have **not** been approved or
+> deployed. See [continuation](AGENT_CONTINUATION.md) and [field review](art-reset/SHEPHERD_FIELD_REVIEW.md)
+> for current implementation, evidence and limitations. Earlier statements
+> below about the branch being live or the default assets being unchanged describe
+> the time of that comparison, not the present build.
 >
-> This file is the evidence for the user's explicit gate: *"START WITH THE
-> EXISTING SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION
-> COMPARISON BEFORE UNDERTAKING ANOTHER FULL GRAPHICAL REBUILD."* No existing
-> asset was replaced in the default build. No new chapter, no PR, no merge to
-> `main`. On 2026-11-10 the user explicitly authorised a **working-branch live
-> preview** (§12.8); that is a preview deployment, not a release or a merge.
+> This file records the user's original gate: *"START WITH THE EXISTING
+> SHEPHERD-FIELD SCREENSHOT AND PRODUCE A REAL ART-DIRECTION COMPARISON BEFORE
+> UNDERTAKING ANOTHER FULL GRAPHICAL REBUILD."* The prior working-branch preview
+> was not a release or a merge.
 >
 > Benchmark: the **craftsmanship and readability** of Pokémon HeartGold /
 > SoulSilver, Black / White and Black 2 / White 2 — palette discipline, character

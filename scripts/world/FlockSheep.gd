@@ -56,6 +56,12 @@ var _sprite: Sprite2D = null
 var _up_tex: Texture2D = null
 var _graze_tex: Texture2D = null
 var _alert_tex: Texture2D = null
+var _field_frames: Array[Texture2D] = []
+var _field_walkable: Callable = Callable()
+var _field_route: Callable = Callable()
+var _home_path := PackedVector2Array()
+var _home_path_index := 0
+var _home_path_asked := false
 
 
 func setup(id: String, at: Array, fold_at: Array, temper_name: String,
@@ -99,6 +105,11 @@ func apply_art_theme(theme: String) -> void:
 			and ResourceLoader.exists("%s/sheep_graze.png" % alt) \
 			and ResourceLoader.exists("%s/sheep_alert.png" % alt):
 		d = alt
+	var painted := "res://art/props_painted"
+	if theme == "cinematic" and ResourceLoader.exists(painted + "/sheep.png") \
+			and ResourceLoader.exists(painted + "/sheep_graze.png") \
+			and ResourceLoader.exists(painted + "/sheep_alert.png"):
+		d = painted
 	_up_tex = load("%s/sheep.png" % d)
 	_graze_tex = load("%s/sheep_graze.png" % d)
 	_alert_tex = load("%s/sheep_alert.png" % d)
@@ -110,6 +121,35 @@ func apply_art_theme(theme: String) -> void:
 			_sprite.texture = _alert_tex
 		else:
 			_sprite.texture = _up_tex
+		if d == painted:
+			_sprite.scale = Vector2.ONE * (0.425 / ArtDirection.PAINTED_PROP_DETAIL_FACTOR)
+			_sprite.offset = Vector2(0, -float(_up_tex.get_height()) * 0.5)
+		else:
+			_sprite.scale = Vector2.ONE * 0.85
+			_sprite.offset = Vector2.ZERO
+
+
+## The production field uses the same independent reference-derived sheep as
+## the approved prototype, at the field's uniform world scale.
+func apply_shepherd_field(at: Vector2, home: Vector2, variant: int,
+		walkable: Callable, route: Callable) -> void:
+	anchor = at
+	fold = home
+	global_position = at
+	_field_walkable = walkable
+	_field_route = route
+	_home_path = PackedVector2Array()
+	_home_path_index = 0
+	_home_path_asked = false
+	var suffix := "a" if variant % 2 == 0 else "b"
+	var base := "res://art/proto/sprites/sheep_reference_" + suffix
+	_field_frames = [load(base + ".png"), load(base + "_stride_a.png"), load(base + "_stride_b.png")]
+	_up_tex = _field_frames[0]
+	_graze_tex = _field_frames[0]
+	_alert_tex = _field_frames[0]
+	_sprite.texture = _up_tex
+	_sprite.scale = Vector2.ONE * (0.66 * 0.35)
+	_sprite.offset = Vector2(0, -float(_up_tex.get_height()) * 0.5)
 
 
 func mood_name() -> String:
@@ -190,9 +230,43 @@ func _step_toward_fold(delta: float) -> void:
 	if to_fold.length() <= HOME_RADIUS or to_fold.length() < 1.0:
 		arrived.emit(sheep_id, true)
 		return
-	global_position += to_fold.normalized() * HOME_SPEED * delta
-	_sprite.flip_h = to_fold.x < 0.0
+	if not _field_route.is_valid():
+		global_position += to_fold.normalized() * HOME_SPEED * delta
+		_sprite.flip_h = to_fold.x < 0.0
+		return
+	if not _home_path_asked:
+		_home_path = _field_route.call(global_position, fold)
+		_home_path_index = 0
+		_home_path_asked = true
+	var travel := HOME_SPEED * delta
+	while travel > 0.0 and _home_path_index < _home_path.size():
+		var target: Vector2 = _home_path[_home_path_index]
+		var distance := global_position.distance_to(target)
+		if distance < 0.01:
+			_home_path_index += 1
+			continue
+		var next := global_position.move_toward(target, travel)
+		# The field owns the route and collision. If it changes or disappears,
+		# stop rather than tunnelling through a prop. A deliberate count still
+		# works if a route cannot be found.
+		if not _field_segment_clear(global_position, next):
+			_home_path = PackedVector2Array()
+			return
+		_sprite.flip_h = next.x < global_position.x
+		global_position = next
+		travel -= minf(distance, travel)
+		if distance <= 0.01 or global_position.distance_to(target) < 0.01:
+			_home_path_index += 1
 
+
+func _field_segment_clear(a: Vector2, b: Vector2) -> bool:
+	if not _field_walkable.is_valid():
+		return false
+	var steps := maxi(1, ceili(a.distance_to(b)))
+	for i in range(steps + 1):
+		if not bool(_field_walkable.call(a.lerp(b, float(i) / float(steps)))):
+			return false
+	return true
 
 func _clamp_to_leash() -> void:
 	# Never leave the authored tile, never walk into a rock, never wander off
@@ -201,6 +275,10 @@ func _clamp_to_leash() -> void:
 	var lim := _leash * 1.8
 	if off.length() > lim:
 		global_position = anchor + off.normalized() * lim
+	if _field_walkable.is_valid():
+		if not bool(_field_walkable.call(global_position)):
+			global_position = anchor
+		return
 	if region != null and region.get("model") != null:
 		var m = region.get("model")
 		var tx := int(floor(global_position.x / TILE))
@@ -220,7 +298,13 @@ func _animate() -> void:
 	# Two frames + a one-pixel bob. Head down while grazing, head up when the
 	# animal has noticed anything, head up and moving when being driven home.
 	var eating := (_t + _phase) < 0.0 or fmod(_t + _phase, 2.4) < 1.15
-	if mood == Mood.GRAZE and eating and _graze_bias > 0.3:
+	if not _field_frames.is_empty():
+		var stride := sin(_t * 9.0 + _phase)
+		var frame := 0
+		if mood == Mood.HERDED or mood == Mood.GOING_HOME or (mood == Mood.ALERT and _startle > 0.0):
+			frame = 1 if stride > 0.25 else (2 if stride < -0.25 else 0)
+		_sprite.texture = _field_frames[frame]
+	elif mood == Mood.GRAZE and eating and _graze_bias > 0.3:
 		_sprite.texture = _graze_tex
 	elif mood == Mood.GRAZE:
 		_sprite.texture = _up_tex
@@ -251,8 +335,33 @@ func go_home() -> void:
 	_leaving = true
 	_sprite.texture = _alert_tex
 	var tw := create_tween()
-	var target := fold if (fold - global_position).length() < 64.0 \
-		else global_position + (fold - global_position).normalized() * 48.0
-	tw.tween_property(self, "global_position", target, 0.38)
+	# A visible answering hop precedes the return, even when already close to
+	# the fold. The feet/shadow remain at the node, not baked into the art.
+	tw.tween_property(_sprite, "position:y", -4.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_sprite, "position:y", 0.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if _field_route.is_valid():
+		# The visible return uses the same routed footpath as a guided animal.
+		# Limit the exit animation to 48 world units; the counter was saved at
+		# the deliberate action, so no long walk blocks the chapter.
+		var points: PackedVector2Array = _field_route.call(global_position, fold)
+		var remaining := 48.0
+		var prior := global_position
+		for point in points:
+			if remaining <= 0.01:
+				break
+			var distance := prior.distance_to(point)
+			if distance < 0.01:
+				continue
+			var length := minf(distance, remaining)
+			var target := prior.move_toward(point, length)
+			if not _field_segment_clear(prior, target):
+				break
+			tw.tween_property(self, "global_position", target, length / 100.0)
+			prior = target
+			remaining -= length
+	else:
+		var target := fold if (fold - global_position).length() < 64.0 \
+			else global_position + (fold - global_position).normalized() * 48.0
+		tw.tween_property(self, "global_position", target, 0.38)
 	tw.tween_property(_sprite, "modulate:a", 0.0, 0.16)
 	tw.tween_callback(queue_free)

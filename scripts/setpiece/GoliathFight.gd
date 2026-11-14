@@ -34,6 +34,11 @@ const DUEL_DAVID := preload("res://art/duel/david.png")
 ## remapped to the shared B palette. Preloaded so the Web export ships them.
 const DUEL_GOLIATH_B := preload("res://art/duel_cinematic/goliath_cinematic.png")
 const DUEL_DAVID_B := preload("res://art/duel_cinematic/david_cinematic.png")
+## Newly painted production picture and separate, animated character assets.
+const PAINTED_BG := preload("res://art/scenes_painted/duel.png")
+const PAINTED_GOLIATH := preload("res://art/scenes_painted/goliath.png")
+const PAINTED_GOLIATH_STRIKING := preload("res://art/scenes_painted/goliath_striking.png")
+const PAINTED_DAVID := preload("res://art/proto/sprites/david_reference.png")
 const STONES := 5
 const NERVE := 3
 
@@ -52,8 +57,8 @@ enum Phase { TELEGRAPH, STRIKE, AIM, RESOLVE, DONE }
 ## file. The HUD is hidden while a setpiece owns the screen (BUG-021), so the
 ## screen has to say what the player is trying to do.
 var objective_text := ""
-## ArtDirection.current() picks B for the live Web preview and classic for
-## desktop/headless/Xvfb. tests/visual.gd can override it for frame 18.
+## ArtDirection.current() supplies the shared production default. Explicit
+## overrides remain available for classic/cinematic comparison tests.
 var art_theme := "classic"
 var phase: Phase = Phase.TELEGRAPH
 var hits := 0
@@ -127,11 +132,17 @@ func _apply_theme_textures() -> void:
 	if _gol == null or _david == null:
 		return
 	if art_theme == "cinematic":
-		_gol.texture = DUEL_GOLIATH_B
-		_david.texture = DUEL_DAVID_B
+		_gol.texture = PAINTED_GOLIATH
+		_david.texture = PAINTED_DAVID
+		# The champion is the duel sprite at 2x, so both themes now keep the
+		# cast's nearest sampling instead of smoothing his inked edges away.
+		_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_david.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	else:
 		_gol.texture = DUEL_GOLIATH
 		_david.texture = DUEL_DAVID
+		_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_david.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func _build() -> void:
@@ -152,6 +163,7 @@ func _build() -> void:
 	# makes both sheets hard dependencies of the web export.
 	_gol.texture = DUEL_GOLIATH
 	_gol.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_gol.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_gol.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_gol.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gol)
@@ -159,6 +171,7 @@ func _build() -> void:
 	_david = TextureRect.new()
 	_david.texture = DUEL_DAVID
 	_david.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_david.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_david.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_david.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_david)
@@ -242,12 +255,12 @@ func _draw_ground(vs: Vector2, ground: float,
 ## A contact shadow under each figure. Without one the two drawn sprites look
 ## pasted onto the backdrop instead of standing on the same ground.
 func _draw_shadow(base: Vector2, size: Vector2,
-		col: Color = Color(0.06, 0.05, 0.05, 0.38)) -> void:
+		col: Color = Color(0.06, 0.05, 0.05, 0.38), spread: float = 0.44) -> void:
 	var center := base + Vector2(size.x * 0.5, size.y - 1.0)
 	var pts := PackedVector2Array()
 	for i in range(12):
 		var a := TAU * float(i) / 12.0
-		pts.append(center + Vector2(cos(a) * size.x * 0.44, sin(a) * 3.0))
+		pts.append(center + Vector2(cos(a) * size.x * spread, sin(a) * 3.0))
 	_bg.draw_colored_polygon(pts, col)
 
 
@@ -543,7 +556,14 @@ func _redraw_bg() -> void:
 		return
 	var ground := vs.y * 0.66
 	if art_theme == "cinematic":
-		_redraw_bg_cinematic(vs, ground)
+		PaintedBackdrop.draw_cover(_bg, PAINTED_BG, vs)
+		# A quiet upper scrim protects bilingual instructions from the sunlit
+		# sky; the independent figures and gameplay cues stay above this layer.
+		_bg.draw_rect(Rect2(0, 0, vs.x, 51), Color(0.07, 0.09, 0.07, 0.54))
+		# Their transparent canvases are much wider than their feet. Keep the
+		# contact patches soft and close to the visible painted figures.
+		_draw_shadow(_gol_base, _gol.size, Color(0.09, 0.13, 0.08, 0.28), 0.20)
+		_draw_shadow(_david_base, _david.size, Color(0.09, 0.13, 0.08, 0.28), 0.25)
 		return
 
 	# ── classic: the valley of Elah at dusk ────────────────────────────
@@ -618,6 +638,12 @@ func _redraw() -> void:
 	var font := ThemeDB.fallback_font
 	var e := ScreenFit.edge(vs)
 	var b := art_theme == "cinematic"
+	if b:
+		# The painted standing figure holds a spear. Hide its baked shaft only
+		# during the moving thrust, when the layer draws that spear separately.
+		var figure := PAINTED_GOLIATH_STRIKING if phase == Phase.STRIKE else PAINTED_GOLIATH
+		if _gol.texture != figure:
+			_gol.texture = figure
 
 	var jitter := Vector2.ZERO
 	if _shake > 0.0:
@@ -662,17 +688,20 @@ func _redraw() -> void:
 			_layer.draw_string(font, head + Vector2(-26, 4), "!",
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.90, 0.75, 1.0))
 		Phase.STRIKE:
-			# the spear: red means move, and it comes from him to you
-			var from := head + Vector2(-10, 26)
-			var to := _david.position + Vector2(_david.size.x * 0.5, -6)
-			var at := from.lerp(to, clampf(_strike / DODGE_WINDOW, 0.0, 1.0))
-			_layer.draw_line(from, at, Color(0.20, 0.14, 0.10, 0.95), 5.0)
-			_layer.draw_line(from, at, Color(0.92, 0.30, 0.24, 0.85), 2.0)
-			var tip := PackedVector2Array()
-			tip.append(at + Vector2(0, -5))
-			tip.append(at + Vector2(-7, 0))
-			tip.append(at + Vector2(0, 5))
-			_layer.draw_colored_polygon(tip, Color(1, 0.88, 0.62, 0.95))
+			if b:
+				_draw_painted_spear()
+			else:
+				# Classic figure: red means move, and it comes from him to you.
+				var from := head + Vector2(-10, 26)
+				var to := _david.position + Vector2(_david.size.x * 0.5, -6)
+				var at := from.lerp(to, clampf(_strike / DODGE_WINDOW, 0.0, 1.0))
+				_layer.draw_line(from, at, Color(0.20, 0.14, 0.10, 0.95), 5.0)
+				_layer.draw_line(from, at, Color(0.92, 0.30, 0.24, 0.85), 2.0)
+				var tip := PackedVector2Array()
+				tip.append(at + Vector2(0, -5))
+				tip.append(at + Vector2(-7, 0))
+				tip.append(at + Vector2(0, 5))
+				_layer.draw_colored_polygon(tip, Color(1, 0.88, 0.62, 0.95))
 		Phase.AIM:
 			_band_marker(head)
 
@@ -774,13 +803,40 @@ func _redraw() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ink)
 
 
+## A single moving shaft pivots from the painted warrior's gripping hand.
+## Its standing counterpart is baked into the idle image, but the striking
+## image omits that shaft. Red along the point remains the dodge cue.
+func _draw_painted_spear() -> void:
+	var hand := _gol.position + _gol.size * Vector2(0.295, 0.39)
+	var raised_tip := _gol.position + _gol.size * Vector2(0.265, 0.015)
+	var target := _david.position + _david.size * Vector2(0.5, 0.55)
+	var point := raised_tip.lerp(target, clampf(_strike / DODGE_WINDOW, 0.0, 1.0))
+	var direction := (point - hand).normalized()
+	if direction.length_squared() < 0.01:
+		direction = Vector2.UP
+	var butt := hand - direction * _gol.size.y * 0.56
+	_layer.draw_line(butt, point, Color(0.20, 0.12, 0.07, 0.98), 3.4)
+	_layer.draw_line(butt, point, Color(0.73, 0.40, 0.20, 0.98), 1.5)
+	var perpendicular := Vector2(-direction.y, direction.x)
+	var blade := PackedVector2Array()
+	blade.append(point + direction * 5.0)
+	blade.append(point - direction * 6.0 + perpendicular * 3.4)
+	blade.append(point - direction * 6.0 - perpendicular * 3.4)
+	_layer.draw_colored_polygon(blade, Color(1.0, 0.42, 0.28, 0.98))
+
+
 func _head() -> Vector2:
-	return _gol_base + Vector2(_gol.size.x * 0.5, _gol.size.y * 0.30)
+	# The new full-body figure's forehead sits higher than the legacy 64px art.
+	var height := 0.19 if art_theme == "cinematic" else 0.30
+	return _gol_base + Vector2(_gol.size.x * 0.5, _gol.size.y * height)
 
 
 ## The gold band on his forehead, and the marker that has to be inside it.
 func _band_marker(head: Vector2) -> void:
-	var half := clampf(_gol.size.x * 0.30, 18.0, 36.0)
+	# The painted giant's transparent canvas is substantially wider than
+	# his forehead; keep the sweep visible without covering his entire head.
+	var half := clampf(_gol.size.x * 0.13, 12.0, 18.0) if art_theme == "cinematic" \
+		else clampf(_gol.size.x * 0.30, 18.0, 36.0)
 	var band := half * (_band / 0.26)
 	var cy := head.y
 	_layer.draw_rect(Rect2(Vector2(head.x - half, cy - 8), Vector2(half * 2.0, 16)),
