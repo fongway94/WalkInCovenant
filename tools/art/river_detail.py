@@ -501,11 +501,16 @@ def _stone_detail(image, water, seed=4517):
     detail = ImageChops.blend(image, detail, 0.75)
     flat = ImageOps.posterize(detail, 5)
     painted = ImageChops.blend(detail, flat, 0.55)
-    # the stone's own underside sits lower in the water
-    below = ImageChops.offset(core, 0, -3)
-    contact = ImageChops.multiply(core, ImageChops.invert(below))
-    painted = Image.composite(Image.new("RGB", image.size, (104, 84, 64)), painted,
-                              contact.point(lambda value: round(value * 0.5)))
+    # Bevel: the top of every stone catches the sky, its underside sits in the
+    # water. One pixel each, so the silhouette reads as a painted outline.
+    up_out = ImageChops.invert(ImageChops.offset(core, 0, 1))
+    down_out = ImageChops.invert(ImageChops.offset(core, 0, -1))
+    top_edge = ImageChops.multiply(core, up_out)
+    bottom_edge = ImageChops.multiply(core, down_out)
+    lit = ImageChops.add(painted, Image.new("RGB", image.size, (30, 27, 20)))
+    dark = ImageChops.subtract(painted, Image.new("RGB", image.size, (44, 39, 30)))
+    painted = Image.composite(lit, painted, top_edge.point(lambda value: round(value * 0.6)))
+    painted = Image.composite(dark, painted, bottom_edge.point(lambda value: round(value * 0.75)))
     return Image.composite(painted, image, core), core
 
 
