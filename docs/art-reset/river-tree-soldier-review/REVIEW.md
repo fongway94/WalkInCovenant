@@ -89,25 +89,17 @@ artifact: live `index.pck`
 `15eb3b70d1b46e8210b42b7930cdf7611149d1517c88a7a2e87f33969be6bbcf`
 (36,500,668 bytes), and `index.html` / `index.wasm` match too.
 
-## The ceiling this pass runs into
+## Why the river still reads soft
 
-The game's design canvas is **320x180 logical pixels** (`project.godot`,
-`ScreenFit.BASE`) and it is stretched to the phone — about 4.9x on a
-1568-pixel-wide screen. The ground texture holds four pixels per world pixel, so
-at that window the texture is *downsampled* into the canvas and then upscaled
-again. Detail finer than about one world pixel (four texture pixels) cannot
-survive that round trip: it averages away, and the browser's filter turns what is
-left into blur.
+Measured against the user's own phone screenshot at 3x: the grass blades and the
+stone rims *do* come through crisply, so the renderer is not smearing the
+picture — the canvas is high resolution and the art is arriving intact. The
+river alone stays soft because of how it is painted: the surface is a blurred
+field with strokes laid on top of it, so roughly half of every pixel is still
+the airbrushed base. Two later attempts (posterising harder, flattening the
+stones further) only traded contrast for flatness and were reverted rather than
+shipped.
 
-That is why the water kept reading as soft however much grain was added, and why
-the stones read as airbrushed. Anything painted at 1-2 texture pixels is below
-the visible threshold. Two ways forward:
-
-1. paint the brook and the stones at 4-8 texture pixels (one to two world
-   pixels), the scale the meadow's grass tufts already use, so the detail
-   survives the downscale; or
-2. raise the render resolution (for example a 640x360 canvas with the camera and
-   UI scaled to match), which sharpens everything, not just the river, but is a
-   layout change rather than an art change.
-
-Neither is in this build.
+The honest next step for the water is to build the surface from strokes alone —
+no blurred base underneath — so every pixel is paint. That is a rewrite of the
+water pass, not a tuning value.
