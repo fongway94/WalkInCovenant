@@ -688,11 +688,28 @@ func _run() -> void:
 		"duel figures respect their layout sizes")
 	var idle := GoliathFight.PAINTED_GOLIATH.get_image()
 	var striking := GoliathFight.PAINTED_GOLIATH_STRIKING.get_image()
-	# The champion is the duel's own 64px sprite doubled, so these points are on
-	# his shaft (above the grip) and inside his hand.
-	_check(idle.get_pixel(106, 20).a > 0.9 and striking.get_pixel(106, 20).a == 0.0
-		and idle.get_pixel(108, 40).a > 0.9 and striking.get_pixel(108, 40).a == 0.0
-		and striking.get_pixel(104, 70).a > 0.9,
+	# Read the spear and the fist out of the art instead of pinning coordinates:
+	# the champion was repainted, and a literal 106/20 kept testing the sprite he
+	# replaced. The shaft is the one column that is solid from the top row down
+	# through his shoulder line; the grip is the first row where it stays solid in
+	# BOTH frames, which is the fist that has to survive the thrust.
+	var shaft := -1
+	for x in range(idle.get_width()):
+		if idle.get_pixel(x, 0).a > 0.9 and idle.get_pixel(x, 40).a > 0.9:
+			shaft = x
+			break
+	var grip := -1
+	if shaft >= 0:
+		for y in range(30, 80):
+			if idle.get_pixel(shaft, y).a > 0.9 and striking.get_pixel(shaft, y).a > 0.9:
+				grip = y
+				break
+	_check(shaft >= 0 and grip >= 0
+		and striking.get_pixel(shaft, 20).a == 0.0
+		and striking.get_pixel(shaft, 8).a == 0.0
+		and striking.get_pixel(shaft, 112).a == 0.0
+		and idle.get_pixel(shaft + 4, grip).a > 0.9
+		and striking.get_pixel(shaft + 4, grip).a > 0.9,
 		"striking pose removes the baked spear while retaining the hand")
 	duel.queue_free()
 	await get_tree().process_frame

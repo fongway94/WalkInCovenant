@@ -2,24 +2,18 @@
 """Prepare the chapter's painted setpiece assets from their source art.
 
 Each source is one generated image, made against the user-approved field. The
-backgrounds are modest-sized, aspect-preserving crops; the warrior is isolated
-from magenta and fitted to a square with transparent margins. Requires Pillow.
+backgrounds are modest-sized, aspect-preserving crops. Requires Pillow.
 
-The ridge warrior now comes from the duel's own champion sprite, doubled with
-nearest-neighbour sampling. Two earlier generated paintings were rejected by the
-user for not matching the cast: the first was glossy and thin-limbed, the second
-detailed bronze armour. The cast are matte pixel-gouache cutouts with inked
-edges, so the champion must be one of them.
+The ridge champion is NOT built here: tools/art/build_champion.py owns
+art/scenes_painted/goliath*.png. Keeping the champion out of this file is what
+stops a routine setpiece rebuild from quietly putting the old duel sprite back on
+the ridge, which is exactly how it regressed once.
 """
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageOps
 
 SRC = Path('tools/art/sources')
 OUT = Path('art/scenes_painted')
-
-# The duel's own champion sprite, painted in the cast's language. The earlier
-# generated bronze source is retained in git history; nothing else depends on it.
-DUEL_CHAMPION = Path('art/duel/goliath.png')
 
 
 def background(name):
@@ -48,41 +42,11 @@ def despill(image):
     return image
 
 
-def warrior():
-    """Use the game's own duel champion for the ridge, twice as large.
-
-    WHY: the ridge figure was a smooth bronze painting. Beside the cast — matte
-    pixel-gouache cutouts with inked edges — it read as a different game, which
-    the user reported twice. The duel already ships a champion painted in the
-    cast's language, so the ridge uses that exact sprite at 2x nearest
-    neighbour: same pose, same palette, same chunky edges as the people he
-    stands over. Doubling keeps the 128x128 canvas, foot anchor, offset and
-    scale the world, tests and the duel's aim bands were tuned against.
-    """
-    source = Image.open(DUEL_CHAMPION).convert('RGBA')
-    if source.size != (64, 64):
-        raise ValueError('duel champion changed size: %s' % (source.size,))
-    out = source.resize((128, 128), Image.Resampling.NEAREST)
-    out.save(OUT / 'goliath.png', optimize=True)
-
-    # The duel draws its own thrust spear from the hand, so the baked vertical
-    # shaft is removed for the strike frame. The cut is a narrow band around the
-    # shaft only: a wider polygon clipped his left shin in the thrust frame.
-    striking = out.copy()
-    alpha = striking.getchannel('A')
-    mask = ImageDraw.Draw(alpha)
-    mask.rectangle((92, 0, 126, 58), fill=0)
-    mask.rectangle((99, 84, 121, 127), fill=0)
-    striking.putalpha(alpha)
-    striking.save(OUT / 'goliath_striking.png', optimize=True)
-
-
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for name in ('duel', 'practice', 'brook'):
         background(name)
-    warrior()
-    print('Built painterly duel, practice, brook and warrior assets in', OUT)
+    print('Built painterly duel, practice and brook assets in', OUT)
 
 
 if __name__ == '__main__':
