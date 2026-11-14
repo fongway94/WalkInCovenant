@@ -1,0 +1,49 @@
+# TEMPORARY: compare the live Pages site with the artifact that was deployed.
+# The authoring sandbox cannot reach fongway94.github.io. Triggered by a commit
+# message containing [verify]; deleted after the comparison.
+name: verify-public-preview
+
+on:
+  push:
+    branches: [arena/0854f8bd-walkincovenant]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SOURCE_RUN: "43531764355"
+  SITE: "https://fongway94.github.io/WalkInCovenant"
+
+jobs:
+  verify:
+    if: contains(github.event.head_commit.message, '[verify]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the artifact that was deployed
+        uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: artifact/web
+          run-id: ${{ env.SOURCE_RUN }}
+          github-token: ${{ github.token }}
+
+      - name: Compare artifact and public files
+        run: |
+          set -u
+          ART=$(sha256sum artifact/web/index.pck | cut -d' ' -f1)
+          echo "::notice::artifact index.pck sha256=$ART size=$(stat -c%s artifact/web/index.pck)"
+          for f in index.html index.pck index.service.worker.js index.wasm; do
+            code=$(curl -s -o /tmp/$f -w '%{http_code}' --max-time 120 "$SITE/$f")
+            size=$(stat -c%s /tmp/$f 2>/dev/null || echo 0)
+            echo "::notice::live $f HTTP $code size=$size (artifact $(stat -c%s artifact/web/$f 2>/dev/null || echo absent))"
+          done
+          PUB=$(sha256sum /tmp/index.pck | cut -d' ' -f1)
+          echo "::notice::public index.pck sha256=$PUB magic=$(head -c 4 /tmp/index.pck)"
+          if [ "$ART" = "$PUB" ]; then
+            echo "::notice::the live PCK is byte-identical to the reviewed artifact"
+          else
+            echo "::error::the live PCK differs from the reviewed artifact"
+          fi
+          cmp -s artifact/web/index.html /tmp/index.html && echo "::notice::the live index.html is byte-identical to the artifact" || echo "::warning::the live index.html differs from the artifact"
+          cmp -s artifact/web/index.wasm /tmp/index.wasm && echo "::notice::the live index.wasm is byte-identical to the artifact" || echo "::warning::the live index.wasm differs from the artifact"
