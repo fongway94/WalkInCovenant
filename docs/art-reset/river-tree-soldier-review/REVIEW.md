@@ -84,7 +84,30 @@ first attempt imported numpy, which CI does not install.
 ## Publication
 
 Live: https://fongway94.github.io/WalkInCovenant/ serving deployment
-`7779989318` (commit `0a83b00`), verified byte-identical to its artifact.
+`7781975461` (commit `54a6017`, run 43548673264), verified byte-identical to its
+artifact: live `index.pck`
+`15eb3b70d1b46e8210b42b7930cdf7611149d1517c88a7a2e87f33969be6bbcf`
+(36,500,668 bytes), and `index.html` / `index.wasm` match too.
 
-**This pass is not published yet.** It needs a fresh approval, exactly as the
-previous one did.
+## The ceiling this pass runs into
+
+The game's design canvas is **320x180 logical pixels** (`project.godot`,
+`ScreenFit.BASE`) and it is stretched to the phone — about 4.9x on a
+1568-pixel-wide screen. The ground texture holds four pixels per world pixel, so
+at that window the texture is *downsampled* into the canvas and then upscaled
+again. Detail finer than about one world pixel (four texture pixels) cannot
+survive that round trip: it averages away, and the browser's filter turns what is
+left into blur.
+
+That is why the water kept reading as soft however much grain was added, and why
+the stones read as airbrushed. Anything painted at 1-2 texture pixels is below
+the visible threshold. Two ways forward:
+
+1. paint the brook and the stones at 4-8 texture pixels (one to two world
+   pixels), the scale the meadow's grass tufts already use, so the detail
+   survives the downscale; or
+2. raise the render resolution (for example a 640x360 canvas with the camera and
+   UI scaled to match), which sharpens everything, not just the river, but is a
+   layout change rather than an art change.
+
+Neither is in this build.
