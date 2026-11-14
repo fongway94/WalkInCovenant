@@ -12,6 +12,8 @@ trunk had "residual of old object" and roots "showing out all".
 
 ![The water at 1:1 texture pixels](04-water-detail.png)
 
+![The stones at three times size](08-stones-detail.png)
+
 ![The olive at its authored size](05-olive-tree-asset.png)
 
 ![The fig at its authored size](06-fig-tree-asset.png)
@@ -29,6 +31,12 @@ authored canvas, one horizontal bias (1.30) to keep the tree upright, then an
 unsharp pass. Nothing is spliced or stretched relative to anything else, so the
 trunk and roots keep the proportions the painting gave them.
 
+**The stones.** They were the last airbrushed thing in the river: soft
+gradients with no edge of their own. Each stone's interior is now unsharp-masked
+and flattened onto a handful of values, with a one-pixel lit top and a darker
+underside, while the three-pixel ring that beds it in the water keeps the
+shoreline's exact pixels.
+
 **The water.** The brook was airbrushed soft because its detail was smaller
 than a screen pixel: 1-pixel grain in a texture drawn at roughly 1 texture
 pixel per screen pixel averages away. The surface is now posterised to three
@@ -44,25 +52,27 @@ of the meadow's own grass tufts, which is why the grass beside it reads crisp.
   person. Widths changed (204 / 205 against 207 / 187) because a whole-painting
   scale keeps the source's aspect; collisions, props, y-sort and shadows are
   untouched.
-- Water: only painted-water pixels change. The audit still proves the bank,
-  reeds, ford approach and every sunlit stone are byte-identical, that five stone
-  coordinates stay unpainted and four water samples stay painted, and that the
-  repaint stays inside the brook band. Collision, crossing tiles, shore geometry,
+- Water and stones: only painted water and the stones' interiors change. The
+  audit proves the bank, reeds, ford approach, the ring around every stone and
+  the five surveyed stone coordinates are untouched by the water pass, that the
+  stone pass never overlaps water, that the stones stay warm-coloured rather
+  than turning to water, that four water samples stay painted, and that nothing
+  escapes the brook band. Collision, crossing tiles, shore geometry,
   story and saves are untouched.
 - The champion is unchanged from the second pass: the duel's own pixel sprite at
   2x with nearest sampling.
 
 ## Verification
 
-[Run 43542069284](https://github.com/fongway94/WalkInCovenant/actions/runs/43542069284)
-(commit `b796f65`) passed every job: lint, the shepherd-field prototype frames,
+[Run 43548673264](https://github.com/fongway94/WalkInCovenant/actions/runs/43548673264)
+(commit `54a6017`) passed every job: lint, the shepherd-field prototype frames,
 the visual review frames, both art-review publications, export-web, the release,
 chapter and proto browser suites. `deploy` was skipped for this branch push.
 
 The frames above are real framebuffers from `tests/art_review_probe.tscn`,
 captured under Xvfb with software OpenGL in that run; the "before" frames are the
-same probe in run 43531764355 (commit `0a83b00`), i.e. the build that was live
-when the user sent the screenshots.
+same probe in run 43542069284 (commit `b796f65`), the previous pass of this same
+work.
 
 Locally: `gd_lint` (57 files), `xref_check`, `check_font` (850 codepoints),
 `check_faces`, `check_art_reset`, `check_craft_props`, `check_cinematic_art`,
