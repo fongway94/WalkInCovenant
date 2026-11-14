@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Build the mature olive and fig used by the painted overworld.
 
-WHY THIS EXISTS (second pass): the first tall trees were painted from new
-high-detail sources — thin bark lines and individual leaves. At the size the
-game draws them (nearly 1:1 on a phone) they read as photographs dropped into a
-chunky painted world: the user said the trees "look out of place" beside the
-characters and the sheep. The trees are now grown from the overworld's *own*
-accepted tree paintings — the same rounded masses, thick trunk, warm palette and
-soft edge — stretched upright: the canopy keeps its authored brushwork and the
-trunk is lengthened, so the tree gains height without gaining a new style.
+WHY THIS EXISTS (third pass): the second pass grew the tall trees by stretching
+the source's trunk. That gained height, but it also magnified the painted root
+flare into long splayed "legs" and dragged leaf lobes down beside the trunk, so
+the user still saw a foreign object with the old tree's leftovers in it.
+
+The trees are now the overworld's own tree paintings, scaled whole: one uniform
+factor to the authored canvas height, then a single horizontal bias that keeps
+the tree upright rather than letting the canopy spread square. Nothing is
+re-drawn, nothing is spliced, and no region is stretched relative to another, so
+the trunk keeps its authored proportions, the roots stay the size the source
+painted them, and every pixel is a resampled pixel of the accepted art. An
+unsharp pass restores the crisp painted edge that plain interpolation softens.
 
 The canvases stay foot-anchored (the last row of alpha is the trunk base), keep
-the runtime's 82/78 world-pixel target, and add no new colours: every pixel is a
-resampled pixel of the source painting. Pillow 13.0.0 reproduces them exactly.
+the runtime's 82/78 world-pixel targets, and add no new colours. Pillow 13.0.0
+reproduces them exactly.
 """
 from pathlib import Path
 import argparse
@@ -22,13 +26,11 @@ from PIL import Image, ImageFilter
 PROPS = Path("art/props_painted")
 OUTPUT = Path("art/props_painted")
 
-# source, canvas height, canopy split (fraction of the cropped art),
-# canopy scale (x, y), trunk scale (y). Width follows the source aspect.
+# output, source, canvas height, horizontal bias, unsharp percent
 TREES = (
-    ("olive_tree_tall.png", "olive_tree.png", 276, 0.70, (1.75, 1.60), 2.0),
-    ("fig_tree_tall.png", "fig_tree_refined.png", 272, 0.68, (2.00, 1.85), 2.2),
+    ("olive_tree_tall.png", "olive_tree.png", 276, 1.30, 95),
+    ("fig_tree_tall.png", "fig_tree_refined.png", 272, 1.30, 95),
 )
-OVERLAP = 14
 
 
 def despill(image):
@@ -38,129 +40,39 @@ def despill(image):
     toward their own luminance in the bark/leaf range, so genuine warm highlights
     (fig flesh, sunlit trunk) survive.
     """
-    image = image.convert("RGBA")
     pixels = image.load()
     for y in range(image.height):
         for x in range(image.width):
             r, g, b, a = pixels[x, y]
-            if a == 0:
+            if a == 0 or a == 255:
                 continue
-            if r > 70 and b > 70 and g < min(r, b) * 0.72 and min(r, b) - g > 24:
-                lum = r * 0.299 + g * 0.587 + b * 0.114
-                pixels[x, y] = (round(lum * 0.92), round(lum * 0.96),
-                                round(lum * 0.72), round(a * 0.55))
+            if r > 120 and b > 110 and g + 30 < min(r, b):
+                lum = round(0.30 * r + 0.59 * g + 0.11 * b)
+                ink = min(lum, 96)
+                pixels[x, y] = (ink, max(0, ink - 6), max(0, ink - 12), a)
     return image
 
 
-def _clean_edge(image):
-    """Neutralise the salmon fringe the props inherited from their chroma key.
-
-    The published prop paintings keep a one-pixel warm rim where the generated
-    source met the magenta background. At the old small size it read as sunlight;
-    enlarged, it reads as a dotted pink outline, which is exactly the sort of
-    detail that made the first tall trees look foreign. Fringed pixels take the
-    median of their opaque, non-fringed neighbours.
-    """
-    image = image.copy()
-    width, height = image.size
-    original = image.load()
-    fringed = []
-    for y in range(height):
-        for x in range(width):
-            r, g, b, a = original[x, y]
-            if a > 40 and r > 130 and r - g > 22 and g - b > 4:
-                fringed.append((x, y))
-    pixels = image.load()
-    for x, y in fringed:
-        candidates = []
-        for dy in range(-2, 3):
-            for dx in range(-2, 3):
-                nx, ny = x + dx, y + dy
-                if not (0 <= nx < width and 0 <= ny < height):
-                    continue
-                r, g, b, a = original[nx, ny]
-                if a < 200 or (r > 130 and r - g > 22 and g - b > 4):
-                    continue
-                candidates.append((r, g, b))
-        if candidates:
-            candidates.sort(key=lambda c: c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114)
-            r, g, b = candidates[len(candidates) // 2]
-            pixels[x, y] = (r, g, b, original[x, y][3])
-    return image
-
-
-def _feather(image, rows, bottom=True):
-    """Fade one horizontal edge of a layer so the join is not a straight cut."""
-    alpha = image.getchannel("A")
-    pixels = alpha.load()
-    for i in range(min(rows, image.height)):
-        y = image.height - 1 - i if bottom else i
-        scale = (i + 1) / (rows + 1)
-        for x in range(image.width):
-            pixels[x, y] = round(pixels[x, y] * scale)
-    image.putalpha(alpha)
-    return image
-
-
-def _sharpen(image):
-    """Keep the brush edges crisp after a 1.5-3x resample."""
-    r, g, b, a = image.split()
-    rgb = Image.merge("RGB", (r, g, b)).filter(
-        ImageFilter.UnsharpMask(radius=2, percent=40, threshold=2))
-    r, g, b = rgb.split()
-    return Image.merge("RGBA", (r, g, b, a))
-
-
-def grow(source, height, split, canopy_scale, trunk_scale):
-    """Stretch one painted tree upright without introducing new detail.
-
-    The canopy and trunk are one painting, so the tree is first enlarged whole
-    (keeping its brushwork and silhouette), then only the trunk is lengthened:
-    the part below the canopy is resized again and cross-faded into the base
-    over a band that contains nothing but bark. There is no straight seam and
-    no second art style.
-    """
-    art = despill(Image.open(PROPS / source))
-    bounds = art.getchannel("A").getbbox()
+def grow(source, height, bias, unsharp):
+    """Scale the accepted painting whole: one height factor, one width bias."""
+    with Image.open(PROPS / source) as raw:
+        image = despill(raw.convert("RGBA"))
+    bounds = image.getchannel("A").getbbox()
     if bounds is None:
-        raise ValueError("empty tree source: " + source)
-    art = art.crop(bounds)
-    art = _clean_edge(art)
-    width = max(1, round(art.width * canopy_scale[0]))
-    body = art.resize((width, max(1, round(art.height * canopy_scale[1]))),
-                      Image.Resampling.LANCZOS)
-
-    cut = max(1, min(body.height - 2, round(art.height * split * canopy_scale[1])))
-    band = min(24, cut // 2)
-    lower = body.crop((0, cut - band, body.width, body.height))
-    target = height - (cut - band)
-    if target <= lower.height:
-        raise ValueError("tree target is not taller than the source: " + source)
-    stretch = (target - lower.height) / max(1, (body.height - (cut - band)))
-    scale = max(trunk_scale, 1.0 + stretch)
-    lower = lower.resize((lower.width, max(lower.height + 1, round(lower.height * scale))),
-                         Image.Resampling.LANCZOS)
-
-    alpha = lower.getchannel("A")
-    pixels = alpha.load()
-    for y in range(min(band, lower.height)):
-        weight = (y + 1) / (band + 1)
-        for x in range(lower.width):
-            pixels[x, y] = round(pixels[x, y] * weight)
-    lower.putalpha(alpha)
-
-    canvas = Image.new("RGBA", (body.width, max(height, cut - band + lower.height)), (0, 0, 0, 0))
-    canvas.alpha_composite(body, (0, 0))
-    canvas.alpha_composite(lower, (0, cut - band))
-    top = canvas.getchannel("A").getbbox()
-    canvas = canvas.crop((0, 0, canvas.width, top[3]))
-    return canvas.resize((round(canvas.width * height / canvas.height), height),
-                         Image.Resampling.LANCZOS)
+        raise SystemExit("empty source painting: " + source)
+    image = image.crop(bounds)
+    factor = height / image.height
+    width = max(1, round(image.width * factor / bias))
+    scaled = image.resize((width, height), Image.LANCZOS)
+    if unsharp:
+        scaled = scaled.filter(ImageFilter.UnsharpMask(radius=1.2, percent=unsharp,
+                                                       threshold=0))
+    return scaled
 
 
 def build():
-    return {name: grow(source, height, split, canopy, trunk)
-            for name, source, height, split, canopy, trunk in TREES}
+    return {name: grow(source, height, bias, unsharp)
+            for name, source, height, bias, unsharp in TREES}
 
 
 def main():
