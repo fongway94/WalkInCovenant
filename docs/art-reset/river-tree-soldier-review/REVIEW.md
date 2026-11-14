@@ -64,11 +64,13 @@ painterly water with protected bank, tall trees, actor views, variants),
 
 ## Publication
 
-The previous build (commit `87d8708`) is what is live at
-https://fongway94.github.io/WalkInCovenant/ today, deployed as Pages deployment
-`7771808949` and verified byte-identical to its artifact. **This pass is not
-published yet**: it needs a fresh approval, because it replaces the champion and
-the trees the user is judging.
+This pass is live at https://fongway94.github.io/WalkInCovenant/ (Pages
+deployment `7779989318`, 2026-11-14 00:42 UTC) after the user's approval. Live
+`index.pck` is `c2d89e4c14f8e7ba3582f9a0be9d7bdedb045a14af77917b8590612b2ee7b254`
+(36,485,740 bytes) and is byte-identical to the reviewed artifact, as are
+`index.html` and `index.wasm`; the comparison ran in CI because the authoring
+sandbox cannot reach the site. The previous build (`87d8708`) was the
+intermediate preview published earlier the same evening.
 
 Not verified: appearance on a physical phone beyond the user's screenshots, and
 human art approval.
