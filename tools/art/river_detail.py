@@ -385,101 +385,75 @@ def _sun_glints(image, mask, seed=5521):
                                  layer.filter(ImageFilter.GaussianBlur(0.5))).convert("RGB")
 
 
-def _posterise(image, mask, levels=6, strength=0.85):
-    """Pull the surface onto a small set of values so it stops looking airbrushed.
+def _posterise(image, mask, bits=3, strength=0.55):
+    """Pull the surface onto a handful of flat values.
 
     A smooth gradient at 1:1 reads as blur however much grain sits on it; the
-    meadow next to it is crisp because it is built from a handful of flat
-    values. This quantises the water's own luminance into bands and scales each
-    pixel's colour to its band, keeping every hue the painting already has.
+    meadow beside it looks crisp because it is built from flat painted values.
+    Posterising three bits per channel and blending back keeps every hue the
+    painting already has, but gives the water edges to its shape.
     """
-    import numpy as np
-    rgb = np.asarray(image, np.float32)
-    m = np.asarray(mask, np.uint8) > 200
-    if not m.any():
-        return image
-    lum = rgb @ np.array([0.30, 0.59, 0.11], np.float32)
-    values = lum[m]
-    edges = np.quantile(values, np.linspace(0, 1, levels + 1)[1:-1])
-    band = np.searchsorted(edges, lum, side="right")
-    values = lum[m]
-    band_m = band[m]
-    target = np.array([np.median(values[band_m == i]) if (band_m == i).any() else 0.0
-                       for i in range(levels)], np.float32)[band]
-    scale = np.clip(target / np.maximum(lum, 1.0), 0.55, 1.55)
-    out = rgb * (1.0 + (scale[..., None] - 1.0) * strength)
+    from PIL import ImageOps
+    flat = ImageOps.posterize(image, bits)
+    out = ImageChops.blend(image, flat, strength)
     # quantising flattens saturation, so put the stream's own colour back
-    grey = (out @ np.array([0.30, 0.59, 0.11], np.float32))[..., None]
-    out = grey + (out - grey) * 1.20
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+    hue, sat, val = out.convert("HSV").split()
+    sat = sat.point(lambda value: min(255, round(value * 1.20)))
+    return Image.merge("HSV", (hue, sat, val)).convert("RGB")
 
 
-def _flow_strokes(image, mask, seed=6037):
-    """Hard 1-pixel strokes along the current: the detail a brush leaves.
+def _flow_strokes(image, mask, seed=6037, count=3400):
+    """Brush-sized strokes along the current: the detail a brush leaves.
 
-    Soft round dabs average into mush at this scale, so the fine pass is made of
-    short, straight, one-pixel strokes with hard edges, alternating dark
-    undertow and light crest along a slow noise field.
+    Detail smaller than a screen pixel averages into mush, so the fine pass is
+    made of short strokes 10-40 pixels long and 2-4 pixels thick, alternating
+    dark undertow and light crest along a slow noise field. Hard edges, no blur.
     """
-    import numpy as np
     width, height = image.size
-    rgb = np.asarray(image, np.float32)
-    m = np.asarray(mask, np.uint8) > 216
+    layer = image.copy()
+    draw = ImageDraw.Draw(layer)
     rng = random.Random(seed)
-    ys, xs = np.nonzero(m)
-    if len(ys) == 0:
-        return image
-    noise = Image.effect_noise((width, height), 48).point(lambda v: v)
-    field = np.asarray(noise.filter(ImageFilter.GaussianBlur(6)), np.float32) / 255.0
-    out = rgb.copy()
-    # Detail smaller than a screen pixel blurs into mush, so the strokes are
-    # brush-sized (2-4 px thick, 10-40 px long) with real value contrast, the
-    # same scale the meadow's grass tufts are painted at.
-    for _ in range(3400):
-        i = rng.randrange(len(ys))
-        y, x = int(ys[i]), int(xs[i])
-        light = field[y, x] > 0.5
+    accepted = mask.load()
+    flow = Image.effect_noise((width, height), 48).filter(ImageFilter.GaussianBlur(6)).load()
+    for _ in range(count):
+        x = rng.randrange(0, width)
+        y = rng.randrange(0, height)
+        if accepted[x, y] < 216:
+            continue
+        light = flow[x, y] > 128
         gain = 1.0 + (0.24 if light else -0.22) * rng.uniform(0.5, 1.0)
+        red, green, blue = image.getpixel((x, y))
+        colour = (max(0, min(255, round(red * gain))),
+                  max(0, min(255, round(green * gain))),
+                  max(0, min(255, round(blue * gain))))
         length = rng.randint(10, 40)
-        thick = rng.randint(2, 4)
         slope = rng.uniform(-0.10, 0.10)
-        for step in range(length):
-            xx = x + step
-            yy = int(round(y + slope * step))
-            if not (0 <= xx < width):
-                continue
-            for row in range(yy, yy + thick):
-                if 0 <= row < height and m[row, xx]:
-                    fade = 1.0 if row in (yy, yy + thick - 1) else 0.75
-                    out[row, xx] = np.clip(out[row, xx] * (1.0 + (gain - 1.0) * fade), 0, 255)
-    return Image.fromarray(out.astype(np.uint8), "RGB")
+        draw.line((x, y, x + length, y + slope * length), fill=colour,
+                  width=rng.randint(2, 4))
+    return Image.composite(layer, image, mask)
 
 
-def _foam_edges(image, mask, seed=8123):
-    """Bright broken foam on the stones' upstream rim, one pixel wide."""
-    import numpy as np
+def _foam_edges(image, mask, seed=8123, count=520):
+    """Bright broken foam on the stones' upstream rim, one or two pixels wide."""
     width, height = image.size
-    rgb = np.asarray(image, np.float32)
-    m = np.asarray(mask, np.uint8) > 216
-    near_stone = np.asarray(mask.filter(ImageFilter.MinFilter(9)), np.uint8) > 216
-    rim = m & ~near_stone
-    ys, xs = np.nonzero(rim)
-    if len(ys) == 0:
-        return image
+    layer = image.copy()
+    draw = ImageDraw.Draw(layer)
     rng = random.Random(seed)
-    out = rgb.copy()
-    foam = np.array([226, 240, 232], np.float32)
-    for _ in range(520):
-        i = rng.randrange(len(ys))
-        y, x = int(ys[i]), int(xs[i])
-        length = rng.randint(2, 7)
+    accepted = mask.load()
+    inner = mask.filter(ImageFilter.MinFilter(9)).load()
+    for _ in range(count):
+        x = rng.randrange(0, width)
+        y = rng.randrange(0, height)
+        if accepted[x, y] < 216 or inner[x, y] > 0:
+            continue
+        red, green, blue = image.getpixel((x, y))
         amount = rng.uniform(0.35, 0.70)
-        for step in range(length):
-            yy = y - step // 3
-            xx = x + step
-            if 0 <= xx < width and 0 <= yy < height and m[yy, xx]:
-                out[yy, xx] = out[yy, xx] * (1 - amount) + foam * amount
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
+        colour = (round(red * (1 - amount) + 226 * amount),
+                  round(green * (1 - amount) + 240 * amount),
+                  round(blue * (1 - amount) + 232 * amount))
+        length = rng.randint(2, 7)
+        draw.line((x, y, x + length, y - length // 3), fill=colour, width=1)
+    return Image.composite(layer, image, mask)
 
 
 def paint(image):
