@@ -1,76 +1,80 @@
-# River, tree height and the ridge champion
+# River and trees, third pass
 
-Three fixes, now in the second pass after the phone screenshots: the trees and
-the champion were in a finer, smoother art language than everything around them,
-and the water still read as wet stone.
+The phone screenshots after the second pass said three things: the water was
+still blurred, the trees were closer but still not right in detail, and the
+trunk had "residual of old object" and roots "showing out all".
 
-| # | Request | What changed |
-|---|---------|--------------|
-| 1 | Water: "still low resolution and quality" | Fine and mid grain, three fading rings of disturbed water around every stone, a far-bank depth gradient, and the stream's own cooler, more saturated colour. The bright ford still stays calm and pale. |
-| 2 | Trees: "look out of place" | Grown from the overworld's *own* accepted tree paintings: same rounded masses, thick trunk, warm palette, soft edge. The trunk is lengthened and nothing else is invented, so a tree stands three people tall in the world's brush. |
-| 3 | Champion: "odd and different from our current character pattern" | The ridge figure is the duel's own pixel champion at 2x with nearest sampling: same pose, palette and inked edges as the cast, instead of a smooth bronze painting. |
+![The brook, same camera](01-river-ingame.png)
 
-## Evidence
+![The trees, same camera](02-trees-ingame.png)
 
-![The ford before and after](01-river-ingame.png)
+![Second camera on the same trees](03-trees-second-camera.png)
 
-![Trees before and after](02-trees-ingame.png)
+![The water at 1:1 texture pixels](04-water-detail.png)
 
-![The northern figure before and after](03-north-figure-ingame.png)
+![The olive at its authored size](05-olive-tree-asset.png)
 
-![Second camera on the same meadow](04-trees-second-camera.png)
+![The fig at its authored size](06-fig-tree-asset.png)
 
-![Ford water at art scale](05-water-detail-art-scale.png)
+![Your screenshot against the new build](07-river-phone.png)
 
-![The two trees at their authored size](06-trees-asset.png)
+## What was actually wrong
 
-![Champion sprite at 4x](07-champion-asset.png)
+**The trees.** The second pass grew the taller trees by stretching the source
+painting's trunk. That gained height, but it magnified the painted root flare
+into long splayed legs and dragged the canopy's lower lobes down beside the
+trunk — the "residual of old object" the user could still see. Both trees are
+now the overworld's own paintings *scaled whole*: one height factor to the
+authored canvas, one horizontal bias (1.30) to keep the tree upright, then an
+unsharp pass. Nothing is spliced or stretched relative to anything else, so the
+trunk and roots keep the proportions the painting gave them.
 
-The in-game frames are real framebuffers from `tests/art_review_probe.tscn`,
-captured under Xvfb with software OpenGL in CI run
-[43531764355](https://github.com/fongway94/WalkInCovenant/actions/runs/43531764355)
-(commit `0a83b00`). They arrive through the run's annotations, so they are
-500x225 at 24 colours derived from the 1000x450 capture; the art-scale panels are
-native pixels.
+**The water.** The brook was airbrushed soft because its detail was smaller
+than a screen pixel: 1-pixel grain in a texture drawn at roughly 1 texture
+pixel per screen pixel averages away. The surface is now posterised to three
+bits per channel and repainted with brush-sized strokes — 10–40 px long, 2–4 px
+thick, hard edges — alternating dark undertow and light crest along the current,
+with broken foam on the upstream rim of every stone. The strokes are the size
+of the meadow's own grass tufts, which is why the grass beside it reads crisp.
 
 ## What is and is not touched
 
+- Trees: same canvas heights (276 / 272), same foot anchors, same runtime
+  scales, so the world still measures 82 and 78 pixels against a 27.4-pixel
+  person. Widths changed (204 / 205 against 207 / 187) because a whole-painting
+  scale keeps the source's aspect; collisions, props, y-sort and shadows are
+  untouched.
 - Water: only painted-water pixels change. The audit still proves the bank,
   reeds, ford approach and every sunlit stone are byte-identical, that five stone
   coordinates stay unpainted and four water samples stay painted, and that the
-  repaint stays inside the brook band. Collision, crossing tiles, shore geometry
-  and saves are untouched.
-- Trees: same canvases (276/272 tall), anchors, footprints, shadows and y-sort,
-  so the runtime still measures 82 and 78 world pixels against a 27.4-pixel
-  person. Only the painting inside the canvas changed.
-- Champion: same 128x128 source, bbox anchor, spawn offset, scale and y-sort.
-  The painted theme now uses nearest sampling like the cast, and the strike
-  variant removes only the thin band of baked shaft so the duel's own thrust
-  spear is not doubled.
+  repaint stays inside the brook band. Collision, crossing tiles, shore geometry,
+  story and saves are untouched.
+- The champion is unchanged from the second pass: the duel's own pixel sprite at
+  2x with nearest sampling.
 
 ## Verification
 
-[Run 43531764355](https://github.com/fongway94/WalkInCovenant/actions/runs/43531764355)
-passed lint (static, xref, API, font, pack, painted-world and the chapter
-contracts), the visual job with the four review frames, both art-review
-publication jobs, export-web, the release browser suite, the chapter browser
-suite and the proto browser suites. `deploy` was skipped for this branch push.
+[Run 43542069284](https://github.com/fongway94/WalkInCovenant/actions/runs/43542069284)
+(commit `b796f65`) passed every job: lint, the shepherd-field prototype frames,
+the visual review frames, both art-review publications, export-web, the release,
+chapter and proto browser suites. `deploy` was skipped for this branch push.
 
-Locally: `gd_lint` clean (57 files), `xref_check` clean, `check_font` 850
-codepoints, `check_faces`, `check_art_reset`, `check_craft_props`,
-`check_cinematic_art`, `tests/proto/check_quality_assets.py` (meadow, paving,
-painterly water with protected bank, tall trees, actor views, variants),
-`tools/pack_art.py`, `test_pack_contents` (9 tests).
+The frames above are real framebuffers from `tests/art_review_probe.tscn`,
+captured under Xvfb with software OpenGL in that run; the "before" frames are the
+same probe in run 43531764355 (commit `0a83b00`), i.e. the build that was live
+when the user sent the screenshots.
+
+Locally: `gd_lint` (57 files), `xref_check`, `check_font` (850 codepoints),
+`check_faces`, `check_art_reset`, `check_craft_props`, `check_cinematic_art`,
+`pack_art` (49 tiles, 26 props), `tests/proto/check_quality_assets.py` and
+`test_pack_contents` (9 tests). `build_refined_ground.py --check` reproduces all
+four ground textures byte-for-byte, and the water pass runs on Pillow alone — the
+first attempt imported numpy, which CI does not install.
 
 ## Publication
 
-This pass is live at https://fongway94.github.io/WalkInCovenant/ (Pages
-deployment `7779989318`, 2026-11-14 00:42 UTC) after the user's approval. Live
-`index.pck` is `c2d89e4c14f8e7ba3582f9a0be9d7bdedb045a14af77917b8590612b2ee7b254`
-(36,485,740 bytes) and is byte-identical to the reviewed artifact, as are
-`index.html` and `index.wasm`; the comparison ran in CI because the authoring
-sandbox cannot reach the site. The previous build (`87d8708`) was the
-intermediate preview published earlier the same evening.
+Live: https://fongway94.github.io/WalkInCovenant/ serving deployment
+`7779989318` (commit `0a83b00`), verified byte-identical to its artifact.
 
-Not verified: appearance on a physical phone beyond the user's screenshots, and
-human art approval.
+**This pass is not published yet.** It needs a fresh approval, exactly as the
+previous one did.
