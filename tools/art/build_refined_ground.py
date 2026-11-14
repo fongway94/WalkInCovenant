@@ -526,9 +526,11 @@ def build(region):
     # replaced; the bank, stones, foam rims and ford approach keep their exact
     # pixels. Unknown grids keep the old water (fail closed).
     painted_water = Image.new("L", size)
+    stone_detail = Image.new("L", size)
     if region == "elah" and river_detail.supports(grid, size):
-        image, band_mask = river_detail.paint(image)
+        image, band_mask, stone_band = river_detail.paint(image)
         painted_water.paste(band_mask, (0, river_detail.BAND_TOP))
+        stone_detail.paste(stone_band, (0, river_detail.BAND_TOP))
 
     middle = size[1] // 2
     pieces = {"top": image.crop((0, 0, size[0], middle)),
@@ -537,7 +539,7 @@ def build(region):
                   "inland": inland, "approach": approach, "water_band": water_band,
                   "soil": soil_mask, "paving": paving_mask,
                   "grass_crops": grass_crops, "soil_crops": soil_crops,
-                  "painted_water": painted_water})
+                  "painted_water": painted_water, "stone_detail": stone_detail})
     return pieces, masks
 
 

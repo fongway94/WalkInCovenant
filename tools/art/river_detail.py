@@ -31,6 +31,11 @@ WHAT IS AND IS NOT CHANGED:
   the stream rather than on top of it, and three fading rings of disturbed water
   are drawn around every stone's real hole in the mask. Only water pixels
   change.
+* The surface is finally posterised and stroked at brush size, because detail
+  smaller than a screen pixel averages into blur.
+* The stones themselves get their own pass: their interiors are unsharp-masked
+  and flattened onto a few values so their facets read as paint, while the
+  three-pixel ring that beds each stone in the water keeps its exact pixels.
 * Collision, shore geometry, the crossing's walkable tiles, props and saves are
   untouched. This is a texture pass on `world_elah_refined_*` only.
 
@@ -42,7 +47,7 @@ from pathlib import Path
 import math
 import random
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps, ImageStat
 
 ROOT = Path("tools/art/sources")
 # The visible brook band inside the 4x painted ground. Derived from the two
@@ -402,7 +407,7 @@ def _posterise(image, mask, bits=3, strength=0.55):
     return Image.merge("HSV", (hue, sat, val)).convert("RGB")
 
 
-def _flow_strokes(image, mask, seed=6037, count=3400):
+def _flow_strokes(image, mask, seed=6037, count=2600):
     """Brush-sized strokes along the current: the detail a brush leaves.
 
     Detail smaller than a screen pixel averages into mush, so the fine pass is
@@ -421,7 +426,7 @@ def _flow_strokes(image, mask, seed=6037, count=3400):
         if accepted[x, y] < 216:
             continue
         light = flow[x, y] > 128
-        gain = 1.0 + (0.24 if light else -0.22) * rng.uniform(0.5, 1.0)
+        gain = 1.0 + (0.16 if light else -0.15) * rng.uniform(0.5, 1.0)
         red, green, blue = image.getpixel((x, y))
         colour = (max(0, min(255, round(red * gain))),
                   max(0, min(255, round(green * gain))),
@@ -454,6 +459,54 @@ def _foam_edges(image, mask, seed=8123, count=520):
         length = rng.randint(2, 7)
         draw.line((x, y, x + length, y - length // 3), fill=colour, width=1)
     return Image.composite(layer, image, mask)
+
+
+def stone_mask(band, water):
+    """The sunlit stones standing in the brook, as a mask.
+
+    Only the stream's own rows are searched, so the bank above and below cannot
+    qualify, and inside them a stone is simply warm, saturated paint outside the
+    water: the meadow is green, the ford's sand bar is pale, and the water is
+    already excluded by the water mask.
+    """
+    inside = _rect_mask(band.size, WATER_ROWS[0] * 64 - BAND_TOP + 8,
+                        (WATER_ROWS[-1] + 1) * 64 - BAND_TOP - 8)
+    hue, saturation, value = band.convert("HSV").split()
+    warm = ImageChops.multiply(
+        ImageChops.multiply(hue.point(lambda v: 255 if v < 60 else 0),
+                            saturation.point(lambda v: 255 if v > 40 else 0)),
+        value.point(lambda v: 255 if v > 90 else 0))
+    warm = ImageChops.multiply(warm, inside)
+    stones = ImageChops.multiply(warm, ImageChops.invert(water))
+    # A stone is a body, not a speck of sand: open out anything thinner than
+    # nine pixels, then restore the body's own size.
+    body = stones.filter(ImageFilter.MinFilter(9)).filter(ImageFilter.MaxFilter(9))
+    stones = ImageChops.multiply(stones, body)
+    stones = stones.filter(ImageFilter.MedianFilter(3))
+    # the opening and the median both move edges; keep stones out of the water
+    return ImageChops.multiply(stones, ImageChops.invert(water))
+
+
+def _stone_detail(image, water, seed=4517):
+    """Give the stones painted faces instead of an airbrush.
+
+    Each stone's interior is unsharp-masked and flattened onto a few values, so
+    its facets and its silhouette edge read as paint rather than as a soft
+    gradient. A three-pixel ring around every stone is left exactly as painted,
+    so the foam rim that beds it in the stream still belongs to the shoreline.
+    """
+    stones = stone_mask(image, water)
+    core = stones.filter(ImageFilter.MinFilter(7))
+    detail = image.filter(ImageFilter.UnsharpMask(radius=1.2, percent=140, threshold=2))
+    detail = ImageChops.blend(image, detail, 0.75)
+    flat = ImageOps.posterize(detail, 5)
+    painted = ImageChops.blend(detail, flat, 0.55)
+    # the stone's own underside sits lower in the water
+    below = ImageChops.offset(core, 0, -3)
+    contact = ImageChops.multiply(core, ImageChops.invert(below))
+    painted = Image.composite(Image.new("RGB", image.size, (104, 84, 64)), painted,
+                              contact.point(lambda value: round(value * 0.5)))
+    return Image.composite(painted, image, core), core
 
 
 def paint(image):
@@ -496,4 +549,11 @@ def paint(image):
     softened = Image.composite(painted, band, weights)
     result = image.copy()
     result.paste(Image.composite(softened, band, mask), (0, BAND_TOP))
-    return result, mask
+
+    # The stones are painted objects standing in the repainted water, so they
+    # get the same treatment: crisp faces, hard dabs, a contact shadow. Only
+    # their interior changes; the outer ring keeps the shoreline's own pixels.
+    stones_image, stone_core = _stone_detail(result.crop((0, BAND_TOP, width, BAND_BOTTOM)), mask)
+    # paste only through the stones' own mask: the water under it is already final
+    result.paste(stones_image, (0, BAND_TOP), stone_core)
+    return result, mask, stone_core

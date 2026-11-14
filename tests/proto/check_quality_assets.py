@@ -234,7 +234,15 @@ def check_refinement():
             # differ, and that mask is confined to the reviewed brook band.
             painted = masks["painted_water"].point(lambda value: 255 if value else 0)
             assert painted.getbbox() is not None, "missing painterly water surface"
-            shore_without_water = ImageChops.subtract(protected, painted)
+            # The stones standing in the repainted water get their own pass
+            # (river_detail._stone_detail): their interiors may change, the
+            # three-pixel ring that beds them in the stream may not.
+            stones = masks["stone_detail"].point(lambda value: 255 if value else 0)
+            assert stones.getbbox() is not None, "missing stone detail pass"
+            assert ImageChops.multiply(stones, painted).getbbox() is None, \
+                "the stone pass overlapped the water"
+            shore_without_water = ImageChops.subtract(
+                protected, ImageChops.lighter(painted, stones))
             assert ImageChops.multiply(diff, shore_without_water).getbbox() is None, \
                 "changed bank, reeds or stone pixels beside the water"
             assert ImageChops.multiply(diff, painted).getbbox() is not None, \
@@ -246,7 +254,11 @@ def check_refinement():
             assert ImageChops.subtract(painted, confined).getbbox() is None, \
                 "water repaint escaped the brook band"
             for x, y in ((800, 1660), (790, 1715), (790, 1780), (1240, 1730), (1300, 1640)):
-                assert painted.getpixel((x, y)) == 0, "a sunlit stone was repainted"
+                assert painted.getpixel((x, y)) == 0, "a sunlit stone was repainted as water"
+                # The stone pass may sharpen these pixels, but they must still
+                # read as warm stone rather than as water.
+                red_, green_, blue_ = image.getpixel((x, y))
+                assert red_ > blue_ + 30, "a sunlit stone lost its stone colour"
             for x, y in ((1900, 1700), (300, 1750), (600, 1700), (1050, 1720)):
                 assert painted.getpixel((x, y)) == 255, "water sample was skipped"
             assert masks["inland"].getbbox() is not None, "missing inland bank transition"
@@ -283,6 +295,8 @@ def check_refinement():
         still_protected = ImageChops.subtract(shore_core, changed_inland)
         still_protected = ImageChops.subtract(
             still_protected, masks["painted_water"].point(lambda value: 255 if value else 0))
+        still_protected = ImageChops.subtract(
+            still_protected, masks["stone_detail"].point(lambda value: 255 if value else 0))
         assert ImageChops.multiply(diff, still_protected).getbbox() is None, region + " cut into protected shoreline"
 
         # Verify genuinely new grass/soil/paving, and forbid changes outside
@@ -312,6 +326,7 @@ def check_refinement():
             assert ImageChops.multiply(new_diff, masks["paving"]).getbbox() is not None, "missing detailed paving"
         allowed = ImageChops.lighter(ImageChops.lighter(masks["updated_grass"], masks["soil"]), masks["paving"])
         allowed = ImageChops.lighter(allowed, masks["painted_water"])
+        allowed = ImageChops.lighter(allowed, masks["stone_detail"])
         allowed = allowed.point(lambda value: 255 if value else 0)
         assert ImageChops.multiply(new_diff, ImageChops.invert(allowed)).getbbox() is None, \
             region + " changed outside the ground material masks"
